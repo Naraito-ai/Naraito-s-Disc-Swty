@@ -4692,6 +4692,82 @@ def format_momentum_status(mom: int) -> str:
         return "🔥🔥🔥 **ON FIRE**"
 
 
+def calculate_green_window(action_key: str, pl_att: Dict[str, Any], pl_def: Dict[str, Any], scheme_key: str = "drop_coverage") -> tuple[float, float, float]:
+    """Calculates the target release rhythm (0.500s) and the green window bounds (e.g. 0.420s to 0.580s)."""
+    target_time = 0.500
+    action = TACTICAL_OUTCOMES.get(action_key, TACTICAL_OUTCOMES["three"])
+    favored_stat = action.get("favors", "pts_3")
+    att_stat = pl_att.get(favored_stat, 80) if isinstance(pl_att, dict) else 80
+    
+    # Base green half-window: between 0.040s (tight) to 0.085s (wide)
+    base_half = 0.040 + ((att_stat - 70) / 30.0) * 0.045
+    base_half = max(0.028, min(0.090, base_half))
+    
+    # Tactical scheme modifier:
+    if scheme_key in action.get("good_against", []):
+        base_half += 0.020  # Open look expands green window!
+    elif scheme_key in action.get("bad_against", []):
+        base_half -= 0.015  # Smothered trap shrinks green window!
+        
+    # Signature move bonus
+    if isinstance(pl_att, dict) and action_key in pl_att.get("favored", []):
+        base_half += 0.012
+        
+    green_min = round(max(0.150, target_time - base_half), 3)
+    green_max = round(target_time + base_half, 3)
+    
+    return target_time, green_min, green_max
+
+
+def evaluate_shot_timing(delta: float, target_time: float, green_min: float, green_max: float) -> Dict[str, Any]:
+    """Evaluates the player's millisecond release timing against the green window."""
+    delta_ms = int(round(delta * 1000))
+    target_ms = int(round(target_time * 1000))
+    diff_ms = delta_ms - target_ms
+    diff_str = f"+{diff_ms}ms" if diff_ms > 0 else f"{diff_ms}ms"
+    
+    if green_min <= delta <= green_max:
+        grade = "GREEN"
+        meter_label = f"🟢 GREEN RELEASE ({delta_ms}ms)"
+        bar = "🟩🟩🟩🟩🟩"
+        desc = f"🔥 **GREEN LIGHT! PURE RELEASE!** (`{diff_str}`)"
+    elif delta < green_min:
+        if delta < (green_min - 0.075):
+            grade = "VERY_EARLY"
+            meter_label = f"🔴 VERY EARLY ({delta_ms}ms)"
+            bar = "🟥⬛⬛⬛⬛"
+            desc = f"⚠️ **RUSHED RELEASE** (`{diff_str}`)"
+        else:
+            grade = "SLIGHTLY_EARLY"
+            meter_label = f"🟡 SLIGHTLY EARLY ({delta_ms}ms)"
+            bar = "🟨🟩⬛⬛⬛"
+            desc = f"⏱️ **SLIGHTLY EARLY** (`{diff_str}`)"
+    else:
+        if delta > (green_max + 0.075):
+            grade = "VERY_LATE"
+            meter_label = f"🔴 VERY LATE ({delta_ms}ms)"
+            bar = "⬛⬛⬛⬛🟥"
+            desc = f"⚠️ **HESITATED / LATE** (`{diff_str}`)"
+        else:
+            grade = "SLIGHTLY_LATE"
+            meter_label = f"🟡 SLIGHTLY LATE ({delta_ms}ms)"
+            bar = "⬛⬛⬛🟩🟨"
+            desc = f"⏱️ **SLIGHTLY LATE** (`{diff_str}`)"
+            
+    window_str = f"{int(green_min*1000)}-{int(green_max*1000)}ms"
+    meter_line = f"⏱️ **Release**: `{delta_ms}ms` (Target: `{target_ms}ms` • Green Window: `{window_str}`)\n`[ 0.0s ── {bar} ── 1.0s ]` • {desc}"
+    
+    return {
+        "grade": grade,
+        "delta_ms": delta_ms,
+        "diff_ms": diff_ms,
+        "diff_str": diff_str,
+        "meter_label": meter_label,
+        "meter_line": meter_line,
+        "is_green": (grade == "GREEN")
+    }
+
+
 def resolve_possession(
     action_key: str,
     pl_att: Dict[str, Any],
@@ -4702,9 +4778,10 @@ def resolve_possession(
     play_streak: int = 1,
     has_timeout_boost: bool = False,
     is_clutch: bool = False,
-    is_comeback: bool = False
+    is_comeback: bool = False,
+    timing_result: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """Resolves an in-game coaching possession using tactical counter reads, player moveset archetypes, clutch genes, anti-spam adaptation, and momentum."""
+    """Resolves an in-game coaching possession using tactical counter reads, player moveset archetypes, clutch genes, anti-spam adaptation, momentum, and interactive shot meter timing."""
     action = TACTICAL_OUTCOMES.get(action_key, TACTICAL_OUTCOMES["three"])
     favored_stat = action["favors"]
     att_stat = pl_att.get(favored_stat, 80)
@@ -4773,25 +4850,58 @@ def resolve_possession(
     base_prob = 0.50 + (stat_diff * 0.008) + tactical_modifier + archetype_bonus + clutch_bonus + comeback_bonus - streak_penalty + timeout_bonus + momentum_mod
     base_prob = max(0.10, min(0.95, base_prob))
 
-    roll_val = random.random()
-    success = roll_val < base_prob
-    pts_scored = action["pts"] if success else 0
-
-    # 2K Shot Meter & Contest Rating
-    if success:
-        if base_prob >= 0.72 or roll_val < (base_prob * 0.28):
-            shot_meter = "🟢 GREEN RELEASE"
-            contest_str = "OPEN"
+    # Incorporate interactive Shot Meter timing
+    if timing_result:
+        t_grade = timing_result.get("grade", "AUTO")
+        t_meter_label = timing_result.get("meter_label", "🟢 EXCELLENT")
+        if t_grade == "GREEN":
+            success = True
+            pts_scored = action["pts"]
+            shot_meter = t_meter_label
+            contest_str = "GREEN LIGHT"
+            read_notes.insert(0, f"🟢 **PERFECT GREEN RELEASE** (`{timing_result.get('diff_str', '+0ms')}`)")
+        elif t_grade in ("SLIGHTLY_EARLY", "SLIGHTLY_LATE"):
+            adj_prob = min(0.90, max(0.30, base_prob + 0.10))
+            roll_val = random.random()
+            success = roll_val < adj_prob
+            pts_scored = action["pts"] if success else 0
+            shot_meter = t_meter_label
+            contest_str = "LIGHT CONTEST" if success else "CONTESTED"
+            read_notes.insert(0, f"⏱️ **{t_grade.replace('_', ' ').title()}** (`{timing_result.get('diff_str', '+0ms')}`)")
+        elif t_grade in ("VERY_EARLY", "VERY_LATE"):
+            adj_prob = min(0.18, max(0.05, base_prob * 0.25))
+            roll_val = random.random()
+            success = roll_val < adj_prob
+            pts_scored = action["pts"] if success else 0
+            shot_meter = t_meter_label
+            contest_str = "SMOTHERED / OFF RHYTHM"
+            read_notes.insert(0, f"⚠️ **{t_grade.replace('_', ' ').title()}** (`{timing_result.get('diff_str', '+0ms')}`)")
         else:
-            shot_meter = "🟢 EXCELLENT"
-            contest_str = "LIGHT CONTEST"
+            roll_val = random.random()
+            success = roll_val < base_prob
+            pts_scored = action["pts"] if success else 0
+            shot_meter = "🟢 EXCELLENT" if success else "🟡 CONTESTED"
+            contest_str = "OPEN" if success else "HEAVY CONTEST"
     else:
-        if base_prob <= 0.35 or roll_val > (base_prob + 0.30):
-            shot_meter = "🔴 SMOTHERED"
-            contest_str = "HEAVY CONTEST"
+        roll_val = random.random()
+        success = roll_val < base_prob
+        pts_scored = action["pts"] if success else 0
+
+        # 2K Shot Meter & Contest Rating (Simulated)
+        if success:
+            if base_prob >= 0.72 or roll_val < (base_prob * 0.28):
+                shot_meter = "🟢 GREEN RELEASE"
+                contest_str = "OPEN"
+            else:
+                shot_meter = "🟢 EXCELLENT"
+                contest_str = "LIGHT CONTEST"
         else:
-            shot_meter = "🟡 SLIGHTLY LATE"
-            contest_str = "CONTESTED"
+            if base_prob <= 0.35 or roll_val > (base_prob + 0.30):
+                shot_meter = "🔴 SMOTHERED"
+                contest_str = "HEAVY CONTEST"
+            else:
+                shot_meter = "🟡 SLIGHTLY LATE"
+                contest_str = "CONTESTED"
 
     # Possible And-1 for drive
     and_one = False
@@ -4821,7 +4931,8 @@ def resolve_possession(
         "shot_meter": shot_meter,
         "contest_str": contest_str,
         "tactical_counter": scheme_key in action["good_against"],
-        "bad_call": scheme_key in action["bad_against"]
+        "bad_call": scheme_key in action["bad_against"],
+        "timing_result": timing_result
     }
 
 
@@ -5727,6 +5838,113 @@ class InteractiveTeamBattleView(discord.ui.View):
 
         return embed
 
+    def make_shot_meter_embed(self, action_key: str, stage: str = "gather") -> discord.Embed:
+        """Renders the interactive 2K Shot Meter timing challenge HUD."""
+        cur_idx = min(self.current_round, len(self.positions) - 1)
+        cur_pos = self.positions[cur_idx]
+        pl_a = self.picks_a.get(cur_pos, {})
+        pl_b = self.picks_b.get(cur_pos, {})
+        p_name = pl_a.get("name", "Shooter")
+        p_emoji = pl_a.get("emoji", "🏀")
+        act_name = TACTICAL_OUTCOMES.get(action_key, {}).get("name", "Shot")
+        favored_stat = TACTICAL_OUTCOMES.get(action_key, {}).get("favors", "pts_3")
+        stat_val = pl_a.get(favored_stat, 80) if isinstance(pl_a, dict) else 80
+        
+        green_min_ms = int(round(getattr(self, "pending_green_min", 0.440) * 1000))
+        green_max_ms = int(round(getattr(self, "pending_green_max", 0.560) * 1000))
+        window_ms = green_max_ms - green_min_ms
+        
+        if stage == "gather":
+            embed_title = f"🏀 NBA 2K JUMP SHOT METER • {p_name}"
+            desc = (
+                f"# 🟢 GREEN RELEASE TIMING CHALLENGE\n\n"
+                f"• **Shooter**: {p_emoji} **{p_name}** (`{favored_stat.upper()}: {stat_val}`)\n"
+                f"• **Play Call**: `{act_name}`\n"
+                f"• **Target Release**: `500ms` (`0.500s` rhythm apex)\n"
+                f"• **Green Window**: `{green_min_ms}ms – {green_max_ms}ms` (`{window_ms}ms` sweet spot)\n\n"
+                f"### 🎮 HOW TO GREEN:\n"
+                f"1️⃣ Click **`🏀 GATHER & JUMP`** to elevate into your shooting motion.\n"
+                f"2️⃣ Click **`🟢 RELEASE SHOT`** right at the apex (500ms) for an unstoppable Green Light!"
+            )
+            color = discord.Color.gold()
+        else:
+            embed_title = f"🏀 ELEVATING IN THE AIR... RELEASE AT THE APEX!"
+            desc = (
+                f"# ⏳ RELEASE AT THE PEAK OF YOUR JUMP!\n\n"
+                f"`[ ⚪ ─── 🟡 ─── 🟩 500ms ─── 🟡 ─── 🔴 ]`\n\n"
+                f"🔥 **CLICK RELEASE NOW!**"
+            )
+            color = discord.Color.green()
+            
+        embed = discord.Embed(
+            title=embed_title,
+            description=desc,
+            color=color
+        )
+        embed.set_footer(text=f"Q{cur_idx+1}/5 ({cur_pos}) • Timing determines shot outcome & green bonus")
+        return embed
+
+    def _build_shot_meter_controls(self, action_key: str, stage: str = "gather"):
+        """Builds single-tap Shot Meter controls for gather and release."""
+        self.clear_items()
+        if stage == "gather":
+            btn_gather = discord.ui.Button(
+                label="🏀 GATHER & JUMP",
+                style=discord.ButtonStyle.primary,
+                custom_id="btn_shot_gather",
+                row=0
+            )
+            async def _cb_gather(interaction: discord.Interaction):
+                if interaction.user.id not in [self.author.id, self.opponent.id]:
+                    return await interaction.response.send_message("❌ This is not your shot meter!", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.defer()
+                self.shot_start_time = time.perf_counter()
+                self._build_shot_meter_controls(action_key, stage="release")
+                embed = self.make_shot_meter_embed(action_key, stage="release")
+                await interaction.edit_original_response(embed=embed, view=self)
+            btn_gather.callback = _cb_gather
+            self.add_item(btn_gather)
+            
+            btn_skip = discord.ui.Button(
+                label="⏩ Skip (Auto-Sim)",
+                style=discord.ButtonStyle.secondary,
+                custom_id="btn_shot_skip",
+                row=0
+            )
+            async def _cb_skip(interaction: discord.Interaction):
+                if interaction.user.id not in [self.author.id, self.opponent.id]:
+                    return await interaction.response.send_message("❌ This is not your game!", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.defer()
+                await self._execute_possession_resolution(interaction, action_key, timing_result=None)
+            btn_skip.callback = _cb_skip
+            self.add_item(btn_skip)
+            
+        elif stage == "release":
+            btn_release = discord.ui.Button(
+                label="🟢 RELEASE SHOT NOW!",
+                style=discord.ButtonStyle.success,
+                custom_id="btn_shot_release",
+                row=0
+            )
+            async def _cb_release(interaction: discord.Interaction):
+                if interaction.user.id not in [self.author.id, self.opponent.id]:
+                    return await interaction.response.send_message("❌ This is not your shot meter!", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.defer()
+                now = time.perf_counter()
+                delta = now - (getattr(self, "shot_start_time", None) or now)
+                timing_res = evaluate_shot_timing(
+                    delta, 
+                    getattr(self, "pending_target_time", 0.500), 
+                    getattr(self, "pending_green_min", 0.440), 
+                    getattr(self, "pending_green_max", 0.560)
+                )
+                await self._execute_possession_resolution(interaction, action_key, timing_result=timing_res)
+            btn_release.callback = _cb_release
+            self.add_item(btn_release)
+
     async def handle_tactical_action(self, interaction: discord.Interaction, action_key: str):
         try:
             if not interaction.response.is_done():
@@ -5757,6 +5975,32 @@ class InteractiveTeamBattleView(discord.ui.View):
                     await interaction.edit_original_response(embed=embed, view=self)
                 return
 
+            cur_idx = min(self.current_round, len(self.positions) - 1)
+            cur_pos = self.positions[cur_idx]
+            pl_a = self.picks_a.get(cur_pos, {})
+            pl_b = self.picks_b.get(cur_pos, {})
+            cur_scheme_key = self.round_schemes[cur_idx] if cur_idx < len(self.round_schemes) else "drop_coverage"
+
+            target_time, green_min, green_max = calculate_green_window(action_key, pl_a, pl_b, cur_scheme_key)
+            self.pending_action_key = action_key
+            self.pending_target_time = target_time
+            self.pending_green_min = green_min
+            self.pending_green_max = green_max
+            self.shot_start_time = None
+
+            self._build_shot_meter_controls(action_key, stage="gather")
+            meter_embed = self.make_shot_meter_embed(action_key, stage="gather")
+            await interaction.edit_original_response(embed=meter_embed, view=self)
+
+        except Exception as e:
+            logger.error(f"[InteractiveTeamBattleView] handle_tactical_action error: {e}", exc_info=True)
+            try:
+                await interaction.followup.send(f"⚠️ Tactical decision error: `{e}`. You can try clicking again.", ephemeral=True)
+            except Exception:
+                pass
+
+    async def _execute_possession_resolution(self, interaction: discord.Interaction, action_key: str, timing_result: Optional[Dict[str, Any]] = None):
+        try:
             self._is_resolving = True
 
             cur_idx = min(self.current_round, len(self.positions) - 1)
@@ -5802,7 +6046,8 @@ class InteractiveTeamBattleView(discord.ui.View):
                 play_streak=self.play_streak_a,
                 has_timeout_boost=self.has_timeout_boost_a,
                 is_clutch=self.is_clutch_mode,
-                is_comeback=is_comeback_active
+                is_comeback=is_comeback_active,
+                timing_result=timing_result
             )
             self.has_timeout_boost_a = False
 
@@ -5825,13 +6070,15 @@ class InteractiveTeamBattleView(discord.ui.View):
                 "success": res_a["success"],
                 "counter": res_a["tactical_counter"],
                 "bad": res_a["bad_call"],
-                "streak": self.play_streak_a
+                "streak": self.play_streak_a,
+                "timing": timing_result.get("grade") if timing_result else "AUTO"
             })
 
-            # 2. Dramatic Suspense Reveal Step 1: Initial Buildup (1.2s delay)
+            # 2. Dramatic Suspense Reveal Step 1: Initial Buildup (1.0s delay)
             act_name = TACTICAL_OUTCOMES.get(action_key, {}).get("name", "Offensive Play")
+            timing_extra = f"\n> {timing_result.get('meter_line', '')}" if timing_result else ""
             suspense_text_1 = (
-                f"🎯 **Called `{act_name}`**\n"
+                f"🎯 **Called `{act_name}`**{timing_extra}\n"
                 f"> ⏳ {res_a['buildup_1']}"
             )
             temp_embed_1 = self.make_suspense_embed(suspense_text_1)
@@ -5840,11 +6087,11 @@ class InteractiveTeamBattleView(discord.ui.View):
             except Exception as e:
                 logger.debug(f"Step 1 suspense edit error: {e}")
 
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(1.0)
 
-            # 3. Dramatic Suspense Reveal Step 2: Contest (1.2s delay)
+            # 3. Dramatic Suspense Reveal Step 2: Contest (1.0s delay)
             suspense_text_2 = (
-                f"🎯 **Called `{act_name}`**\n"
+                f"🎯 **Called `{act_name}`**{timing_extra}\n"
                 f"> ⏳ {res_a['buildup_1']}\n"
                 f"> ⏳ {res_a['buildup_2']}"
             )
@@ -5854,7 +6101,7 @@ class InteractiveTeamBattleView(discord.ui.View):
             except Exception as e:
                 logger.debug(f"Step 2 suspense edit error: {e}")
 
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(1.0)
 
             # 4. Step 3: Apply points and momentum
             self.q_pts_a += res_a["pts"]
@@ -5869,7 +6116,9 @@ class InteractiveTeamBattleView(discord.ui.View):
             self.player_points[self.author.display_name][p_name_a] = self.player_points[self.author.display_name].get(p_name_a, 0) + res_a["pts"]
 
             if res_a["success"]:
-                self.momentum_a = min(3, self.momentum_a + 1)
+                # Green releases give +2 momentum!
+                mom_add = 2 if (timing_result and timing_result.get("is_green")) else 1
+                self.momentum_a = min(3, self.momentum_a + mom_add)
             else:
                 self.momentum_a = max(0, self.momentum_a - 1)
 
@@ -5949,7 +6198,7 @@ class InteractiveTeamBattleView(discord.ui.View):
                 else:
                     self.momentum_b = max(0, self.momentum_b - 1)
 
-            # Sweety AI situational trash talk reaction (SENT VIA FOLLOWUP, NOT IN EMBED)
+            # Sweety AI situational trash talk reaction
             if self.is_sweety_ai and not sweety_talk_line:
                 is_sweety_clutch = self.is_clutch_mode or self.current_round >= 3
                 if res_b["success"] and res_b["pts"] > 0:
@@ -6050,7 +6299,7 @@ class InteractiveTeamBattleView(discord.ui.View):
             else:
                 await interaction.edit_original_response(embed=embed, view=self)
 
-            # Send Sweety trash talk: delete previous trash talk before sending the next one (0 spam, at most 1 message)
+            # Send Sweety trash talk: delete previous trash talk before sending the next one
             if self.is_sweety_ai and sweety_talk_line and not self.is_game_over:
                 try:
                     if self.last_trash_talk_msg:
