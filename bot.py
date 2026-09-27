@@ -1,3 +1,9 @@
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 import os
 import json
 import asyncio
@@ -9559,8 +9565,6 @@ async def spawn_nba_card_drop(channel: discord.TextChannel, requested_tier: Opti
     drop_info["message"] = drop_msg
     return drop_msg
 
-print("All Embed Generators syntax-checked successfully!")
-
 
 # ── Discord UI Views ─────────────────────────────────────────────────────────
 
@@ -11748,13 +11752,6 @@ class GeminiBot(commands.Bot):
         self.add_view(HubDraftButtonView())
         self.add_view(DMAppealLauncherView())
         self.add_view(AppealReviewView())
-
-        # 5. Global command tree sync
-        try:
-            synced = await self.tree.sync()
-            logger.info(f"⚡ [SETUP_HOOK] Initial global command tree synced: {len(synced)} commands")
-        except Exception as sync_err:
-            logger.warning(f"Initial setup_hook tree sync notice: {sync_err}")
 
     @tasks.loop(minutes=5)
     async def check_expired_mutes(self):

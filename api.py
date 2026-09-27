@@ -634,18 +634,21 @@ async def start_fastapi(bot, db, port: int):
     app.state.bot = bot
     app.state.db = db
     
-    # Seed analytics and config data
-    await seed_dashboard_data(db)
+    # Run seed in background task so uvicorn binds port IMMEDIATELY
+    asyncio.create_task(seed_dashboard_data(db))
     
     # Attach custom logging handler
     try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.get_event_loop()
 
-    ws_handler = WebSocketLogHandler(loop)
-    ws_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s', '%Y-%m-%d %H:%M:%S'))
-    logging.getLogger().addHandler(ws_handler)
+        ws_handler = WebSocketLogHandler(loop)
+        ws_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s', '%Y-%m-%d %H:%M:%S'))
+        logging.getLogger().addHandler(ws_handler)
+    except Exception as e:
+        logger.warning(f"Could not attach websocket log handler: {e}")
     
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info", lifespan="off")
     server = uvicorn.Server(config)
