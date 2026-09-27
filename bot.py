@@ -11378,7 +11378,7 @@ def make_help_embed() -> discord.Embed:
     )
     embed.add_field(
         name="⚔️ **Moderation & Security Actions**",
-        value="• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n• `/deafen <user>` / `/undeafen <user>` — Voice channel deafen\n• `/promochannel [action] [chan]` — Links-only promo channels (auto-deletes chatting)\n• `/antighostping [status]` — Auto-catch & expose deleted ghost pings\n• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n• `/lockdown <status>` / `/purge <num>` — Emergency chat freeze and cleaner",
+        value="• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n• `/deafen <user>` / `/undeafen <user>` — Voice channel deafen\n• `/promochannel [action] [chan]` — Links-only promo channels (auto-deletes chatting)\n• `/antighostping [status]` — Auto-catch & expose deleted ghost pings\n• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n• `/lockdown <status>` / `/purge <num>` & `/unpurge` — Chat freeze & cleaner with Undo",
         inline=False
     )
     embed.add_field(
@@ -12151,7 +12151,138 @@ async def lockdown_command(interaction: discord.Interaction, status: str):
             await interaction.response.send_message(f"❌ Lockdown error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="purge", description="Quickly delete a specified number of messages from this channel")
+# ── Purge & Undo-Purge Restoration Subsystem ─────────────────────────────────
+_purge_history_buffer: dict[int, list[dict]] = {}
+_PURGE_BACKUP_TTL = 900  # 15 minutes
+
+
+class UndoPurgeView(discord.ui.View):
+    """Interactive Undo button allowing moderators to restore purged messages via Webhook clone."""
+    def __init__(self, channel_id: int, user_id: int, count: int):
+        super().__init__(timeout=300.0)  # 5 minutes active button
+        self.channel_id = channel_id
+        self.user_id = user_id
+        self.count = count
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id and not interaction.user.guild_permissions.manage_messages and not is_protected(interaction.user):
+            await interaction.response.send_message("❌ You need **Manage Messages** permission to undo this purge.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Undo Purge", style=discord.ButtonStyle.danger, emoji="↩️")
+    async def undo_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            for child in self.children:
+                child.disabled = True
+            await interaction.response.edit_message(content="⏳ **Restoring purged messages...** Please wait.", view=self)
+            
+            restored = await restore_purged_messages(interaction.channel)
+            if restored > 0:
+                await interaction.edit_original_response(
+                    content=f"✅ **Purge Reverted!** Successfully restored `{restored}` messages via Webhook clone.",
+                    view=None
+                )
+            else:
+                await interaction.edit_original_response(
+                    content="❌ Could not restore messages (backup was missing or expired).",
+                    view=None
+                )
+        except Exception as e:
+            logger.error(f"Error in UndoPurgeView button: {e}")
+            try:
+                await interaction.edit_original_response(content=f"❌ Failed to restore: {e}", view=None)
+            except Exception:
+                pass
+
+
+async def restore_purged_messages(channel: discord.TextChannel) -> int:
+    """Restores purged messages in chronological order using Webhook clone."""
+    if not isinstance(channel, discord.TextChannel):
+        return 0
+    
+    backup = _purge_history_buffer.pop(channel.id, None)
+    if not backup:
+        return 0
+    
+    # Check if backup is expired (older than 15 mins)
+    first_msg_purged_at = backup[0].get("purged_at", 0) if backup else 0
+    if time.time() - first_msg_purged_at > _PURGE_BACKUP_TTL:
+        return 0
+
+    restored_count = 0
+    webhook = None
+    created_webhook = False
+    
+    try:
+        # Check permissions for webhook cloning
+        if channel.permissions_for(channel.guild.me).manage_webhooks:
+            try:
+                webhooks = await channel.webhooks()
+                for wh in webhooks:
+                    if wh.token:
+                        webhook = wh
+                        break
+                if not webhook:
+                    webhook = await channel.create_webhook(name="Sweety Restore")
+                    created_webhook = True
+            except Exception as wh_err:
+                logger.warning(f"Could not initialize webhook for restore: {wh_err}")
+                webhook = None
+
+        for msg_data in backup:
+            author_name = msg_data.get("author_name") or "User"
+            avatar_url = msg_data.get("author_avatar")
+            content = msg_data.get("content") or ""
+            attachments = msg_data.get("attachments") or []
+            embeds = [discord.Embed.from_dict(e) for e in msg_data.get("embeds", [])]
+
+            # Format attachments
+            if attachments:
+                att_text = "\n" + "\n".join(attachments)
+                content = (content + att_text).strip()
+
+            if not content and not embeds:
+                content = "*[Empty / Image Attachment]*"
+
+            if webhook:
+                try:
+                    await webhook.send(
+                        content=content[:2000],
+                        username=author_name[:80],
+                        avatar_url=avatar_url,
+                        embeds=embeds[:10],
+                        wait=False
+                    )
+                    restored_count += 1
+                    await asyncio.sleep(0.35)  # Rate-limit safety buffer
+                except Exception as send_err:
+                    logger.debug(f"Webhook restore item failed: {send_err}")
+            else:
+                # Fallback to embed if webhook creation is not permitted
+                try:
+                    emb = discord.Embed(
+                        description=content[:2000] if content else None,
+                        color=discord.Color.blurple()
+                    )
+                    emb.set_author(name=author_name, icon_url=avatar_url if avatar_url else None)
+                    await channel.send(embed=emb)
+                    restored_count += 1
+                    await asyncio.sleep(0.35)
+                except Exception as fb_err:
+                    logger.debug(f"Fallback restore item failed: {fb_err}")
+
+    finally:
+        if created_webhook and webhook:
+            try:
+                await webhook.delete(reason="Temporary restore webhook cleanup")
+            except Exception:
+                pass
+
+    return restored_count
+
+
+@bot.tree.command(name="purge", description="Quickly delete a specified number of messages from this channel with undo support")
 @app_commands.describe(amount="Number of messages to delete (max 100)")
 @app_commands.default_permissions(manage_messages=True)
 @app_commands.guild_only()
@@ -12164,7 +12295,35 @@ async def purge_command(interaction: discord.Interaction, amount: int):
             deleted = await interaction.channel.purge(limit=amount)
             for msg in deleted:
                 _bot_deleted_message_ids.add(msg.id)
-            await interaction.followup.send(f"🧹 Successfully purged `{len(deleted)}` messages.", ephemeral=True)
+            
+            # Serialize deleted messages in chronological order (oldest -> newest)
+            serialized_backup = []
+            for msg in reversed(deleted):
+                serialized_backup.append({
+                    "id": msg.id,
+                    "author_name": msg.author.display_name,
+                    "author_avatar": msg.author.display_avatar.url if msg.author.display_avatar else None,
+                    "content": msg.content,
+                    "embeds": [e.to_dict() for e in msg.embeds],
+                    "attachments": [a.url for a in msg.attachments],
+                    "timestamp": msg.created_at.timestamp() if msg.created_at else time.time(),
+                    "purged_at": time.time(),
+                    "purged_by": interaction.user.id
+                })
+            
+            _purge_history_buffer[interaction.channel.id] = serialized_backup
+
+            embed = discord.Embed(
+                title="🧹 Messages Purged",
+                description=(
+                    f"Successfully purged `{len(deleted)}` messages from {interaction.channel.mention}.\n\n"
+                    f"💡 **Made a mistake?** Click **`↩️ Undo Purge`** below (or run `/unpurge`) within **15 minutes** to restore these messages!"
+                ),
+                color=discord.Color.gold(),
+                timestamp=discord.utils.utcnow()
+            )
+            view = UndoPurgeView(interaction.channel.id, interaction.user.id, len(deleted))
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         except Exception as e:
             logger.error(f"Purge failed: {e}", exc_info=True)
             await interaction.followup.send("❌ Purge failed due to an internal error.", ephemeral=True)
@@ -12174,6 +12333,64 @@ async def purge_command(interaction: discord.Interaction, amount: int):
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         else:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="unpurge", description="Undo the last purge in this channel and restore the messages")
+@app_commands.describe(channel="Channel to restore purged messages in (defaults to current channel)")
+@app_commands.default_permissions(manage_messages=True)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def unpurge_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+    try:
+        target_chan = channel or interaction.channel
+        if not isinstance(target_chan, discord.TextChannel):
+            return await interaction.response.send_message("❌ Please specify a valid text channel.", ephemeral=True)
+        
+        if not interaction.user.guild_permissions.manage_messages and not is_protected(interaction.user):
+            return await interaction.response.send_message("❌ You need **Manage Messages** permission to undo a purge.", ephemeral=True)
+        
+        if target_chan.id not in _purge_history_buffer:
+            return await interaction.response.send_message(f"ℹ️ No recent purge backup found for {target_chan.mention} (backups expire after 15 minutes).", ephemeral=True)
+        
+        await interaction.response.defer(ephemeral=True)
+        restored = await restore_purged_messages(target_chan)
+        if restored > 0:
+            await interaction.followup.send(f"✅ **Purge Reverted!** Successfully restored `{restored}` messages in {target_chan.mention}.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Failed to restore messages or backup expired.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /unpurge: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.command(name="unpurge", aliases=["undopurge"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def unpurge_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
+    """Undo the last purge in a channel and restore messages: !unpurge [#channel]"""
+    try:
+        target_chan = channel or ctx.channel
+        if not isinstance(target_chan, discord.TextChannel):
+            return await ctx.reply("❌ Please specify a valid text channel.")
+        
+        if not ctx.author.guild_permissions.manage_messages and not is_protected(ctx.author):
+            return await ctx.reply("❌ You need **Manage Messages** permission to undo a purge.")
+        
+        if target_chan.id not in _purge_history_buffer:
+            return await ctx.reply(f"ℹ️ No recent purge backup found for {target_chan.mention} (backups expire after 15 minutes).")
+        
+        status_msg = await ctx.reply(f"⏳ **Restoring purged messages in {target_chan.mention}...**")
+        restored = await restore_purged_messages(target_chan)
+        if restored > 0:
+            await status_msg.edit(content=f"✅ **Purge Reverted!** Successfully restored `{restored}` messages in {target_chan.mention} via Webhook clone.")
+        else:
+            await status_msg.edit(content=f"❌ Failed to restore messages or backup expired.")
+    except Exception as e:
+        logger.error(f"Error in !unpurge: {e}")
+        await ctx.reply(f"❌ Error: {e}")
 
 
 @bot.tree.command(name="snipe", description="View recently deleted messages in this or a specific channel")
