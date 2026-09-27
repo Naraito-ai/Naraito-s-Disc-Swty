@@ -12978,6 +12978,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed.add_field(
             name="📦 **Packs & Drops**",
             value=(
+                "• `/spawndrop [tier]` / `!spawndrop` — Instantly spawn a wild NBA 2K card drop on the court\n"
                 "• `/openpack [tier]` / `!openpack` — Open Standard (1.5k VC), Premium (3.5k VC), Deluxe (7.5k VC), or Galaxy Opal (15k VC) packs\n"
                 "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops in chat\n"
                 "• `/nbahint` / `!nbahint` — Reveal progressive letter hints for active wild court drops"
@@ -13150,6 +13151,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     embed.add_field(
         name="🏀 **NBA 2K Mobile Cards, Packs & Dex**",
         value=(
+            "• `/spawndrop [tier]` / `!spawndrop` — Trigger wild player card drops\n"
             "• `/openpack [tier]` / `!openpack` — Open Standard, Premium, Deluxe & Opal packs\n"
             "• `/nbadex [page]` / `!nbadex` — Open 2K Mobile Card Binder & Dex collection\n"
             "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops\n"
