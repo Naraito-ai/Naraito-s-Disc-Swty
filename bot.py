@@ -11810,74 +11810,90 @@ async def handle_catch_attempt(
     drop: Optional[Dict[str, Any]] = None,
     drop_msg: Optional[discord.Message] = None
 ):
-    """Unified handler for catch attempts across slash commands, prefix commands, and modals."""
-    is_interaction = isinstance(interaction_or_ctx, discord.Interaction)
-    user = interaction_or_ctx.user if is_interaction else interaction_or_ctx.author
-    channel_id = interaction_or_ctx.channel_id if is_interaction else interaction_or_ctx.channel.id
-    guild_id = interaction_or_ctx.guild_id if is_interaction else (interaction_or_ctx.guild.id if interaction_or_ctx.guild else None)
-
-    if not drop:
-        drop = get_active_nba_drop(channel_id, guild_id)
-
-    async def _send_response(content: Optional[str] = None, embed: Optional[discord.Embed] = None, file: Optional[discord.File] = None, ephemeral: bool = False):
-        if is_interaction:
-            if not interaction_or_ctx.response.is_done():
-                await interaction_or_ctx.response.send_message(content=content, embed=embed, file=file, ephemeral=ephemeral)
-            else:
-                await interaction_or_ctx.followup.send(content=content, embed=embed, file=file, ephemeral=ephemeral)
-        elif isinstance(interaction_or_ctx, discord.Message):
-            if file or embed:
-                await interaction_or_ctx.reply(content=content, embed=embed, file=file, mention_author=True)
-            elif content:
-                await interaction_or_ctx.reply(content, mention_author=True)
-        elif hasattr(interaction_or_ctx, "send"):
-            await interaction_or_ctx.send(content=content, embed=embed, file=file)
-        elif hasattr(interaction_or_ctx, "channel"):
-            await interaction_or_ctx.channel.send(content=content, embed=embed, file=file)
-
-    if not drop:
-        await _send_response("❌ There is no active wild NBA card drop in this channel right now. Keep chatting to spawn one!", ephemeral=True)
-        return
-
-    # Check if already claimed
-    if drop.get("claimed"):
-        claimed_by = drop.get("claimed_by_name", "another player")
-        await _send_response(f"❌ **Too slow!** This player was already caught by **{claimed_by}**! Wait for the next court drop.", ephemeral=True)
-        return
-
-    card = drop["card"]
-    actual_name = card["name"]
-
-    # Check if guess is correct
-    if not is_correct_player_name(guess, actual_name):
-        await _send_response(f"❌ **'{guess}' is incorrect!** Look closely at the team (**{card['team']}**), position (**{card['pos']}**), or use `!nbahint`!", ephemeral=True)
-        return
-
-    # Correct guess! First user gets the card
-    drop["claimed"] = True
-    drop["claimed_by_id"] = user.id
-    drop["claimed_by_name"] = user.display_name
-
-    await db.add_user_nba_card(user.id, card["id"], source="chat_catch")
-    new_bal = await db.add_user_vc(user.id, 150)
-    user_cards = await db.get_user_nba_cards(user.id)
-    copies = sum(1 for c in user_cards if c["card_id"].lower() == card["id"].lower())
-
-    # Generate revealed card image
-    card_buf = generate_nba_card_graphic(card, is_mystery=False)
-    card_file = discord.File(fp=card_buf, filename="nba_card.png")
-    success_embed = build_catch_success_embed(user, card, new_bal, copies)
-
-    await _send_response(embed=success_embed, file=card_file)
-
+    """Unified handler for catch attempts across slash commands, prefix commands, modals, and direct chat typing."""
     try:
-        if drop_msg:
-            disabled_view = discord.ui.View(timeout=1.0)
-            btn = discord.ui.Button(label=f"✅ Caught by {user.display_name}!", style=discord.ButtonStyle.secondary, disabled=True, emoji="🏀")
-            disabled_view.add_item(btn)
-            await drop_msg.edit(view=disabled_view)
-    except Exception:
-        pass
+        is_interaction = isinstance(interaction_or_ctx, discord.Interaction)
+        user = interaction_or_ctx.user if is_interaction else interaction_or_ctx.author
+        channel_id = interaction_or_ctx.channel_id if is_interaction else interaction_or_ctx.channel.id
+        guild_id = interaction_or_ctx.guild_id if is_interaction else (interaction_or_ctx.guild.id if interaction_or_ctx.guild else None)
+
+        if not drop:
+            drop = get_active_nba_drop(channel_id, guild_id)
+
+        async def _send_ephemeral(text: str):
+            if is_interaction:
+                if not interaction_or_ctx.response.is_done():
+                    await interaction_or_ctx.response.send_message(text, ephemeral=True)
+                else:
+                    await interaction_or_ctx.followup.send(text, ephemeral=True)
+            elif isinstance(interaction_or_ctx, discord.Message):
+                await interaction_or_ctx.reply(text, mention_author=True)
+            elif hasattr(interaction_or_ctx, "send"):
+                await interaction_or_ctx.send(text)
+
+        if not drop:
+            await _send_ephemeral("❌ There is no active wild NBA card drop in this channel right now. Keep chatting to spawn one!")
+            return
+
+        # Check if already claimed
+        if drop.get("claimed"):
+            claimed_by = drop.get("claimed_by_name", "another player")
+            await _send_ephemeral(f"❌ **Too slow!** This player was already caught by **{claimed_by}**! Wait for the next court drop.")
+            return
+
+        card = drop["card"]
+        actual_name = card["name"]
+
+        # Check if guess is correct
+        if not is_correct_player_name(guess, actual_name):
+            await _send_ephemeral(f"❌ **'{guess}' is incorrect!** Look closely at the team (**{card['team']}**), position (**{card['pos']}**), or use `!nbahint`!")
+            return
+
+        # Defer interaction if valid guess to allow Pillow generation
+        if is_interaction and not interaction_or_ctx.response.is_done():
+            await interaction_or_ctx.response.defer(ephemeral=False)
+
+        # Correct guess! First user gets the card
+        drop["claimed"] = True
+        drop["claimed_by_id"] = user.id
+        drop["claimed_by_name"] = user.display_name
+
+        await db.add_user_nba_card(user.id, card["id"], source="chat_catch")
+        new_bal = await db.add_user_vc(user.id, 150)
+        user_cards = await db.get_user_nba_cards(user.id)
+        copies = sum(1 for c in user_cards if c["card_id"].lower() == card["id"].lower())
+
+        # Generate revealed card image
+        card_buf = generate_nba_card_graphic(card, is_mystery=False)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
+        success_embed = build_catch_success_embed(user, card, new_bal, copies)
+
+        if is_interaction:
+            await interaction_or_ctx.followup.send(embed=success_embed, file=card_file)
+        elif isinstance(interaction_or_ctx, discord.Message):
+            await interaction_or_ctx.reply(embed=success_embed, file=card_file, mention_author=True)
+        elif hasattr(interaction_or_ctx, "send"):
+            await interaction_or_ctx.send(embed=success_embed, file=card_file)
+
+        # Update original drop message view & status
+        target_drop_msg = drop_msg or drop.get("message")
+        if target_drop_msg:
+            try:
+                disabled_view = discord.ui.View(timeout=1.0)
+                btn = discord.ui.Button(label=f"✅ Caught by {user.display_name}!", style=discord.ButtonStyle.secondary, disabled=True, emoji="🏀")
+                disabled_view.add_item(btn)
+                await target_drop_msg.edit(view=disabled_view)
+            except Exception as d_err:
+                logger.debug(f"Could not edit drop message: {d_err}")
+
+    except Exception as e:
+        logger.error(f"Error in handle_catch_attempt: {e}", exc_info=True)
+        try:
+            chan = getattr(interaction_or_ctx, "channel", None)
+            if chan and hasattr(chan, "send"):
+                await chan.send(f"⚠️ Error claiming NBA card: `{e}`")
+        except Exception:
+            pass
 
 
 
