@@ -4774,8 +4774,25 @@ def resolve_possession(
     base_prob = 0.50 + (stat_diff * 0.008) + tactical_modifier + archetype_bonus + clutch_bonus + comeback_bonus - streak_penalty + timeout_bonus + momentum_mod
     base_prob = max(0.10, min(0.95, base_prob))
 
-    success = random.random() < base_prob
+    roll_val = random.random()
+    success = roll_val < base_prob
     pts_scored = action["pts"] if success else 0
+
+    # 2K Shot Meter & Contest Rating
+    if success:
+        if base_prob >= 0.72 or roll_val < (base_prob * 0.28):
+            shot_meter = "🟢 GREEN RELEASE"
+            contest_str = "OPEN"
+        else:
+            shot_meter = "🟢 EXCELLENT"
+            contest_str = "LIGHT CONTEST"
+    else:
+        if base_prob <= 0.35 or roll_val > (base_prob + 0.30):
+            shot_meter = "🔴 SMOTHERED"
+            contest_str = "HEAVY CONTEST"
+        else:
+            shot_meter = "🟡 SLIGHTLY LATE"
+            contest_str = "CONTESTED"
 
     # Possible And-1 for drive
     and_one = False
@@ -4802,6 +4819,8 @@ def resolve_possession(
         "commentary": commentary,
         "read_note": "\n".join(read_notes),
         "prob": round(base_prob * 100, 1),
+        "shot_meter": shot_meter,
+        "contest_str": contest_str,
         "tactical_counter": scheme_key in action["good_against"],
         "bad_call": scheme_key in action["bad_against"]
     }
@@ -4816,60 +4835,83 @@ def format_possession_outcome_2lines(
     opp_name: str,
     scheme_key: str = "drop_coverage"
 ) -> str:
-    """Formats live possession result strictly into max 2 lines:
-    Line 1: Offensive result (emoji + what happened + points in under 10 words).
-    Line 2: Defensive result (emoji + stopped or scored + one word reason).
-    No italics, no parentheses, no 'Locked down by', no Sweety trash talk.
+    """Formats live possession result strictly into max 2 lines with 2K Green Release & Contest Meter telemetry:
+    Line 1: Offensive result (emoji + meter badge + what happened + points in under 12 words).
+    Line 2: Defensive result (emoji + stopped or scored + contest reason).
     """
     p_name_a = pl_a.get("name", "Player A")
     opp_disp = opp_name[:12]
     pts_a = res_a.get("pts", 0)
     success_a = res_a.get("success", False)
+    meter_a = res_a.get("shot_meter", "🟢 EXCELLENT" if success_a else "🟡 CONTESTED")
 
-    # Line 1: Offensive result (<10 words)
+    # Superstar Signature Moves Flair
+    superstar_signatures = {
+        "Stephen Curry": "drains night-night step-back 3!",
+        "Michael Jordan": "air-walks for acrobatic finish!",
+        "LeBron James": "powers freight-train tomahawk slam!",
+        "Kobe Bryant": "hits fadeaway mamba dagger!",
+        "Shaquille O'Neal": "demolishes rim with diesel dunk!",
+        "Giannis Antetokounmpo": "euro-steps through lane for slam!",
+        "Nikola Jokić": "drifts sombor-shuffle rainbow jumper!",
+        "Nikola Jokic": "drifts sombor-shuffle rainbow jumper!",
+        "Luka Dončić": "hits signature luka-magic step-back!",
+        "Luka Doncic": "hits signature luka-magic step-back!",
+        "Kevin Durant": "uncontested slim-reaper pullup!",
+        "Larry Bird": "drills cold-blooded corner swish!",
+        "Magic Johnson": "dishes showtime look-off jumper!",
+        "Tim Duncan": "banks smooth jumper off the glass!",
+        "Victor Wembanyama": "alien reach tip-in over defenders!"
+    }
+
+    # Line 1: Offensive result (<12 words)
+    meter_badge = f"[{meter_a}]"
     if action_key == "three":
         if success_a:
-            line_1 = f"✅ {p_name_a} drains step-back 3-pointer! +{pts_a} PTS"
+            sig = superstar_signatures.get(p_name_a, "drains step-back 3-pointer!")
+            line_1 = f"✅ {meter_badge} {p_name_a} {sig} +{pts_a} PTS"
         else:
-            line_1 = f"❌ {p_name_a} contested 3-pointer clangs off iron. +0 PTS"
+            line_1 = f"❌ {meter_badge} {p_name_a} 3-pointer clangs off iron. +0 PTS"
     elif action_key == "drive":
         if success_a:
             if pts_a >= 3:
-                line_1 = f"✅ {p_name_a} AND-1 slam through contact! +{pts_a} PTS"
+                line_1 = f"✅ {meter_badge} {p_name_a} AND-1 slam through contact! +{pts_a} PTS"
             else:
-                line_1 = f"✅ {p_name_a} powers to rim for layup! +{pts_a} PTS"
+                sig = superstar_signatures.get(p_name_a, "powers to rim for layup!")
+                line_1 = f"✅ {meter_badge} {p_name_a} {sig} +{pts_a} PTS"
         else:
-            line_1 = f"❌ {p_name_a} drive denied in paint. +0 PTS"
+            line_1 = f"❌ {meter_badge} {p_name_a} drive denied in paint. +0 PTS"
     elif action_key == "pnr":
         if success_a:
-            line_1 = f"✅ {p_name_a} reads pick-and-roll screen for jumper! +{pts_a} PTS"
+            line_1 = f"✅ {meter_badge} {p_name_a} reads pick-and-roll screen for jumper! +{pts_a} PTS"
         else:
-            line_1 = f"❌ {p_name_a} pick-and-roll pass broken up. +0 PTS"
+            line_1 = f"❌ {meter_badge} {p_name_a} pick-and-roll pass broken up. +0 PTS"
     elif action_key == "defense":
         if success_a:
-            line_1 = f"✅ {p_name_a} clamp forces turnover fastbreak score! +{pts_a} PTS"
+            line_1 = f"✅ {meter_badge} {p_name_a} clamp forces turnover fastbreak score! +{pts_a} PTS"
         else:
-            line_1 = f"❌ {p_name_a} defensive gamble fails on perimeter. +0 PTS"
+            line_1 = f"❌ {meter_badge} {p_name_a} defensive gamble fails on perimeter. +0 PTS"
     elif action_key == "iso":
         if success_a:
-            line_1 = f"✅ {p_name_a} shakes defender with mamba pull-up! +{pts_a} PTS"
+            sig = superstar_signatures.get(p_name_a, "shakes defender with mamba pull-up!")
+            line_1 = f"✅ {meter_badge} {p_name_a} {sig} +{pts_a} PTS"
         else:
-            line_1 = f"❌ {p_name_a} isolation locked down at buzzer. +0 PTS"
+            line_1 = f"❌ {meter_badge} {p_name_a} isolation locked down at buzzer. +0 PTS"
     else:
         act_name = TACTICAL_OUTCOMES.get(action_key, {}).get("name", "Play")
         if success_a:
-            line_1 = f"✅ {p_name_a} executes {act_name} successfully! +{pts_a} PTS"
+            line_1 = f"✅ {meter_badge} {p_name_a} executes {act_name} successfully! +{pts_a} PTS"
         else:
-            line_1 = f"❌ {p_name_a} stopped on {act_name}. +0 PTS"
+            line_1 = f"❌ {meter_badge} {p_name_a} stopped on {act_name}. +0 PTS"
 
     # Line 2: Defensive result (<10 words)
     pts_b = res_b.get("pts", 0)
     success_b = res_b.get("success", False)
     if success_b and pts_b > 0:
         if pts_b >= 3:
-            line_2 = f"✅ {opp_disp} scores from deep. +{pts_b} PTS"
+            line_2 = f"✅ [🟡 LIGHT CONTEST] {opp_disp} scores from deep. +{pts_b} PTS"
         else:
-            line_2 = f"✅ {opp_disp} scores in paint. +{pts_b} PTS"
+            line_2 = f"✅ [🟡 LIGHT CONTEST] {opp_disp} scores in paint. +{pts_b} PTS"
     else:
         scheme_reasons = {
             "drop_coverage": "Contested",
@@ -4879,7 +4921,7 @@ def format_possession_outcome_2lines(
             "switch_mismatch": "Recovered"
         }
         reason = scheme_reasons.get(scheme_key, "Contested")
-        line_2 = f"❌ {opp_disp} stopped. Reason: {reason}."
+        line_2 = f"❌ [🔴 {reason.upper()}] {opp_disp} stopped at the rim."
 
     return f"{line_1}\n{line_2}"
 
@@ -5596,6 +5638,40 @@ class InteractiveTeamBattleView(discord.ui.View):
                 inline=False
             )
 
+        mvp_data = {
+            "name": p_name,
+            "pts": mvp_pts,
+            "reb": mvp_reb,
+            "ast": mvp_ast,
+            "blk": mvp_blk,
+            "fg_pct": f"{random.randint(58, 74)}%",
+            "team": p_team,
+            "pos": mvp_player.get("pos", "SG"),
+            "quote": mvp_quote
+        }
+        try:
+            boxscore_buf = generate_team_battle_boxscore_image(
+                user_a_name=self.author.display_name,
+                user_b_name=self.opponent.display_name,
+                score_a=final_score_a,
+                score_b=final_score_b,
+                duels_won_a=self.duels_won_a,
+                duels_won_b=self.duels_won_b,
+                round_history=self.round_history,
+                picks_a=self.picks_a,
+                picks_b=self.picks_b,
+                eval_a=self.eval_a,
+                eval_b=self.eval_b,
+                mvp_data=mvp_data,
+                winner_is_a=winner_is_a,
+                stats_a=updated_stats_a,
+                stats_b=updated_stats_b
+            )
+            self.final_boxscore_buf = boxscore_buf
+            embed.set_image(url="attachment://boxscore_matchup.png")
+        except Exception as img_err:
+            logger.debug(f"Error generating final boxscore image: {img_err}")
+
         embed.set_footer(text="Sweety Live Tactical NBA Engine • Real coaching decisions beat pure OVR!")
         embed.timestamp = discord.utils.utcnow()
         self.final_embed = embed
@@ -5669,7 +5745,17 @@ class InteractiveTeamBattleView(discord.ui.View):
 
             if self.is_game_over:
                 embed = self.final_embed if self.final_embed else (await self._process_game_over() if self.current_round >= 5 else self.make_battle_embed())
-                await interaction.edit_original_response(embed=embed, view=self)
+                boxscore_file = None
+                if getattr(self, "final_boxscore_buf", None):
+                    try:
+                        self.final_boxscore_buf.seek(0)
+                        boxscore_file = discord.File(self.final_boxscore_buf, filename="boxscore_matchup.png")
+                    except Exception:
+                        pass
+                if boxscore_file:
+                    await interaction.edit_original_response(embed=embed, attachments=[boxscore_file], view=self)
+                else:
+                    await interaction.edit_original_response(embed=embed, view=self)
                 return
 
             self._is_resolving = True
@@ -5955,7 +6041,15 @@ class InteractiveTeamBattleView(discord.ui.View):
                 self._build_controls()
                 embed = self.make_battle_embed()
 
-            await interaction.edit_original_response(embed=embed, view=self)
+            if self.is_game_over and getattr(self, "final_boxscore_buf", None):
+                try:
+                    self.final_boxscore_buf.seek(0)
+                    boxscore_file = discord.File(self.final_boxscore_buf, filename="boxscore_matchup.png")
+                    await interaction.edit_original_response(embed=embed, attachments=[boxscore_file], view=self)
+                except Exception:
+                    await interaction.edit_original_response(embed=embed, view=self)
+            else:
+                await interaction.edit_original_response(embed=embed, view=self)
 
             # Send Sweety trash talk: delete previous trash talk before sending the next one (0 spam, at most 1 message)
             if self.is_sweety_ai and sweety_talk_line and not self.is_game_over:
@@ -6065,7 +6159,15 @@ class InteractiveTeamBattleView(discord.ui.View):
             self.is_game_over = True
             self._build_controls()
             embed = await self._process_game_over()
-            await interaction.edit_original_response(embed=embed, view=self)
+            if self.is_game_over and getattr(self, "final_boxscore_buf", None):
+                try:
+                    self.final_boxscore_buf.seek(0)
+                    boxscore_file = discord.File(self.final_boxscore_buf, filename="boxscore_matchup.png")
+                    await interaction.edit_original_response(embed=embed, attachments=[boxscore_file], view=self)
+                except Exception:
+                    await interaction.edit_original_response(embed=embed, view=self)
+            else:
+                await interaction.edit_original_response(embed=embed, view=self)
         except Exception as e:
             logger.error(f"[InteractiveTeamBattleView] handle_simulate_remainder error: {e}", exc_info=True)
             try:
@@ -6234,13 +6336,21 @@ class TeamBattleChallengeView(discord.ui.View):
                 return
 
             self.stop()
-            battle_embed = await build_teambattle_embed(self.author, self.opponent, self.row_a, self.row_b)
+            battle_embed, boxscore_file = await build_teambattle_embed(self.author, self.opponent, self.row_a, self.row_b)
             rematch_view = TeamBattleRematchView(self.author, self.opponent, self.row_a, self.row_b)
-            await interaction.response.edit_message(
-                content=f"⚡ **Quick Simulation Played by {self.opponent.mention}!**",
-                embed=battle_embed,
-                view=rematch_view
-            )
+            if boxscore_file:
+                await interaction.response.edit_message(
+                    content=f"⚡ **Quick Simulation Played by {self.opponent.mention}!**",
+                    embed=battle_embed,
+                    attachments=[boxscore_file],
+                    view=rematch_view
+                )
+            else:
+                await interaction.response.edit_message(
+                    content=f"⚡ **Quick Simulation Played by {self.opponent.mention}!**",
+                    embed=battle_embed,
+                    view=rematch_view
+                )
         except Exception as e:
             logger.error(f"[TeamBattleChallengeView] accept_quick_callback error: {e}", exc_info=True)
             try:
@@ -7648,6 +7758,261 @@ def generate_versus_matchup_image(
     return buf
 
 
+def generate_team_battle_boxscore_image(
+    user_a_name: str,
+    user_b_name: str,
+    score_a: int,
+    score_b: int,
+    duels_won_a: int,
+    duels_won_b: int,
+    round_history: list,
+    picks_a: dict,
+    picks_b: dict,
+    eval_a: dict,
+    eval_b: dict,
+    mvp_data: dict,
+    winner_is_a: bool,
+    stats_a: dict = None,
+    stats_b: dict = None
+) -> io.BytesIO:
+    """Generates a broadcast-ready 1600x960 Post-Game Box Score Graphic with 5-quarter breakdown, MVP photo spotlight, and telemetry."""
+    W, H = 1600, 960
+    canvas = Image.new("RGBA", (W, H), (8, 12, 22, 255))
+    draw = ImageDraw.Draw(canvas)
+
+    # 1. Split-Arena Dark Gradient Background
+    for y in range(H):
+        t = y / H
+        r = int(8 * (1 - t) + 16 * t)
+        g = int(12 * (1 - t) + 20 * t)
+        b = int(22 * (1 - t) + 38 * t)
+        draw.line([(0, y), (W, y)], fill=(r, g, b, 255))
+
+    # Ambient corner glow
+    glow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    g_draw = ImageDraw.Draw(glow_layer)
+    if winner_is_a:
+        g_draw.ellipse([-120, -120, 800, 800], fill=(239, 68, 68, 35))
+        g_draw.ellipse([W - 700, -100, W + 100, 700], fill=(59, 130, 246, 20))
+    else:
+        g_draw.ellipse([-120, -120, 800, 800], fill=(239, 68, 68, 20))
+        g_draw.ellipse([W - 700, -100, W + 100, 700], fill=(59, 130, 246, 35))
+    g_draw.ellipse([W - 600, 200, W + 50, 850], fill=(255, 184, 0, 25))
+    canvas = Image.alpha_composite(canvas, glow_layer)
+    draw = ImageDraw.Draw(canvas)
+
+    f_sub = _get_nba_card_font(12, bold=True)
+    f_tname = _get_nba_card_font(24, bold=True)
+    f_score = _get_nba_card_font(38, bold=True)
+    f_meta = _get_nba_card_font(13, bold=False)
+    f_pname = _get_nba_card_font(16, bold=True)
+    f_stat = _get_nba_card_font(12, bold=True)
+    f_pos = _get_nba_card_font(15, bold=True)
+
+    # 2. Top Header HUD
+    box_a_w = W//2 - 140
+    border_a = (239, 68, 68, 255) if winner_is_a else (75, 85, 99, 180)
+    bg_a = (25, 20, 30, 245) if winner_is_a else (14, 18, 28, 240)
+    draw.rounded_rectangle([(35, 20), (35 + box_a_w, 130)], radius=16, fill=bg_a, outline=border_a, width=2)
+    draw.line([(55, 20), (35 + box_a_w - 20, 20)], fill=(239, 68, 68, 255), width=2)
+
+    win_tag_a = "WINNER • CHAMPION" if winner_is_a else "FINALIST • HOME"
+    draw.text((55, 30), win_tag_a, fill=(248, 113, 113, 255) if winner_is_a else (156, 163, 175, 255), font=f_sub)
+    draw.text((55, 48), f"{user_a_name.upper()[:15]}'S SQUAD", fill=(255, 255, 255, 255), font=f_tname)
+    
+    tier_a = eval_a.get("tier", "S Tier").split("•")[0].strip()
+    draw.text((55, 82), f"{score_a} PTS", fill=(255, 255, 255, 255), font=f_score)
+    draw.text((210, 92), f"({duels_won_a}/5 DUELS) • {eval_a.get('ovr', 90)} OVR {tier_a}", fill=(255, 184, 0, 255), font=f_meta)
+
+    # Team B Card (Away)
+    box_b_x = W//2 + 105
+    border_b = (59, 130, 246, 255) if not winner_is_a else (75, 85, 99, 180)
+    bg_b = (18, 24, 38, 245) if not winner_is_a else (14, 18, 28, 240)
+    draw.rounded_rectangle([(box_b_x, 20), (W - 35, 130)], radius=16, fill=bg_b, outline=border_b, width=2)
+    draw.line([(box_b_x + 20, 20), (W - 55, 20)], fill=(59, 130, 246, 255), width=2)
+
+    win_tag_b = "WINNER • CHAMPION" if not winner_is_a else "FINALIST • AWAY"
+    b_right_margin = W - 55
+
+    def draw_right_text(text: str, y: int, color, font):
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        draw.text((b_right_margin - tw, y), text, fill=color, font=font)
+        return tw
+
+    draw_right_text(win_tag_b, 30, (96, 165, 250, 255) if not winner_is_a else (156, 163, 175, 255), f_sub)
+    draw_right_text(f"{user_b_name.upper()[:15]}'S SQUAD", 48, (255, 255, 255, 255), f_tname)
+    tier_b = eval_b.get("tier", "S Tier").split("•")[0].strip()
+    draw_right_text(f"{score_b} PTS", 82, (255, 255, 255, 255), f_score)
+    draw_right_text(f"{tier_b} {eval_b.get('ovr', 90)} OVR • ({duels_won_b}/5 DUELS)", 92, (56, 189, 248, 255), f_meta)
+
+    # Center Finals Trophy Crest
+    draw.rounded_rectangle([(W//2 - 80, 15), (W//2 + 80, 135)], radius=20, fill=(10, 14, 24, 255), outline=(255, 184, 0, 255), width=3)
+    f_vs_sub = _get_nba_card_font(10, bold=True)
+    f_vs_main = _get_nba_card_font(34, bold=True)
+    draw.text((W//2 - 42, 24), "FINAL BUZZER", fill=(255, 184, 0, 255), font=f_vs_sub)
+    draw.text((W//2 - 58, 42), f"{score_a} - {score_b}", fill=(255, 255, 255, 255), font=f_vs_main)
+    draw.text((W//2 - 46, 102), "BOX SCORE", fill=(148, 163, 184, 255), font=f_vs_sub)
+
+    # 3. Left Table: 5-Quarter Positional Duels Breakdown (Width: 970px)
+    row_y_start = 150
+    row_h = 104
+    row_gap = 14
+    table_w = 970
+
+    positions = ["PG", "SG", "SF", "PF", "C"]
+    for idx, pos in enumerate(positions):
+        ry = row_y_start + idx * (row_h + row_gap)
+        p_a = picks_a.get(pos, {"name": "Player A", "cost": 1, "team": "NBA"})
+        p_b = picks_b.get(pos, {"name": "Player B", "cost": 1, "team": "NBA"})
+
+        h_entry = next((h for h in round_history if h.get("pos") == pos), None)
+        pts_q_a = h_entry.get("pts_a", 7) if h_entry else 7
+        pts_q_b = h_entry.get("pts_b", 5) if h_entry else 5
+        won_q_a = h_entry.get("won_a", pts_q_a >= pts_q_b) if h_entry else (pts_q_a >= pts_q_b)
+        highlight = h_entry.get("highlight", f"{p_a.get('name')} and {p_b.get('name')} battle in {pos} duel.") if h_entry else ""
+
+        # Background Plate
+        draw.rounded_rectangle([(35, ry), (35 + table_w, ry + row_h)], radius=12, fill=(14, 19, 30, 245), outline=(38, 50, 72, 255), width=2)
+
+        # Center Quarter Badge
+        draw.rounded_rectangle([(35 + table_w//2 - 55, ry + 12), (35 + table_w//2 + 55, ry + row_h - 12)], radius=10, fill=(18, 24, 38, 255), outline=(255, 184, 0, 220), width=2)
+        draw.text((35 + table_w//2 - 16, ry + 20), pos, fill=(255, 255, 255, 255), font=f_pos)
+        draw.text((35 + table_w//2 - 28, ry + 46), f"{pts_q_a} - {pts_q_b}", fill=(255, 184, 0, 255), font=_get_nba_card_font(14, bold=True))
+        q_tag = "Q" + str(idx + 1) + (" ◄" if won_q_a else " ►")
+        draw.text((35 + table_w//2 - 18, ry + 68), q_tag, fill=(34, 197, 94, 255) if won_q_a else (56, 189, 248, 255), font=_get_nba_card_font(11, bold=True))
+
+        # Left Player (Team A)
+        p_a_col = (34, 197, 94, 255) if won_q_a else (203, 213, 225, 255)
+        draw.text((55, ry + 14), f"{p_a.get('name', 'Player').upper()}", fill=p_a_col, font=f_pname)
+        draw.text((55, ry + 38), f"${p_a.get('cost', 1)} | {p_a.get('team', 'NBA')} | [{p_a.get('ovr', 85)} OVR]", fill=(148, 163, 184, 255), font=f_stat)
+        
+        # Right Player (Team B)
+        p_b_col = (56, 189, 248, 255) if not won_q_a else (203, 213, 225, 255)
+        p_b_str = f"{p_b.get('name', 'Player').upper()}"
+        b_bbox = draw.textbbox((0, 0), p_b_str, font=f_pname)
+        draw.text((35 + table_w - 20 - (b_bbox[2] - b_bbox[0]), ry + 14), p_b_str, fill=p_b_col, font=f_pname)
+        
+        meta_b_str = f"[{p_b.get('ovr', 85)} OVR] | {p_b.get('team', 'NBA')} | ${p_b.get('cost', 1)}"
+        b_meta_box = draw.textbbox((0, 0), meta_b_str, font=f_stat)
+        draw.text((35 + table_w - 20 - (b_meta_box[2] - b_meta_box[0]), ry + 38), meta_b_str, fill=(148, 163, 184, 255), font=f_stat)
+
+        # Highlight subtitle bar
+        draw.line([(55, ry + 64), (35 + table_w - 20, ry + 64)], fill=(28, 38, 56, 255), width=1)
+        hl_short = f"► {highlight}"[:95]
+        draw.text((55, ry + 74), hl_short, fill=(245, 158, 11, 255) if "!" in hl_short else (148, 163, 184, 255), font=_get_nba_card_font(12, bold=False))
+
+    # 4. Right Section: MVP Spotlight
+    mvp_x = 35 + table_w + 25
+    mvp_w = W - 35 - mvp_x
+    mvp_h = 5 * (row_h + row_gap) - row_gap
+
+    # Container
+    draw.rounded_rectangle([(mvp_x, row_y_start), (mvp_x + mvp_w, row_y_start + mvp_h)], radius=16, fill=(16, 20, 34, 245), outline=(255, 184, 0, 255), width=3)
+    draw.line([(mvp_x + 20, row_y_start), (mvp_x + mvp_w - 20, row_y_start)], fill=(255, 184, 0, 255), width=3)
+
+    # Header
+    draw.rounded_rectangle([(mvp_x + 25, row_y_start + 16), (mvp_x + mvp_w - 25, row_y_start + 50)], radius=8, fill=(255, 184, 0, 255))
+    draw.text((mvp_x + 65, row_y_start + 24), "PLAYER OF THE MATCH (MVP)", fill=(10, 14, 24, 255), font=_get_nba_card_font(14, bold=True))
+
+    mvp_name = mvp_data.get("name", "Michael Jordan")
+    mvp_team = mvp_data.get("team", "NBA")
+    mvp_pos = mvp_data.get("pos", "SG")
+
+    # Photo Box
+    photo_box_y = row_y_start + 65
+    photo_box_h = 240
+    photo_box_w = mvp_w - 50
+    photo_box_x = mvp_x + 25
+
+    draw.rounded_rectangle([(photo_box_x, photo_box_y), (photo_box_x + photo_box_w, photo_box_y + photo_box_h)], radius=12, fill=(10, 14, 24, 255), outline=(255, 184, 0, 180), width=2)
+
+    mvp_img = get_nba_player_moment_photo(mvp_name)
+    if mvp_img:
+        try:
+            target_w, target_h = photo_box_w - 4, photo_box_h - 4
+            aspect = mvp_img.width / max(1, mvp_img.height)
+            if aspect > (target_w / target_h):
+                scale_h = target_h
+                scale_w = int(scale_h * aspect)
+            else:
+                scale_w = target_w
+                scale_h = int(scale_w / aspect)
+            sc_img = mvp_img.resize((scale_w, scale_h), Image.Resampling.LANCZOS)
+            cr_img = sc_img.crop(((sc_img.width - target_w)//2, (sc_img.height - target_h)//4, (sc_img.width - target_w)//2 + target_w, (sc_img.height - target_h)//4 + target_h))
+
+            mvp_mask = Image.new("L", (target_w, target_h), 0)
+            m_draw = ImageDraw.Draw(mvp_mask)
+            m_draw.rounded_rectangle([(0, 0), (target_w, target_h)], radius=10, fill=255)
+            cr_img = cr_img.convert("RGBA")
+            cr_img.putalpha(mvp_mask)
+            canvas.paste(cr_img, (photo_box_x + 2, photo_box_y + 2), cr_img)
+            draw = ImageDraw.Draw(canvas)
+        except Exception:
+            pass
+
+    # Details
+    draw.text((mvp_x + 25, photo_box_y + photo_box_h + 14), mvp_name.upper(), fill=(255, 255, 255, 255), font=_get_nba_card_font(22, bold=True))
+    draw.text((mvp_x + 25, photo_box_y + photo_box_h + 42), f"{mvp_pos} • {mvp_team} • G.O.A.T. TIER (99 OVR)", fill=(255, 184, 0, 255), font=_get_nba_card_font(13, bold=True))
+
+    # Grid
+    grid_y = photo_box_y + photo_box_h + 70
+    stat_tiles = [
+        ("POINTS", f"{mvp_data.get('pts', 34)} PTS", (239, 68, 68, 255)),
+        ("ASSISTS", f"{mvp_data.get('ast', 8)} AST", (59, 130, 246, 255)),
+        ("REBOUNDS", f"{mvp_data.get('reb', 7)} REB", (34, 197, 94, 255)),
+        ("FG EFFICIENCY", f"{mvp_data.get('fg_pct', '64%')}", (255, 184, 0, 255))
+    ]
+
+    tile_w = (mvp_w - 60) // 2
+    tile_h = 52
+    for s_idx, (s_lbl, s_val, s_col) in enumerate(stat_tiles):
+        tx = mvp_x + 25 + (s_idx % 2) * (tile_w + 10)
+        ty = grid_y + (s_idx // 2) * (tile_h + 8)
+        draw.rounded_rectangle([(tx, ty), (tx + tile_w, ty + tile_h)], radius=8, fill=(12, 16, 28, 255), outline=(38, 50, 72, 255), width=1)
+        draw.text((tx + 10, ty + 6), s_lbl, fill=(148, 163, 184, 255), font=_get_nba_card_font(10, bold=True))
+        draw.text((tx + 10, ty + 22), s_val, fill=s_col, font=_get_nba_card_font(16, bold=True))
+
+    # Quote
+    quote_y = grid_y + 2 * (tile_h + 8) + 8
+    quote_text = f"\"{mvp_data.get('quote', 'Showtime never stops!')}\""[:85]
+    draw.text((mvp_x + 25, quote_y), quote_text, fill=(203, 213, 225, 255), font=_get_nba_card_font(12, bold=False))
+
+    # 5. Bottom HUD
+    hud_y = row_y_start + 5 * (row_h + row_gap) + 12
+    hud_h = 150
+    draw.rounded_rectangle([(35, hud_y), (W - 35, hud_y + hud_h)], radius=14, fill=(13, 18, 30, 245), outline=(38, 50, 72, 255), width=2)
+    draw.line([(55, hud_y), (W - 55, hud_y)], fill=(255, 184, 0, 180), width=2)
+
+    draw.text((55, hud_y + 10), "FINAL TEAM ATTRIBUTE EFFICIENCY & GAME METRICS", fill=(255, 184, 0, 255), font=_get_nba_card_font(13, bold=True))
+
+    metrics = [
+        ("FG SHOOTING", f"{eval_a.get('avg_3pt', 85) - 2}%", f"{eval_b.get('avg_3pt', 85) - 4}%"),
+        ("PAINT POINTS", f"{duels_won_a * 14 + 18} PTS", f"{duels_won_b * 14 + 16} PTS"),
+        ("3PT ACCURACY", f"{eval_a.get('avg_3pt', 88)}%", f"{eval_b.get('avg_3pt', 84)}%"),
+        ("TOTAL REBOUNDS", f"{24 + duels_won_a * 3} REB", f"{22 + duels_won_b * 3} REB"),
+        ("FASTBREAK PTS", f"{12 + duels_won_a * 4} PTS", f"{10 + duels_won_b * 4} PTS"),
+    ]
+
+    col_w = (W - 120) // len(metrics)
+    for m_idx, (m_lbl, val_a, val_b) in enumerate(metrics):
+        mx = 55 + m_idx * col_w
+        my = hud_y + 36
+        draw.text((mx + 10, my), m_lbl, fill=(148, 163, 184, 255), font=_get_nba_card_font(11, bold=True))
+        draw.text((mx + 10, my + 20), f"A: {val_a}", fill=(248, 113, 113, 255), font=_get_nba_card_font(13, bold=True))
+        draw.text((mx + col_w - 75, my + 20), f"B: {val_b}", fill=(96, 165, 250, 255), font=_get_nba_card_font(13, bold=True))
+        if m_idx < len(metrics) - 1:
+            draw.line([(mx + col_w - 10, hud_y + 35), (mx + col_w - 10, hud_y + hud_h - 45)], fill=(38, 50, 72, 255), width=1)
+
+    draw.rounded_rectangle([(55, hud_y + hud_h - 38), (W - 55, hud_y + hud_h - 10)], radius=8, fill=(20, 28, 45, 255), outline=(255, 184, 0, 180), width=1)
+    draw.text((75, hud_y + hud_h - 30), "REWARDS & PROGRESSION: +250 VC Winner • +50 VC Participation • GM Rank Points Awarded • Rivalry Series Recorded", fill=(255, 184, 0, 255), font=_get_nba_card_font(12, bold=True))
+
+    buf = io.BytesIO()
+    canvas.convert("RGB").save(buf, format="PNG", quality=95)
+    buf.seek(0)
+    return buf
+
+
 async def build_battlecard_embed(
     user_a: Union[discord.Member, discord.User],
     user_b: Union[discord.Member, discord.User],
@@ -7694,8 +8059,8 @@ async def build_battlecard_embed(
         return fallback_embed, None
 
 
-async def build_teambattle_embed(author: Union[discord.Member, discord.User], opponent: Union[discord.Member, discord.User], row_a: Any, row_b: Any) -> discord.Embed:
-    """Simulates a Footdex-style positional head-to-head card battle, updates career records & streaks in DB, and awards GM achievements."""
+async def build_teambattle_embed(author: Union[discord.Member, discord.User], opponent: Union[discord.Member, discord.User], row_a: Any, row_b: Any) -> tuple[discord.Embed, Optional[discord.File]]:
+    """Simulates a Footdex-style positional head-to-head card battle, updates career records & streaks in DB, generates HD box score graphic, and awards GM achievements."""
     picks_a = extract_picks_from_row(row_a)
     picks_b = extract_picks_from_row(row_b)
 
@@ -7797,6 +8162,7 @@ async def build_teambattle_embed(author: Union[discord.Member, discord.User], op
     if hasattr(winner_member, "display_avatar") and winner_member.display_avatar:
         embed.set_thumbnail(url=winner_member.display_avatar.url)
 
+    round_history = []
     for idx, d in enumerate(battle["duels"], 1):
         pos_code = d["pos"]
         pos_title = d["pos_full"]
@@ -7806,6 +8172,16 @@ async def build_teambattle_embed(author: Union[discord.Member, discord.User], op
         pts_b = d["pts_b"]
         icon_a = "🟢" if d["a_won"] else "🔴"
         icon_b = "🟢" if not d["a_won"] else "🔴"
+
+        round_history.append({
+            "pos": pos_code,
+            "pos_full": pos_title,
+            "pts_a": pts_a,
+            "pts_b": pts_b,
+            "won_a": d["a_won"],
+            "a_won": d["a_won"],
+            "highlight": d.get("highlight", "")
+        })
 
         field_name = f"🏀 Round {idx} • {pos_title} ({pos_code}) Matchup"
         field_value = (
@@ -7830,9 +8206,45 @@ async def build_teambattle_embed(author: Union[discord.Member, discord.User], op
             inline=False
         )
 
+    mvp_data = {
+        "name": mvp.get("name", "Michael Jordan"),
+        "pts": battle.get("mvp_pts", 32),
+        "reb": battle.get("mvp_reb", 8),
+        "ast": battle.get("mvp_ast", 8),
+        "blk": battle.get("mvp_blk", 2),
+        "fg_pct": f"{random.randint(58, 74)}%",
+        "team": mvp.get("team", "NBA"),
+        "pos": mvp.get("pos", "SG"),
+        "quote": get_nba_player_mvp_quote(mvp.get("name", ""))
+    }
+
+    boxscore_file = None
+    try:
+        boxscore_buf = generate_team_battle_boxscore_image(
+            user_a_name=author.display_name,
+            user_b_name=opponent.display_name,
+            score_a=battle["score_a"],
+            score_b=battle["score_b"],
+            duels_won_a=battle["duels_won_a"],
+            duels_won_b=battle["duels_won_b"],
+            round_history=round_history,
+            picks_a=picks_a,
+            picks_b=picks_b,
+            eval_a=eval_a,
+            eval_b=eval_b,
+            mvp_data=mvp_data,
+            winner_is_a=winner_is_a,
+            stats_a=updated_stats_a,
+            stats_b=updated_stats_b
+        )
+        boxscore_file = discord.File(boxscore_buf, filename="boxscore_matchup.png")
+        embed.set_image(url="attachment://boxscore_matchup.png")
+    except Exception as img_err:
+        logger.error(f"Error generating quick battle boxscore image: {img_err}", exc_info=True)
+
     embed.set_footer(text="Sweety NBA Positional Duel Engine • Challenge members with /teambattle @user")
     embed.timestamp = discord.utils.utcnow()
-    return embed
+    return embed, boxscore_file
 
 
 def build_teamleaderboard_embed(rows: List[Any]) -> discord.Embed:
