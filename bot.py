@@ -10097,6 +10097,47 @@ def get_nba_card_moment(card: Dict[str, Any]) -> str:
     return f"{card.get('theme', 'Signature Series')} Highlight"
 
 
+_NBA_LOCAL_MOMENTS_MAP: Dict[str, str] = {}
+
+def get_nba_player_moment_photo(player_name: str) -> Optional[Image.Image]:
+    """Resolves and loads a local high-resolution match moment action photo from assets/moments/."""
+    global _NBA_LOCAL_MOMENTS_MAP
+    moments_dir = os.path.join(os.path.dirname(__file__), "assets", "moments")
+    if not os.path.exists(moments_dir):
+        return None
+        
+    if not _NBA_LOCAL_MOMENTS_MAP:
+        try:
+            for d in os.listdir(moments_dir):
+                full_d = os.path.join(moments_dir, d)
+                if os.path.isdir(full_d):
+                    for fname in ["1.jpg", "1.png", "2.jpg", "photo.jpg"]:
+                        fpath = os.path.join(full_d, fname)
+                        if os.path.exists(fpath) and os.path.getsize(fpath) > 3000:
+                            norm_d = unicodedata.normalize('NFKD', d).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+                            _NBA_LOCAL_MOMENTS_MAP[norm_d] = fpath
+                            _NBA_LOCAL_MOMENTS_MAP[d.lower().strip()] = fpath
+                            break
+        except Exception:
+            pass
+
+    clean_q = unicodedata.normalize('NFKD', player_name).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+    fpath = _NBA_LOCAL_MOMENTS_MAP.get(clean_q) or _NBA_LOCAL_MOMENTS_MAP.get(player_name.lower().strip())
+    
+    if not fpath:
+        for k, p in _NBA_LOCAL_MOMENTS_MAP.items():
+            if k in clean_q or clean_q in k:
+                fpath = p
+                break
+                
+    if fpath and os.path.exists(fpath):
+        try:
+            return Image.open(fpath)
+        except Exception:
+            return None
+    return None
+
+
 def generate_nba_card_graphic(
     card: Dict[str, Any],
     is_mystery: bool = False,
@@ -10157,31 +10198,22 @@ def generate_nba_card_graphic(
         card_img = Image.alpha_composite(card_img, sil_layer)
         draw = ImageDraw.Draw(card_img)
     else:
-        # Check if local real match moment photo exists
-        local_moment_path = None
-        p_name = card.get("name", "").strip()
-        candidates = [
-            os.path.join(os.path.dirname(__file__), "assets", "moments", p_name, "1.jpg"),
-            os.path.join(os.path.dirname(__file__), "assets", "moments", p_name, "2.jpg"),
-            os.path.join(os.path.dirname(__file__), "assets", "moments", re.sub(r'[\\/*?:"<>|]', "", p_name), "1.jpg"),
-        ]
-        for cp in candidates:
-            if os.path.exists(cp) and os.path.getsize(cp) > 4000:
-                local_moment_path = cp
-                break
+        # 1. Try loading real match moment photo from local catalog
+        action_photo = None
+        if not headshot_img:
+            action_photo = get_nba_player_moment_photo(card.get("name", ""))
 
-        if local_moment_path and not headshot_img:
+        if action_photo:
             try:
-                raw_img = Image.open(local_moment_path)
                 target_w, target_h = 480, 420
-                aspect = raw_img.width / max(1, raw_img.height)
+                aspect = action_photo.width / max(1, action_photo.height)
                 if aspect > 1.15:
                     scale_h = target_h
                     scale_w = int(scale_h * aspect)
                 else:
                     scale_w = target_w
                     scale_h = int(scale_w / aspect)
-                p_scaled = raw_img.resize((scale_w, scale_h), Image.Resampling.LANCZOS)
+                p_scaled = action_photo.resize((scale_w, scale_h), Image.Resampling.LANCZOS)
                 left = max(0, (p_scaled.width - target_w) // 2)
                 top = max(0, (p_scaled.height - target_h) // 3)
                 p_cropped = p_scaled.crop((left, top, left + target_w, top + target_h))
@@ -10212,9 +10244,10 @@ def generate_nba_card_graphic(
                 card_img.paste(p_cropped.convert("RGBA"), (px, py), mask)
                 draw = ImageDraw.Draw(card_img)
             except Exception:
-                local_moment_path = None
+                action_photo = None
 
-        if not local_moment_path:
+        if not action_photo:
+            # Fallback to official transparent headshot cutout
             if not headshot_img:
                 headshot_img = get_nba_player_headshot(card.get("name", ""))
             if headshot_img:
