@@ -12863,6 +12863,22 @@ class GeminiBot(commands.Bot):
         self.add_view(DMAppealLauncherView())
         self.add_view(AppealReviewView())
 
+        # 5. Creator Master Binder Auto-Initialization (99 duplicates of all cards)
+        asyncio.create_task(self.initialize_creator_vault())
+
+    async def initialize_creator_vault(self):
+        """Asynchronously grants 99 copies of all NBA 2K Mobile cards to the creator."""
+        try:
+            creator_id = "719932313919684670"
+            catalog = globals().get("NBA_2K_MOBILE_CARDS", [])
+            if catalog:
+                target_counts = {c["id"]: 99 for c in catalog}
+                added = await db.grant_bulk_nba_cards(creator_id, target_counts)
+                if added > 0:
+                    logger.info(f"👑 [CREATOR VAULT] Successfully granted {added} cards (99 duplicates) to Creator ({creator_id}).")
+        except Exception as vault_err:
+            logger.error(f"Error in initialize_creator_vault: {vault_err}")
+
     @tasks.loop(minutes=5)
     async def check_expired_mutes(self):
         """Automatically removes @Muted role and native timeout after 7 days."""
@@ -18978,6 +18994,33 @@ async def nbafav_prefix_cmd(ctx: commands.Context, *, card_query: str):
     except Exception as e:
         logger.error(f"Error in !nbafav: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="grantallcards", aliases=["giveallcards", "godmodecards", "masterbinder"])
+async def grantallcards_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None, count: int = 99):
+    """Creator-only command to grant all cards with duplicates: !grantallcards [@user] [count]"""
+    if str(ctx.author.id) != "719932313919684670":
+        return await ctx.send("❌ This command is restricted to the Bot Creator.")
+
+    target = member or ctx.author
+    catalog = globals().get("NBA_2K_MOBILE_CARDS", [])
+    if not catalog:
+        return await ctx.send("❌ NBA card catalog not loaded.")
+
+    target_counts = {c["id"]: max(1, min(count, 999)) for c in catalog}
+    msg = await ctx.send(f"⏳ Granting `{count}` copies of all `{len(catalog)}` cards to {target.mention}...")
+
+    added = await db.grant_bulk_nba_cards(target.id, target_counts)
+    total_cards = len(catalog) * count
+    await msg.edit(
+        content=(
+            f"👑 **Creator Master Binder Granted!**\n"
+            f"✅ {target.mention} now possesses **`{count}` duplicates of all `{len(catalog)}` cards** "
+            f"(`{total_cards:,}` total cards in binder)!\n"
+            f"• Newly added: `{added:,}` copies\n"
+            f"• Check your binder with: `!nbadex`"
+        )
+    )
 
 
 @bot.tree.command(name="spawndrop", description="🏀 Instantly trigger a wild NBA 2K Mobile player card drop in chat (Staff)")

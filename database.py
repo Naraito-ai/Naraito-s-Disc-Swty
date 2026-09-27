@@ -1511,6 +1511,37 @@ class DatabaseManager:
         """Safely and atomically swaps card_a from user_a and card_b from user_b."""
         return await self.execute_multi_card_trade(user_a_id, user_b_id, [card_a_id], [card_b_id])
 
+    async def grant_bulk_nba_cards(self, user_id: Any, card_counts: Dict[str, int]) -> int:
+        """Ensures user_id has at least the specified count for each card in card_counts."""
+        u = str(user_id)
+        now = time.time()
+        
+        try:
+            owned = await self.fetch("SELECT card_id, COUNT(*) as cnt FROM user_nba_cards WHERE user_id = ? GROUP BY card_id", u)
+            owned_map = {str(r.get("card_id", "")).lower(): int(r.get("cnt", 0)) for r in owned}
+
+            inserts = []
+            for cid, target_count in card_counts.items():
+                cid_lower = cid.lower()
+                current_count = owned_map.get(cid_lower, 0)
+                needed = target_count - current_count
+                if needed > 0:
+                    for _ in range(needed):
+                        inserts.append((u, cid, now, "creator_grant"))
+
+            if not inserts:
+                return 0
+
+            for i in range(0, len(inserts), 250):
+                batch = inserts[i:i+250]
+                for item in batch:
+                    await self.execute("INSERT INTO user_nba_cards (user_id, card_id, obtained_at, source) VALUES (?, ?, ?, ?)", *item)
+
+            return len(inserts)
+        except Exception as e:
+            logger.error(f"Error granting bulk NBA cards to {u}: {e}")
+            return 0
+
     async def get_user_vc(self, user_id: Any) -> int:
         """Gets user's current VC (Virtual Currency) balance."""
         query = "SELECT vc_balance FROM user_nba_economy WHERE user_id = ?"
