@@ -8068,6 +8068,64 @@ async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name
 _active_nba_drops: Dict[int, Dict[str, Any]] = {}
 _nba_drop_msg_counts: Dict[int, int] = {}
 _nba_drop_last_timestamps: Dict[int, float] = {}
+_guild_last_active_channels: Dict[int, int] = {}
+
+NBA_2K_CARD_THEMES: Dict[str, Dict[str, Any]] = {
+    "dark_matter": {
+        "name": "DARK MATTER",
+        "primary": (168, 85, 247),
+        "secondary": (236, 72, 153),
+        "bg_top": (18, 10, 35),
+        "bg_bot": (48, 16, 78),
+        "border": (216, 180, 254),
+        "glow": (192, 132, 252)
+    },
+    "galaxy_opal": {
+        "name": "GALAXY OPAL",
+        "primary": (6, 182, 212),
+        "secondary": (244, 114, 182),
+        "bg_top": (10, 25, 45),
+        "bg_bot": (35, 15, 60),
+        "border": (165, 243, 252),
+        "glow": (103, 232, 249)
+    },
+    "diamond": {
+        "name": "DIAMOND",
+        "primary": (56, 189, 248),
+        "secondary": (186, 230, 253),
+        "bg_top": (8, 28, 50),
+        "bg_bot": (14, 55, 95),
+        "border": (224, 242, 254),
+        "glow": (125, 211, 252)
+    },
+    "amethyst": {
+        "name": "AMETHYST",
+        "primary": (192, 132, 252),
+        "secondary": (147, 51, 234),
+        "bg_top": (25, 12, 45),
+        "bg_bot": (55, 18, 90),
+        "border": (233, 213, 255),
+        "glow": (168, 85, 247)
+    },
+    "ruby": {
+        "name": "RUBY",
+        "primary": (239, 68, 68),
+        "secondary": (251, 113, 133),
+        "bg_top": (40, 10, 15),
+        "bg_bot": (80, 15, 25),
+        "border": (254, 202, 202),
+        "glow": (248, 113, 113)
+    },
+    "gold": {
+        "name": "GOLD",
+        "primary": (245, 158, 11),
+        "secondary": (253, 230, 138),
+        "bg_top": (38, 26, 8),
+        "bg_bot": (85, 58, 12),
+        "border": (254, 240, 138),
+        "glow": (251, 191, 36)
+    }
+}
 
 PLAYER_NICKNAMES: Dict[str, List[str]] = {
     "Michael Jordan": ["jordan", "mj", "air jordan", "goat"],
@@ -9235,6 +9293,158 @@ def format_stat_bar(val: int) -> str:
     return "█" * filled + "░" * (10 - filled)
 
 
+def generate_nba_card_graphic(
+    card: Dict[str, Any],
+    is_mystery: bool = False,
+    headshot_img: Optional[Image.Image] = None
+) -> io.BytesIO:
+    """Generates an authentic 520x740 vertical NBA 2K Mobile Card Graphic with dynamic tier lighting and player artwork."""
+    W, H = 520, 740
+    tier_key = card.get("tier", "gold").lower()
+    theme = NBA_2K_CARD_THEMES.get(tier_key, NBA_2K_CARD_THEMES["gold"])
+
+    card_img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    margin = 14
+    rect_box = [(margin, margin), (W - margin, H - margin)]
+    
+    bg_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    bg_draw = ImageDraw.Draw(bg_layer)
+    for y in range(margin, H - margin):
+        t = (y - margin) / max(1, (H - 2 * margin))
+        r = int(theme["bg_top"][0] * (1 - t) + theme["bg_bot"][0] * t)
+        g = int(theme["bg_top"][1] * (1 - t) + theme["bg_bot"][1] * t)
+        b = int(theme["bg_top"][2] * (1 - t) + theme["bg_bot"][2] * t)
+        bg_draw.line([(margin, y), (W - margin, y)], fill=(r, g, b, 255))
+        
+    mask = Image.new("L", (W, H), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.rounded_rectangle(rect_box, radius=24, fill=255)
+    
+    card_img.paste(bg_layer, (0, 0), mask)
+
+    # Grid / Holographic energy lines in background
+    grid_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    g_draw = ImageDraw.Draw(grid_layer)
+    for i in range(-200, W + 300, 45):
+        g_draw.line([(i, margin), (i + 180, H - margin)], fill=(*theme["glow"], 18), width=1)
+        g_draw.line([(i + 180, margin), (i, H - margin)], fill=(*theme["glow"], 18), width=1)
+    g_draw.ellipse([W//2 - 160, H//2 - 160, W//2 + 160, H//2 + 160], outline=(*theme["primary"], 35), width=2)
+    card_img = Image.alpha_composite(card_img, grid_layer)
+    draw = ImageDraw.Draw(card_img)
+
+    # Artwork
+    if is_mystery:
+        sil_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        s_draw = ImageDraw.Draw(sil_layer)
+        cx, cy = W // 2, H // 2 - 15
+        s_draw.ellipse([cx - 110, cy - 110, cx + 110, cy + 110], fill=(12, 16, 28, 230), outline=(*theme["glow"], 180), width=3)
+        s_draw.ellipse([cx - 125, cy - 125, cx + 125, cy + 125], outline=(*theme["primary"], 90), width=2)
+        s_draw.ellipse([cx - 140, cy - 140, cx + 140, cy + 140], outline=(*theme["secondary"], 45), width=1)
+        
+        f_q = _get_nba_card_font(120, bold=True)
+        s_draw.text((cx - 36, cy - 75), "?", fill=theme["border"], font=f_q)
+        
+        s_draw.rounded_rectangle([(cx - 160, cy + 85), (cx + 160, cy + 125)], radius=10, fill=(10, 14, 24, 240), outline=(*theme["primary"], 200), width=2)
+        f_who = _get_nba_card_font(16, bold=True)
+        s_draw.text((cx - 115, cy + 96), "WHO'S THAT 2K STAR?", fill=(255, 255, 255, 255), font=f_who)
+        
+        card_img = Image.alpha_composite(card_img, sil_layer)
+        draw = ImageDraw.Draw(card_img)
+    else:
+        if not headshot_img:
+            headshot_img = get_nba_player_headshot(card.get("name", ""))
+        if headshot_img:
+            try:
+                hs = headshot_img.copy()
+                hs.thumbnail((420, 360), Image.Resampling.LANCZOS)
+                hs_w, hs_h = hs.size
+                hs_x = (W - hs_w) // 2
+                hs_y = H // 2 - hs_h // 2 - 20
+                card_img.paste(hs, (hs_x, hs_y), hs)
+                draw = ImageDraw.Draw(card_img)
+            except Exception:
+                pass
+        else:
+            cx, cy = W // 2, H // 2 - 20
+            draw.ellipse([cx - 95, cy - 95, cx + 95, cy + 95], fill=(20, 26, 42, 220), outline=(*theme["primary"], 200), width=3)
+            f_init = _get_nba_card_font(72, bold=True)
+            initials = "".join([part[0] for part in card.get("name", "NBA").split()[:2]])
+            draw.text((cx - 45, cy - 45), initials, fill=theme["border"], font=f_init)
+
+    # Top Ribbon Bar
+    draw.rounded_rectangle([(margin + 12, margin + 10), (W - margin - 12, margin + 42)], radius=8, fill=(10, 14, 24, 230), outline=(*theme["border"], 180), width=1)
+    f_tier = _get_nba_card_font(13, bold=True)
+    tier_title = f"★  {theme['name']} EDITION  ★"
+    draw.text((W // 2 - int(len(tier_title) * 4.2), margin + 18), tier_title, fill=theme["border"], font=f_tier)
+
+    # Top-Left: OVR Badge & Position
+    ovr_box = [(margin + 12, margin + 52), (margin + 115, margin + 160)]
+    draw.rounded_rectangle(ovr_box, radius=12, fill=(12, 16, 28, 235), outline=(*theme["glow"], 220), width=2)
+    f_ovr = _get_nba_card_font(44, bold=True)
+    draw.text((margin + 24, margin + 55), str(card["ovr"]), fill=(255, 255, 255, 255), font=f_ovr)
+    f_ovr_lbl = _get_nba_card_font(11, bold=True)
+    draw.text((margin + 80, margin + 68), "OVR", fill=theme["border"], font=f_ovr_lbl)
+    
+    draw.line([(margin + 20, margin + 115), (margin + 107, margin + 115)], fill=(*theme["primary"], 120), width=1)
+    f_pos = _get_nba_card_font(18, bold=True)
+    draw.text((margin + 34, margin + 124), card.get("pos", "SF"), fill=theme["glow"], font=f_pos)
+
+    # Top-Right: Team Badge
+    team_box = [(W - margin - 105, margin + 52), (W - margin - 12, margin + 115)]
+    draw.rounded_rectangle(team_box, radius=12, fill=(12, 16, 28, 235), outline=(*theme["primary"], 180), width=2)
+    f_team_lbl = _get_nba_card_font(10, bold=True)
+    draw.text((W - margin - 88, margin + 58), "TEAM", fill=(148, 163, 184, 255), font=f_team_lbl)
+    f_team = _get_nba_card_font(24, bold=True)
+    draw.text((W - margin - 92, margin + 74), card.get("team", "NBA"), fill=(255, 255, 255, 255), font=f_team)
+
+    # Lower Card Banner
+    lower_box = [(margin + 12, H - margin - 170), (W - margin - 12, H - margin - 14)]
+    draw.rounded_rectangle(lower_box, radius=16, fill=(10, 14, 26, 245), outline=(*theme["border"], 220), width=2)
+    
+    name_display = "??? MYSTERY 2K STAR ???" if is_mystery else card["name"].upper()
+    f_name = _get_nba_card_font(22 if is_mystery else 24, bold=True)
+    draw.text((margin + 26, H - margin - 158), name_display, fill=(255, 255, 255, 255), font=f_name)
+    
+    sub_title = "Guess the player name in chat!" if is_mystery else f"{card.get('theme', 'Signature Series')} • {card.get('pos', 'SF')}/{card.get('sec_pos', 'SG')}"
+    f_sub = _get_nba_card_font(13, bold=False)
+    draw.text((margin + 26, H - margin - 128), sub_title, fill=theme["border"], font=f_sub)
+    
+    draw.line([(margin + 24, H - margin - 106), (W - margin - 24, H - margin - 106)], fill=(*theme["primary"], 120), width=1)
+    
+    stats_dict = card.get("stats", {"3pt": 90, "def": 90, "ath": 90, "clu": 90, "ins": 90, "ply": 90})
+    stat_keys = [("3PT", stats_dict.get("3pt", 90)), ("DEF", stats_dict.get("def", 90)), 
+                 ("ATH", stats_dict.get("ath", 90)), ("CLU", stats_dict.get("clu", 90))]
+    
+    stat_w = (W - 2 * margin - 60) // 4
+    for idx, (s_lbl, s_val) in enumerate(stat_keys):
+        sx = margin + 26 + idx * (stat_w + 8)
+        sy = H - margin - 96
+        draw.rounded_rectangle([(sx, sy), (sx + stat_w, sy + 42)], radius=6, fill=(18, 24, 40, 230), outline=(38, 50, 72, 200), width=1)
+        
+        f_slbl = _get_nba_card_font(10, bold=True)
+        draw.text((sx + 6, sy + 5), s_lbl, fill=(148, 163, 184, 255), font=f_slbl)
+        
+        f_sval = _get_nba_card_font(15, bold=True)
+        val_str = "??" if is_mystery else str(s_val)
+        draw.text((sx + 6, sy + 20), val_str, fill=theme["glow"], font=f_sval)
+
+    # Footer
+    f_foot = _get_nba_card_font(10, bold=True)
+    draw.text((margin + 26, H - margin - 38), "NBA 2K MOBILE • AUTHENTIC COLLECTIBLE", fill=(100, 116, 139, 255), font=f_foot)
+    cid_str = f"CARD ID: {card.get('id', 'nba-2k')}"
+    draw.text((W - margin - 26 - len(cid_str) * 6, H - margin - 38), cid_str, fill=(100, 116, 139, 255), font=f_foot)
+
+    # Outer Frame
+    draw.rounded_rectangle(rect_box, radius=24, outline=(*theme["border"], 255), width=3)
+    inner_box = [(margin + 4, margin + 4), (W - margin - 4, H - margin - 4)]
+    draw.rounded_rectangle(inner_box, radius=20, outline=(*theme["primary"], 120), width=1)
+
+    buf = io.BytesIO()
+    card_img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
 
 def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: bool = False, owner_user: Optional[discord.User] = None) -> discord.Embed:
     """Builds a full-detail NBA 2K Mobile inspection card embed."""
@@ -9484,56 +9694,46 @@ def build_trade_embed(sender_user: discord.User, target_user: discord.User, card
     return embed
 
 def build_nba_drop_embed(card: Dict[str, Any], hint_level: int = 1) -> discord.Embed:
-    """Builds a wild mystery card drop embed for chat."""
+    """Builds a clean, concise mystery card drop embed."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
     hint_str = generate_player_hint(card["name"], hint_level)
     embed = discord.Embed(
-        title="🏀 A WILD NBA 2K MOBILE CARD HAS APPEARED!",
+        title="🏀 A wild NBA 2K card appeared!",
         description=(
-            f"# 🏀 Who's That 2K Star?\n"
-            f"A wild basketball superstar card has dropped onto the court!\n\n"
-            f"**Guess and enter the player's name to catch this card!**\n"
-            f"• Type: **`!catch <player name>`** or **`/catch <player name>`**\n"
-            f"• Or click the **`[🏀 Enter Player Name]`** button below!\n\n"
-            f"*(First GM to send the correct name gets the card + 150 bonus VC!)*\n\n"
+            f"Guess the player name to catch this card!\n\n"
+            f"• **Type:** `!catch <name>` or guess in chat\n"
             f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
             f"• **Position:** `{card['pos']}` | **Team:** `{card['team']}`\n"
             f"• **Hint:** `{hint_str}`"
         ),
         color=tier_info["color"]
     )
-    if card.get("image_url"):
-        embed.set_image(url=card["image_url"])
-    embed.set_footer(text="NBA 2K Mobile Live Spawns • Type !catch <name> or click Enter Name below!")
+    embed.set_image(url="attachment://nba_card.png")
+    embed.set_footer(text="NBA 2K Mobile Spawns • First to guess catches the card + 150 VC!")
     embed.timestamp = discord.utils.utcnow()
     return embed
 
 def build_catch_success_embed(user: discord.User, card: Dict[str, Any], new_bal: int, copies: int) -> discord.Embed:
-    """Builds the celebratory embed when a player successfully catches a card first."""
+    """Builds a concise, clean catch success embed."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
     embed = discord.Embed(
-        title=f"🏀 {tier_info['emoji']} WILD CARD CAUGHT BY {user.display_name.upper()}!",
+        title=f"🏀 {tier_info['emoji']} Card Caught by {user.display_name}!",
         description=(
-            f"# 🎉 **CONGRATULATIONS {user.mention}!**\n"
-            f"You were the first GM to guess correctly and caught **[{card['ovr']} OVR] {card['name']}**!\n\n"
-            f"• **Tier Rarity:** {tier_info['emoji']} **{tier_info['name']}**\n"
-            f"• **Position:** `{card['pos']}` | **Team:** `{card['team']}`\n"
-            f"• **Theme:** *{card['theme']}*\n"
-            f"• **Reward:** `+150 VC Bonus` (New Balance: `💰 {new_bal:,} VC`)\n"
-            f"• **Binder Status:** You now own `{copies}` copies of this card!\n\n"
-            f"*{card.get('quote', '')}*"
+            f"🎉 {user.mention} guessed correctly and caught **[{card['ovr']} OVR] {card['name']}**!\n\n"
+            f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}** | **Team:** `{card['team']}` (`{card['pos']}`)\n"
+            f"• **Reward:** `+150 VC` (Balance: `💰 {new_bal:,} VC`)\n"
+            f"• **Collection:** You now own `{copies}` copies of this card!"
         ),
         color=tier_info["color"]
     )
-    if card.get("image_url"):
-        embed.set_image(url=card["image_url"])
-    embed.set_footer(text=f"NBA 2K Mobile Dex • Caught in chat • Card ID: {card['id']}")
+    embed.set_image(url="attachment://nba_card.png")
+    embed.set_footer(text=f"Card ID: {card['id']} • View in binder: !nbadex")
     embed.timestamp = discord.utils.utcnow()
     return embed
 
 
 async def spawn_nba_card_drop(channel: discord.TextChannel, requested_tier: Optional[str] = None) -> Optional[discord.Message]:
-    """Spawns an authentic NBA 2K Mobile wild card drop in the specified text channel."""
+    """Spawns an authentic NBA 2K Mobile wild card drop with card graphic in the specified text channel."""
     now_drop_ts = time.time()
     if requested_tier and requested_tier.lower() in NBA_2K_TIERS:
         t_key = requested_tier.lower()
@@ -9561,9 +9761,14 @@ async def spawn_nba_card_drop(channel: discord.TextChannel, requested_tier: Opti
     }
     _active_nba_drops[channel.id] = drop_info
     _active_nba_drops[channel.guild.id] = drop_info
+    
+    # Generate mystery card graphic
+    card_buf = generate_nba_card_graphic(drop_card, is_mystery=True)
+    card_file = discord.File(fp=card_buf, filename="nba_card.png")
+    
     drop_embed = build_nba_drop_embed(drop_card, 1)
     drop_view = NBAChatDropView(drop_card, drop_id, channel.id)
-    drop_msg = await channel.send(embed=drop_embed, view=drop_view)
+    drop_msg = await channel.send(embed=drop_embed, file=card_file, view=drop_view)
     drop_info["message"] = drop_msg
     return drop_msg
 
@@ -10181,15 +10386,18 @@ async def handle_catch_attempt(
     user_cards = await db.get_user_nba_cards(user.id)
     copies = sum(1 for c in user_cards if c["card_id"].lower() == card["id"].lower())
 
+    # Generate revealed card image
+    card_buf = generate_nba_card_graphic(card, is_mystery=False)
+    card_file = discord.File(fp=card_buf, filename="nba_card.png")
     success_embed = build_catch_success_embed(user, card, new_bal, copies)
 
     if is_interaction:
         if not interaction_or_ctx.response.is_done():
-            await interaction_or_ctx.response.send_message(embed=success_embed)
+            await interaction_or_ctx.response.send_message(embed=success_embed, file=card_file)
         else:
-            await interaction_or_ctx.followup.send(embed=success_embed)
+            await interaction_or_ctx.followup.send(embed=success_embed, file=card_file)
     else:
-        await interaction_or_ctx.send(embed=success_embed)
+        await interaction_or_ctx.send(embed=success_embed, file=card_file)
 
     try:
         if drop_msg:
@@ -11806,6 +12014,33 @@ class GeminiBot(commands.Bot):
         except Exception as prune_err:
             logger.debug(f"Snipe prune error: {prune_err}")
 
+    @tasks.loop(minutes=20)
+    async def nba_periodic_drop_loop(self):
+        """Automatically spawns a wild NBA 2K Mobile card drop every 20 minutes in active server channels."""
+        try:
+            for guild in self.guilds:
+                chan_id = _guild_last_active_channels.get(guild.id)
+                target_chan = guild.get_channel(chan_id) if chan_id else None
+                
+                if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
+                    target_chan = guild.system_channel
+                    if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
+                        for ch in guild.text_channels:
+                            if ch.permissions_for(guild.me).send_messages:
+                                target_chan = ch
+                                break
+                                
+                if target_chan and isinstance(target_chan, discord.TextChannel):
+                    active = get_active_nba_drop(target_chan.id, guild.id)
+                    now_ts = time.time()
+                    if not active or active.get("claimed") or (now_ts - active.get("spawned_at", 0) > 300):
+                        _nba_drop_msg_counts[target_chan.id] = 0
+                        _nba_drop_last_timestamps[target_chan.id] = now_ts
+                        await spawn_nba_card_drop(target_chan)
+                        logger.info(f"🏀 [20-MIN NBA DROP] Spawned wild card drop in #{target_chan.name} ({guild.name})")
+        except Exception as drop_loop_err:
+            logger.error(f"Error in nba_periodic_drop_loop: {drop_loop_err}")
+
     async def on_connect(self):
         logger.info("Gateway connected — broadcasting online presence")
         try:
@@ -11932,6 +12167,14 @@ class GeminiBot(commands.Bot):
                 logger.info("✅ 7-Day mute expiration background loop started")
         except Exception as mute_loop_err:
             logger.warning(f"Could not start check_expired_mutes loop: {mute_loop_err}")
+
+        # Step 9b: Start 20-minute NBA court card drop loop
+        try:
+            if not self.nba_periodic_drop_loop.is_running():
+                self.nba_periodic_drop_loop.start()
+                logger.info("🏀 20-minute NBA wild card drop loop started")
+        except Exception as nba_loop_err:
+            logger.warning(f"Could not start nba_periodic_drop_loop: {nba_loop_err}")
 
         # Step 10: Whitelist Verification on Startup
         if ALLOWED_GUILDS:
@@ -15044,8 +15287,10 @@ async def openpack_slash_cmd(interaction: discord.Interaction, pack_type: Option
         new_bal = await db.get_user_vc(interaction.user.id)
 
         embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
+        card_buf = generate_nba_card_graphic(card, is_mystery=False)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
         reveal_view = NBAPackOpenView(interaction.user, pack_id, card, new_bal, is_new, copies_now)
-        await interaction.followup.send(embed=embed, view=reveal_view)
+        await interaction.followup.send(embed=embed, file=card_file, view=reveal_view)
     except Exception as e:
         logger.error(f"Error in /openpack: {e}", exc_info=True)
         if interaction.response.is_done():
@@ -15111,9 +15356,12 @@ async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
         copies = sum(1 for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
         is_fav = any(c.get("is_favorite") for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
 
+        card_buf = generate_nba_card_graphic(card_obj, is_mystery=False)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
         embed = build_nbacard_embed(card_obj, copies_owned=copies, is_fav=is_fav, owner_user=interaction.user)
+        embed.set_image(url="attachment://nba_card.png")
         view = NBACardInspectView(card_obj, interaction.user, copies, is_fav, author=interaction.user)
-        await interaction.followup.send(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, file=card_file, view=view)
     except Exception as e:
         logger.error(f"Error in /nbacard: {e}", exc_info=True)
         if interaction.response.is_done():
@@ -17776,8 +18024,10 @@ async def openpack_prefix_cmd(ctx: commands.Context, pack_type: Optional[str] = 
         new_bal = await db.get_user_vc(ctx.author.id)
 
         embed = build_openpack_embed(ctx.author, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
+        card_buf = generate_nba_card_graphic(card, is_mystery=False)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
         reveal_view = NBAPackOpenView(ctx.author, pack_id, card, new_bal, is_new, copies_now)
-        await ctx.send(embed=embed, view=reveal_view)
+        await ctx.send(embed=embed, file=card_file, view=reveal_view)
     except Exception as e:
         logger.error(f"Error in !openpack: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
@@ -17817,9 +18067,12 @@ async def nbacard_prefix_cmd(ctx: commands.Context, *, card_query: str):
         copies = sum(1 for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
         is_fav = any(c.get("is_favorite") for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
 
+        card_buf = generate_nba_card_graphic(card_obj, is_mystery=False)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
         embed = build_nbacard_embed(card_obj, copies_owned=copies, is_fav=is_fav, owner_user=ctx.author)
+        embed.set_image(url="attachment://nba_card.png")
         view = NBACardInspectView(card_obj, ctx.author, copies, is_fav, author=ctx.author)
-        await ctx.send(embed=embed, view=view)
+        await ctx.send(embed=embed, file=card_file, view=view)
     except Exception as e:
         logger.error(f"Error in !nbacard: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
@@ -19978,18 +20231,19 @@ async def on_message(message):
                             afk_alert_msg = await message.channel.send(embed=afk_embed)
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
 
-        # ── NBA 2K Mobile Wild Card Chat Spawns ──────────────────────────────
-        if message.guild and not message.author.bot and len(message.content) > 2:
+        # ── NBA 2K Mobile Wild Card Chat Spawns (Every 25 messages) ────────
+        if message.guild and not message.author.bot:
             chan_id = message.channel.id
+            _guild_last_active_channels[message.guild.id] = chan_id
             _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
             now_drop_ts = time.time()
-            last_chan_drop = _nba_drop_last_timestamps.get(chan_id, 0.0)
 
-            # Trigger drop every ~10-18 messages with a 2.5-minute cooldown per channel & 65% roll
-            if _nba_drop_msg_counts[chan_id] >= random.randint(10, 18) and (now_drop_ts - last_chan_drop > 150):
+            # Trigger drop every 25 messages in chat
+            if _nba_drop_msg_counts[chan_id] >= 25:
                 _nba_drop_msg_counts[chan_id] = 0
                 _nba_drop_last_timestamps[chan_id] = now_drop_ts
-                if random.random() < 0.65:
+                active = get_active_nba_drop(chan_id, message.guild.id)
+                if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
                     try:
                         await spawn_nba_card_drop(message.channel)
                     except Exception as drop_err:
