@@ -11749,6 +11749,13 @@ class GeminiBot(commands.Bot):
         self.add_view(DMAppealLauncherView())
         self.add_view(AppealReviewView())
 
+        # 5. Global command tree sync
+        try:
+            synced = await self.tree.sync()
+            logger.info(f"⚡ [SETUP_HOOK] Initial global command tree synced: {len(synced)} commands")
+        except Exception as sync_err:
+            logger.warning(f"Initial setup_hook tree sync notice: {sync_err}")
+
     @tasks.loop(minutes=5)
     async def check_expired_mutes(self):
         """Automatically removes @Muted role and native timeout after 7 days."""
@@ -16938,13 +16945,36 @@ async def sync_slash_cmd(interaction: discord.Interaction, mode: str = "instant"
         await interaction.followup.send(f"❌ Command sync failed: `{e}`", ephemeral=True)
 
 
+@bot.tree.command(name="ping", description="🏓 Check bot latency and Discord Gateway connection status")
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def ping_slash_cmd(interaction: discord.Interaction):
+    lat = round(bot.latency * 1000, 1)
+    await interaction.response.send_message(f"🏓 **Pong!** Gateway Latency: `{lat}ms` • Bot is 100% online and responding!")
+
+
+@bot.command(name="ping", aliases=["pong", "latency", "test"])
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def ping_prefix_cmd(ctx: commands.Context):
+    """Check bot latency and gateway status: !ping"""
+    lat = round(bot.latency * 1000, 1)
+    await ctx.reply(f"🏓 **Pong!** Gateway Latency: `{lat}ms` • Bot is 100% online and responding!")
+
+
 @bot.command(name="sync")
 @commands.guild_only()
-@commands.cooldown(1, 5.0, commands.BucketType.user)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
 async def sync_prefix_cmd(ctx: commands.Context, mode: str = "instant"):
     """Instantly syncs all slash commands directly to this server: !sync"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.administrator and ctx.author.id != 719932313919684670:
-        await ctx.reply("❌ Only staff or server admins can trigger command sync.")
+    is_staff = (
+        is_protected(ctx.author) or
+        ctx.author.id == getattr(ctx.guild, "owner_id", 0) or
+        getattr(ctx.author.guild_permissions, "administrator", False) or
+        getattr(ctx.author.guild_permissions, "manage_guild", False) or
+        getattr(ctx.author.guild_permissions, "manage_channels", False) or
+        ctx.author.id == 719932313919684670
+    )
+    if not is_staff:
+        await ctx.reply("❌ Only server staff or administrators can trigger command sync.")
         return
     
     msg = await ctx.reply("🔄 **Instantly syncing slash commands to this server...**")
@@ -16959,13 +16989,14 @@ async def sync_prefix_cmd(ctx: commands.Context, mode: str = "instant"):
             await msg.edit(content=f"🌐 Synced `{len(synced)}` global slash commands across Discord.")
         else:  # instant
             ctx.bot.tree.copy_global_to(guild=ctx.guild)
-            synced = await ctx.bot.tree.sync(guild=ctx.guild)
-            await ctx.bot.tree.sync()
+            synced_g = await ctx.bot.tree.sync(guild=ctx.guild)
+            synced_all = await ctx.bot.tree.sync()
             await msg.edit(content=(
                 f"⚡ **Instant Server Sync Complete!**\n"
-                f"✅ **Synced `{len(synced)}` slash commands** directly to **{ctx.guild.name}** in 0.1s!\n\n"
-                f"✨ All commands are now live in this server **immediately**!\n"
-                f"*(If your Discord app still shows old autocomplete, press `Ctrl + R` on PC or restart your mobile app)*"
+                f"✅ **Synced `{len(synced_g)}` slash commands** directly into **{ctx.guild.name}**!\n"
+                f"🌐 **Global command pool:** `{len(synced_all)}` commands registered.\n\n"
+                f"✨ All commands are now live immediately!\n"
+                f"*(If autocomplete hasn't refreshed on your screen, press `Ctrl + R` in Discord or restart your mobile app)*"
             ))
     except Exception as e:
         logger.error(f"Error in !sync: {e}")
