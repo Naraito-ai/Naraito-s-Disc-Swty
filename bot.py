@@ -12258,17 +12258,24 @@ class GeminiBot(commands.Bot):
         """Automatically spawns a wild NBA 2K Mobile card drop every 20 minutes in active server channels."""
         try:
             for guild in self.guilds:
-                chan_id = _guild_last_active_channels.get(guild.id)
-                target_chan = guild.get_channel(chan_id) if chan_id else None
-                
-                if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
-                    target_chan = guild.system_channel
+                # ── Check for a pinned drop channel first ──
+                configured_id = await db.get_config(guild.id, "nba_drop_channel", None)
+                if configured_id:
+                    target_chan = guild.get_channel(int(configured_id))
                     if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
-                        for ch in guild.text_channels:
-                            if ch.permissions_for(guild.me).send_messages:
-                                target_chan = ch
-                                break
-                                
+                        target_chan = None  # configured channel unavailable, skip
+                else:
+                    # Fallback: last-active → system channel → first writable channel
+                    chan_id = _guild_last_active_channels.get(guild.id)
+                    target_chan = guild.get_channel(chan_id) if chan_id else None
+                    if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
+                        target_chan = guild.system_channel
+                        if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
+                            for ch in guild.text_channels:
+                                if ch.permissions_for(guild.me).send_messages:
+                                    target_chan = ch
+                                    break
+
                 if target_chan and isinstance(target_chan, discord.TextChannel):
                     active = get_active_nba_drop(target_chan.id, guild.id)
                     now_ts = time.time()
@@ -15404,6 +15411,35 @@ async def setupnbachannel_slash_cmd(interaction: discord.Interaction, category_n
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+
+@bot.tree.command(name="setnbachannel", description="🏀 Pin NBA 2K card drops to a specific channel (or reset to any active channel)")
+@app_commands.describe(channel="The channel where drops will always appear (leave empty to reset to auto)")
+@app_commands.default_permissions(manage_guild=True)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def setnbachannel_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+    try:
+        if not is_protected(interaction.user) and not interaction.permissions.manage_guild:
+            await interaction.response.send_message("❌ You need `Manage Server` permission.", ephemeral=True)
+            return
+        if channel:
+            await db.set_config(interaction.guild_id, "nba_drop_channel", str(channel.id))
+            await interaction.response.send_message(
+                f"✅ NBA 2K card drops will now **only** spawn in {channel.mention}!", ephemeral=True
+            )
+        else:
+            await db.set_config(interaction.guild_id, "nba_drop_channel", "")
+            await interaction.response.send_message(
+                "✅ Drop channel reset — drops will spawn in whichever channel is most active.", ephemeral=True
+            )
+    except Exception as e:
+        logger.error(f"Error in /setnbachannel: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
 @bot.tree.command(name="teamstats", description="🏀 View a member's NBA GM profile, rank ladder, career record, and badges")
 @app_commands.describe(user="The member whose GM profile you want to view (defaults to yourself)")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
@@ -18160,6 +18196,19 @@ async def setupnbachannel_prefix_cmd(ctx: commands.Context, *, category_name: Op
         await ctx.send(f"❌ Failed to create NBA Dream Team channel: {e}")
 
 
+@bot.command(name="setnbachannel", aliases=["setdropchannel", "nbadropchannel"])
+@commands.guild_only()
+@commands.has_permissions(manage_guild=True)
+async def setnbachannel_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
+    """Pin card drops to a specific channel: !setnbachannel [#channel] (no channel = reset to auto)"""
+    if channel:
+        await db.set_config(ctx.guild.id, "nba_drop_channel", str(channel.id))
+        await ctx.send(f"✅ NBA 2K card drops will now **only** spawn in {channel.mention}!")
+    else:
+        await db.set_config(ctx.guild.id, "nba_drop_channel", "")
+        await ctx.send("✅ Drop channel reset — drops will spawn in whichever channel is most active.")
+
+
 @bot.command(name="teamstats", aliases=["gmstats", "mycareer", "nba_stats"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
@@ -20477,12 +20526,23 @@ async def on_message(message):
             if _nba_drop_msg_counts[chan_id] >= 25:
                 _nba_drop_msg_counts[chan_id] = 0
                 _nba_drop_last_timestamps[chan_id] = now_drop_ts
-                active = get_active_nba_drop(chan_id, message.guild.id)
-                if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
-                    try:
-                        await spawn_nba_card_drop(message.channel)
-                    except Exception as drop_err:
-                        logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
+
+                # Respect pinned drop channel (if configured for this guild)
+                configured_id = await db.get_config(message.guild.id, "nba_drop_channel", None)
+                if configured_id:
+                    drop_chan = message.guild.get_channel(int(configured_id))
+                    if not drop_chan or not isinstance(drop_chan, discord.TextChannel) or not drop_chan.permissions_for(message.guild.me).send_messages:
+                        drop_chan = None  # configured channel unavailable
+                else:
+                    drop_chan = message.channel  # original behavior
+
+                if drop_chan:
+                    active = get_active_nba_drop(drop_chan.id, message.guild.id)
+                    if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
+                        try:
+                            await spawn_nba_card_drop(drop_chan)
+                        except Exception as drop_err:
+                            logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
 
 
     # ── Solution 3: Direct Message !appeal Command & Appeal Assistant ──────────
