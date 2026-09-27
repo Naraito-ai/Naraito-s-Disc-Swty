@@ -11378,7 +11378,7 @@ def make_help_embed() -> discord.Embed:
     )
     embed.add_field(
         name="⚔️ **Moderation & Security Actions**",
-        value="• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n• `/deafen <user>` / `/undeafen <user>` — Voice channel deafen\n• `/promochannel [action]` / `/linksonly` — Links-only self-promo channel (blocks chatting)\n• `/antighostping [status]` — Auto-catch & expose deleted ghost pings\n• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n• `/lockdown <status>` / `/purge <num>` — Emergency chat freeze and cleaner",
+        value="• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n• `/deafen <user>` / `/undeafen <user>` — Voice channel deafen\n• `/promochannel [action] [chan]` — Links-only promo channels (auto-deletes chatting)\n• `/antighostping [status]` — Auto-catch & expose deleted ghost pings\n• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n• `/lockdown <status>` / `/purge <num>` — Emergency chat freeze and cleaner",
         inline=False
     )
     embed.add_field(
@@ -11836,168 +11836,31 @@ async def dynamicvoice_command(interaction: discord.Interaction):
             await interaction.response.send_message("❌ Failed to set up dynamic voice system due to an internal error.", ephemeral=True)
 
 
-# ── Links-Only / Self-Promotion Channel Subsystem Commands ───────────────────
-promochannel_group = app_commands.Group(
+# ── Links-Only / Self-Promotion Channel Subsystem Command ───────────────────
+@bot.tree.command(
     name="promochannel",
-    description="Configure links-only self-promotion channels (auto-deletes chatting without links)",
-    default_permissions=discord.Permissions(manage_channels=True),
-    guild_only=True
+    description="Configure or toggle links-only self-promotion channels (auto-deletes chatting without links)"
 )
-
-@promochannel_group.command(name="add", description="Set a channel as links-only self-promotion (no chatting allowed)")
-@app_commands.describe(channel="The channel to lock for links-only (defaults to current channel)")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def promochannel_add_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
-    try:
-        if not interaction.guild:
-            return await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
-        if not interaction.user.guild_permissions.manage_channels and not is_protected(interaction.user):
-            return await interaction.response.send_message("❌ You need **Manage Channels** permission to use this command.", ephemeral=True)
-        
-        target_chan = channel or interaction.channel
-        if not isinstance(target_chan, discord.TextChannel):
-            return await interaction.response.send_message("❌ Please specify a valid text channel.", ephemeral=True)
-        
-        await db.add_promo_channel(interaction.guild.id, target_chan.id)
-        if interaction.guild.id not in _promo_channels_cache:
-            _promo_channels_cache[interaction.guild.id] = set()
-        _promo_channels_cache[interaction.guild.id].add(target_chan.id)
-
-        embed = discord.Embed(
-            title="🔗 Links-Only / Self-Promotion Mode Enabled",
-            description=(
-                f"✅ {target_chan.mention} is now configured as a **Links-Only Self-Promotion Channel**!\n\n"
-                f"• **Rules Enforced:** Regular members may only send messages containing links (YouTube, TikTok, Twitch, Instagram, Twitter/X, Discord invites, Spotify, etc.).\n"
-                f"• **Chatting Filter:** Any messages without valid links will be **automatically deleted** to keep the feed clean.\n"
-                f"• **Staff Immunity:** Administrators and moderators are immune and can post notices freely."
-            ),
-            color=discord.Color.green(),
-            timestamp=discord.utils.utcnow()
-        )
-        await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /promochannel add: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error setting promo channel: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error setting promo channel: {e}", ephemeral=True)
-
-@promochannel_group.command(name="remove", description="Remove links-only restriction from a channel")
-@app_commands.describe(channel="The channel to remove restriction from (defaults to current channel)")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def promochannel_remove_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
-    try:
-        if not interaction.guild:
-            return await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
-        if not interaction.user.guild_permissions.manage_channels and not is_protected(interaction.user):
-            return await interaction.response.send_message("❌ You need **Manage Channels** permission to use this command.", ephemeral=True)
-        
-        target_chan = channel or interaction.channel
-        await db.remove_promo_channel(interaction.guild.id, target_chan.id)
-        if interaction.guild.id in _promo_channels_cache:
-            _promo_channels_cache[interaction.guild.id].discard(target_chan.id)
-
-        embed = discord.Embed(
-            title="🔓 Links-Only Restriction Removed",
-            description=f"✅ {target_chan.mention} is no longer restricted. Regular chatting is now permitted.",
-            color=discord.Color.blue(),
-            timestamp=discord.utils.utcnow()
-        )
-        await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /promochannel remove: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error removing promo channel: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error removing promo channel: {e}", ephemeral=True)
-
-@promochannel_group.command(name="list", description="List all active links-only / self-promotion channels in the server")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def promochannel_list_cmd(interaction: discord.Interaction):
-    try:
-        if not interaction.guild:
-            return await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
-        
-        channels = await db.get_promo_channels(interaction.guild.id)
-        if not channels:
-            return await interaction.response.send_message("ℹ️ No channels in this server are currently set to links-only mode.", ephemeral=True)
-        
-        chan_mentions = []
-        for cid in channels:
-            chan = interaction.guild.get_channel(cid)
-            if chan:
-                chan_mentions.append(f"• {chan.mention} (`#{chan.name}` - ID: `{cid}`)")
-            else:
-                chan_mentions.append(f"• <#{cid}> (ID: `{cid}`)")
-        
-        embed = discord.Embed(
-            title=f"🔗 Links-Only Promo Channels ({len(channels)})",
-            description="\n".join(chan_mentions),
-            color=discord.Color.gold(),
-            timestamp=discord.utils.utcnow()
-        )
-        embed.set_footer(text="Use /promochannel add or /promochannel remove to configure")
-        await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /promochannel list: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error listing promo channels: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error listing promo channels: {e}", ephemeral=True)
-
-@promochannel_group.command(name="toggle", description="Quickly toggle links-only mode on or off for a channel")
-@app_commands.describe(channel="The channel to toggle (defaults to current channel)")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def promochannel_toggle_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
-    try:
-        if not interaction.guild:
-            return await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
-        if not interaction.user.guild_permissions.manage_channels and not is_protected(interaction.user):
-            return await interaction.response.send_message("❌ You need **Manage Channels** permission to use this command.", ephemeral=True)
-        
-        target_chan = channel or interaction.channel
-        if not isinstance(target_chan, discord.TextChannel):
-            return await interaction.response.send_message("❌ Please specify a valid text channel.", ephemeral=True)
-        
-        is_active = await is_channel_promo_only(interaction.guild.id, target_chan.id)
-        if is_active:
-            await db.remove_promo_channel(interaction.guild.id, target_chan.id)
-            if interaction.guild.id in _promo_channels_cache:
-                _promo_channels_cache[interaction.guild.id].discard(target_chan.id)
-            await interaction.response.send_message(f"🔓 **Links-Only Disabled**: {target_chan.mention} is now back to regular chat mode.")
-        else:
-            await db.add_promo_channel(interaction.guild.id, target_chan.id)
-            if interaction.guild.id not in _promo_channels_cache:
-                _promo_channels_cache[interaction.guild.id] = set()
-            _promo_channels_cache[interaction.guild.id].add(target_chan.id)
-            await interaction.response.send_message(f"🔗 **Links-Only Enabled**: {target_chan.mention} is now strictly for self-promotion links (no chatting).")
-    except Exception as e:
-        logger.error(f"Error in /promochannel toggle: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error toggling promo channel: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error toggling promo channel: {e}", ephemeral=True)
-
-bot.tree.add_command(promochannel_group)
-
-
-@bot.tree.command(name="linksonly", description="Toggle or configure links-only self-promotion mode for a channel")
 @app_commands.describe(
-    action="Action to perform",
+    action="Action: Toggle on/off, Enable (Add), Disable (Remove), or List active channels",
     channel="Target text channel (defaults to current channel)"
 )
 @app_commands.choices(
     action=[
-        app_commands.Choice(name="Toggle On/Off", value="toggle"),
-        app_commands.Choice(name="Enable (Add)", value="add"),
-        app_commands.Choice(name="Disable (Remove)", value="remove"),
-        app_commands.Choice(name="List All Channels", value="list")
+        app_commands.Choice(name="Toggle On/Off (Default)", value="toggle"),
+        app_commands.Choice(name="Enable Links-Only (Add)", value="add"),
+        app_commands.Choice(name="Disable Links-Only (Remove)", value="remove"),
+        app_commands.Choice(name="List Active Channels", value="list")
     ]
 )
 @app_commands.default_permissions(manage_channels=True)
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
-async def linksonly_slash_cmd(interaction: discord.Interaction, action: str = "toggle", channel: Optional[discord.TextChannel] = None):
+async def promochannel_slash_cmd(
+    interaction: discord.Interaction,
+    action: str = "toggle",
+    channel: Optional[discord.TextChannel] = None
+):
     try:
         if not interaction.guild:
             return await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
@@ -12010,13 +11873,17 @@ async def linksonly_slash_cmd(interaction: discord.Interaction, action: str = "t
             channels = await db.get_promo_channels(interaction.guild.id)
             if not channels:
                 return await interaction.response.send_message("ℹ️ No channels in this server are currently set to links-only mode.", ephemeral=True)
-            chan_mentions = [f"• <#{cid}> (ID: `{cid}`)" for cid in channels]
+            chan_mentions = []
+            for cid in channels:
+                c = interaction.guild.get_channel(cid)
+                chan_mentions.append(f"• {c.mention} (`#{c.name}`)" if c else f"• <#{cid}> (ID: `{cid}`)")
             embed = discord.Embed(
-                title=f"🔗 Links-Only Channels ({len(channels)})",
+                title=f"🔗 Links-Only Promo Channels ({len(channels)})",
                 description="\n".join(chan_mentions),
                 color=discord.Color.gold(),
                 timestamp=discord.utils.utcnow()
             )
+            embed.set_footer(text="Use /promochannel to toggle or configure channels")
             return await interaction.response.send_message(embed=embed)
         
         if not isinstance(target_chan, discord.TextChannel):
@@ -12027,12 +11894,31 @@ async def linksonly_slash_cmd(interaction: discord.Interaction, action: str = "t
             if interaction.guild.id not in _promo_channels_cache:
                 _promo_channels_cache[interaction.guild.id] = set()
             _promo_channels_cache[interaction.guild.id].add(target_chan.id)
-            await interaction.response.send_message(f"✅ {target_chan.mention} is now set to **Links & Self-Promotion Only** (chatting without links is disallowed).")
+            
+            embed = discord.Embed(
+                title="🔗 Links-Only / Self-Promotion Mode Enabled",
+                description=(
+                    f"✅ {target_chan.mention} is now configured as a **Links-Only Self-Promotion Channel**!\n\n"
+                    f"• **Rules Enforced:** Regular members may only send messages containing links (YouTube, TikTok, Twitch, Instagram, Twitter/X, Discord invites, Spotify, etc.).\n"
+                    f"• **Chatting Filter:** Any messages without valid links will be **automatically deleted**.\n"
+                    f"• **Staff Immunity:** Administrators and moderators can post notices freely."
+                ),
+                color=discord.Color.green(),
+                timestamp=discord.utils.utcnow()
+            )
+            await interaction.response.send_message(embed=embed)
         elif action == "remove":
             await db.remove_promo_channel(interaction.guild.id, target_chan.id)
             if interaction.guild.id in _promo_channels_cache:
                 _promo_channels_cache[interaction.guild.id].discard(target_chan.id)
-            await interaction.response.send_message(f"🔓 Links-only restriction removed from {target_chan.mention}.")
+            
+            embed = discord.Embed(
+                title="🔓 Links-Only Restriction Removed",
+                description=f"✅ {target_chan.mention} is no longer restricted. Regular chatting is now permitted.",
+                color=discord.Color.blue(),
+                timestamp=discord.utils.utcnow()
+            )
+            await interaction.response.send_message(embed=embed)
         else:  # toggle
             is_active = await is_channel_promo_only(interaction.guild.id, target_chan.id)
             if is_active:
@@ -12045,9 +11931,9 @@ async def linksonly_slash_cmd(interaction: discord.Interaction, action: str = "t
                 if interaction.guild.id not in _promo_channels_cache:
                     _promo_channels_cache[interaction.guild.id] = set()
                 _promo_channels_cache[interaction.guild.id].add(target_chan.id)
-                await interaction.response.send_message(f"🔗 **Links-Only Enabled**: {target_chan.mention} is now strictly for self-promotion links (no chatting).")
+                await interaction.response.send_message(f"🔗 **Links-Only Enabled**: {target_chan.mention} is now strictly for self-promotion links (no chatting allowed).")
     except Exception as e:
-        logger.error(f"Error in /linksonly: {e}")
+        logger.error(f"Error in /promochannel: {e}")
         if interaction.response.is_done():
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         else:
