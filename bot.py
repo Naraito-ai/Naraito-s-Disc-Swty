@@ -18042,6 +18042,217 @@ async def nbahint_prefix_cmd(ctx: commands.Context):
         await ctx.send(f"❌ Error: {e}")
 
 
+# ── Comprehensive Prefix Moderation, Admin & Utility Commands ─────────────────
+
+@bot.command(name="kick")
+@commands.guild_only()
+@commands.has_permissions(kick_members=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def kick_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reason: Optional[str] = "No reason provided"):
+    """Kick a member from the server: !kick @user [reason]"""
+    try:
+        if is_protected(member) or member.id == ctx.guild.owner_id:
+            return await ctx.send("❌ This member is staff/immune and cannot be kicked.")
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await ctx.send("❌ You cannot kick this member because they have a higher or equal role.")
+        if member.top_role >= ctx.guild.me.top_role:
+            return await ctx.send("❌ I cannot kick this member because their role is higher than mine.")
+        clean_reason = discord.utils.escape_mentions(reason[:500])
+        await member.kick(reason=clean_reason)
+        await ctx.send(f"✅ **{member.display_name}** has been kicked. (Reason: {clean_reason})")
+        await log_mod_action(ctx.guild, ctx.author, member, "Kick", clean_reason)
+    except Exception as e:
+        logger.error(f"Error in !kick: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="ban")
+@commands.guild_only()
+@commands.has_permissions(ban_members=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def ban_prefix_cmd(ctx: commands.Context, member: discord.User, *, reason: Optional[str] = "No reason provided"):
+    """Ban a user from the server: !ban @user [reason]"""
+    try:
+        guild_member = ctx.guild.get_member(member.id)
+        if guild_member and (is_protected(guild_member) or member.id == ctx.guild.owner_id):
+            return await ctx.send("❌ This user is staff/immune and cannot be banned.")
+        if guild_member and guild_member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await ctx.send("❌ You cannot ban this member because they have a higher or equal role.")
+        clean_reason = discord.utils.escape_mentions(reason[:500])
+        await ctx.guild.ban(member, reason=clean_reason, delete_message_days=0)
+        await ctx.send(f"✅ **{member.name}** has been banned from the server. (Reason: {clean_reason})")
+        await log_mod_action(ctx.guild, ctx.author, member, "Ban", clean_reason)
+    except Exception as e:
+        logger.error(f"Error in !ban: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="unban")
+@commands.guild_only()
+@commands.has_permissions(ban_members=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def unban_prefix_cmd(ctx: commands.Context, user_id: int, *, reason: Optional[str] = "No reason provided"):
+    """Unban a user by their user ID: !unban <user_id> [reason]"""
+    try:
+        user = await bot.fetch_user(user_id)
+        await ctx.guild.unban(user, reason=reason)
+        await ctx.send(f"✅ **{user.name}** (`{user.id}`) has been unbanned.")
+        await log_mod_action(ctx.guild, ctx.author, user, "Unban", reason)
+    except Exception as e:
+        logger.error(f"Error in !unban: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="mute", aliases=["timeout"])
+@commands.guild_only()
+@commands.has_permissions(moderate_members=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def mute_prefix_cmd(ctx: commands.Context, member: discord.Member, duration: str = "10m", *, reason: Optional[str] = "No reason provided"):
+    """Timeout (mute) a member: !mute @user [duration e.g. 10m, 1h, 1d] [reason]"""
+    try:
+        if is_protected(member) or member.id == ctx.guild.owner_id:
+            return await ctx.send("❌ This member is staff/immune and cannot be timed out.")
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await ctx.send("❌ You cannot mute this member because they have a higher or equal role.")
+        seconds = parse_time_string(duration)
+        if not seconds or seconds < 10 or seconds > 2419200:
+            return await ctx.send("❌ Invalid duration. Please provide a time between 10 seconds and 28 days (e.g. `10m`, `2h`, `1d`).")
+        until = discord.utils.utcnow() + datetime.timedelta(seconds=seconds)
+        await member.timeout(until, reason=reason)
+        await ctx.send(f"🔇 **{member.display_name}** has been timed out for **{duration}**. (Reason: {reason})")
+        await log_mod_action(ctx.guild, ctx.author, member, f"Timeout ({duration})", reason)
+    except Exception as e:
+        logger.error(f"Error in !mute: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="purge", aliases=["clear", "clean"])
+@commands.guild_only()
+@commands.has_permissions(manage_messages=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def purge_prefix_cmd(ctx: commands.Context, amount: int = 10):
+    """Purge recent messages from channel: !purge [amount max 100]"""
+    try:
+        amt = min(max(amount, 1), 100)
+        deleted = await ctx.channel.purge(limit=amt + 1)
+        msg = await ctx.send(f"🧹 Successfully purged **{len(deleted)-1}** messages.")
+        await asyncio.sleep(4)
+        try:
+            await msg.delete()
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error(f"Error in !purge: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="lockdown", aliases=["lock"])
+@commands.guild_only()
+@commands.has_permissions(manage_channels=True)
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def lockdown_prefix_cmd(ctx: commands.Context, status: Optional[str] = "lock"):
+    """Lock or unlock the current channel: !lockdown [lock|unlock]"""
+    try:
+        is_lock = (status.lower() != "unlock")
+        overwrite = ctx.channel.overwrites_for(ctx.guild.default_role)
+        overwrite.send_messages = False if is_lock else None
+        await ctx.channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
+        state_str = "🔒 **LOCKED** (Members can no longer send messages)" if is_lock else "🔓 **UNLOCKED** (Members can now chat)"
+        await ctx.send(f"{state_str} in {ctx.channel.mention}.")
+    except Exception as e:
+        logger.error(f"Error in !lockdown: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="slowmode", aliases=["slow"])
+@commands.guild_only()
+@commands.has_permissions(manage_channels=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def slowmode_prefix_cmd(ctx: commands.Context, seconds: int = 0):
+    """Set slowmode for current channel: !slowmode <seconds> (0 to disable)"""
+    try:
+        sec = min(max(seconds, 0), 21600)
+        await ctx.channel.edit(slowmode_delay=sec)
+        status_str = f"⏱️ Slowmode set to **{sec} seconds**." if sec > 0 else "⏱️ Slowmode has been **disabled**."
+        await ctx.send(status_str)
+    except Exception as e:
+        logger.error(f"Error in !slowmode: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="autorole")
+@commands.guild_only()
+@commands.has_permissions(administrator=True)
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def autorole_prefix_cmd(ctx: commands.Context, role: Optional[discord.Role] = None):
+    """Set or disable automatic role for new members: !autorole [@role]"""
+    try:
+        if role:
+            await db.set_autorole(ctx.guild.id, role.id)
+            await ctx.send(f"✅ Auto-role enabled! New members will receive {role.mention}.")
+        else:
+            await db.set_autorole(ctx.guild.id, None)
+            await ctx.send("✅ Auto-role has been disabled.")
+    except Exception as e:
+        logger.error(f"Error in !autorole: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="addrole")
+@commands.guild_only()
+@commands.has_permissions(manage_roles=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def addrole_prefix_cmd(ctx: commands.Context, member: discord.Member, role: discord.Role):
+    """Assign a role to a member: !addrole @user @role"""
+    try:
+        if role >= ctx.guild.me.top_role:
+            return await ctx.send("❌ I cannot assign this role because it is higher than my highest role.")
+        await member.add_roles(role)
+        await ctx.send(f"✅ Added {role.mention} to **{member.display_name}**.")
+    except Exception as e:
+        logger.error(f"Error in !addrole: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="removerole")
+@commands.guild_only()
+@commands.has_permissions(manage_roles=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def removerole_prefix_cmd(ctx: commands.Context, member: discord.Member, role: discord.Role):
+    """Remove a role from a member: !removerole @user @role"""
+    try:
+        if role >= ctx.guild.me.top_role:
+            return await ctx.send("❌ I cannot remove this role because it is higher than my highest role.")
+        await member.remove_roles(role)
+        await ctx.send(f"✅ Removed {role.mention} from **{member.display_name}**.")
+    except Exception as e:
+        logger.error(f"Error in !removerole: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="userinfo", aliases=["ui"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def userinfo_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
+    """View detailed information about a member: !userinfo [@user]"""
+    try:
+        target = member or ctx.author
+        embed = discord.Embed(title=f"👤 User Info: {target.display_name}", color=target.color or discord.Color.blue())
+        embed.set_thumbnail(url=target.display_avatar.url)
+        embed.add_field(name="Username", value=f"`{target.name}`", inline=True)
+        embed.add_field(name="ID", value=f"`{target.id}`", inline=True)
+        embed.add_field(name="Bot?", value="Yes" if target.bot else "No", inline=True)
+        embed.add_field(name="Account Created", value=f"<t:{int(target.created_at.timestamp())}:R>", inline=True)
+        if hasattr(target, "joined_at") and target.joined_at:
+            embed.add_field(name="Joined Server", value=f"<t:{int(target.joined_at.timestamp())}:R>", inline=True)
+        roles = [r.mention for r in target.roles if r.name != "@everyone"]
+        embed.add_field(name=f"Roles ({len(roles)})", value=" ".join(roles[:15]) if roles else "None", inline=False)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !userinfo: {e}")
+        await ctx.send(f"❌ Error: {e}")
+
+
 @bot.command(name="createchannel", aliases=["addchannel", "makechannel"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
