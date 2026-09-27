@@ -28,7 +28,7 @@ from discord import app_commands
 from dotenv import load_dotenv
 import aiohttp
 from typing import Optional, Union, List, Dict, Any, Tuple
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from database import db
 
 # Load environment variables from .env
@@ -10241,7 +10241,11 @@ def generate_nba_card_graphic(
                 
                 px = (W - target_w) // 2
                 py = 70
-                card_img.paste(p_cropped.convert("RGBA"), (px, py), mask)
+                p_rgba = p_cropped.convert("RGBA")
+                p_rgba.putalpha(mask)
+                photo_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                photo_layer.paste(p_rgba, (px, py))
+                card_img = Image.alpha_composite(card_img, photo_layer)
                 draw = ImageDraw.Draw(card_img)
             except Exception:
                 action_photo = None
@@ -11605,28 +11609,30 @@ async def handle_catch_attempt(
     if not drop:
         drop = get_active_nba_drop(channel_id, guild_id)
 
-    if not drop:
-        msg = "❌ There is no active wild NBA card drop in this channel right now. Keep chatting to spawn one!"
+    async def _send_response(content: Optional[str] = None, embed: Optional[discord.Embed] = None, file: Optional[discord.File] = None, ephemeral: bool = False):
         if is_interaction:
             if not interaction_or_ctx.response.is_done():
-                await interaction_or_ctx.response.send_message(msg, ephemeral=True)
+                await interaction_or_ctx.response.send_message(content=content, embed=embed, file=file, ephemeral=ephemeral)
             else:
-                await interaction_or_ctx.followup.send(msg, ephemeral=True)
-        else:
-            await interaction_or_ctx.send(msg)
+                await interaction_or_ctx.followup.send(content=content, embed=embed, file=file, ephemeral=ephemeral)
+        elif isinstance(interaction_or_ctx, discord.Message):
+            if file or embed:
+                await interaction_or_ctx.reply(content=content, embed=embed, file=file, mention_author=True)
+            elif content:
+                await interaction_or_ctx.reply(content, mention_author=True)
+        elif hasattr(interaction_or_ctx, "send"):
+            await interaction_or_ctx.send(content=content, embed=embed, file=file)
+        elif hasattr(interaction_or_ctx, "channel"):
+            await interaction_or_ctx.channel.send(content=content, embed=embed, file=file)
+
+    if not drop:
+        await _send_response("❌ There is no active wild NBA card drop in this channel right now. Keep chatting to spawn one!", ephemeral=True)
         return
 
     # Check if already claimed
     if drop.get("claimed"):
         claimed_by = drop.get("claimed_by_name", "another player")
-        msg = f"❌ **Too slow!** This player was already caught by **{claimed_by}**! Wait for the next court drop."
-        if is_interaction:
-            if not interaction_or_ctx.response.is_done():
-                await interaction_or_ctx.response.send_message(msg, ephemeral=True)
-            else:
-                await interaction_or_ctx.followup.send(msg, ephemeral=True)
-        else:
-            await interaction_or_ctx.send(msg)
+        await _send_response(f"❌ **Too slow!** This player was already caught by **{claimed_by}**! Wait for the next court drop.", ephemeral=True)
         return
 
     card = drop["card"]
@@ -11634,14 +11640,7 @@ async def handle_catch_attempt(
 
     # Check if guess is correct
     if not is_correct_player_name(guess, actual_name):
-        msg = f"❌ **'{guess}' is incorrect!** Look closely at the team (**{card['team']}**), position (**{card['pos']}**), or use `!nbahint`!"
-        if is_interaction:
-            if not interaction_or_ctx.response.is_done():
-                await interaction_or_ctx.response.send_message(msg, ephemeral=True)
-            else:
-                await interaction_or_ctx.followup.send(msg, ephemeral=True)
-        else:
-            await interaction_or_ctx.send(msg)
+        await _send_response(f"❌ **'{guess}' is incorrect!** Look closely at the team (**{card['team']}**), position (**{card['pos']}**), or use `!nbahint`!", ephemeral=True)
         return
 
     # Correct guess! First user gets the card
@@ -11659,13 +11658,7 @@ async def handle_catch_attempt(
     card_file = discord.File(fp=card_buf, filename="nba_card.png")
     success_embed = build_catch_success_embed(user, card, new_bal, copies)
 
-    if is_interaction:
-        if not interaction_or_ctx.response.is_done():
-            await interaction_or_ctx.response.send_message(embed=success_embed, file=card_file)
-        else:
-            await interaction_or_ctx.followup.send(embed=success_embed, file=card_file)
-    else:
-        await interaction_or_ctx.send(embed=success_embed, file=card_file)
+    await _send_response(embed=success_embed, file=card_file)
 
     try:
         if drop_msg:
