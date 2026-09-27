@@ -17636,7 +17636,7 @@ async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member)
         await ctx.send(f"❌ Failed to start battle challenge: {e}")
 
 
-@bot.command(name="teamleaderboard", aliases=["teamlb", "nbaleaderboard", "nbalb"])
+@bot.command(name="teamleaderboard", aliases=["teamlb", "topteams", "draftlb"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamleaderboard_prefix_cmd(ctx: commands.Context):
@@ -19007,7 +19007,7 @@ async def userinfo_command(interaction: discord.Interaction, member: discord.Mem
             await interaction.followup.send("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
 
 
-@bot.command(name="whois", aliases=["userinfo", "profile", "user"])
+@bot.command(name="whois", aliases=["profile", "user", "memberinfo"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def whois_prefix_cmd(ctx: commands.Context, member: discord.Member = None):
