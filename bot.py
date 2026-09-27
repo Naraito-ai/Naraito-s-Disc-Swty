@@ -13028,87 +13028,6 @@ bot.tree.add_command(blacklist_group)
 
 # ── Creator Fleet Visibility & Remote Server Management ─────────────────────
 
-@bot.tree.command(name="servers", description="List all Discord servers Sweety is currently active in (Creator only)")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: i.user.id)
-async def servers_slash_cmd(interaction: discord.Interaction):
-    """Creator-only dashboard providing full visibility into all connected guilds."""
-    try:
-        if not is_creator(interaction.user):
-            return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
-
-        guilds = list(bot.guilds)
-        total_members = sum(g.member_count or 0 for g in guilds)
-
-        embed = discord.Embed(
-            title=f"🌐 Sweety Guild Network ({len(guilds)} Servers • {total_members:,} Members)",
-            color=discord.Color.blue(),
-            timestamp=discord.utils.utcnow()
-        )
-
-        if not guilds:
-            embed.description = "ℹ️ Sweety is currently not in any servers."
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
-
-        # Sort by member count descending
-        guilds_sorted = sorted(guilds, key=lambda g: g.member_count or 0, reverse=True)
-        lines = []
-        for idx, g in enumerate(guilds_sorted[:30], 1):
-            owner_str = f"Owner: <@{g.owner_id}> (`{g.owner_id}`)" if g.owner_id else "Owner: Unknown"
-            lines.append(f"**{idx}. {g.name}**\n• **ID:** `{g.id}` • **Members:** `{g.member_count:,}`\n• {owner_str}")
-
-        embed.description = "\n".join(lines)[:4000]
-        if len(guilds_sorted) > 30:
-            embed.set_footer(text=f"Showing top 30 of {len(guilds_sorted)} servers • Use /leaveserver <id> to leave a server")
-        else:
-            embed.set_footer(text="Sweety Server Management • Use /leaveserver <id> to leave a server")
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /servers: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error generating server network audit: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error generating server network audit: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="leaveserver", description="Remotely make Sweety leave a specific server (Creator only)")
-@app_commands.describe(guild_id="The numerical ID of the server to leave")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: i.user.id)
-async def leaveserver_slash_cmd(interaction: discord.Interaction, guild_id: str):
-    """Creator-only tool to remotely disconnect Sweety from a problematic or abusive server."""
-    try:
-        if not is_creator(interaction.user):
-            return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
-
-        try:
-            gid = int(guild_id.strip())
-        except ValueError:
-            return await interaction.response.send_message("❌ Please provide a valid numerical Guild ID.", ephemeral=True)
-
-        guild = bot.get_guild(gid)
-        if not guild:
-            return await interaction.response.send_message(f"❌ Server with ID `{gid}` was not found in active guild cache.", ephemeral=True)
-
-        guild_name = guild.name
-        member_count = guild.member_count or 0
-        try:
-            await guild.leave()
-            await interaction.response.send_message(
-                f"✅ **Successfully left server:** **{guild_name}** (`{gid}`) with `{member_count:,}` members.",
-                ephemeral=True
-            )
-            logger.info(f"Creator {interaction.user} remotely triggered leave for guild '{guild_name}' ({gid})")
-        except Exception as e:
-            logger.error(f"Error leaving guild {gid}: {e}")
-            await interaction.response.send_message(f"❌ Failed to leave server: {e}", ephemeral=True)
-    except Exception as err:
-        logger.error(f"Error in /leaveserver: {err}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {err}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {err}", ephemeral=True)
-
-
 @bot.command(name="servers", aliases=["guilds", "guildlist"])
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def servers_prefix_cmd(ctx: commands.Context):
@@ -13547,64 +13466,6 @@ async def appealpanel_prefix_cmd(ctx: commands.Context, channel: Optional[discor
 
 # ── AI User Profile Memory Commands ──────────────────────────────────────────
 
-@bot.tree.command(name="remember", description="Tell Sweety to remember a personal fact or preference about you")
-@app_commands.describe(fact="What should Sweety remember about you? (e.g. 'My favorite team is Lakers and I code in Python')")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def remember_slash_cmd(interaction: discord.Interaction, fact: str):
-    try:
-        await interaction.response.defer(ephemeral=True)
-        is_clean, clean_fact = _sanitize_ai_input(fact)
-        if not is_clean:
-            return await interaction.followup.send("⚠️ Your input contained restricted characters or words.", ephemeral=True)
-
-        extract_prompt = (
-            f"Extract key personal facts from this user statement: \"{clean_fact}\"\n"
-            "Return a JSON object in this format:\n"
-            "{\n"
-            "  \"facts\": [\n"
-            "    {\"key\": \"short_snake_case_key\", \"value\": \"concise value\"}\n"
-            "  ]\n"
-            "}\n"
-            "Examples of valid keys: nickname, favorite_team, favorite_food, hobby, location, profession, birthday."
-        )
-        system_instruction = "You are a user preference extraction engine. Return ONLY valid JSON."
-        
-        saved = []
-        try:
-            raw_res = await call_ai_generation(extract_prompt, system_instruction, json_mode=True)
-            if isinstance(raw_res, dict) and "facts" in raw_res and raw_res["facts"]:
-                for item in raw_res["facts"]:
-                    if isinstance(item, dict):
-                        k = str(item.get("key", "")).strip().lower().replace(" ", "_")[:50]
-                        v = str(item.get("value", "")).strip()[:400]
-                        if k and v:
-                            await db.set_user_memory(interaction.user.id, k, v, guild_id=interaction.guild.id if interaction.guild else None, source="manual")
-                            saved.append(f"• **{k.replace('_', ' ').title()}**: {v}")
-        except Exception as e:
-            logger.debug(f"AI extraction fallback in /remember: {e}")
-
-        if not saved:
-            k = "personal_note"
-            v = clean_fact[:300]
-            await db.set_user_memory(interaction.user.id, k, v, guild_id=interaction.guild.id if interaction.guild else None, source="manual")
-            saved.append(f"• **Personal Note**: {v}")
-
-        embed = discord.Embed(
-            title="🧠 Memory Saved!",
-            description=f"Sweety will remember the following about you, **{interaction.user.display_name}**:\n\n" + "\n".join(saved),
-            color=discord.Color.brand_green()
-        )
-        embed.set_footer(text="Use /memories to view everything Sweety knows about you or /forget to remove facts.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /remember: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error saving memory: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error saving memory: {e}", ephemeral=True)
-
-
 @bot.command(name="remember")
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 @commands.guild_only()
@@ -13657,56 +13518,6 @@ async def remember_prefix_cmd(ctx: commands.Context, *, fact: str = ""):
         await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
-@bot.tree.command(name="memories", description="View all personal facts and preferences Sweety has remembered about you")
-@app_commands.describe(user="The user to view memories for (Admin/Mod only to view others)")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def memories_slash_cmd(interaction: discord.Interaction, user: Optional[discord.User] = None):
-    try:
-        target_user = user or interaction.user
-        is_self = target_user.id == interaction.user.id
-
-        if not is_self:
-            is_mod = is_admin_or_mod(interaction.user) or interaction.user.id == 719932313919684670
-            if not is_mod:
-                return await interaction.response.send_message("🚫 You can only view your own remembered facts.", ephemeral=True)
-
-        mems = await db.get_user_memories(target_user.id, limit=25)
-        if not mems:
-            subject = "You have not" if is_self else f"{target_user.name} has not"
-            empty_msg = (
-                f"ℹ️ **No stored memories yet!**\n"
-                f"{subject} saved any facts with Sweety yet.\n"
-                f"Use `/remember fact: <text>` or simply chat with `@Sweety` to let her learn about you!"
-            )
-            return await interaction.response.send_message(empty_msg, ephemeral=True)
-
-        lines = []
-        for m in mems:
-            k_disp = m["fact_key"].replace("_", " ").title()
-            v_disp = m["fact_value"]
-            src = "🤖 *Auto-learned*" if m.get("source") == "auto" else "✍️ *Manual*"
-            t_epoch = int(m.get("updated_at", time.time()))
-            lines.append(f"• **{k_disp}**: {v_disp} — {src} (<t:{t_epoch}:R>)")
-
-        embed = discord.Embed(
-            title=f"🧠 Sweety's Memory Log — {target_user.display_name}",
-            description="\n".join(lines),
-            color=discord.Color.purple()
-        )
-        embed.set_thumbnail(url=target_user.display_avatar.url)
-        embed.set_footer(text=f"Total memories: {len(mems)} • Powered by Groq AI Memory Engine")
-
-        view = MemoryManageView(target_user.id, interaction.user.id) if is_self else None
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /memories: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error fetching memories: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error fetching memories: {e}", ephemeral=True)
-
-
 @bot.command(name="memories")
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 @commands.guild_only()
@@ -13743,31 +13554,6 @@ async def memories_prefix_cmd(ctx: commands.Context, user: Optional[discord.Memb
     except Exception as e:
         logger.error(f"Error in !memories: {e}")
         await ctx.reply(f"❌ Error: {e}", mention_author=False)
-
-
-@bot.tree.command(name="forget", description="Tell Sweety to forget a specific fact or all facts about you")
-@app_commands.describe(key="The fact category to forget (e.g. 'favorite_team', 'birthday', or 'all')")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def forget_slash_cmd(interaction: discord.Interaction, key: str):
-    try:
-        await interaction.response.defer(ephemeral=True)
-        target = key.strip().lower()
-        if target in ("all", "*", "everything"):
-            await db.clear_user_memories(interaction.user.id)
-            return await interaction.followup.send("🧹 **All your stored memories have been completely wiped!**", ephemeral=True)
-
-        ok = await db.delete_user_memory(interaction.user.id, target)
-        if ok:
-            await interaction.followup.send(f"🗑️ **Forgotten!** Sweety has removed `{target}` from your remembered facts.", ephemeral=True)
-        else:
-            await interaction.followup.send(f"❌ Could not find fact `{target}` in your saved memories. Use `/memories` to check your saved keys.", ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /forget: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.command(name="forget")
@@ -15352,151 +15138,6 @@ async def antighostping_command(interaction: discord.Interaction, status: str):
             await interaction.followup.send(f"❌ Error configuring Anti-Ghost-Ping: {e}", ephemeral=True)
         else:
             await interaction.response.send_message(f"❌ Error configuring Anti-Ghost-Ping: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="remindme", description="Set a private custom timer and reminder for tasks, study, pizza, or games")
-@app_commands.describe(
-    time_arg="When to remind you (e.g. '10m', '2h', '1d', '30m', '1h30m', 'tomorrow')",
-    note="What you want to be reminded about",
-    dm="Whether to deliver the reminder via Direct Message (default: true / private DM)"
-)
-@app_commands.rename(time_arg="time")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def remindme_slash_cmd(interaction: discord.Interaction, time_arg: str, note: str, dm: Optional[bool] = True):
-    try:
-        seconds = parse_duration_string(time_arg)
-        if not seconds:
-            await interaction.response.send_message(
-                "❌ **Invalid time format!**\nExamples of valid formats: `10m`, `2h`, `1d`, `30s`, `1h30m`, `3 days`, `tomorrow`.",
-                ephemeral=True
-            )
-            return
-
-        if seconds < MIN_REMINDER_SECONDS:
-            await interaction.response.send_message(
-                f"❌ **Reminder duration too short!** Minimum duration is `{MIN_REMINDER_SECONDS}s`.",
-                ephemeral=True
-            )
-            return
-
-        if seconds > MAX_REMINDER_SECONDS:
-            await interaction.response.send_message(
-                "❌ **Reminder duration too long!** Maximum duration cannot exceed 365 days (1 year).",
-                ephemeral=True
-            )
-            return
-
-        clean_note = sanitize_reminder_text(note)
-        if not clean_note:
-            await interaction.response.send_message(
-                "❌ **Reminder text cannot be empty or contain only invisible characters!**",
-                ephemeral=True
-            )
-            return
-
-        active_reminders = await db.get_user_reminders(interaction.user.id)
-        if active_reminders and len(active_reminders) >= 10:
-            await interaction.response.send_message(
-                "❌ **Reminder limit reached!** You can have a maximum of **10** active reminders at once. Use `/reminders` to view or `/reminders clear` to cancel them.",
-                ephemeral=True
-            )
-            return
-
-        now = time.time()
-        remind_at = now + seconds
-        rem_id = f"rem_{interaction.user.id}_{int(remind_at)}_{int(now)}"
-        dest = "dm" if (dm is None or dm is True) else "channel"
-
-        await db.add_reminder(
-            reminder_id=rem_id,
-            user_id=interaction.user.id,
-            guild_id=interaction.guild.id,
-            channel_id=interaction.channel.id,
-            reminder_text=clean_note,
-            remind_at=remind_at,
-            created_at=now,
-            delivery_method=dest
-        )
-
-        embed = discord.Embed(
-            title="🔒 Reminder Scheduled (Private)!",
-            description=f"I will remind you <t:{int(remind_at)}:R> (<t:{int(remind_at)}:f>).",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="📝 Note", value=f">>> {clean_note[:1000]}", inline=False)
-        embed.add_field(
-            name="📍 Delivery Location",
-            value="📬 **Direct Message (DM)** (Private)" if dest == "dm" else f"💬 **{interaction.channel.mention}**",
-            inline=True
-        )
-        embed.set_footer(text=f"ID: {rem_id[:16]} • Sweety Productivity Suite (Private)")
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /remindme: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error scheduling reminder: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error scheduling reminder: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="reminders", description="View or cancel all your active pending reminders (private)")
-@app_commands.describe(action="Choose to list active reminders or cancel all of them")
-@app_commands.choices(
-    action=[
-        app_commands.Choice(name="📋 List Active Reminders", value="list"),
-        app_commands.Choice(name="🗑️ Clear / Cancel All Reminders", value="clear")
-    ]
-)
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def reminders_slash_cmd(interaction: discord.Interaction, action: Optional[str] = "list"):
-    try:
-        if action == "clear":
-            rows = await db.get_user_reminders(interaction.user.id)
-            if not rows:
-                await interaction.response.send_message("ℹ️ You have no active reminders to clear.", ephemeral=True)
-                return
-            for r in rows:
-                rid = r["id"] if isinstance(r, dict) and "id" in r else r[0]
-                await db.delete_reminder(rid)
-            await interaction.response.send_message(f"🧹 Cleared all **`{len(rows)}`** active reminder(s)!", ephemeral=True)
-            return
-
-        rows = await db.get_user_reminders(interaction.user.id)
-        if not rows:
-            embed = discord.Embed(
-                title="🔒 Your Active Reminders",
-                description="You have **0** pending reminders. Schedule one privately with `/remindme`!",
-                color=discord.Color.blue()
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-
-        embed = discord.Embed(
-            title="🔒 Your Active Reminders (Private)",
-            description=f"You have **`{len(rows)}`** active scheduled reminder(s):\n",
-            color=discord.Color.blue()
-        )
-        for idx, r in enumerate(rows[:10], 1):
-            note = r["reminder_text"] if isinstance(r, dict) and "reminder_text" in r else r[3]
-            rem_at = float(r["remind_at"] if isinstance(r, dict) and "remind_at" in r else r[4])
-            dest = r.get("delivery_method", "dm") if isinstance(r, dict) else (r[6] if len(r) > 6 else "dm")
-            loc_str = "DM (Private)" if dest == "dm" else f"<#{r['channel_id'] if isinstance(r, dict) else r[2]}>"
-            embed.add_field(
-                name=f"#{idx} • Due <t:{int(rem_at)}:R>",
-                value=f"• **Note:** {note[:150]}\n• **Location:** {loc_str}",
-                inline=False
-            )
-        embed.set_footer(text="Use /reminders clear to cancel all reminders")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /reminders: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error fetching reminders: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error fetching reminders: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="afk", description="Set your AFK status so Sweety notifies anyone who pings you while you are away")
@@ -17750,53 +17391,6 @@ async def warnleaderboard_prefix_cmd(ctx: commands.Context, limit: Optional[int]
     except Exception as e:
         logger.error(f"Error in !warnleaderboard: {e}", exc_info=True)
         await ctx.send(f"❌ Failed to fetch warning leaderboard: {e}")
-
-
-@bot.tree.command(name="sync", description="Instantly sync all slash commands directly to this server and globally")
-@app_commands.describe(mode="Sync mode: 'instant' (this server) or 'global' (all servers) or 'clean'")
-@app_commands.choices(
-    mode=[
-        app_commands.Choice(name="Instant Server Sync (Recommended)", value="instant"),
-        app_commands.Choice(name="Global Sync (All Servers)", value="global"),
-        app_commands.Choice(name="Purge Guild-Specific Commands", value="clean")
-    ]
-)
-@app_commands.default_permissions(administrator=True)
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def sync_slash_cmd(interaction: discord.Interaction, mode: str = "instant"):
-    """Slash command to instantly sync all commands directly to this server."""
-    if not is_protected(interaction.user) and not interaction.permissions.administrator and interaction.user.id != 719932313919684670:
-        return await interaction.response.send_message("❌ Only Server Administrators or Bot Creator can trigger command sync.", ephemeral=True)
-
-    await interaction.response.defer(ephemeral=True)
-    try:
-        if mode == "clean":
-            interaction.client.tree.clear_commands(guild=interaction.guild)
-            await interaction.client.tree.sync(guild=interaction.guild)
-            synced = await interaction.client.tree.sync()
-            return await interaction.followup.send(f"🧹 Purged guild commands from **{interaction.guild.name}** and refreshed `{len(synced)}` global commands.", ephemeral=True)
-        elif mode == "global":
-            synced = await interaction.client.tree.sync()
-            return await interaction.followup.send(f"🌐 Synced `{len(synced)}` global slash commands across Discord.", ephemeral=True)
-        else:  # instant
-            interaction.client.tree.copy_global_to(guild=interaction.guild)
-            synced = await interaction.client.tree.sync(guild=interaction.guild)
-            await interaction.client.tree.sync()
-            embed = discord.Embed(
-                title="⚡ Instant Server Sync Complete",
-                description=(
-                    f"✅ **Instantly synced `{len(synced)}` slash commands** directly to **{interaction.guild.name}** in 0.1s!\n\n"
-                    f"✨ All commands are now live in this server **immediately**.\n"
-                    f"*(If your Discord app still shows old cached autocomplete, press `Ctrl + R` on PC or restart your mobile app!)*"
-                ),
-                color=discord.Color.green(),
-                timestamp=discord.utils.utcnow()
-            )
-            await interaction.followup.send(embed=embed, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Command sync failed: {e}")
-        await interaction.followup.send(f"❌ Command sync failed: `{e}`", ephemeral=True)
 
 
 @bot.tree.command(name="ping", description="🏓 Check bot latency and Discord Gateway connection status")
@@ -20107,82 +19701,6 @@ async def embed_command(
         await interaction.followup.send(f"❌ Failed to send embed: {e}")
 
 
-@bot.tree.command(name="ask", description="Ask Sweety any question, analyze images/GIFs, or chat with AI")
-@app_commands.describe(
-    question="The question or prompt you want to ask Sweety",
-    image="Optional image or GIF attachment for Sweety to analyze"
-)
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def ask_command(interaction: discord.Interaction, question: str, image: Optional[discord.Attachment] = None):
-    await interaction.response.defer(thinking=True)
-    
-    # 1. User cooldown
-    allowed, remaining = _check_user_cooldown(interaction.user.id)
-    if not allowed:
-        return await interaction.followup.send(
-            f"⏳ Please wait **{remaining}s** before asking another question.",
-            ephemeral=True
-        )
-
-    # 2. Server limit
-    if interaction.guild and not _check_server_limit(interaction.guild.id):
-        return await interaction.followup.send(
-            "🚫 This server has reached its hourly AI limit. Please try again later.",
-            ephemeral=True
-        )
-
-    # 3. Sanitize
-    is_clean, clean_question = _sanitize_ai_input(question)
-    if not is_clean:
-        return await interaction.followup.send(
-            "⚠️ Your question was flagged for restricted keywords.",
-            ephemeral=True
-        )
-
-    try:
-        server_name = interaction.guild.name if interaction.guild else ""
-        guild_id = interaction.guild.id if interaction.guild else None
-        
-        media_bytes = None
-        mime_type = "image/png"
-        if image:
-            try:
-                media_bytes = await image.read()
-                mime_type = (image.content_type or "image/png").split(';')[0]
-            except Exception as img_err:
-                logger.warning(f"Failed to read image attachment: {img_err}")
-
-        answer = await answer_question_with_ai(
-            query=clean_question,
-            author_name=interaction.user.display_name,
-            server_name=server_name,
-            user_id=interaction.user.id,
-            guild_id=guild_id,
-            media_data=media_bytes,
-            mime_type=mime_type
-        )
-        
-        if clean_question and len(clean_question) > 5:
-            asyncio.create_task(auto_extract_user_memory(interaction.user.id, clean_question, guild_id))
-        
-        embed = discord.Embed(
-            title=f"❓ {clean_question[:250]}",
-            description=answer[:4000] if len(answer) > 2000 else answer,
-            color=discord.Color.from_rgb(255, 105, 180) if (str(interaction.user.id) == "719932313919684670") else discord.Color.blue()
-        )
-        if image:
-            embed.set_thumbnail(url=image.url)
-        embed.set_author(name=f"Asked by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text="Powered by Google Gemini 2.5 Flash • Sweety AI", icon_url=bot.user.display_avatar.url if bot.user else None)
-        embed.timestamp = discord.utils.utcnow()
-        
-        await interaction.followup.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /ask command: {e}", exc_info=True)
-        await interaction.followup.send(f"❌ Failed to answer question: {e}", ephemeral=True)
-
-
 @bot.command(name="ask")
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 @commands.guild_only()
@@ -20345,21 +19863,19 @@ async def toggle_ai_reply_command(interaction: discord.Interaction):
             await interaction.followup.send("❌ Failed to toggle AI Auto-Reply.", ephemeral=True)
 
 
-@bot.tree.command(name="creator", description="Discover who created and engineered this bot")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def creator_command(interaction: discord.Interaction):
+@bot.command(name="creator", aliases=["developer", "dev", "whoiscreator"])
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def creator_prefix_cmd(ctx: commands.Context):
+    """Discover who created and engineered this bot: !creator"""
     try:
         embed = check_creator_query("who made you")
         if embed:
-            await interaction.response.send_message(embed=embed)
+            await ctx.send(embed=embed)
         else:
-            await interaction.response.send_message("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥")
+            await ctx.send("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥")
     except Exception as e:
-        logger.error(f"Error in /creator command: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥", ephemeral=True)
-        else:
-            await interaction.followup.send("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥", ephemeral=True)
+        logger.error(f"Error in !creator command: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.tree.command(name="staff", description="Display the complete server staff team (Owner, Admins, Mods)")
