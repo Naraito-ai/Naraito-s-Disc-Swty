@@ -9523,6 +9523,42 @@ def build_catch_success_embed(user: discord.User, card: Dict[str, Any], new_bal:
     embed.timestamp = discord.utils.utcnow()
     return embed
 
+
+async def spawn_nba_card_drop(channel: discord.TextChannel, requested_tier: Optional[str] = None) -> Optional[discord.Message]:
+    """Spawns an authentic NBA 2K Mobile wild card drop in the specified text channel."""
+    now_drop_ts = time.time()
+    if requested_tier and requested_tier.lower() in NBA_2K_TIERS:
+        t_key = requested_tier.lower()
+        tier_pool = [c for c in NBA_2K_MOBILE_CARDS if c["tier"] == t_key]
+    else:
+        drop_tier = random.choices(
+            ["gold", "ruby", "amethyst", "diamond", "galaxy_opal"],
+            weights=[0.55, 0.25, 0.12, 0.06, 0.02],
+            k=1
+        )[0]
+        tier_pool = [c for c in NBA_2K_MOBILE_CARDS if c["tier"] == drop_tier]
+    if not tier_pool:
+        tier_pool = NBA_2K_MOBILE_CARDS
+
+    drop_card = random.choice(tier_pool)
+    drop_id = f"{channel.guild.id}_{int(now_drop_ts)}"
+    drop_info = {
+        "card": drop_card,
+        "claimed": False,
+        "drop_id": drop_id,
+        "channel_id": channel.id,
+        "guild_id": channel.guild.id,
+        "spawned_at": now_drop_ts,
+        "hints_used": 1
+    }
+    _active_nba_drops[channel.id] = drop_info
+    _active_nba_drops[channel.guild.id] = drop_info
+    drop_embed = build_nba_drop_embed(drop_card, 1)
+    drop_view = NBAChatDropView(drop_card, drop_id, channel.id)
+    drop_msg = await channel.send(embed=drop_embed, view=drop_view)
+    drop_info["message"] = drop_msg
+    return drop_msg
+
 print("All Embed Generators syntax-checked successfully!")
 
 
@@ -18009,6 +18045,57 @@ async def nbafav_prefix_cmd(ctx: commands.Context, *, card_query: str):
         await ctx.send(f"❌ Error: {e}")
 
 
+@bot.tree.command(name="spawndrop", description="🏀 Instantly trigger a wild NBA 2K Mobile player card drop in chat (Staff)")
+@app_commands.describe(
+    tier="Specific card tier rarity to spawn (defaults to randomized drop roll)",
+    channel="Target text channel (defaults to current channel)"
+)
+@app_commands.choices(tier=[
+    app_commands.Choice(name="🎲 Randomized Drop Roll", value="random"),
+    app_commands.Choice(name="🌌 Dark Matter (99 OVR)", value="dark_matter"),
+    app_commands.Choice(name="✨ Galaxy Opal (97-98 OVR)", value="galaxy_opal"),
+    app_commands.Choice(name="💎 Diamond (93-96 OVR)", value="diamond"),
+    app_commands.Choice(name="🔮 Amethyst (88-92 OVR)", value="amethyst"),
+    app_commands.Choice(name="🔴 Ruby (84-87 OVR)", value="ruby"),
+    app_commands.Choice(name="🟡 Gold (75-83 OVR)", value="gold"),
+])
+@app_commands.default_permissions(manage_messages=True)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def spawndrop_slash_cmd(
+    interaction: discord.Interaction,
+    tier: Optional[str] = "random",
+    channel: Optional[discord.TextChannel] = None
+):
+    try:
+        if not is_protected(interaction.user) and not interaction.permissions.manage_messages and interaction.user.id != getattr(interaction.guild, "owner_id", None):
+            return await interaction.response.send_message("❌ Only server staff with `Manage Messages` permission can spawn card drops.", ephemeral=True)
+        target_chan = channel or interaction.channel
+        t_req = None if (not tier or tier == "random") else tier
+        await spawn_nba_card_drop(target_chan, requested_tier=t_req)
+        await interaction.response.send_message(f"🏀 Wild NBA card drop triggered in {target_chan.mention}!", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /spawndrop: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.command(name="spawndrop", aliases=["spawnbacard", "nbaspawn", "dropcard", "carddrop", "drop"])
+@commands.guild_only()
+@commands.has_permissions(manage_messages=True)
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def spawndrop_prefix_cmd(ctx: commands.Context, tier: Optional[str] = None):
+    """Instantly spawn a wild NBA 2K Mobile player card drop: !spawndrop [tier]"""
+    try:
+        t_req = None if not tier or tier.lower() in ["random", "rand", "any"] else tier.lower()
+        await spawn_nba_card_drop(ctx.channel, requested_tier=t_req)
+    except Exception as e:
+        logger.error(f"Error in !spawndrop: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
 @bot.command(name="catch", aliases=["nbacatch", "claim", "nbaclaim", "c"])
 @commands.guild_only()
 @commands.cooldown(1, 1.0, commands.BucketType.user)
@@ -19869,42 +19956,19 @@ async def on_message(message):
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
 
         # ── NBA 2K Mobile Wild Card Chat Spawns ──────────────────────────────
-        if message.guild and not message.author.bot and len(message.content) > 3:
+        if message.guild and not message.author.bot and len(message.content) > 2:
             chan_id = message.channel.id
             _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
             now_drop_ts = time.time()
             last_chan_drop = _nba_drop_last_timestamps.get(chan_id, 0.0)
 
-            # Trigger drop every ~25-35 messages with an 8-minute cooldown per channel & 25% roll
-            if _nba_drop_msg_counts[chan_id] >= random.randint(25, 35) and (now_drop_ts - last_chan_drop > 480):
+            # Trigger drop every ~10-18 messages with a 2.5-minute cooldown per channel & 65% roll
+            if _nba_drop_msg_counts[chan_id] >= random.randint(10, 18) and (now_drop_ts - last_chan_drop > 150):
                 _nba_drop_msg_counts[chan_id] = 0
                 _nba_drop_last_timestamps[chan_id] = now_drop_ts
-                if random.random() < 0.25:
+                if random.random() < 0.65:
                     try:
-                        drop_tier = random.choices(
-                            ["gold", "ruby", "amethyst", "diamond", "galaxy_opal"],
-                            weights=[0.55, 0.25, 0.12, 0.06, 0.02],
-                            k=1
-                        )[0]
-                        tier_pool = [c for c in NBA_2K_MOBILE_CARDS if c["tier"] == drop_tier]
-                        if tier_pool:
-                            drop_card = random.choice(tier_pool)
-                            drop_id = f"{message.guild.id}_{int(now_drop_ts)}"
-                            drop_info = {
-                                "card": drop_card,
-                                "claimed": False,
-                                "drop_id": drop_id,
-                                "channel_id": message.channel.id,
-                                "guild_id": message.guild.id,
-                                "spawned_at": now_drop_ts,
-                                "hints_used": 1
-                            }
-                            _active_nba_drops[message.channel.id] = drop_info
-                            _active_nba_drops[message.guild.id] = drop_info
-                            drop_embed = build_nba_drop_embed(drop_card, 1)
-                            drop_view = NBAChatDropView(drop_card, drop_id, message.channel.id)
-                            drop_msg = await message.channel.send(embed=drop_embed, view=drop_view)
-                            drop_info["message"] = drop_msg
+                        await spawn_nba_card_drop(message.channel)
                     except Exception as drop_err:
                         logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
 
