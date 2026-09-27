@@ -404,6 +404,31 @@ class DatabaseManager:
                 blacklisted_by TEXT,
                 blacklisted_at REAL NOT NULL
             );
+            """,
+            # NBA 2K Mobile Cards Inventory Table
+            """
+            CREATE TABLE IF NOT EXISTS user_nba_cards (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                card_id TEXT NOT NULL,
+                obtained_at REAL NOT NULL,
+                source TEXT DEFAULT 'pack',
+                is_favorite BOOLEAN DEFAULT FALSE,
+                lineup_pos TEXT DEFAULT ''
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_user_nba_cards_lookup ON user_nba_cards(user_id, card_id);
+            """,
+            # NBA 2K Mobile Economy & Stats Table
+            """
+            CREATE TABLE IF NOT EXISTS user_nba_economy (
+                user_id TEXT PRIMARY KEY,
+                vc_balance INTEGER DEFAULT 1000,
+                packs_opened INTEGER DEFAULT 0,
+                cards_claimed INTEGER DEFAULT 0,
+                last_daily_claim REAL DEFAULT 0.0
+            );
             """
         ]
         
@@ -1541,6 +1566,134 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error fetching blacklisted users from DB: {e}")
             return []
+
+    # ── NBA 2K Mobile Cards & Economy System ─────────────────────────────────
+
+    async def add_user_nba_card(self, user_id: Any, card_id: str, source: str = "pack") -> bool:
+        """Adds an NBA 2K card to a user's inventory."""
+        now = time.time()
+        query = "INSERT INTO user_nba_cards (user_id, card_id, obtained_at, source) VALUES (?, ?, ?, ?)"
+        try:
+            await self.execute(query, str(user_id), str(card_id), now, str(source))
+            # Increment claimed/pulled stats in economy
+            await self.execute(
+                """
+                INSERT INTO user_nba_economy (user_id, vc_balance, cards_claimed)
+                VALUES (?, 1000, 1)
+                ON CONFLICT(user_id) DO UPDATE SET cards_claimed = user_nba_economy.cards_claimed + 1
+                """,
+                str(user_id)
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Error adding NBA card to user in DB: {e}")
+            return False
+
+    async def get_user_nba_cards(self, user_id: Any) -> List[Dict[str, Any]]:
+        """Fetches all NBA 2K cards owned by a user."""
+        query = "SELECT * FROM user_nba_cards WHERE user_id = ? ORDER BY obtained_at DESC"
+        try:
+            return await self.fetch(query, str(user_id))
+        except Exception as e:
+            logger.error(f"Error fetching user NBA cards from DB: {e}")
+            return []
+
+    async def remove_user_nba_card(self, user_id: Any, card_id: str) -> bool:
+        """Removes a single copy of an NBA card from user inventory."""
+        query = "DELETE FROM user_nba_cards WHERE id = (SELECT id FROM user_nba_cards WHERE user_id = ? AND card_id = ? LIMIT 1)"
+        try:
+            await self.execute(query, str(user_id), str(card_id))
+            return True
+        except Exception as e:
+            logger.error(f"Error removing user NBA card from DB: {e}")
+            return False
+
+    async def transfer_user_nba_card(self, from_user_id: Any, to_user_id: Any, card_id: str) -> bool:
+        """Transfers an NBA card from one user to another."""
+        query = "UPDATE user_nba_cards SET user_id = ? WHERE id = (SELECT id FROM user_nba_cards WHERE user_id = ? AND card_id = ? LIMIT 1)"
+        try:
+            await self.execute(query, str(to_user_id), str(from_user_id), str(card_id))
+            return True
+        except Exception as e:
+            logger.error(f"Error transferring NBA card in DB: {e}")
+            return False
+
+    async def get_user_vc(self, user_id: Any) -> int:
+        """Gets user's current VC (Virtual Currency) balance."""
+        query = "SELECT vc_balance FROM user_nba_economy WHERE user_id = ?"
+        try:
+            row = await self.fetchrow(query, str(user_id))
+            if row and "vc_balance" in row:
+                return int(row["vc_balance"])
+            # Default new user balance is 1000 VC
+            await self.execute("INSERT INTO user_nba_economy (user_id, vc_balance) VALUES (?, 1000) ON CONFLICT(user_id) DO NOTHING", str(user_id))
+            return 1000
+        except Exception as e:
+            logger.error(f"Error fetching user VC balance from DB: {e}")
+            return 1000
+
+    async def add_user_vc(self, user_id: Any, amount: int) -> int:
+        """Adds VC to a user's account."""
+        query = """
+        INSERT INTO user_nba_economy (user_id, vc_balance)
+        VALUES (?, 1000 + ?)
+        ON CONFLICT(user_id) DO UPDATE SET vc_balance = user_nba_economy.vc_balance + ?
+        """
+        try:
+            await self.execute(query, str(user_id), int(amount), int(amount))
+            return await self.get_user_vc(user_id)
+        except Exception as e:
+            logger.error(f"Error adding VC in DB: {e}")
+            return 0
+
+    async def deduct_user_vc(self, user_id: Any, amount: int) -> bool:
+        """Deducts VC from a user if balance is sufficient."""
+        balance = await self.get_user_vc(user_id)
+        if balance < amount:
+            return False
+        query = "UPDATE user_nba_economy SET vc_balance = vc_balance - ? WHERE user_id = ?"
+        try:
+            await self.execute(query, int(amount), str(user_id))
+            return True
+        except Exception as e:
+            logger.error(f"Error deducting VC in DB: {e}")
+            return False
+
+    async def claim_nba_daily(self, user_id: Any, amount: int = 1000) -> Tuple[bool, int, float]:
+        """Claims daily NBA VC reward (24h cooldown). Returns (success, new_balance, time_remaining)."""
+        now = time.time()
+        query = "SELECT last_daily_claim, vc_balance FROM user_nba_economy WHERE user_id = ?"
+        try:
+            row = await self.fetchrow(query, str(user_id))
+            last_claim = float(row.get("last_daily_claim", 0)) if row else 0.0
+            
+            if now - last_claim < 86400:
+                remaining = 86400 - (now - last_claim)
+                return False, int(row.get("vc_balance", 1000)) if row else 1000, remaining
+
+            update_query = """
+            INSERT INTO user_nba_economy (user_id, vc_balance, last_daily_claim)
+            VALUES (?, 1000 + ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET vc_balance = user_nba_economy.vc_balance + ?, last_daily_claim = ?
+            """
+            await self.execute(update_query, str(user_id), int(amount), now, int(amount), now)
+            new_bal = await self.get_user_vc(user_id)
+            return True, new_bal, 0.0
+        except Exception as e:
+            logger.error(f"Error claiming NBA daily VC in DB: {e}")
+            return False, 0, 0.0
+
+    async def get_user_nba_economy_stats(self, user_id: Any) -> Dict[str, Any]:
+        """Fetches full NBA economy stats for a user."""
+        query = "SELECT * FROM user_nba_economy WHERE user_id = ?"
+        try:
+            row = await self.fetchrow(query, str(user_id))
+            if row:
+                return dict(row)
+            return {"user_id": str(user_id), "vc_balance": 1000, "packs_opened": 0, "cards_claimed": 0}
+        except Exception as e:
+            logger.error(f"Error fetching user NBA economy stats from DB: {e}")
+            return {"user_id": str(user_id), "vc_balance": 1000, "packs_opened": 0, "cards_claimed": 0}
 
     async def close(self):
         """Closes all database connections."""

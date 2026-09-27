@@ -7888,6 +7888,32 @@ class HubDraftButtonView(discord.ui.View):
         lb_embed = build_gm_leaderboard_embed(rows)
         await interaction.response.send_message(embed=lb_embed, ephemeral=True)
 
+    @discord.ui.button(label="Card Binder (Dex)", style=discord.ButtonStyle.primary, emoji="🎴", custom_id="hub_nbadex_btn", row=2)
+    async def binder_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        cards = await db.get_user_nba_cards(interaction.user.id)
+        vc = await db.get_user_vc(interaction.user.id)
+        embed, _, _ = build_nbadex_embed(interaction.user, cards, "all", 1, 6, vc)
+        view = NBADexView(interaction.user, interaction.user, cards, "all", 1, vc)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    @discord.ui.button(label="Open 2K Pack", style=discord.ButtonStyle.success, emoji="📦", custom_id="hub_openpack_btn", row=2)
+    async def open_pack_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        vc = await db.get_user_vc(interaction.user.id)
+        embed = discord.Embed(
+            title="📦 NBA 2K Mobile Card Packs Shop",
+            description=(
+                f"**Your VC Balance:** `💰 {vc:,} VC`\n\n"
+                f"• **📦 Starter Pack** (`250 VC`) — Gold/Ruby with Amethyst chance\n"
+                f"• **⭐ All-Star Gold Pack** (`1,500 VC`) — Ruby/Amethyst/Diamond/Galaxy Opal\n"
+                f"• **🐐 G.O.A.T. Dynasty Pack** (`5,000 VC`) — Diamond/Galaxy Opal/99 Dark Matter\n\n"
+                f"*Click a pack below to buy and rip open!*"
+            ),
+            color=discord.Color.gold()
+        )
+        pack_view = QuickPackSelectView(interaction.user)
+        await interaction.response.send_message(embed=embed, view=pack_view, ephemeral=True)
+
+
 
 async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name: Optional[str] = "2k mobile hub") -> tuple[discord.TextChannel, str]:
     """Finds or creates a matching category (e.g. 2K Mobile Hub) and creates the #🏀・dream-team-builder channel with the interactive hub view."""
@@ -8002,6 +8028,22 @@ async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name
         ),
         inline=False
     )
+
+    hub_embed.add_field(
+        name="🎴 NBA 2K Mobile Card Dex & Collection",
+        value=(
+            "• `/nbadex` or `!nbadex` — Open interactive paginated card collection binder\n"
+            "• `/openpack` or `!openpack` — Buy & open 2K packs with VC (`Starter`, `All-Star`, `G.O.A.T.`)\n"
+            "• `/nbacard <card>` or `!nbacard` — Inspect full HD card artwork, stats & badges\n"
+            "• `/nbadaily` or `!nbadaily` — Claim free `1,000 VC` daily reward\n"
+            "• `/nbatrade <@user>` or `!nbatrade` — Propose interactive 2-way card trades\n"
+            "• `/nbasell <card>` or `!nbasell` — Quick-sell duplicate cards for VC\n"
+            "• `/nbatop` or `!nbatop` — View top card collectors and VC millionaires\n"
+            "• 🏀 *Keep chatting to trigger wild 2K card drops on the court!*"
+        ),
+        inline=False
+    )
+
     
     hub_embed.set_footer(text="Click the interactive GM buttons below to draft, battle, or check stats anytime!")
     hub_embed.timestamp = discord.utils.utcnow()
@@ -8010,6 +8052,1863 @@ async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name
     await existing_channel.send(embed=hub_embed, view=view)
     
     return existing_channel, target_category.name
+
+
+
+# ── NBA 2K Mobile Card Dex & Collection Engine ───────────────────────────────
+
+_active_nba_drop: Dict[int, Dict[str, Any]] = {}
+_nba_drop_msg_counts: Dict[int, int] = {}
+_nba_drop_last_timestamps: Dict[int, float] = {}
+
+NBA_2K_TIERS: Dict[str, Dict[str, Any]] = {
+    "dark_matter": {
+        "name": "Dark Matter / G.O.A.T.",
+        "short_name": "Dark Matter",
+        "emoji": "🌌",
+        "color": 0x7B1FA2,
+        "ovr_range": "99",
+        "quick_sell": 8000,
+        "desc": "The most elite, unguardable superstars in basketball history."
+    },
+    "galaxy_opal": {
+        "name": "Galaxy Opal",
+        "short_name": "Galaxy Opal",
+        "emoji": "✨",
+        "color": 0x00E5FF,
+        "ovr_range": "97-98",
+        "quick_sell": 3000,
+        "desc": "Pinnacle all-NBA talent with game-breaking signature moves."
+    },
+    "diamond": {
+        "name": "Pink Diamond / Diamond",
+        "short_name": "Diamond",
+        "emoji": "💎",
+        "color": 0x2979FF,
+        "ovr_range": "93-96",
+        "quick_sell": 1200,
+        "desc": "Elite franchise cornerstones and legendary champions."
+    },
+    "amethyst": {
+        "name": "Amethyst",
+        "short_name": "Amethyst",
+        "emoji": "🔮",
+        "color": 0xAB47BC,
+        "ovr_range": "88-92",
+        "quick_sell": 500,
+        "desc": "All-Star playmakers and top scoring threats."
+    },
+    "ruby": {
+        "name": "Ruby",
+        "short_name": "Ruby",
+        "emoji": "🔴",
+        "color": 0xE53935,
+        "ovr_range": "84-87",
+        "quick_sell": 200,
+        "desc": "High-impact starters and defensive specialists."
+    },
+    "gold": {
+        "name": "Gold / Emerald",
+        "short_name": "Gold",
+        "emoji": "🟡",
+        "color": 0xFFD700,
+        "ovr_range": "75-83",
+        "quick_sell": 50,
+        "desc": "Key rotation sparkplugs and clutch role players."
+    }
+}
+
+NBA_PACK_TYPES: Dict[str, Dict[str, Any]] = {
+    "starter": {
+        "id": "starter",
+        "name": "📦 Starter Pack",
+        "cost": 250,
+        "description": "Affordable entry pack with guaranteed Gold/Ruby cards and a chance at Amethyst.",
+        "icon": "📦",
+        "color": 0xFFD700,
+        "odds": {"gold": 0.70, "ruby": 0.25, "amethyst": 0.05}
+    },
+    "allstar": {
+        "id": "allstar",
+        "name": "⭐ All-Star Gold Pack",
+        "cost": 1500,
+        "description": "High-value pack packed with Ruby/Amethyst stars, Diamonds, and Galaxy Opals.",
+        "icon": "⭐",
+        "color": 0x2979FF,
+        "odds": {"ruby": 0.40, "amethyst": 0.35, "diamond": 0.20, "galaxy_opal": 0.05}
+    },
+    "goat": {
+        "id": "goat",
+        "name": "🐐 G.O.A.T. Dynasty Pack",
+        "cost": 5000,
+        "description": "Ultra-premium pack featuring only Diamond, Galaxy Opal, and 99 OVR Dark Matter legends!",
+        "icon": "🐐",
+        "color": 0x7B1FA2,
+        "odds": {"diamond": 0.35, "galaxy_opal": 0.40, "dark_matter": 0.25}
+    }
+}
+
+NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [
+    # ── 🌌 DARK MATTER / G.O.A.T. (99 OVR) ──────────────────────────────────
+    {
+        "id": "dm-jordan-99",
+        "name": "Michael Jordan",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "CHI",
+        "theme": "G.O.A.T. Edition",
+        "stats": {"3pt": 90, "def": 99, "ply": 92, "ins": 99, "clu": 99, "ath": 99},
+        "badges": ["HOF Clamps", "HOF Limitless Takeoff", "HOF Posterizer", "HOF Ankle Breaker", "HOF Clutch Performer"],
+        "quote": "6x NBA Champion • 6x Finals MVP • 5x Regular Season MVP • The Undisputed GOAT",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186178-Q4O6U87XN3WCKJGYP337/MJ_GOAT.png"
+    },
+    {
+        "id": "dm-lebron-99",
+        "name": "LeBron James",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "SF",
+        "sec_pos": "PF",
+        "team": "MIA",
+        "theme": "Invincible King",
+        "stats": {"3pt": 88, "def": 98, "ply": 99, "ins": 99, "clu": 98, "ath": 99},
+        "badges": ["HOF Chase Down Artist", "HOF Dimer", "HOF Bully", "HOF Fast Twitch", "HOF Unpluckable"],
+        "quote": "4x NBA Champion • 4x Finals MVP • All-Time NBA Scoring Leader • Point Forward Master",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186212-P1O9Y38XQ5WCKJGYP448/LeBron_Invincible.png"
+    },
+    {
+        "id": "dm-kobe-99",
+        "name": "Kobe Bryant",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "LAL",
+        "theme": "81-Pt Masterpiece",
+        "stats": {"3pt": 92, "def": 98, "ply": 90, "ins": 98, "clu": 99, "ath": 98},
+        "badges": ["HOF Mamba Mentality", "HOF Blinders", "HOF Deadeye", "HOF Clamps", "HOF Difficult Shots"],
+        "quote": "5x NBA Champion • 2x Finals MVP • 18x All-Star • Relentless Mamba Mentality",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186250-KOBE_MAMBA.png"
+    },
+    {
+        "id": "dm-curry-99",
+        "name": "Stephen Curry",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "GSW",
+        "theme": "Unanimous MVP",
+        "stats": {"3pt": 99, "def": 85, "ply": 98, "ins": 89, "clu": 99, "ath": 93},
+        "badges": ["HOF Limitless Range", "HOF Chef", "HOF Agent 3", "HOF Handles For Days", "HOF Circus Threes"],
+        "quote": "4x NBA Champion • Finals MVP • 2x MVP (Only Unanimous) • Greatest Shooter Ever",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186280-CURRY_UNANIMOUS.png"
+    },
+    {
+        "id": "dm-shaq-99",
+        "name": "Shaquille O'Neal",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "LAL",
+        "theme": "Diesel Dominance",
+        "stats": {"3pt": 55, "def": 97, "ply": 78, "ins": 99, "clu": 96, "ath": 98},
+        "badges": ["HOF Dropstepper", "HOF Posterizer", "HOF Rebound Chaser", "HOF Anchor", "HOF Backdown Punisher"],
+        "quote": "4x NBA Champion • 3x Finals MVP • 2000 MVP • Most Dominant Physical Force in History",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186310-SHAQ_DIESEL.png"
+    },
+    {
+        "id": "dm-wemby-99",
+        "name": "Victor Wembanyama",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "SAS",
+        "theme": "Alien Invincible",
+        "stats": {"3pt": 92, "def": 99, "ply": 88, "ins": 97, "clu": 95, "ath": 96},
+        "badges": ["HOF Anchor", "HOF Interceptor", "HOF Limitless Range", "HOF Rim Protector", "HOF Pogo Stick"],
+        "quote": "7ft 4in Generational Phenom • NBA Block Leader • Rookie of the Year Alien",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186340-WEMBY_ALIEN.png"
+    },
+    {
+        "id": "dm-magic-99",
+        "name": "Magic Johnson",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "PG",
+        "sec_pos": "SF",
+        "team": "LAL",
+        "theme": "Showtime Maestro",
+        "stats": {"3pt": 84, "def": 92, "ply": 99, "ins": 96, "clu": 98, "ath": 94},
+        "badges": ["HOF Needle Threader", "HOF Dimer", "HOF Special Delivery", "HOF Floor General", "HOF Post Playmaker"],
+        "quote": "5x NBA Champion • 3x Finals MVP • 3x MVP • Leader of the Legendary Showtime Lakers",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186370-MAGIC_SHOWTIME.png"
+    },
+    {
+        "id": "dm-bird-99",
+        "name": "Larry Bird",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "PF",
+        "sec_pos": "SF",
+        "team": "BOS",
+        "theme": "Boston Legend",
+        "stats": {"3pt": 98, "def": 94, "ply": 97, "ins": 94, "clu": 99, "ath": 89},
+        "badges": ["HOF Clutch Shooter", "HOF Catch & Shoot", "HOF Deadeye", "HOF Dimer", "HOF Interceptor"],
+        "quote": "3x NBA Champion • 2x Finals MVP • 3x Consecutive MVP • Ultimate Cold-Blooded Clutch Shooter",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186400-BIRD_LEGEND.png"
+    },
+    {
+        "id": "dm-kd-99",
+        "name": "Kevin Durant",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "SF",
+        "sec_pos": "PF",
+        "team": "GSW",
+        "theme": "Slim Reaper 3-Level",
+        "stats": {"3pt": 98, "def": 93, "ply": 90, "ins": 97, "clu": 99, "ath": 96},
+        "badges": ["HOF Guard Up", "HOF Deadeye", "HOF Green Machine", "HOF Blinders", "HOF Slippery Off-Ball"],
+        "quote": "2x NBA Champion • 2x Finals MVP • 2014 MVP • Unblockable 7ft 3-Level Scoring Machine",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186430-KD_REAPER.png"
+    },
+    {
+        "id": "dm-giannis-99",
+        "name": "Giannis Antetokounmpo",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "PF",
+        "sec_pos": "C",
+        "team": "MIL",
+        "theme": "Greek Freak MVP",
+        "stats": {"3pt": 75, "def": 99, "ply": 90, "ins": 99, "clu": 96, "ath": 99},
+        "badges": ["HOF Posterizer", "HOF Bully", "HOF Anchor", "HOF Chase Down Artist", "HOF Fast Twitch"],
+        "quote": "2021 NBA Champion & Finals MVP • 2x MVP • 2020 DPOY • Unstoppable Euro-Step Monster",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186460-GIANNIS_FREAK.png"
+    },
+
+    # ── ✨ GALAXY OPAL (97-98 OVR) ──────────────────────────────────────────
+    {
+        "id": "go-luka-98",
+        "name": "Luka Dončić",
+        "tier": "galaxy_opal",
+        "ovr": 98,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "DAL",
+        "theme": "Triple Double King",
+        "stats": {"3pt": 94, "def": 84, "ply": 99, "ins": 96, "clu": 98, "ath": 88},
+        "badges": ["HOF Stepback Maestro", "HOF Dimer", "HOF Space Creator", "HOF Ankle Breaker"],
+        "quote": "5x All-NBA First Team • Scoring Champion • Master of the Unstoppable Step-Back Three",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186490-LUKA_GO.png"
+    },
+    {
+        "id": "go-jokic-98",
+        "name": "Nikola Jokić",
+        "tier": "galaxy_opal",
+        "ovr": 98,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "DEN",
+        "theme": "Point Center Genius",
+        "stats": {"3pt": 90, "def": 85, "ply": 99, "ins": 98, "clu": 98, "ath": 82},
+        "badges": ["HOF Needle Threader", "HOF Touch Passer", "HOF Post Playmaker", "HOF Masher"],
+        "quote": "2023 NBA Champion & Finals MVP • 3x MVP • Greatest Passing Big Man in History",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186520-JOKIC_GO.png"
+    },
+    {
+        "id": "go-tatum-98",
+        "name": "Jayson Tatum",
+        "tier": "galaxy_opal",
+        "ovr": 98,
+        "pos": "SF",
+        "sec_pos": "PF",
+        "team": "BOS",
+        "theme": "Finals Champion",
+        "stats": {"3pt": 95, "def": 95, "ply": 90, "ins": 95, "clu": 96, "ath": 94},
+        "badges": ["HOF Clamps", "HOF Agent 3", "HOF Catch & Shoot", "HOF Posterizer"],
+        "quote": "2024 NBA Champion • 3x All-NBA First Team • Eastern Conference Finals MVP",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186550-TATUM_GO.png"
+    },
+    {
+        "id": "go-ad-97",
+        "name": "Anthony Davis",
+        "tier": "galaxy_opal",
+        "ovr": 97,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "LAL",
+        "theme": "The Brow Anchor",
+        "stats": {"3pt": 80, "def": 99, "ply": 82, "ins": 98, "clu": 94, "ath": 94},
+        "badges": ["HOF Anchor", "HOF Rebound Chaser", "HOF Pogo Stick", "HOF Post Lock"],
+        "quote": "2020 NBA Champion • 4x All-Defensive First Team • Dominant Rim Protector",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186580-AD_GO.png"
+    },
+    {
+        "id": "go-kawhi-97",
+        "name": "Kawhi Leonard",
+        "tier": "galaxy_opal",
+        "ovr": 97,
+        "pos": "SF",
+        "sec_pos": "SG",
+        "team": "TOR",
+        "theme": "The Claw Lock",
+        "stats": {"3pt": 92, "def": 99, "ply": 85, "ins": 94, "clu": 99, "ath": 92},
+        "badges": ["HOF Glove", "HOF Clamps", "HOF Interceptor", "HOF Middy Magician"],
+        "quote": "2x NBA Champion • 2x Finals MVP • 2x DPOY • The Buzzer-Beating Corner Jumper",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186610-KAWHI_GO.png"
+    },
+    {
+        "id": "go-butler-97",
+        "name": "Jimmy Butler",
+        "tier": "galaxy_opal",
+        "ovr": 97,
+        "pos": "SF",
+        "sec_pos": "SG",
+        "team": "MIA",
+        "theme": "Playoff Jimmy",
+        "stats": {"3pt": 85, "def": 98, "ply": 90, "ins": 96, "clu": 99, "ath": 92},
+        "badges": ["HOF Clutch Performer", "HOF Menace", "HOF Fearless Finisher", "HOF Clamps"],
+        "quote": "2x NBA Finals Leader • 5x All-Defensive • The Coldest Playoff Enforcer in the East",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186640-BUTLER_GO.png"
+    },
+    {
+        "id": "go-embiid-98",
+        "name": "Joel Embiid",
+        "tier": "galaxy_opal",
+        "ovr": 98,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "PHI",
+        "theme": "Process MVP",
+        "stats": {"3pt": 88, "def": 96, "ply": 84, "ins": 99, "clu": 96, "ath": 90},
+        "badges": ["HOF Post Spin Technician", "HOF Dream Shake", "HOF Anchor", "HOF Backdown Punisher"],
+        "quote": "2023 NBA MVP • 2x Scoring Champion • 70-Point Game Legend",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186670-EMBIID_GO.png"
+    },
+    {
+        "id": "go-iverson-97",
+        "name": "Allen Iverson",
+        "tier": "galaxy_opal",
+        "ovr": 97,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "PHI",
+        "theme": "The Answer",
+        "stats": {"3pt": 90, "def": 92, "ply": 96, "ins": 97, "clu": 98, "ath": 99},
+        "badges": ["HOF Ankle Breaker", "HOF Giant Slayer", "HOF Acrobat", "HOF Quick First Step"],
+        "quote": "2001 NBA MVP • 4x Scoring Champion • Cultural Icon with the Most Lethal Crossover",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186700-IVERSON_GO.png"
+    },
+    {
+        "id": "go-tmac-98",
+        "name": "Tracy McGrady",
+        "tier": "galaxy_opal",
+        "ovr": 98,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "ORL",
+        "theme": "13 in 35s",
+        "stats": {"3pt": 97, "def": 90, "ply": 94, "ins": 97, "clu": 99, "ath": 97},
+        "badges": ["HOF Limitless Range", "HOF Posterizer", "HOF Blindside", "HOF Deadeye"],
+        "quote": "2x Scoring Champion • 7x All-Star • Scored 13 Points in 35 Seconds in Historic Comeback",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186730-TMAC_GO.png"
+    },
+    {
+        "id": "go-duncan-98",
+        "name": "Tim Duncan",
+        "tier": "galaxy_opal",
+        "ovr": 98,
+        "pos": "PF",
+        "sec_pos": "C",
+        "team": "SAS",
+        "theme": "The Big Fundamental",
+        "stats": {"3pt": 65, "def": 99, "ply": 86, "ins": 98, "clu": 97, "ath": 89},
+        "badges": ["HOF Post Lock", "HOF Anchor", "HOF Rebound Chaser", "HOF Dropstepper"],
+        "quote": "5x NBA Champion • 3x Finals MVP • 2x MVP • The Greatest Power Forward of All Time",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186760-DUNCAN_GO.png"
+    },
+
+    # ── 💎 DIAMOND (93-96 OVR) ──────────────────────────────────────────────
+    {
+        "id": "dia-sga-96",
+        "name": "Shai Gilgeous-Alexander",
+        "tier": "diamond",
+        "ovr": 96,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "OKC",
+        "theme": "Smooth MVP Finalist",
+        "stats": {"3pt": 90, "def": 94, "ply": 95, "ins": 96, "clu": 97, "ath": 93},
+        "badges": ["Gold Clamps", "Gold Middy Magician", "Gold Fearless Finisher", "Gold Dimer"],
+        "quote": "2x All-NBA First Team • Clutch Player of the Year Finalist • King of the Mid-Range Drive",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186790-SGA_DIA.png"
+    },
+    {
+        "id": "dia-ant-95",
+        "name": "Anthony Edwards",
+        "tier": "diamond",
+        "ovr": 95,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "MIN",
+        "theme": "Ant-Man Posterizer",
+        "stats": {"3pt": 92, "def": 94, "ply": 88, "ins": 97, "clu": 96, "ath": 98},
+        "badges": ["Gold Posterizer", "Gold Limitless Takeoff", "Gold Clamps", "Gold Agent 3"],
+        "quote": "2x All-Star • Western Conference Finals Leader • Electrifying Aerial Dunker",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186820-ANT_DIA.png"
+    },
+    {
+        "id": "dia-booker-94",
+        "name": "Devin Booker",
+        "tier": "diamond",
+        "ovr": 94,
+        "pos": "SG",
+        "sec_pos": "PG",
+        "team": "PHX",
+        "theme": "70-Pt Scorer",
+        "stats": {"3pt": 95, "def": 82, "ply": 91, "ins": 92, "clu": 96, "ath": 89},
+        "badges": ["Gold Deadeye", "Gold Catch & Shoot", "Gold Green Machine", "Gold Ankle Breaker"],
+        "quote": "4x All-Star • Olympic Gold Medalist • Scored 70 Points in Single Game",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186850-BOOKER_DIA.png"
+    },
+    {
+        "id": "dia-spida-94",
+        "name": "Donovan Mitchell",
+        "tier": "diamond",
+        "ovr": 94,
+        "pos": "SG",
+        "sec_pos": "PG",
+        "team": "CLE",
+        "theme": "71-Pt Explosion",
+        "stats": {"3pt": 94, "def": 84, "ply": 90, "ins": 95, "clu": 95, "ath": 96},
+        "badges": ["Gold Limitless Range", "Gold Posterizer", "Gold Acrobat", "Gold Space Creator"],
+        "quote": "5x All-Star • Dunk Contest Champion • 71-Point Scoring Masterpiece",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186880-MITCHELL_DIA.png"
+    },
+    {
+        "id": "dia-kyrie-95",
+        "name": "Kyrie Irving",
+        "tier": "diamond",
+        "ovr": 95,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "DAL",
+        "theme": "Ankle Breaker Master",
+        "stats": {"3pt": 96, "def": 80, "ply": 94, "ins": 97, "clu": 98, "ath": 91},
+        "badges": ["Gold Ankle Breaker", "Gold Handles For Days", "Gold Circus Threes", "Gold Layup Package"],
+        "quote": "2016 NBA Champion • 8x All-Star • Greatest Ball-Handling Package in History",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186910-KYRIE_DIA.png"
+    },
+    {
+        "id": "dia-morant-93",
+        "name": "Ja Morant",
+        "tier": "diamond",
+        "ovr": 93,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "MEM",
+        "theme": "Gravity Defier",
+        "stats": {"3pt": 85, "def": 82, "ply": 95, "ins": 98, "clu": 94, "ath": 99},
+        "badges": ["Gold Posterizer", "Gold Limitless Takeoff", "Gold Quick First Step", "Gold Dimer"],
+        "quote": "2x All-Star • Most Improved Player • Unrivaled Vertical Leap & Fastbreak Flash",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186940-MORANT_DIA.png"
+    },
+    {
+        "id": "dia-bam-93",
+        "name": "Bam Adebayo",
+        "tier": "diamond",
+        "ovr": 93,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "MIA",
+        "theme": "DPOY Finalist",
+        "stats": {"3pt": 72, "def": 98, "ply": 88, "ins": 93, "clu": 91, "ath": 93},
+        "badges": ["Gold Anchor", "Gold Clamps", "Gold Interceptor", "Gold Rebound Chaser"],
+        "quote": "3x All-Star • 5x All-Defensive Team • Versatile 1-through-5 Defensive Anchor",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186970-BAM_DIA.png"
+    },
+    {
+        "id": "dia-hali-94",
+        "name": "Tyrese Haliburton",
+        "tier": "diamond",
+        "ovr": 94,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "IND",
+        "theme": "Dimer Specialist",
+        "stats": {"3pt": 94, "def": 80, "ply": 99, "ins": 88, "clu": 95, "ath": 89},
+        "badges": ["Gold Needle Threader", "Gold Dimer", "Gold Limitless Range", "Gold Floor General"],
+        "quote": "2x All-Star • NBA Assists Leader • In-Season Tournament Superstar",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187000-HALI_DIA.png"
+    },
+    {
+        "id": "dia-dame-94",
+        "name": "Damian Lillard",
+        "tier": "diamond",
+        "ovr": 94,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "MIL",
+        "theme": "Dame Time Clutch",
+        "stats": {"3pt": 97, "def": 78, "ply": 92, "ins": 90, "clu": 99, "ath": 91},
+        "badges": ["Gold Limitless Range", "Gold Clutch Shooter", "Gold Agent 3", "Gold Deadeye"],
+        "quote": "8x All-Star • NBA 75th Anniversary Team • 2x 3PT Contest Champion",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187030-DAME_DIA.png"
+    },
+    {
+        "id": "dia-hakeem-96",
+        "name": "Hakeem Olajuwon",
+        "tier": "diamond",
+        "ovr": 96,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "HOU",
+        "theme": "The Dream Shake",
+        "stats": {"3pt": 62, "def": 99, "ply": 82, "ins": 98, "clu": 96, "ath": 92},
+        "badges": ["Gold Post Spin Technician", "Gold Anchor", "Gold Dream Shake", "Gold Post Lock"],
+        "quote": "2x NBA Champion • 2x Finals MVP • 1994 MVP • All-Time NBA Blocks Leader",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187060-HAKEEM_DIA.png"
+    },
+    {
+        "id": "dia-dirk-95",
+        "name": "Dirk Nowitzki",
+        "tier": "diamond",
+        "ovr": 95,
+        "pos": "PF",
+        "sec_pos": "C",
+        "team": "DAL",
+        "theme": "One-Leg Fadeaway",
+        "stats": {"3pt": 96, "def": 82, "ply": 80, "ins": 94, "clu": 98, "ath": 82},
+        "badges": ["Gold Deadeye", "Gold Catch & Shoot", "Gold Middy Magician", "Gold Clutch Shooter"],
+        "quote": "2011 NBA Champion & Finals MVP • 2007 MVP • Over 31,000 Career Points",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187090-DIRK_DIA.png"
+    },
+
+    # ── 🔮 AMETHYST (88-92 OVR) ─────────────────────────────────────────────
+    {
+        "id": "amy-brunson-92",
+        "name": "Jalen Brunson",
+        "tier": "amethyst",
+        "ovr": 92,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "NYK",
+        "theme": "Garden MVP",
+        "stats": {"3pt": 92, "def": 82, "ply": 93, "ins": 94, "clu": 97, "ath": 88},
+        "badges": ["Gold Middy Magician", "Gold Fearless Finisher", "Gold Dimer"],
+        "quote": "All-NBA Second Team • MSG Playoff Hero • Master of the Pivot & Footwork",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187120-BRUNSON_AMY.png"
+    },
+    {
+        "id": "amy-brown-91",
+        "name": "Jaylen Brown",
+        "tier": "amethyst",
+        "ovr": 91,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "BOS",
+        "theme": "Finals MVP",
+        "stats": {"3pt": 88, "def": 94, "ply": 82, "ins": 94, "clu": 93, "ath": 96},
+        "badges": ["Gold Posterizer", "Gold Clamps", "Gold Menace"],
+        "quote": "2024 NBA Finals MVP • 3x All-Star • Two-Way Explosive Wing",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187150-JBROWN_AMY.png"
+    },
+    {
+        "id": "amy-fox-90",
+        "name": "De'Aaron Fox",
+        "tier": "amethyst",
+        "ovr": 90,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "SAC",
+        "theme": "Inaugural Clutch POTY",
+        "stats": {"3pt": 88, "def": 88, "ply": 90, "ins": 92, "clu": 98, "ath": 99},
+        "badges": ["Gold Quick First Step", "Gold Clutch Shooter", "Gold Interceptor"],
+        "quote": "Inaugural NBA Clutch Player of the Year • Fastest Speed With Ball in the League",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187180-FOX_AMY.png"
+    },
+    {
+        "id": "amy-sabonis-90",
+        "name": "Domantas Sabonis",
+        "tier": "amethyst",
+        "ovr": 90,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "SAC",
+        "theme": "Rebound Machine",
+        "stats": {"3pt": 74, "def": 86, "ply": 94, "ins": 94, "clu": 89, "ath": 84},
+        "badges": ["Gold Rebound Chaser", "Gold Dimer", "Gold Break Starter"],
+        "quote": "3x All-Star • NBA Double-Double Streak Leader • High-Post DHO Playmaker",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187210-SABONIS_AMY.png"
+    },
+    {
+        "id": "amy-chet-89",
+        "name": "Chet Holmgren",
+        "tier": "amethyst",
+        "ovr": 89,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "OKC",
+        "theme": "Shot-Blocking Phenom",
+        "stats": {"3pt": 89, "def": 96, "ply": 80, "ins": 89, "clu": 90, "ath": 88},
+        "badges": ["Gold Anchor", "Gold Chase Down Artist", "Gold Catch & Shoot"],
+        "quote": "All-Rookie First Team • 7ft 1in Shot-Blocking & 3PT Shooting Phenom",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187240-CHET_AMY.png"
+    },
+    {
+        "id": "amy-paolo-90",
+        "name": "Paolo Banchero",
+        "tier": "amethyst",
+        "ovr": 90,
+        "pos": "PF",
+        "sec_pos": "SF",
+        "team": "ORL",
+        "theme": "All-Star Point Forward",
+        "stats": {"3pt": 84, "def": 87, "ply": 89, "ins": 93, "clu": 92, "ath": 91},
+        "badges": ["Gold Bully", "Gold Space Creator", "Gold Dimer"],
+        "quote": "2024 All-Star • 2023 Rookie of the Year • Dominant 6ft 10in Playmaker",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187270-PAOLO_AMY.png"
+    },
+    {
+        "id": "amy-lamelo-89",
+        "name": "LaMelo Ball",
+        "tier": "amethyst",
+        "ovr": 89,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "CHA",
+        "theme": "Flashy Passer",
+        "stats": {"3pt": 90, "def": 78, "ply": 97, "ins": 86, "clu": 91, "ath": 90},
+        "badges": ["Gold Special Delivery", "Gold Needle Threader", "Gold Limitless Range"],
+        "quote": "2022 All-Star • 2021 Rookie of the Year • Highlight Reel Passing Vision",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187300-LAMELO_AMY.png"
+    },
+    {
+        "id": "amy-murray-89",
+        "name": "Jamal Murray",
+        "tier": "amethyst",
+        "ovr": 89,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "DEN",
+        "theme": "Playoff Bucket",
+        "stats": {"3pt": 92, "def": 81, "ply": 90, "ins": 90, "clu": 99, "ath": 89},
+        "badges": ["Gold Clutch Shooter", "Gold Difficult Shots", "Gold Acrobat"],
+        "quote": "2023 NBA Champion • Multiple Playoff Game-Winning Buzzer Beaters",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187330-MURRAY_AMY.png"
+    },
+    {
+        "id": "amy-zion-90",
+        "name": "Zion Williamson",
+        "tier": "amethyst",
+        "ovr": 90,
+        "pos": "PF",
+        "sec_pos": "C",
+        "team": "NOP",
+        "theme": "Paint Bulldozer",
+        "stats": {"3pt": 62, "def": 84, "ply": 85, "ins": 98, "clu": 91, "ath": 98},
+        "badges": ["Gold Bully", "Gold Posterizer", "Gold Fast Twitch"],
+        "quote": "2x All-Star • Unstoppable Above-the-Rim Power Forward",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187360-ZION_AMY.png"
+    },
+    {
+        "id": "amy-trae-89",
+        "name": "Trae Young",
+        "tier": "amethyst",
+        "ovr": 89,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "ATL",
+        "theme": "Ice Trae Deep 3",
+        "stats": {"3pt": 95, "def": 70, "ply": 98, "ins": 84, "clu": 96, "ath": 88},
+        "badges": ["Gold Limitless Range", "Gold Dimer", "Gold Handles For Days"],
+        "quote": "3x All-Star • Led NBA in Total Points & Assists • Logo 3PT Sniper",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187390-TRAE_AMY.png"
+    },
+    {
+        "id": "amy-kat-90",
+        "name": "Karl-Anthony Towns",
+        "tier": "amethyst",
+        "ovr": 90,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "NYK",
+        "theme": "3PT Contest Champ Big",
+        "stats": {"3pt": 95, "def": 84, "ply": 80, "ins": 94, "clu": 90, "ath": 86},
+        "badges": ["Gold Catch & Shoot", "Gold Deadeye", "Gold Rebound Chaser"],
+        "quote": "4x All-Star • 3-Point Contest Champion • Pure Elite Shooting Center",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187420-KAT_AMY.png"
+    },
+
+    # ── 🔴 RUBY (84-87 OVR) ─────────────────────────────────────────────────
+    {
+        "id": "ruby-maxey-87",
+        "name": "Tyrese Maxey",
+        "tier": "ruby",
+        "ovr": 87,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "PHI",
+        "theme": "Most Improved Player",
+        "stats": {"3pt": 93, "def": 80, "ply": 88, "ins": 90, "clu": 94, "ath": 96},
+        "badges": ["Silver Quick First Step", "Silver Limitless Range", "Silver Acrobat"],
+        "quote": "2024 Most Improved Player • 2024 All-Star • Blazing Fast Scoring Dynamo",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187450-MAXEY_RUBY.png"
+    },
+    {
+        "id": "ruby-white-86",
+        "name": "Derrick White",
+        "tier": "ruby",
+        "ovr": 86,
+        "pos": "SG",
+        "sec_pos": "PG",
+        "team": "BOS",
+        "theme": "Two-Way Glue",
+        "stats": {"3pt": 89, "def": 94, "ply": 85, "ins": 82, "clu": 91, "ath": 87},
+        "badges": ["Silver Clamps", "Silver Interceptor", "Silver Catch & Shoot"],
+        "quote": "2024 NBA Champion • 2x All-Defensive Second Team • Championship Glue Guard",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187480-DWHITE_RUBY.png"
+    },
+    {
+        "id": "ruby-mikal-85",
+        "name": "Mikal Bridges",
+        "tier": "ruby",
+        "ovr": 85,
+        "pos": "SF",
+        "sec_pos": "SG",
+        "team": "NYK",
+        "theme": "Iron Man Lock",
+        "stats": {"3pt": 88, "def": 93, "ply": 81, "ins": 84, "clu": 88, "ath": 89},
+        "badges": ["Silver Clamps", "Silver Pick Dodger", "Silver Corner Specialist"],
+        "quote": "NBA Iron Man • All-Defensive First Team • 3-and-D Perfection",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187510-MIKAL_RUBY.png"
+    },
+    {
+        "id": "ruby-anunoby-85",
+        "name": "OG Anunoby",
+        "tier": "ruby",
+        "ovr": 85,
+        "pos": "SF",
+        "sec_pos": "PF",
+        "team": "NYK",
+        "theme": "Defensive Menace",
+        "stats": {"3pt": 87, "def": 95, "ply": 78, "ins": 86, "clu": 87, "ath": 90},
+        "badges": ["Silver Menace", "Silver Glove", "Silver Corner Specialist"],
+        "quote": "2019 NBA Champion • NBA Steals Leader • Lock Down Perimeter Clamp",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187540-OG_RUBY.png"
+    },
+    {
+        "id": "ruby-jrue-86",
+        "name": "Jrue Holiday",
+        "tier": "ruby",
+        "ovr": 86,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "BOS",
+        "theme": "2x Champion Clamp",
+        "stats": {"3pt": 87, "def": 97, "ply": 88, "ins": 84, "clu": 92, "ath": 88},
+        "badges": ["Silver Clamps", "Silver Glove", "Silver Floor General"],
+        "quote": "2x NBA Champion • 6x All-Defensive Team • Most Respected Guard Defender",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187570-JRUE_RUBY.png"
+    },
+    {
+        "id": "ruby-gordon-85",
+        "name": "Aaron Gordon",
+        "tier": "ruby",
+        "ovr": 85,
+        "pos": "PF",
+        "sec_pos": "SF",
+        "team": "DEN",
+        "theme": "Dunk Contest King",
+        "stats": {"3pt": 76, "def": 92, "ply": 82, "ins": 95, "clu": 88, "ath": 97},
+        "badges": ["Silver Posterizer", "Silver Aerial Wizard", "Silver Post Lock"],
+        "quote": "2023 NBA Champion • Legendary Dunk Contest Icon • Power Dunker & Defensive Anchor",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187600-AGORDON_RUBY.png"
+    },
+    {
+        "id": "ruby-reaves-84",
+        "name": "Austin Reaves",
+        "tier": "ruby",
+        "ovr": 84,
+        "pos": "SG",
+        "sec_pos": "PG",
+        "team": "LAL",
+        "theme": "Crafty Playmaker",
+        "stats": {"3pt": 88, "def": 79, "ply": 87, "ins": 85, "clu": 91, "ath": 83},
+        "badges": ["Silver Dimer", "Silver Space Creator", "Silver Middy Magician"],
+        "quote": "Fan Favorite Playmaker • High IQ Pick-and-Roll Ball Handler",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187630-REAVES_RUBY.png"
+    },
+    {
+        "id": "ruby-coby-85",
+        "name": "Coby White",
+        "tier": "ruby",
+        "ovr": 85,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "CHI",
+        "theme": "MIP Finalist Flame",
+        "stats": {"3pt": 91, "def": 78, "ply": 86, "ins": 86, "clu": 89, "ath": 90},
+        "badges": ["Silver Limitless Range", "Silver Agent 3", "Silver Quick First Step"],
+        "quote": "2024 MIP Runner-up • Electric Pull-Up 3PT Specialist",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187660-COBY_RUBY.png"
+    },
+    {
+        "id": "ruby-green-84",
+        "name": "Jalen Green",
+        "tier": "ruby",
+        "ovr": 84,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "HOU",
+        "theme": "High-Flying Speed",
+        "stats": {"3pt": 86, "def": 77, "ply": 80, "ins": 92, "clu": 86, "ath": 98},
+        "badges": ["Silver Posterizer", "Silver Fast Twitch", "Silver Acrobat"],
+        "quote": "Explosive Above-The-Rim Slasher with Microwave Scoring Potential",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187690-JGREEN_RUBY.png"
+    },
+    {
+        "id": "ruby-wagner-86",
+        "name": "Franz Wagner",
+        "tier": "ruby",
+        "ovr": 86,
+        "pos": "SF",
+        "sec_pos": "PF",
+        "team": "ORL",
+        "theme": "Euro Step Maestro",
+        "stats": {"3pt": 85, "def": 88, "ply": 85, "ins": 91, "clu": 88, "ath": 89},
+        "badges": ["Silver Fearless Finisher", "Silver Slithery", "Silver Clamps"],
+        "quote": "FIBA World Cup Champion • 6ft 10in Slashing & Cutting Virtuoso",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187720-WAGNER_RUBY.png"
+    },
+    {
+        "id": "ruby-porzingis-87",
+        "name": "Kristaps Porziņģis",
+        "tier": "ruby",
+        "ovr": 87,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "BOS",
+        "theme": "Unicorn Rim Protector",
+        "stats": {"3pt": 91, "def": 94, "ply": 75, "ins": 92, "clu": 89, "ath": 84},
+        "badges": ["Silver Anchor", "Silver Catch & Shoot", "Silver Post Lock"],
+        "quote": "2024 NBA Champion • 7ft 2in Unicorn Rim Protector & Stretch 5",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187750-KP_RUBY.png"
+    },
+    {
+        "id": "ruby-gobert-86",
+        "name": "Rudy Gobert",
+        "tier": "ruby",
+        "ovr": 86,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "MIN",
+        "theme": "4x DPOY Tower",
+        "stats": {"3pt": 45, "def": 99, "ply": 68, "ins": 92, "clu": 84, "ath": 86},
+        "badges": ["Silver Anchor", "Silver Rebound Chaser", "Silver Post Lock"],
+        "quote": "4x NBA Defensive Player of the Year • Premier Interior Paint Eraser",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187780-GOBERT_RUBY.png"
+    },
+
+    # ── 🟡 GOLD / EMERALD (75-83 OVR) ───────────────────────────────────────
+    {
+        "id": "gold-naz-82",
+        "name": "Naz Reid",
+        "tier": "gold",
+        "ovr": 82,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "MIN",
+        "theme": "6th Man of the Year",
+        "stats": {"3pt": 88, "def": 84, "ply": 76, "ins": 89, "clu": 88, "ath": 84},
+        "badges": ["Bronze Catch & Shoot", "Bronze Corner Specialist"],
+        "quote": "2024 NBA Sixth Man of the Year • Beloved Stretch Big & Crowd Favorite",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187810-NAZ_GOLD.png"
+    },
+    {
+        "id": "gold-caruso-81",
+        "name": "Alex Caruso",
+        "tier": "gold",
+        "ovr": 81,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "OKC",
+        "theme": "Steals Specialist",
+        "stats": {"3pt": 82, "def": 95, "ply": 80, "ins": 78, "clu": 87, "ath": 89},
+        "badges": ["Bronze Glove", "Bronze Clamps", "Bronze Interceptor"],
+        "quote": "2020 NBA Champion • 2x All-Defensive • Relentless Perimeter Pest",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187840-CARUSO_GOLD.png"
+    },
+    {
+        "id": "gold-monk-82",
+        "name": "Malik Monk",
+        "tier": "gold",
+        "ovr": 82,
+        "pos": "SG",
+        "sec_pos": "PG",
+        "team": "SAC",
+        "theme": "Sparkplug 6th Man",
+        "stats": {"3pt": 88, "def": 74, "ply": 85, "ins": 86, "clu": 90, "ath": 92},
+        "badges": ["Bronze Limitless Range", "Bronze Acrobat"],
+        "quote": "6th Man of the Year Runner-Up • Instant Offense & Clutch Microwave",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187870-MONK_GOLD.png"
+    },
+    {
+        "id": "gold-portis-81",
+        "name": "Bobby Portis",
+        "tier": "gold",
+        "ovr": 81,
+        "pos": "PF",
+        "sec_pos": "C",
+        "team": "MIL",
+        "theme": "Energy Fan Favorite",
+        "stats": {"3pt": 85, "def": 82, "ply": 72, "ins": 88, "clu": 86, "ath": 80},
+        "badges": ["Bronze Rebound Chaser", "Bronze Catch & Shoot"],
+        "quote": "2021 NBA Champion • High Energy Double-Double Rebound Force",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187900-PORTIS_GOLD.png"
+    },
+    {
+        "id": "gold-powell-80",
+        "name": "Norman Powell",
+        "tier": "gold",
+        "ovr": 80,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "LAC",
+        "theme": "Corner 3 Specialist",
+        "stats": {"3pt": 90, "def": 78, "ply": 74, "ins": 84, "clu": 85, "ath": 86},
+        "badges": ["Bronze Corner Specialist", "Bronze Catch & Shoot"],
+        "quote": "2019 NBA Champion • Lethal 40%+ Corner Three-Point Shooter",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187930-POWELL_GOLD.png"
+    },
+    {
+        "id": "gold-jaquez-79",
+        "name": "Jaime Jaquez Jr.",
+        "tier": "gold",
+        "ovr": 79,
+        "pos": "SF",
+        "sec_pos": "SG",
+        "team": "MIA",
+        "theme": "Rookie Post Wizard",
+        "stats": {"3pt": 79, "def": 84, "ply": 80, "ins": 87, "clu": 84, "ath": 85},
+        "badges": ["Bronze Post Spin", "Bronze Fearless Finisher"],
+        "quote": "All-Rookie First Team • Old-School Post Moves & Relentless Heat Culture",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187960-JAQUEZ_GOLD.png"
+    },
+    {
+        "id": "gold-podz-78",
+        "name": "Brandin Podziemski",
+        "tier": "gold",
+        "ovr": 78,
+        "pos": "SG",
+        "sec_pos": "PG",
+        "team": "GSW",
+        "theme": "Hustle & Charges",
+        "stats": {"3pt": 84, "def": 84, "ply": 84, "ins": 76, "clu": 82, "ath": 80},
+        "badges": ["Bronze Dimer", "Bronze Hustle"],
+        "quote": "All-Rookie First Team • NBA Leader in Charges Drawn & Guard Rebounds",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550187990-PODZ_GOLD.png"
+    },
+    {
+        "id": "gold-lively-79",
+        "name": "Dereck Lively II",
+        "tier": "gold",
+        "ovr": 79,
+        "pos": "C",
+        "sec_pos": "PF",
+        "team": "DAL",
+        "theme": "Rim-Running Lob",
+        "stats": {"3pt": 50, "def": 89, "ply": 75, "ins": 89, "clu": 81, "ath": 91},
+        "badges": ["Bronze Anchor", "Bronze Aerial Wizard"],
+        "quote": "All-Rookie Second Team • Finals Lob Threat & Shot-Blocking Center",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550188020-LIVELY_GOLD.png"
+    },
+    {
+        "id": "gold-pritchard-80",
+        "name": "Payton Pritchard",
+        "tier": "gold",
+        "ovr": 80,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "BOS",
+        "theme": "Half-Court Buzzer Beater",
+        "stats": {"3pt": 92, "def": 76, "ply": 82, "ins": 78, "clu": 91, "ath": 82},
+        "badges": ["Bronze Limitless Range", "Bronze Agent 3"],
+        "quote": "2024 NBA Champion • Legendary NBA Finals Half-Court Buzzer-Beater Dagger",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550188050-PRITCHARD_GOLD.png"
+    },
+    {
+        "id": "gold-thomas-82",
+        "name": "Cam Thomas",
+        "tier": "gold",
+        "ovr": 82,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "BOS",
+        "theme": "Microwave 40-Pt Threat",
+        "stats": {"3pt": 88, "def": 70, "ply": 78, "ins": 88, "clu": 92, "ath": 87},
+        "badges": ["Bronze Deadeye", "Bronze Space Creator"],
+        "quote": "Youngest Player in NBA History with 3 Consecutive 40-Point Games",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550188080-CTHOMAS_GOLD.png"
+    },
+    {
+        "id": "gold-herb-82",
+        "name": "Herb Jones",
+        "tier": "gold",
+        "ovr": 82,
+        "pos": "SF",
+        "sec_pos": "PF",
+        "team": "NOP",
+        "theme": "First Team All-Defense",
+        "stats": {"3pt": 84, "def": 96, "ply": 76, "ins": 80, "clu": 83, "ath": 89},
+        "badges": ["Bronze Clamps", "Bronze Glove", "Bronze Interceptor"],
+        "quote": "2024 All-Defensive First Team • Elite 6ft 7in Perimeter Defensive Eraser",
+        "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550188110-HERB_GOLD.png"
+    }
+]
+
+NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {c["id"].lower(): c for c in NBA_2K_MOBILE_CARDS}
+
+def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
+    """Look up a card by ID or exact/fuzzy player name."""
+    if not identifier:
+        return None
+    clean = identifier.strip().lower()
+    if clean in NBA_CARDS_BY_ID:
+        return NBA_CARDS_BY_ID[clean]
+    for c in NBA_2K_MOBILE_CARDS:
+        if c["name"].lower() == clean or c["id"].lower() == clean:
+            return c
+    for c in NBA_2K_MOBILE_CARDS:
+        if clean in c["name"].lower() or clean in c["id"].lower():
+            return c
+    return None
+
+def roll_pack_card(pack_type_id: str) -> Dict[str, Any]:
+    """Rolls a random card based on pack odds."""
+    pack_data = NBA_PACK_TYPES.get(pack_type_id, NBA_PACK_TYPES["starter"])
+    odds = pack_data["odds"]
+    tiers = list(odds.keys())
+    weights = list(odds.values())
+    selected_tier = random.choices(tiers, weights=weights, k=1)[0]
+    tier_cards = [c for c in NBA_2K_MOBILE_CARDS if c["tier"] == selected_tier]
+    if not tier_cards:
+        return random.choice(NBA_2K_MOBILE_CARDS)
+    return random.choice(tier_cards)
+
+def format_stat_bar(val: int) -> str:
+    """Renders a clean progress bar for a player attribute."""
+    filled = min(10, max(1, round(val / 10)))
+    return "█" * filled + "░" * (10 - filled)
+
+
+
+def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: bool = False, owner_user: Optional[discord.User] = None) -> discord.Embed:
+    """Builds a full-detail NBA 2K Mobile inspection card embed."""
+    tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+    embed = discord.Embed(
+        title=f"{tier_info['emoji']} [{card['ovr']} OVR] {card['name'].upper()} • {card['pos']} | {card['team']}",
+        description=f"### 🎴 *NBA 2K Mobile • {card['theme']}*\n*{card.get('quote', '')}*\n",
+        color=tier_info["color"]
+    )
+    
+    stats = card.get("stats", {})
+    pts_3 = stats.get("3pt", 80)
+    defense = stats.get("def", 80)
+    playmaking = stats.get("ply", 80)
+    inside = stats.get("ins", 80)
+    clutch = stats.get("clu", 80)
+    ath = stats.get("ath", 80)
+    
+    embed.add_field(
+        name="📊 2K Player Ratings & Attributes",
+        value=(
+            f"`🎯 3PT Shot `: [{format_stat_bar(pts_3)}] **{pts_3}**\n"
+            f"`🔒 Defense  `: [{format_stat_bar(defense)}] **{defense}**\n"
+            f"`🧠 Playmake `: [{format_stat_bar(playmaking)}] **{playmaking}**\n"
+            f"`💥 Inside   `: [{format_stat_bar(inside)}] **{inside}**\n"
+            f"`⚡ Clutch   `: [{format_stat_bar(clutch)}] **{clutch}**\n"
+            f"`🏃 Athletic `: [{format_stat_bar(ath)}] **{ath}**"
+        ),
+        inline=False
+    )
+    
+    badges = card.get("badges", [])
+    if badges:
+        embed.add_field(
+            name="🏆 Signature Badges",
+            value=" • ".join(f"`{b}`" for b in badges),
+            inline=False
+        )
+        
+    fav_indicator = " ⭐ **FAVORITE**" if is_fav else ""
+    owner_str = f"Owner: **{owner_user.display_name}**" if owner_user else "Binder Inspection"
+    embed.add_field(
+        name="📦 Inventory & Market Status",
+        value=(
+            f"• **Copies Owned:** `{copies_owned}`{fav_indicator}\n"
+            f"• **Quick-Sell Value:** `💰 {tier_info['quick_sell']:,} VC`\n"
+            f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
+            f"• **Card ID:** `{card['id']}`"
+        ),
+        inline=False
+    )
+    
+    if card.get("image_url"):
+        embed.set_image(url=card["image_url"])
+        
+    embed.set_footer(text=f"NBA 2K Mobile Card Dex • {owner_str} • Card ID: {card['id']}")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+def build_nbadex_embed(
+    target_user: discord.User,
+    cards_owned: List[Dict[str, Any]],
+    tier_filter: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 6,
+    vc_balance: int = 1000
+) -> Tuple[discord.Embed, int, List[Dict[str, Any]]]:
+    """Builds a paginated collection binder embed for a user."""
+    owned_counts: Dict[str, int] = {}
+    fav_status: Dict[str, bool] = {}
+    for entry in cards_owned:
+        cid = entry["card_id"].lower()
+        owned_counts[cid] = owned_counts.get(cid, 0) + 1
+        if entry.get("is_favorite"):
+            fav_status[cid] = True
+            
+    resolved_owned_cards = []
+    for cid, count in owned_counts.items():
+        card_obj = get_nba_card(cid)
+        if card_obj:
+            resolved_owned_cards.append({**card_obj, "copies": count, "is_fav": fav_status.get(cid, False)})
+            
+    resolved_owned_cards.sort(key=lambda x: (x["ovr"], x["name"]), reverse=True)
+    
+    if tier_filter and tier_filter != "all":
+        filtered_cards = [c for c in resolved_owned_cards if c["tier"] == tier_filter]
+    else:
+        filtered_cards = resolved_owned_cards
+        
+    total_catalog = len(NBA_2K_MOBILE_CARDS)
+    unique_owned = len(resolved_owned_cards)
+    percent_complete = (unique_owned / total_catalog * 100.0) if total_catalog > 0 else 0.0
+    total_power = sum(c["ovr"] * c["copies"] for c in resolved_owned_cards)
+    
+    tier_counts = {t: 0 for t in NBA_2K_TIERS}
+    for c in resolved_owned_cards:
+        t = c.get("tier", "gold")
+        tier_counts[t] = tier_counts.get(t, 0) + c["copies"]
+        
+    total_items = len(filtered_cards)
+    total_pages = max(1, (total_items + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    
+    start_idx = (page - 1) * page_size
+    page_cards = filtered_cards[start_idx : start_idx + page_size]
+    
+    filter_label = NBA_2K_TIERS.get(tier_filter, {}).get("name", "All Tiers") if tier_filter and tier_filter != "all" else "All Tiers"
+    
+    embed = discord.Embed(
+        title=f"🎴 {target_user.display_name}'s NBA 2K Mobile Dex",
+        description=(
+            f"**Progress:** `{unique_owned}/{total_catalog}` cards (`{percent_complete:.1f}%`)\n"
+            f"**Total Power:** `⚡ {total_power:,} OVR` | **Wallet:** `💰 {vc_balance:,} VC`\n"
+            f"**Tier Breakdown:** "
+            f"🌌 `{tier_counts['dark_matter']}` • "
+            f"✨ `{tier_counts['galaxy_opal']}` • "
+            f"💎 `{tier_counts['diamond']}` • "
+            f"🔮 `{tier_counts['amethyst']}` • "
+            f"🔴 `{tier_counts['ruby']}` • "
+            f"🟡 `{tier_counts['gold']}`\n"
+            f"─────────────────────────────\n"
+            f"🔍 **Filter:** `{filter_label}` ({total_items} cards)\n"
+        ),
+        color=discord.Color.gold()
+    )
+    
+    if not page_cards:
+        embed.add_field(
+            name="Empty Binder Page",
+            value="No cards found in this filter! Open packs with `/openpack` or claim chat drops.",
+            inline=False
+        )
+    else:
+        for card in page_cards:
+            t_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+            fav_star = " ⭐" if card.get("is_fav") else ""
+            dup_tag = f" `[x{card['copies']}]`" if card['copies'] > 1 else ""
+            stats = card.get("stats", {})
+            embed.add_field(
+                name=f"{t_info['emoji']} [{card['ovr']}] {card['name']} • {card['pos']} ({card['team']}){fav_star}{dup_tag}",
+                value=(
+                    f"*{card['theme']}* — ID: `{card['id']}`\n"
+                    f"`3PT: {stats.get('3pt', 80)}` • `DEF: {stats.get('def', 80)}` • `PLY: {stats.get('ply', 80)}` • `INS: {stats.get('ins', 80)}` • `CLU: {stats.get('clu', 80)}`"
+                ),
+                inline=False
+            )
+            
+    embed.set_footer(text=f"Page {page}/{total_pages} • Use dropdown below to inspect a card • Total Cards: {sum(c['copies'] for c in resolved_owned_cards)}")
+    embed.timestamp = discord.utils.utcnow()
+    return embed, total_pages, page_cards
+
+def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Dict[str, Any], new_vc: int, is_new: bool = True, copies: int = 1) -> discord.Embed:
+    """Builds an authentic 2K Mobile pack reveal embed."""
+    tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+    status_str = "🌟 **NEW CARD ADDED TO BINDER!**" if is_new else f"🔄 **DUPLICATE COPY OBTAINED (Now x{copies})**"
+    
+    embed = discord.Embed(
+        title=f"{tier_info['emoji']} 2K MOBILE PACK REVEAL • [{card['ovr']} OVR] {card['name'].upper()}!",
+        description=(
+            f"# {tier_info['emoji']} {tier_info['name'].upper()} PULL!\n"
+            f"**{user.mention} opened a {pack_data['name']}!**\n\n"
+            f"{status_str}\n\n"
+            f"**Player:** `{card['name']}` • **Pos:** `{card['pos']}` • **Team:** `{card['team']}`\n"
+            f"**Theme:** *{card['theme']}*\n"
+            f"*{card.get('quote', '')}*"
+        ),
+        color=tier_info["color"]
+    )
+    
+    stats = card.get("stats", {})
+    embed.add_field(
+        name="📊 Ratings Breakdown",
+        value=(
+            f"`🎯 3PT `: **{stats.get('3pt', 80)}** | `🔒 DEF `: **{stats.get('def', 80)}** | `🧠 PLY `: **{stats.get('ply', 80)}**\n"
+            f"`💥 INS `: **{stats.get('ins', 80)}** | `⚡ CLU `: **{stats.get('clu', 80)}** | `🏃 ATH `: **{stats.get('ath', 80)}**"
+        ),
+        inline=False
+    )
+    
+    badges = card.get("badges", [])
+    if badges:
+        embed.add_field(name="🏆 Badges", value=" • ".join(f"`{b}`" for b in badges[:4]), inline=False)
+        
+    embed.add_field(
+        name="💰 Virtual Currency Wallet",
+        value=f"• **Remaining Balance:** `💰 {new_vc:,} VC`\n• **Quick-Sell Value:** `💰 {tier_info['quick_sell']:,} VC`",
+        inline=False
+    )
+    
+    if card.get("image_url"):
+        embed.set_image(url=card["image_url"])
+        
+    embed.set_footer(text=f"NBA 2K Mobile Pack Opening • Card ID: {card['id']}")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+def build_trade_embed(sender_user: discord.User, target_user: discord.User, card_a: Dict[str, Any], card_b: Dict[str, Any], status: str = "pending") -> discord.Embed:
+    """Builds the 2-way NBA card trade proposal embed."""
+    t_a = NBA_2K_TIERS.get(card_a["tier"], NBA_2K_TIERS["gold"])
+    t_b = NBA_2K_TIERS.get(card_b["tier"], NBA_2K_TIERS["gold"])
+    
+    if status == "accepted":
+        title = "🤝 NBA 2K Mobile Trade Completed!"
+        desc = f"✅ The card trade between {sender_user.mention} and {target_user.mention} has been **successfully processed**!"
+        color = discord.Color.green()
+    elif status == "declined":
+        title = "❌ NBA 2K Mobile Trade Declined"
+        desc = f"{target_user.mention} has **declined** the trade offer from {sender_user.mention}."
+        color = discord.Color.red()
+    elif status == "cancelled":
+        title = "⏳ NBA 2K Mobile Trade Cancelled"
+        desc = f"The trade proposal between {sender_user.mention} and {target_user.mention} timed out or was cancelled."
+        color = discord.Color.greyple()
+    else:
+        title = "🏀 NBA 2K Mobile Card Trade Proposal"
+        desc = f"{sender_user.mention} has sent an official card trade offer to {target_user.mention}!\n*Review the cards below and click Accept or Decline.*"
+        color = discord.Color.gold()
+        
+    embed = discord.Embed(title=title, description=desc, color=color)
+    
+    embed.add_field(
+        name=f"📤 {sender_user.display_name} Offers",
+        value=(
+            f"{t_a['emoji']} **[{card_a['ovr']} OVR] {card_a['name']}**\n"
+            f"• Pos: `{card_a['pos']}` | Team: `{card_a['team']}`\n"
+            f"• Tier: `{t_a['name']}`\n"
+            f"• Theme: *{card_a['theme']}*\n"
+            f"• ID: `{card_a['id']}`"
+        ),
+        inline=True
+    )
+    
+    embed.add_field(
+        name=f"📥 {target_user.display_name} Gives",
+        value=(
+            f"{t_b['emoji']} **[{card_b['ovr']} OVR] {card_b['name']}**\n"
+            f"• Pos: `{card_b['pos']}` | Team: `{card_b['team']}`\n"
+            f"• Tier: `{t_b['name']}`\n"
+            f"• Theme: *{card_b['theme']}*\n"
+            f"• ID: `{card_b['id']}`"
+        ),
+        inline=True
+    )
+    
+    embed.set_footer(text="NBA 2K Mobile Card Trading Engine")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+def build_nba_drop_embed(card: Dict[str, Any]) -> discord.Embed:
+    """Builds a wild mystery card drop embed for chat."""
+    tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+    embed = discord.Embed(
+        title="🏀 A WILD 2K MOBILE CARD HAS DROPPED ON THE COURT!",
+        description=(
+            f"# {tier_info['emoji']} Mystery 2K Card Drop!\n"
+            f"A high-value player card has spawned in the arena!\n\n"
+            f"**First GM to click the button below claims this card + earns 150 bonus VC!**\n\n"
+            f"• **Tier Rarity:** {tier_info['emoji']} **{tier_info['name']}**\n"
+            f"• **Player Hint:** *Position: `{card['pos']}` • Team: `{card['team']}`*"
+        ),
+        color=tier_info["color"]
+    )
+    if card.get("image_url"):
+        embed.set_thumbnail(url=card["image_url"])
+    embed.set_footer(text="NBA 2K Mobile Live Drop • Click the button below to claim fast!")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+print("All Embed Generators syntax-checked successfully!")
+
+
+# ── Discord UI Views ─────────────────────────────────────────────────────────
+
+class TierFilterSelect(discord.ui.Select):
+    def __init__(self, current_tier: Optional[str] = None):
+        options = [
+            discord.SelectOption(label="All Tiers (Full Dex)", value="all", emoji="🎴", default=(current_tier in [None, "all"])),
+            discord.SelectOption(label="Dark Matter / G.O.A.T. (99 OVR)", value="dark_matter", emoji="🌌", default=(current_tier == "dark_matter")),
+            discord.SelectOption(label="Galaxy Opal (97-98 OVR)", value="galaxy_opal", emoji="✨", default=(current_tier == "galaxy_opal")),
+            discord.SelectOption(label="Diamond (93-96 OVR)", value="diamond", emoji="💎", default=(current_tier == "diamond")),
+            discord.SelectOption(label="Amethyst (88-92 OVR)", value="amethyst", emoji="🔮", default=(current_tier == "amethyst")),
+            discord.SelectOption(label="Ruby (84-87 OVR)", value="ruby", emoji="🔴", default=(current_tier == "ruby")),
+            discord.SelectOption(label="Gold (75-83 OVR)", value="gold", emoji="🟡", default=(current_tier == "gold")),
+        ]
+        super().__init__(placeholder="🔍 Filter Collection by Tier...", min_values=1, max_values=1, options=options, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        try:
+            view: NBADexView = self.view
+            if interaction.user.id != view.author.id:
+                await interaction.response.send_message("❌ This is not your binder session.", ephemeral=True)
+                return
+            view.tier_filter = self.values[0]
+            view.page = 1
+            await view.refresh_message(interaction)
+        except Exception as e:
+            logger.error(f"Error in TierFilterSelect callback: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+class CardInspectSelect(discord.ui.Select):
+    def __init__(self, page_cards: List[Dict[str, Any]]):
+        options = []
+        for c in page_cards[:25]:
+            t_info = NBA_2K_TIERS.get(c.get("tier"), NBA_2K_TIERS["gold"])
+            fav_tag = "⭐ " if c.get("is_fav") else ""
+            dup_tag = f" (x{c['copies']})" if c.get("copies", 1) > 1 else ""
+            options.append(
+                discord.SelectOption(
+                    label=f"{fav_tag}[{c['ovr']}] {c['name']}{dup_tag}"[:100],
+                    value=c["id"],
+                    description=f"{c['pos']} • {c['team']} • {c['theme']}"[:100],
+                    emoji=t_info["emoji"]
+                )
+            )
+        if not options:
+            options.append(discord.SelectOption(label="No cards on this page", value="none"))
+        super().__init__(placeholder="🔍 Select a card to inspect full stats & art...", min_values=1, max_values=1, options=options, row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        try:
+            val = self.values[0]
+            if val == "none":
+                await interaction.response.send_message("No card selected.", ephemeral=True)
+                return
+            card = get_nba_card(val)
+            if not card:
+                await interaction.response.send_message("❌ Card not found.", ephemeral=True)
+                return
+            view: NBADexView = self.view
+            # Find copies and fav status from view cards
+            copies = 0
+            is_fav = False
+            for entry in view.cards_owned:
+                if entry["card_id"].lower() == card["id"].lower():
+                    copies += 1
+                    if entry.get("is_favorite"):
+                        is_fav = True
+            embed = build_nbacard_embed(card, copies_owned=copies, is_fav=is_fav, owner_user=view.target_user)
+            inspect_view = NBACardInspectView(card, view.target_user, copies, is_fav, author=interaction.user, parent_dex_view=view)
+            await interaction.response.send_message(embed=embed, view=inspect_view, ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error in CardInspectSelect callback: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+class NBADexView(discord.ui.View):
+    def __init__(self, author: discord.User, target_user: discord.User, cards_owned: List[Dict[str, Any]], tier_filter: Optional[str] = "all", page: int = 1, vc_balance: int = 1000):
+        super().__init__(timeout=180.0)
+        self.author = author
+        self.target_user = target_user
+        self.cards_owned = cards_owned
+        self.tier_filter = tier_filter or "all"
+        self.page = page
+        self.vc_balance = vc_balance
+        self.total_pages = 1
+        self.page_cards: List[Dict[str, Any]] = []
+        self._build_components()
+
+    def _build_components(self):
+        self.clear_items()
+        # Embed calculations to know total pages & page cards
+        _, total_pages, page_cards = build_nbadex_embed(
+            self.target_user, self.cards_owned, self.tier_filter, self.page, 6, self.vc_balance
+        )
+        self.total_pages = total_pages
+        self.page_cards = page_cards
+
+        # Row 0: Tier Filter
+        self.add_item(TierFilterSelect(self.tier_filter))
+        # Row 1: Card Inspect Dropdown (if page has cards)
+        if self.page_cards:
+            self.add_item(CardInspectSelect(self.page_cards))
+
+        # Row 2: Nav Buttons
+        first_btn = discord.ui.Button(emoji="⏮️", style=discord.ButtonStyle.secondary, disabled=(self.page <= 1), row=2)
+        first_btn.callback = self.first_page
+        self.add_item(first_btn)
+
+        prev_btn = discord.ui.Button(emoji="◀️", style=discord.ButtonStyle.secondary, disabled=(self.page <= 1), row=2)
+        prev_btn.callback = self.prev_page
+        self.add_item(prev_btn)
+
+        page_btn = discord.ui.Button(label=f"Page {self.page}/{self.total_pages}", style=discord.ButtonStyle.primary, disabled=True, row=2)
+        self.add_item(page_btn)
+
+        next_btn = discord.ui.Button(emoji="▶️", style=discord.ButtonStyle.secondary, disabled=(self.page >= self.total_pages), row=2)
+        next_btn.callback = self.next_page
+        self.add_item(next_btn)
+
+        last_btn = discord.ui.Button(emoji="⏭️", style=discord.ButtonStyle.secondary, disabled=(self.page >= self.total_pages), row=2)
+        last_btn.callback = self.last_page
+        self.add_item(last_btn)
+
+        # Row 3: Action Buttons
+        pack_btn = discord.ui.Button(label="📦 Buy Pack", style=discord.ButtonStyle.success, emoji="📦", row=3)
+        pack_btn.callback = self.quick_pack
+        self.add_item(pack_btn)
+
+        daily_btn = discord.ui.Button(label="💰 Daily VC", style=discord.ButtonStyle.secondary, emoji="💰", row=3)
+        daily_btn.callback = self.claim_daily
+        self.add_item(daily_btn)
+
+        close_btn = discord.ui.Button(label="Close", style=discord.ButtonStyle.danger, emoji="✖️", row=3)
+        close_btn.callback = self.close_session
+        self.add_item(close_btn)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message("❌ This is not your binder session. Open yours with `/nbadex`.", ephemeral=True)
+            return False
+        return True
+
+    async def refresh_message(self, interaction: discord.Interaction):
+        self.cards_owned = await db.get_user_nba_cards(self.target_user.id)
+        self.vc_balance = await db.get_user_vc(self.target_user.id)
+        embed, _, _ = build_nbadex_embed(
+            self.target_user, self.cards_owned, self.tier_filter, self.page, 6, self.vc_balance
+        )
+        self._build_components()
+        if not interaction.response.is_done():
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.message.edit(embed=embed, view=self)
+
+    async def first_page(self, interaction: discord.Interaction):
+        self.page = 1
+        await self.refresh_message(interaction)
+
+    async def prev_page(self, interaction: discord.Interaction):
+        self.page = max(1, self.page - 1)
+        await self.refresh_message(interaction)
+
+    async def next_page(self, interaction: discord.Interaction):
+        self.page = min(self.total_pages, self.page + 1)
+        await self.refresh_message(interaction)
+
+    async def last_page(self, interaction: discord.Interaction):
+        self.page = self.total_pages
+        await self.refresh_message(interaction)
+
+    async def quick_pack(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="📦 NBA 2K Mobile Card Packs Shop",
+            description=(
+                f"**Your VC Balance:** `💰 {self.vc_balance:,} VC`\n\n"
+                f"• **📦 Starter Pack** (`250 VC`) — Gold & Ruby cards with a chance at Amethyst\n"
+                f"• **⭐ All-Star Gold Pack** (`1,500 VC`) — Ruby, Amethyst, Diamond & Galaxy Opal\n"
+                f"• **🐐 G.O.A.T. Dynasty Pack** (`5,000 VC`) — Guaranteed Diamond, Galaxy Opal & 99 OVR Dark Matter\n\n"
+                f"*Use `/openpack <pack_type>` or select a pack below to rip open!*"
+            ),
+            color=discord.Color.gold()
+        )
+        pack_view = QuickPackSelectView(self.author)
+        await interaction.response.send_message(embed=embed, view=pack_view, ephemeral=True)
+
+    async def claim_daily(self, interaction: discord.Interaction):
+        success, new_bal, rem = await db.claim_nba_daily(self.author.id, 1000)
+        if success:
+            await interaction.response.send_message(
+                f"🎉 **Daily Reward Claimed!** +1,000 VC has been added to your wallet!\n💰 **New Balance:** `{new_bal:,} VC`",
+                ephemeral=True
+            )
+            self.vc_balance = new_bal
+            await self.refresh_message(interaction)
+        else:
+            hours = int(rem // 3600)
+            minutes = int((rem % 3600) // 60)
+            await interaction.response.send_message(
+                f"⏳ **Daily VC Cooldown:** You can claim your next daily reward in **{hours}h {minutes}m**.\n💰 **Current Balance:** `{new_bal:,} VC`",
+                ephemeral=True
+            )
+
+    async def close_session(self, interaction: discord.Interaction):
+        self.stop()
+        await interaction.message.delete()
+
+
+class QuickPackSelectView(discord.ui.View):
+    def __init__(self, author: discord.User):
+        super().__init__(timeout=60.0)
+        self.author = author
+
+    @discord.ui.button(label="Starter Pack (250 VC)", style=discord.ButtonStyle.primary, emoji="📦")
+    async def open_starter(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._open(interaction, "starter")
+
+    @discord.ui.button(label="All-Star Pack (1,500 VC)", style=discord.ButtonStyle.success, emoji="⭐")
+    async def open_allstar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._open(interaction, "allstar")
+
+    @discord.ui.button(label="G.O.A.T. Pack (5,000 VC)", style=discord.ButtonStyle.secondary, emoji="🐐")
+    async def open_goat(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._open(interaction, "goat")
+
+    async def _open(self, interaction: discord.Interaction, pack_id: str):
+        pack_data = NBA_PACK_TYPES[pack_id]
+        cost = pack_data["cost"]
+        bal = await db.get_user_vc(interaction.user.id)
+        if bal < cost:
+            await interaction.response.send_message(
+                f"❌ **Insufficient VC!** You need `💰 {cost:,} VC` for {pack_data['name']}, but you only have `💰 {bal:,} VC`.\n"
+                f"• Claim daily VC with `/nbadaily`\n"
+                f"• Quick-sell duplicate cards with `/nbasell`\n"
+                f"• Claim wild chat drops on the court!",
+                ephemeral=True
+            )
+            return
+
+        deducted = await db.deduct_user_vc(interaction.user.id, cost)
+        if not deducted:
+            await interaction.response.send_message("❌ Failed to process VC transaction. Please try again.", ephemeral=True)
+            return
+
+        card = roll_pack_card(pack_id)
+        existing_cards = await db.get_user_nba_cards(interaction.user.id)
+        existing_cids = [c["card_id"].lower() for c in existing_cards]
+        is_new = card["id"].lower() not in existing_cids
+        copies_now = existing_cids.count(card["id"].lower()) + 1
+
+        await db.add_user_nba_card(interaction.user.id, card["id"], source=f"pack_{pack_id}")
+        new_bal = await db.get_user_vc(interaction.user.id)
+
+        embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
+        reveal_view = NBAPackOpenView(interaction.user, pack_id, card, new_bal, is_new, copies_now)
+        await interaction.response.send_message(embed=embed, view=reveal_view)
+
+
+class NBAPackOpenView(discord.ui.View):
+    def __init__(self, user: discord.User, pack_id: str, card: Dict[str, Any], new_bal: int, is_new: bool, copies: int):
+        super().__init__(timeout=120.0)
+        self.user = user
+        self.pack_id = pack_id
+        self.card = card
+        self.new_bal = new_bal
+        self.is_new = is_new
+        self.copies = copies
+
+        pack_data = NBA_PACK_TYPES.get(pack_id, NBA_PACK_TYPES["starter"])
+        self.open_another_btn = discord.ui.Button(
+            label=f"Open Another ({pack_data['cost']:,} VC)",
+            style=discord.ButtonStyle.success,
+            emoji="📦",
+            row=0
+        )
+        self.open_another_btn.callback = self.open_another
+        self.add_item(self.open_another_btn)
+
+        self.dex_btn = discord.ui.Button(label="View in Binder", style=discord.ButtonStyle.primary, emoji="🎴", row=0)
+        self.dex_btn.callback = self.view_in_dex
+        self.add_item(self.dex_btn)
+
+        self.inspect_btn = discord.ui.Button(label="Inspect Card", style=discord.ButtonStyle.secondary, emoji="🔍", row=0)
+        self.inspect_btn.callback = self.inspect_pulled_card
+        self.add_item(self.inspect_btn)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("❌ This pack opening session belongs to someone else.", ephemeral=True)
+            return False
+        return True
+
+    async def open_another(self, interaction: discord.Interaction):
+        pack_data = NBA_PACK_TYPES[self.pack_id]
+        cost = pack_data["cost"]
+        bal = await db.get_user_vc(interaction.user.id)
+        if bal < cost:
+            await interaction.response.send_message(
+                f"❌ **Insufficient VC!** You need `💰 {cost:,} VC`, but currently have `💰 {bal:,} VC`.\n"
+                f"Claim daily VC with `/nbadaily` or quick-sell duplicates with `/nbasell`.",
+                ephemeral=True
+            )
+            return
+
+        deducted = await db.deduct_user_vc(interaction.user.id, cost)
+        if not deducted:
+            await interaction.response.send_message("❌ Failed to process VC transaction.", ephemeral=True)
+            return
+
+        card = roll_pack_card(self.pack_id)
+        existing_cards = await db.get_user_nba_cards(interaction.user.id)
+        existing_cids = [c["card_id"].lower() for c in existing_cards]
+        is_new = card["id"].lower() not in existing_cids
+        copies_now = existing_cids.count(card["id"].lower()) + 1
+
+        await db.add_user_nba_card(interaction.user.id, card["id"], source=f"pack_{self.pack_id}")
+        new_bal = await db.get_user_vc(interaction.user.id)
+
+        self.card = card
+        self.new_bal = new_bal
+        self.is_new = is_new
+        self.copies = copies_now
+
+        embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
+        if not interaction.response.is_done():
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.message.edit(embed=embed, view=self)
+
+    async def view_in_dex(self, interaction: discord.Interaction):
+        cards = await db.get_user_nba_cards(interaction.user.id)
+        vc = await db.get_user_vc(interaction.user.id)
+        embed, _, _ = build_nbadex_embed(interaction.user, cards, "all", 1, 6, vc)
+        view = NBADexView(interaction.user, interaction.user, cards, "all", 1, vc)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    async def inspect_pulled_card(self, interaction: discord.Interaction):
+        cards = await db.get_user_nba_cards(interaction.user.id)
+        copies = sum(1 for c in cards if c["card_id"].lower() == self.card["id"].lower())
+        is_fav = any(c.get("is_favorite") for c in cards if c["card_id"].lower() == self.card["id"].lower())
+        embed = build_nbacard_embed(self.card, copies_owned=copies, is_fav=is_fav, owner_user=interaction.user)
+        view = NBACardInspectView(self.card, interaction.user, copies, is_fav, author=interaction.user)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+class NBACardInspectView(discord.ui.View):
+    def __init__(self, card: Dict[str, Any], owner_user: discord.User, copies: int, is_fav: bool, author: Optional[discord.User] = None, parent_dex_view: Optional[NBADexView] = None):
+        super().__init__(timeout=120.0)
+        self.card = card
+        self.owner_user = owner_user
+        self.copies = copies
+        self.is_fav = is_fav
+        self.author = author or owner_user
+        self.parent_dex_view = parent_dex_view
+
+        tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+        
+        fav_label = "Unfavorite" if is_fav else "Favorite"
+        fav_style = discord.ButtonStyle.secondary if is_fav else discord.ButtonStyle.primary
+        self.fav_btn = discord.ui.Button(label=fav_label, style=fav_style, emoji="⭐", row=0)
+        self.fav_btn.callback = self.toggle_fav
+        self.add_item(self.fav_btn)
+
+        sell_label = f"Quick-Sell ({tier_info['quick_sell']:,} VC)"
+        self.sell_btn = discord.ui.Button(label=sell_label, style=discord.ButtonStyle.danger, emoji="💰", disabled=(copies <= 0), row=0)
+        self.sell_btn.callback = self.quick_sell
+        self.add_item(self.sell_btn)
+
+        if self.parent_dex_view:
+            self.back_btn = discord.ui.Button(label="Back to Binder", style=discord.ButtonStyle.secondary, emoji="🎴", row=0)
+            self.back_btn.callback = self.back_to_binder
+            self.add_item(self.back_btn)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message("❌ This is not your inspection session.", ephemeral=True)
+            return False
+        return True
+
+    async def toggle_fav(self, interaction: discord.Interaction):
+        # Toggle in DB
+        cards = await db.get_user_nba_cards(interaction.user.id)
+        card_entry = next((c for c in cards if c["card_id"].lower() == self.card["id"].lower()), None)
+        if not card_entry:
+            await interaction.response.send_message("❌ You do not own this card.", ephemeral=True)
+            return
+
+        new_fav = not self.is_fav
+        await db.execute("UPDATE user_nba_cards SET is_favorite = ? WHERE user_id = ? AND card_id = ?", new_fav, str(interaction.user.id), self.card["id"])
+        self.is_fav = new_fav
+        self.fav_btn.label = "Unfavorite" if new_fav else "Favorite"
+        self.fav_btn.style = discord.ButtonStyle.secondary if new_fav else discord.ButtonStyle.primary
+
+        embed = build_nbacard_embed(self.card, copies_owned=self.copies, is_fav=self.is_fav, owner_user=self.owner_user)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def quick_sell(self, interaction: discord.Interaction):
+        if self.copies <= 0:
+            await interaction.response.send_message("❌ You have 0 copies of this card left to sell.", ephemeral=True)
+            return
+
+        tier_info = NBA_2K_TIERS.get(self.card["tier"], NBA_2K_TIERS["gold"])
+        sell_val = tier_info["quick_sell"]
+
+        removed = await db.remove_user_nba_card(interaction.user.id, self.card["id"])
+        if not removed:
+            await interaction.response.send_message("❌ Could not process quick-sell.", ephemeral=True)
+            return
+
+        new_bal = await db.add_user_vc(interaction.user.id, sell_val)
+        self.copies -= 1
+        if self.copies <= 0:
+            self.sell_btn.disabled = True
+
+        embed = build_nbacard_embed(self.card, copies_owned=self.copies, is_fav=self.is_fav, owner_user=self.owner_user)
+        await interaction.response.edit_message(embed=embed, view=self)
+        await interaction.followup.send(
+            f"💰 **Card Sold!** Sold 1x **{self.card['name']}** for `💰 {sell_val:,} VC`!\n• **New Balance:** `💰 {new_bal:,} VC`",
+            ephemeral=True
+        )
+
+    async def back_to_binder(self, interaction: discord.Interaction):
+        if self.parent_dex_view:
+            await self.parent_dex_view.refresh_message(interaction)
+
+
+class NBACardTradeView(discord.ui.View):
+    def __init__(self, sender_user: discord.User, target_user: discord.User, card_a: Dict[str, Any], card_b: Dict[str, Any]):
+        super().__init__(timeout=120.0)
+        self.sender_user = sender_user
+        self.target_user = target_user
+        self.card_a = card_a
+        self.card_b = card_b
+        self.status = "pending"
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.target_user.id:
+            await interaction.response.send_message(f"❌ Only {self.target_user.mention} can accept or decline this trade offer.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Accept Trade", style=discord.ButtonStyle.success, emoji="✅")
+    async def accept_trade(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 1. Re-verify ownership
+        sender_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(self.sender_user.id)]
+        target_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(self.target_user.id)]
+
+        if self.card_a["id"].lower() not in sender_cards:
+            await interaction.response.send_message(f"❌ Trade failed: {self.sender_user.mention} no longer owns **{self.card_a['name']}**.", ephemeral=True)
+            return
+
+        if self.card_b["id"].lower() not in target_cards:
+            await interaction.response.send_message(f"❌ Trade failed: You no longer own **{self.card_b['name']}**.", ephemeral=True)
+            return
+
+        # 2. Process transfer
+        t1 = await db.transfer_user_nba_card(self.sender_user.id, self.target_user.id, self.card_a["id"])
+        t2 = await db.transfer_user_nba_card(self.target_user.id, self.sender_user.id, self.card_b["id"])
+
+        if not t1 or not t2:
+            await interaction.response.send_message("❌ An error occurred while transferring cards.", ephemeral=True)
+            return
+
+        self.status = "accepted"
+        for item in self.children:
+            item.disabled = True
+
+        embed = build_trade_embed(self.sender_user, self.target_user, self.card_a, self.card_b, status="accepted")
+        await interaction.response.edit_message(embed=embed, view=self)
+        await interaction.followup.send(
+            f"🎉 **Trade Complete!** {self.sender_user.mention} received **{self.card_b['name']}** and {self.target_user.mention} received **{self.card_a['name']}**!"
+        )
+
+    @discord.ui.button(label="Decline Trade", style=discord.ButtonStyle.danger, emoji="❌")
+    async def decline_trade(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.status = "declined"
+        for item in self.children:
+            item.disabled = True
+        embed = build_trade_embed(self.sender_user, self.target_user, self.card_a, self.card_b, status="declined")
+        await interaction.response.edit_message(embed=embed, view=self)
+
+
+class NBAChatDropView(discord.ui.View):
+    def __init__(self, card: Dict[str, Any], drop_id: str):
+        super().__init__(timeout=300.0)
+        self.card = card
+        self.drop_id = drop_id
+        self.claimed = False
+        self.claim_btn = discord.ui.Button(label="🏀 Claim 2K Card (+150 VC)", style=discord.ButtonStyle.success, emoji="🏀")
+        self.claim_btn.callback = self.claim_card
+        self.add_item(self.claim_btn)
+
+    async def claim_card(self, interaction: discord.Interaction):
+        if self.claimed:
+            await interaction.response.send_message("❌ This card was already claimed by someone else!", ephemeral=True)
+            return
+
+        self.claimed = True
+        self.claim_btn.disabled = True
+        self.claim_btn.label = f"✅ Claimed by {interaction.user.display_name}!"
+        self.claim_btn.style = discord.ButtonStyle.secondary
+
+        await db.add_user_nba_card(interaction.user.id, self.card["id"], source="chat_drop")
+        new_bal = await db.add_user_vc(interaction.user.id, 150)
+        cards = await db.get_user_nba_cards(interaction.user.id)
+        copies = sum(1 for c in cards if c["card_id"].lower() == self.card["id"].lower())
+
+        tier_info = NBA_2K_TIERS.get(self.card["tier"], NBA_2K_TIERS["gold"])
+
+        congrats_embed = discord.Embed(
+            title=f"🏀 {tier_info['emoji']} WILD CARD CLAIMED BY {interaction.user.display_name.upper()}!",
+            description=(
+                f"# 🎉 **{interaction.user.mention} claimed [{self.card['ovr']} OVR] {self.card['name']}!**\n\n"
+                f"• **Tier Rarity:** {tier_info['emoji']} **{tier_info['name']}**\n"
+                f"• **Position:** `{self.card['pos']}` | **Team:** `{self.card['team']}`\n"
+                f"• **Theme:** *{self.card['theme']}*\n"
+                f"• **Reward:** `+150 VC Bonus` (New Balance: `💰 {new_bal:,} VC`)\n"
+                f"• **Binder Status:** You now own `{copies}` copies of this card!\n\n"
+                f"*{self.card.get('quote', '')}*"
+            ),
+            color=tier_info["color"]
+        )
+        if self.card.get("image_url"):
+            congrats_embed.set_image(url=self.card["image_url"])
+        congrats_embed.set_footer(text=f"NBA 2K Mobile Live Spawns • Card ID: {self.card['id']}")
+        congrats_embed.timestamp = discord.utils.utcnow()
+
+        await interaction.response.edit_message(embed=congrats_embed, view=self)
+
+
 
 
 # ── Social & Anime Action GIFs Suite ───────────────────────────────────────
@@ -13074,6 +14973,450 @@ async def dailynba_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+
+# ── NBA 2K Mobile Card Dex & Economy Slash Commands ──────────────────────────
+
+@bot.tree.command(name="openpack", description="🏀 Buy and rip open an NBA 2K Mobile card pack")
+@app_commands.describe(pack_type="Select the card pack type to buy and rip open")
+@app_commands.choices(
+    pack_type=[
+        app_commands.Choice(name="📦 Starter Pack (250 VC) — Gold/Ruby + Amethyst Chance", value="starter"),
+        app_commands.Choice(name="⭐ All-Star Gold Pack (1,500 VC) — Ruby/Amethyst/Diamond/Galaxy Opal", value="allstar"),
+        app_commands.Choice(name="🐐 G.O.A.T. Dynasty Pack (5,000 VC) — Diamond/Galaxy Opal/99 Dark Matter", value="goat"),
+    ]
+)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def openpack_slash_cmd(interaction: discord.Interaction, pack_type: Optional[str] = "starter"):
+    try:
+        await interaction.response.defer()
+        pack_id = pack_type or "starter"
+        pack_data = NBA_PACK_TYPES.get(pack_id, NBA_PACK_TYPES["starter"])
+        cost = pack_data["cost"]
+        bal = await db.get_user_vc(interaction.user.id)
+
+        if bal < cost:
+            embed = discord.Embed(
+                title="❌ Insufficient Virtual Currency (VC)",
+                description=(
+                    f"You need `💰 {cost:,} VC` to open a **{pack_data['name']}**, but you only have `💰 {bal:,} VC`.\n\n"
+                    f"**Ways to earn VC:**\n"
+                    f"• Claim your daily 1,000 VC with `/nbadaily`\n"
+                    f"• Quick-sell duplicate cards with `/nbasell`\n"
+                    f"• Claim wild 2K card drops in chat on the court!"
+                ),
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+        deducted = await db.deduct_user_vc(interaction.user.id, cost)
+        if not deducted:
+            await interaction.followup.send("❌ Failed to process VC transaction. Please try again.")
+            return
+
+        card = roll_pack_card(pack_id)
+        existing_cards = await db.get_user_nba_cards(interaction.user.id)
+        existing_cids = [c["card_id"].lower() for c in existing_cards]
+        is_new = card["id"].lower() not in existing_cids
+        copies_now = existing_cids.count(card["id"].lower()) + 1
+
+        await db.add_user_nba_card(interaction.user.id, card["id"], source=f"pack_{pack_id}")
+        new_bal = await db.get_user_vc(interaction.user.id)
+
+        embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
+        reveal_view = NBAPackOpenView(interaction.user, pack_id, card, new_bal, is_new, copies_now)
+        await interaction.followup.send(embed=embed, view=reveal_view)
+    except Exception as e:
+        logger.error(f"Error in /openpack: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbadex", description="🎴 View your (or another member's) NBA 2K Mobile card collection binder")
+@app_commands.describe(
+    user="The member whose collection you want to view (defaults to yourself)",
+    tier="Filter cards by rarity tier",
+    page="Starting page number"
+)
+@app_commands.choices(
+    tier=[
+        app_commands.Choice(name="All Tiers (Full Collection)", value="all"),
+        app_commands.Choice(name="🌌 Dark Matter / G.O.A.T. (99 OVR)", value="dark_matter"),
+        app_commands.Choice(name="✨ Galaxy Opal (97-98 OVR)", value="galaxy_opal"),
+        app_commands.Choice(name="💎 Diamond / Pink Diamond (93-96 OVR)", value="diamond"),
+        app_commands.Choice(name="🔮 Amethyst (88-92 OVR)", value="amethyst"),
+        app_commands.Choice(name="🔴 Ruby (84-87 OVR)", value="ruby"),
+        app_commands.Choice(name="🟡 Gold (75-83 OVR)", value="gold"),
+    ]
+)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None, tier: Optional[str] = "all", page: Optional[int] = 1):
+    try:
+        await interaction.response.defer()
+        target = user or interaction.user
+        cards = await db.get_user_nba_cards(target.id)
+        vc = await db.get_user_vc(target.id)
+        pg = max(1, page or 1)
+
+        embed, _, _ = build_nbadex_embed(target, cards, tier or "all", pg, 6, vc)
+        view = NBADexView(interaction.user, target, cards, tier or "all", pg, vc)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /nbadex: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbacard", description="🔍 Inspect full HD 2K card artwork, attributes & badges for any NBA card")
+@app_commands.describe(card="Card ID or Player Name (e.g. 'dm-jordan-99', 'LeBron James', 'Luka')")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
+    try:
+        await interaction.response.defer()
+        card_obj = get_nba_card(card)
+        if not card_obj:
+            await interaction.followup.send(
+                f"❌ Card `{card}` not found in the 2K Mobile catalog. Use `/nbadex` to view catalog IDs.",
+                ephemeral=True
+            )
+            return
+
+        user_cards = await db.get_user_nba_cards(interaction.user.id)
+        copies = sum(1 for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
+        is_fav = any(c.get("is_favorite") for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
+
+        embed = build_nbacard_embed(card_obj, copies_owned=copies, is_fav=is_fav, owner_user=interaction.user)
+        view = NBACardInspectView(card_obj, interaction.user, copies, is_fav, author=interaction.user)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /nbacard: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbadaily", description="💰 Claim your daily 1,000 VC (Virtual Currency) reward")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbadaily_slash_cmd(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+        success, new_bal, rem = await db.claim_nba_daily(interaction.user.id, 1000)
+        if success:
+            embed = discord.Embed(
+                title="🎉 Daily VC Reward Claimed!",
+                description=(
+                    f"**+1,000 VC** has been deposited into your account!\n\n"
+                    f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
+                    f"• 📦 **Next Pack:** Starter Pack (`250 VC`), All-Star (`1,500 VC`)\n\n"
+                    f"*Come back in 24 hours to claim your next reward!*"
+                ),
+                color=discord.Color.green()
+            )
+            embed.set_footer(text="NBA 2K Mobile Daily Rewards • Use /openpack to spend VC")
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+        else:
+            hours = int(rem // 3600)
+            minutes = int((rem % 3600) // 60)
+            embed = discord.Embed(
+                title="⏳ Daily VC Cooldown Active",
+                description=(
+                    f"You have already claimed today's reward!\n\n"
+                    f"• **Time Remaining:** `{hours}h {minutes}m`\n"
+                    f"• 💰 **Current Balance:** `{new_bal:,} VC`"
+                ),
+                color=discord.Color.orange()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /nbadaily: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbabal", description="💰 Check your NBA 2K Mobile VC balance and card collector stats")
+@app_commands.describe(user="The member whose wallet/stats you want to view (defaults to yourself)")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbabal_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None):
+    try:
+        await interaction.response.defer()
+        target = user or interaction.user
+        vc = await db.get_user_vc(target.id)
+        cards = await db.get_user_nba_cards(target.id)
+        stats = await db.get_user_nba_economy_stats(target.id)
+
+        unique_cids = set(c["card_id"].lower() for c in cards)
+        total_power = sum(get_nba_card(c["card_id"])["ovr"] for c in cards if get_nba_card(c["card_id"]))
+
+        highest_card = None
+        for c in cards:
+            c_obj = get_nba_card(c["card_id"])
+            if c_obj:
+                if not highest_card or c_obj["ovr"] > highest_card["ovr"]:
+                    highest_card = c_obj
+
+        best_card_str = f"{NBA_2K_TIERS[highest_card['tier']]['emoji']} [{highest_card['ovr']} OVR] **{highest_card['name']}**" if highest_card else "None yet"
+
+        embed = discord.Embed(
+            title=f"💰 {target.display_name}'s NBA 2K Mobile Wallet & Stats",
+            description=(
+                f"# 💰 `{vc:,} VC`\n\n"
+                f"• 🎴 **Cards in Binder:** `{len(cards)}` (`{len(unique_cids)}/{len(NBA_2K_MOBILE_CARDS)}` unique)\n"
+                f"• ⚡ **Total Collector Power:** `{total_power:,} OVR`\n"
+                f"• 🌟 **Highest OVR Card:** {best_card_str}\n"
+                f"• 📦 **Total Cards Pulled:** `{stats.get('cards_claimed', len(cards))}`\n\n"
+                f"*Claim daily VC with `/nbadaily` or open packs with `/openpack`.*"
+            ),
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text="NBA 2K Mobile Economy Subsystem")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /nbabal: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbasell", description="💰 Quick-sell an NBA card for instant VC Virtual Currency")
+@app_commands.describe(card="Card ID or Player Name to sell (e.g. 'gold-naz-82', 'Naz Reid')")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbasell_slash_cmd(interaction: discord.Interaction, card: str):
+    try:
+        await interaction.response.defer()
+        card_obj = get_nba_card(card)
+        if not card_obj:
+            await interaction.followup.send(f"❌ Card `{card}` not found in catalog.", ephemeral=True)
+            return
+
+        user_cards = await db.get_user_nba_cards(interaction.user.id)
+        matching = [c for c in user_cards if c["card_id"].lower() == card_obj["id"].lower()]
+        if not matching:
+            await interaction.followup.send(f"❌ You do not own any copies of **{card_obj['name']}** (`{card_obj['id']}`).", ephemeral=True)
+            return
+
+        tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
+        sell_price = tier_info["quick_sell"]
+
+        removed = await db.remove_user_nba_card(interaction.user.id, card_obj["id"])
+        if not removed:
+            await interaction.followup.send("❌ Failed to sell card. Please try again.", ephemeral=True)
+            return
+
+        new_bal = await db.add_user_vc(interaction.user.id, sell_price)
+        remaining_copies = len(matching) - 1
+
+        embed = discord.Embed(
+            title="💰 Card Quick-Sold!",
+            description=(
+                f"✅ Successfully sold 1x {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}** for `💰 {sell_price:,} VC`!\n\n"
+                f"• **Remaining Copies:** `{remaining_copies}`\n"
+                f"• 💰 **New VC Balance:** `{new_bal:,} VC`"
+            ),
+            color=discord.Color.green()
+        )
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /nbasell: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbatrade", description="🤝 Propose a 2-way NBA 2K Mobile card trade to another server member")
+@app_commands.describe(
+    user="The member you want to trade cards with",
+    your_card="Card ID or Player Name you are offering from your binder",
+    their_card="Card ID or Player Name you want from their binder"
+)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbatrade_slash_cmd(interaction: discord.Interaction, user: discord.Member, your_card: str, their_card: str):
+    try:
+        await interaction.response.defer()
+        if user.id == interaction.user.id or user.bot:
+            await interaction.followup.send("❌ You cannot trade cards with yourself or bots.", ephemeral=True)
+            return
+
+        card_a = get_nba_card(your_card)
+        card_b = get_nba_card(their_card)
+
+        if not card_a:
+            await interaction.followup.send(f"❌ Your offered card `{your_card}` was not found.", ephemeral=True)
+            return
+        if not card_b:
+            await interaction.followup.send(f"❌ The requested card `{their_card}` was not found.", ephemeral=True)
+            return
+
+        sender_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(interaction.user.id)]
+        target_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(user.id)]
+
+        if card_a["id"].lower() not in sender_cards:
+            await interaction.followup.send(f"❌ You do not own **{card_a['name']}** (`{card_a['id']}`).", ephemeral=True)
+            return
+        if card_b["id"].lower() not in target_cards:
+            await interaction.followup.send(f"❌ {user.mention} does not own **{card_b['name']}** (`{card_b['id']}`).", ephemeral=True)
+            return
+
+        embed = build_trade_embed(interaction.user, user, card_a, card_b, status="pending")
+        view = NBACardTradeView(interaction.user, user, card_a, card_b)
+        await interaction.followup.send(content=f"🔔 {user.mention}, you have received a card trade proposal from {interaction.user.mention}!", embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /nbatrade: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbatop", description="🏆 View the server NBA 2K Mobile Card Collector & VC Leaderboard")
+@app_commands.describe(category="Leaderboard category to rank members by")
+@app_commands.choices(
+    category=[
+        app_commands.Choice(name="🎴 Most Cards Collected", value="cards"),
+        app_commands.Choice(name="💰 VC Millionaires (Highest Balance)", value="vc"),
+    ]
+)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbatop_slash_cmd(interaction: discord.Interaction, category: Optional[str] = "cards"):
+    try:
+        await interaction.response.defer()
+        cat = category or "cards"
+        if cat == "vc":
+            query = "SELECT user_id, vc_balance, cards_claimed FROM user_nba_economy ORDER BY vc_balance DESC LIMIT 10"
+            rows = await db.fetch(query)
+            embed = discord.Embed(
+                title="🏆 NBA 2K Mobile • VC Millionaires Leaderboard",
+                description="The richest Virtual Currency balances on the server!\n\n",
+                color=discord.Color.gold()
+            )
+            if not rows:
+                embed.description += "No VC records found yet. Claim daily VC with `/nbadaily`!"
+            else:
+                for idx, r in enumerate(rows, 1):
+                    med = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"**#{idx}**"
+                    embed.description += f"{med} <@{r['user_id']}> — `💰 {r['vc_balance']:,} VC` *({r.get('cards_claimed', 0)} cards claimed)*\n"
+        else:
+            query = """
+            SELECT user_id, COUNT(*) as total_cards, COUNT(DISTINCT card_id) as unique_cards
+            FROM user_nba_cards
+            GROUP BY user_id
+            ORDER BY total_cards DESC
+            LIMIT 10
+            """
+            rows = await db.fetch(query)
+            embed = discord.Embed(
+                title="🏆 NBA 2K Mobile • Top Card Collectors Leaderboard",
+                description=f"The greatest card collectors on the server ({len(NBA_2K_MOBILE_CARDS)} cards in catalog)!\n\n",
+                color=discord.Color.purple()
+            )
+            if not rows:
+                embed.description += "No cards collected yet! Open your first pack with `/openpack`!"
+            else:
+                for idx, r in enumerate(rows, 1):
+                    med = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"**#{idx}**"
+                    embed.description += f"{med} <@{r['user_id']}> — `🎴 {r['total_cards']} Cards` *({r['unique_cards']}/{len(NBA_2K_MOBILE_CARDS)} unique)*\n"
+
+        embed.set_footer(text="NBA 2K Mobile Dex Leaderboard • Use /nbadex to view your collection")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /nbatop: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbafav", description="⭐ Favorite or unfavorite an NBA 2K Mobile card in your binder")
+@app_commands.describe(card="Card ID or Player Name to toggle favorite status")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbafav_slash_cmd(interaction: discord.Interaction, card: str):
+    try:
+        await interaction.response.defer(ephemeral=True)
+        card_obj = get_nba_card(card)
+        if not card_obj:
+            await interaction.followup.send(f"❌ Card `{card}` not found in catalog.", ephemeral=True)
+            return
+
+        user_cards = await db.get_user_nba_cards(interaction.user.id)
+        matching = [c for c in user_cards if c["card_id"].lower() == card_obj["id"].lower()]
+        if not matching:
+            await interaction.followup.send(f"❌ You do not own **{card_obj['name']}** in your binder.", ephemeral=True)
+            return
+
+        curr_fav = any(c.get("is_favorite") for c in matching)
+        new_fav = not curr_fav
+        await db.execute("UPDATE user_nba_cards SET is_favorite = ? WHERE user_id = ? AND card_id = ?", new_fav, str(interaction.user.id), card_obj["id"])
+
+        status_str = "⭐ Marked as **Favorite**" if new_fav else "Removed from Favorites"
+        await interaction.followup.send(f"✅ **{card_obj['name']}** [{card_obj['ovr']} OVR] has been {status_str}!", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /nbafav: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbaclaim", description="🏀 Claim an active wild NBA 2K Mobile card drop on the court")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbaclaim_slash_cmd(interaction: discord.Interaction):
+    try:
+        drop = _active_nba_drop.get(interaction.guild.id)
+        if not drop or drop.get("claimed"):
+            await interaction.response.send_message("❌ There is no active wild card drop in this server right now. Keep chatting to spawn one!", ephemeral=True)
+            return
+
+        drop["claimed"] = True
+        card = drop["card"]
+        await db.add_user_nba_card(interaction.user.id, card["id"], source="chat_drop")
+        new_bal = await db.add_user_vc(interaction.user.id, 150)
+        t_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+
+        embed = discord.Embed(
+            title=f"🏀 Wild Card Claimed by {interaction.user.display_name}!",
+            description=(
+                f"# 🎉 **Claimed [{card['ovr']} OVR] {card['name']}!**\n\n"
+                f"• **Tier:** {t_info['emoji']} **{t_info['name']}**\n"
+                f"• **Position:** `{card['pos']}` | **Team:** `{card['team']}`\n"
+                f"• **Theme:** *{card['theme']}*\n"
+                f"• **Bonus:** `+150 VC` (New Balance: `💰 {new_bal:,} VC`)"
+            ),
+            color=t_info["color"]
+        )
+        if card.get("image_url"):
+            embed.set_image(url=card["image_url"])
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /nbaclaim: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
 @bot.tree.command(name="createchannel", description="Create a new text or voice channel inside a specific category")
 @app_commands.describe(
     name="Name of the new channel (e.g. '🏀・dream-team-builder')",
@@ -15313,7 +17656,7 @@ async def teamtop_prefix_cmd(ctx: commands.Context, limit: Optional[int] = 10):
         await ctx.send(f"❌ Error: {e}")
 
 
-@bot.command(name="dailynba", aliases=["dailyboss", "nbadaily", "dailygame"])
+@bot.command(name="dailynba", aliases=["dailyboss", "dailygame"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def dailynba_prefix_cmd(ctx: commands.Context):
@@ -15329,6 +17672,380 @@ async def dailynba_prefix_cmd(ctx: commands.Context):
         await ctx.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in !dailynba: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+
+# ── NBA 2K Mobile Card Dex & Economy Prefix Commands ─────────────────────────
+
+@bot.command(name="openpack", aliases=["pack", "buypack", "2kpack", "ripcard", "packopen"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def openpack_prefix_cmd(ctx: commands.Context, pack_type: Optional[str] = "starter"):
+    """Buy and rip open an NBA 2K Mobile card pack: !openpack [starter|allstar|goat]"""
+    try:
+        pack_id = (pack_type or "starter").lower().strip()
+        if pack_id not in NBA_PACK_TYPES:
+            pack_id = "starter"
+        pack_data = NBA_PACK_TYPES[pack_id]
+        cost = pack_data["cost"]
+        bal = await db.get_user_vc(ctx.author.id)
+
+        if bal < cost:
+            embed = discord.Embed(
+                title="❌ Insufficient Virtual Currency (VC)",
+                description=(
+                    f"You need `💰 {cost:,} VC` to open a **{pack_data['name']}**, but you only have `💰 {bal:,} VC`.\n\n"
+                    f"**Ways to earn VC:**\n"
+                    f"• Claim your daily 1,000 VC with `!nbadaily`\n"
+                    f"• Quick-sell duplicate cards with `!nbasell`\n"
+                    f"• Claim wild 2K card drops in chat on the court!"
+                ),
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+
+        deducted = await db.deduct_user_vc(ctx.author.id, cost)
+        if not deducted:
+            await ctx.send("❌ Failed to process VC transaction. Please try again.")
+            return
+
+        card = roll_pack_card(pack_id)
+        existing_cards = await db.get_user_nba_cards(ctx.author.id)
+        existing_cids = [c["card_id"].lower() for c in existing_cards]
+        is_new = card["id"].lower() not in existing_cids
+        copies_now = existing_cids.count(card["id"].lower()) + 1
+
+        await db.add_user_nba_card(ctx.author.id, card["id"], source=f"pack_{pack_id}")
+        new_bal = await db.get_user_vc(ctx.author.id)
+
+        embed = build_openpack_embed(ctx.author, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
+        reveal_view = NBAPackOpenView(ctx.author, pack_id, card, new_bal, is_new, copies_now)
+        await ctx.send(embed=embed, view=reveal_view)
+    except Exception as e:
+        logger.error(f"Error in !openpack: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbadex", aliases=["dex", "nbacollection", "mycards", "cards", "binder", "deck"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbadex_prefix_cmd(ctx: commands.Context, target: Optional[discord.Member] = None, tier: Optional[str] = "all", page: Optional[int] = 1):
+    """View your (or another member's) NBA 2K Mobile card collection binder: !nbadex [@user] [tier] [page]"""
+    try:
+        user_target = target or ctx.author
+        cards = await db.get_user_nba_cards(user_target.id)
+        vc = await db.get_user_vc(user_target.id)
+        pg = max(1, page or 1)
+
+        embed, _, _ = build_nbadex_embed(user_target, cards, tier or "all", pg, 6, vc)
+        view = NBADexView(ctx.author, user_target, cards, tier or "all", pg, vc)
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !nbadex: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbacard", aliases=["card", "viewcard", "inspectcard", "cardinfo"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbacard_prefix_cmd(ctx: commands.Context, *, card_query: str):
+    """Inspect full HD 2K card artwork, attributes & badges for any NBA card: !nbacard <card_id or name>"""
+    try:
+        card_obj = get_nba_card(card_query)
+        if not card_obj:
+            await ctx.send(f"❌ Card `{card_query}` not found in 2K Mobile catalog. Use `!nbadex` to view IDs.")
+            return
+
+        user_cards = await db.get_user_nba_cards(ctx.author.id)
+        copies = sum(1 for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
+        is_fav = any(c.get("is_favorite") for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
+
+        embed = build_nbacard_embed(card_obj, copies_owned=copies, is_fav=is_fav, owner_user=ctx.author)
+        view = NBACardInspectView(card_obj, ctx.author, copies, is_fav, author=ctx.author)
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !nbacard: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbadaily", aliases=["dailyvc", "nbareward", "claimvc", "freepack"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbadaily_prefix_cmd(ctx: commands.Context):
+    """Claim your daily 1,000 VC (Virtual Currency) reward: !nbadaily"""
+    try:
+        success, new_bal, rem = await db.claim_nba_daily(ctx.author.id, 1000)
+        if success:
+            embed = discord.Embed(
+                title="🎉 Daily VC Reward Claimed!",
+                description=(
+                    f"**+1,000 VC** has been deposited into your account!\n\n"
+                    f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
+                    f"• 📦 **Next Pack:** Starter Pack (`250 VC`), All-Star (`1,500 VC`)\n\n"
+                    f"*Come back in 24 hours to claim your next reward!*"
+                ),
+                color=discord.Color.green()
+            )
+            embed.set_footer(text="NBA 2K Mobile Daily Rewards • Use !openpack to spend VC")
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+        else:
+            hours = int(rem // 3600)
+            minutes = int((rem % 3600) // 60)
+            embed = discord.Embed(
+                title="⏳ Daily VC Cooldown Active",
+                description=(
+                    f"You have already claimed today's reward!\n\n"
+                    f"• **Time Remaining:** `{hours}h {minutes}m`\n"
+                    f"• 💰 **Current Balance:** `{new_bal:,} VC`"
+                ),
+                color=discord.Color.orange()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbadaily: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbabal", aliases=["vc", "nbawallet", "nbastats", "balance"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbabal_prefix_cmd(ctx: commands.Context, target: Optional[discord.Member] = None):
+    """Check your NBA 2K Mobile VC balance and card collector stats: !nbabal [@user]"""
+    try:
+        user_target = target or ctx.author
+        vc = await db.get_user_vc(user_target.id)
+        cards = await db.get_user_nba_cards(user_target.id)
+        stats = await db.get_user_nba_economy_stats(user_target.id)
+
+        unique_cids = set(c["card_id"].lower() for c in cards)
+        total_power = sum(get_nba_card(c["card_id"])["ovr"] for c in cards if get_nba_card(c["card_id"]))
+
+        highest_card = None
+        for c in cards:
+            c_obj = get_nba_card(c["card_id"])
+            if c_obj:
+                if not highest_card or c_obj["ovr"] > highest_card["ovr"]:
+                    highest_card = c_obj
+
+        best_card_str = f"{NBA_2K_TIERS[highest_card['tier']]['emoji']} [{highest_card['ovr']} OVR] **{highest_card['name']}**" if highest_card else "None yet"
+
+        embed = discord.Embed(
+            title=f"💰 {user_target.display_name}'s NBA 2K Mobile Wallet & Stats",
+            description=(
+                f"# 💰 `{vc:,} VC`\n\n"
+                f"• 🎴 **Cards in Binder:** `{len(cards)}` (`{len(unique_cids)}/{len(NBA_2K_MOBILE_CARDS)}` unique)\n"
+                f"• ⚡ **Total Collector Power:** `{total_power:,} OVR`\n"
+                f"• 🌟 **Highest OVR Card:** {best_card_str}\n"
+                f"• 📦 **Total Cards Pulled:** `{stats.get('cards_claimed', len(cards))}`\n\n"
+                f"*Claim daily VC with `!nbadaily` or open packs with `!openpack`.*"
+            ),
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text="NBA 2K Mobile Economy Subsystem")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbabal: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbasell", aliases=["sellcard", "quicksell"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbasell_prefix_cmd(ctx: commands.Context, *, card_query: str):
+    """Quick-sell an NBA card for instant VC: !nbasell <card_id or name>"""
+    try:
+        card_obj = get_nba_card(card_query)
+        if not card_obj:
+            await ctx.send(f"❌ Card `{card_query}` not found in catalog.")
+            return
+
+        user_cards = await db.get_user_nba_cards(ctx.author.id)
+        matching = [c for c in user_cards if c["card_id"].lower() == card_obj["id"].lower()]
+        if not matching:
+            await ctx.send(f"❌ You do not own any copies of **{card_obj['name']}** (`{card_obj['id']}`).")
+            return
+
+        tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
+        sell_price = tier_info["quick_sell"]
+
+        removed = await db.remove_user_nba_card(ctx.author.id, card_obj["id"])
+        if not removed:
+            await ctx.send("❌ Failed to sell card. Please try again.")
+            return
+
+        new_bal = await db.add_user_vc(ctx.author.id, sell_price)
+        remaining_copies = len(matching) - 1
+
+        embed = discord.Embed(
+            title="💰 Card Quick-Sold!",
+            description=(
+                f"✅ Successfully sold 1x {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}** for `💰 {sell_price:,} VC`!\n\n"
+                f"• **Remaining Copies:** `{remaining_copies}`\n"
+                f"• 💰 **New VC Balance:** `{new_bal:,} VC`"
+            ),
+            color=discord.Color.green()
+        )
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbasell: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbatrade", aliases=["tradecard", "trade"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def nbatrade_prefix_cmd(ctx: commands.Context, target: discord.Member, your_card: str, their_card: str):
+    """Propose a 2-way NBA card trade: !nbatrade @user <your_card_id> <their_card_id>"""
+    try:
+        if target.id == ctx.author.id or target.bot:
+            await ctx.send("❌ You cannot trade cards with yourself or bots.")
+            return
+
+        card_a = get_nba_card(your_card)
+        card_b = get_nba_card(their_card)
+
+        if not card_a:
+            await ctx.send(f"❌ Your offered card `{your_card}` was not found.")
+            return
+        if not card_b:
+            await ctx.send(f"❌ The requested card `{their_card}` was not found.")
+            return
+
+        sender_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(ctx.author.id)]
+        target_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(target.id)]
+
+        if card_a["id"].lower() not in sender_cards:
+            await ctx.send(f"❌ You do not own **{card_a['name']}** (`{card_a['id']}`).")
+            return
+        if card_b["id"].lower() not in target_cards:
+            await ctx.send(f"❌ {target.mention} does not own **{card_b['name']}** (`{card_b['id']}`).")
+            return
+
+        embed = build_trade_embed(ctx.author, target, card_a, card_b, status="pending")
+        view = NBACardTradeView(ctx.author, target, card_a, card_b)
+        await ctx.send(content=f"🔔 {target.mention}, you have received a card trade proposal from {ctx.author.mention}!", embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !nbatrade: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbatop", aliases=["nbaleaderboard", "topcards", "vctop", "nbalb"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def nbatop_prefix_cmd(ctx: commands.Context, category: Optional[str] = "cards"):
+    """View top NBA 2K Mobile Card Collectors or VC Millionaires: !nbatop [cards|vc]"""
+    try:
+        cat = (category or "cards").lower().strip()
+        if cat == "vc":
+            query = "SELECT user_id, vc_balance, cards_claimed FROM user_nba_economy ORDER BY vc_balance DESC LIMIT 10"
+            rows = await db.fetch(query)
+            embed = discord.Embed(
+                title="🏆 NBA 2K Mobile • VC Millionaires Leaderboard",
+                description="The richest Virtual Currency balances on the server!\n\n",
+                color=discord.Color.gold()
+            )
+            if not rows:
+                embed.description += "No VC records found yet. Claim daily VC with `!nbadaily`!"
+            else:
+                for idx, r in enumerate(rows, 1):
+                    med = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"**#{idx}**"
+                    embed.description += f"{med} <@{r['user_id']}> — `💰 {r['vc_balance']:,} VC` *({r.get('cards_claimed', 0)} cards claimed)*\n"
+        else:
+            query = """
+            SELECT user_id, COUNT(*) as total_cards, COUNT(DISTINCT card_id) as unique_cards
+            FROM user_nba_cards
+            GROUP BY user_id
+            ORDER BY total_cards DESC
+            LIMIT 10
+            """
+            rows = await db.fetch(query)
+            embed = discord.Embed(
+                title="🏆 NBA 2K Mobile • Top Card Collectors Leaderboard",
+                description=f"The greatest card collectors on the server ({len(NBA_2K_MOBILE_CARDS)} cards in catalog)!\n\n",
+                color=discord.Color.purple()
+            )
+            if not rows:
+                embed.description += "No cards collected yet! Open your first pack with `!openpack`!"
+            else:
+                for idx, r in enumerate(rows, 1):
+                    med = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"**#{idx}**"
+                    embed.description += f"{med} <@{r['user_id']}> — `🎴 {r['total_cards']} Cards` *({r['unique_cards']}/{len(NBA_2K_MOBILE_CARDS)} unique)*\n"
+
+        embed.set_footer(text="NBA 2K Mobile Dex Leaderboard • Use !nbadex to view your collection")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbatop: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbafav", aliases=["favcard", "favoritecard", "fav"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbafav_prefix_cmd(ctx: commands.Context, *, card_query: str):
+    """Toggle favorite status for an NBA card: !nbafav <card_id or name>"""
+    try:
+        card_obj = get_nba_card(card_query)
+        if not card_obj:
+            await ctx.send(f"❌ Card `{card_query}` not found in catalog.")
+            return
+
+        user_cards = await db.get_user_nba_cards(ctx.author.id)
+        matching = [c for c in user_cards if c["card_id"].lower() == card_obj["id"].lower()]
+        if not matching:
+            await ctx.send(f"❌ You do not own **{card_obj['name']}** in your binder.")
+            return
+
+        curr_fav = any(c.get("is_favorite") for c in matching)
+        new_fav = not curr_fav
+        await db.execute("UPDATE user_nba_cards SET is_favorite = ? WHERE user_id = ? AND card_id = ?", new_fav, str(ctx.author.id), card_obj["id"])
+
+        status_str = "⭐ Marked as **Favorite**" if new_fav else "Removed from Favorites"
+        await ctx.send(f"✅ **{card_obj['name']}** [{card_obj['ovr']} OVR] has been {status_str}!")
+    except Exception as e:
+        logger.error(f"Error in !nbafav: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbaclaim", aliases=["claimcard", "claimdrop", "catch"])
+@commands.guild_only()
+@commands.cooldown(1, 2.0, commands.BucketType.user)
+async def nbaclaim_prefix_cmd(ctx: commands.Context):
+    """Claim an active wild NBA 2K Mobile card drop: !nbaclaim"""
+    try:
+        drop = _active_nba_drop.get(ctx.guild.id)
+        if not drop or drop.get("claimed"):
+            await ctx.send("❌ There is no active wild card drop in this server right now. Keep chatting to spawn one!")
+            return
+
+        drop["claimed"] = True
+        card = drop["card"]
+        await db.add_user_nba_card(ctx.author.id, card["id"], source="chat_drop")
+        new_bal = await db.add_user_vc(ctx.author.id, 150)
+        t_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+
+        embed = discord.Embed(
+            title=f"🏀 Wild Card Claimed by {ctx.author.display_name}!",
+            description=(
+                f"# 🎉 **Claimed [{card['ovr']} OVR] {card['name']}!**\n\n"
+                f"• **Tier:** {t_info['emoji']} **{t_info['name']}**\n"
+                f"• **Position:** `{card['pos']}` | **Team:** `{card['team']}`\n"
+                f"• **Theme:** *{card['theme']}*\n"
+                f"• **Bonus:** `+150 VC` (New Balance: `💰 {new_bal:,} VC`)"
+            ),
+            color=t_info["color"]
+        )
+        if card.get("image_url"):
+            embed.set_image(url=card["image_url"])
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbaclaim: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
 
 
@@ -16946,6 +19663,36 @@ async def on_message(message):
                             )
                             afk_alert_msg = await message.channel.send(embed=afk_embed)
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
+
+        # ── NBA 2K Mobile Wild Card Chat Spawns ──────────────────────────────
+        if message.guild and not message.author.bot and len(message.content) > 3:
+            chan_id = message.channel.id
+            _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
+            now_drop_ts = time.time()
+            last_chan_drop = _nba_drop_last_timestamps.get(chan_id, 0.0)
+
+            # Trigger drop every ~25-35 messages with an 8-minute cooldown per channel & 25% roll
+            if _nba_drop_msg_counts[chan_id] >= random.randint(25, 35) and (now_drop_ts - last_chan_drop > 480):
+                _nba_drop_msg_counts[chan_id] = 0
+                _nba_drop_last_timestamps[chan_id] = now_drop_ts
+                if random.random() < 0.25:
+                    try:
+                        drop_tier = random.choices(
+                            ["gold", "ruby", "amethyst", "diamond", "galaxy_opal"],
+                            weights=[0.55, 0.25, 0.12, 0.06, 0.02],
+                            k=1
+                        )[0]
+                        tier_pool = [c for c in NBA_2K_MOBILE_CARDS if c["tier"] == drop_tier]
+                        if tier_pool:
+                            drop_card = random.choice(tier_pool)
+                            drop_id = f"{message.guild.id}_{int(now_drop_ts)}"
+                            _active_nba_drop[message.guild.id] = {"card": drop_card, "claimed": False, "drop_id": drop_id}
+                            drop_embed = build_nba_drop_embed(drop_card)
+                            drop_view = NBAChatDropView(drop_card, drop_id)
+                            await message.channel.send(embed=drop_embed, view=drop_view)
+                    except Exception as drop_err:
+                        logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
+
 
     # ── Solution 3: Direct Message !appeal Command & Appeal Assistant ──────────
     if message.guild is None and not message.author.bot:
