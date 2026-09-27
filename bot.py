@@ -7093,40 +7093,87 @@ def generate_dream_team_card(
         canvas.paste(aura_img, (cx, cy + 45), aura_img)
         draw = ImageDraw.Draw(canvas)
 
-        # 3.5 Large Cutout Player Artwork (Dominant Element!)
+        # 3.5 Large Real Match Moment Artwork (Dominant Element!)
         p_name = pl.get("name", "Player")
-        headshot = get_nba_player_headshot(p_name)
-        if headshot:
+        action_photo = get_nba_player_moment_photo(p_name)
+        photo_rendered = False
+        
+        if action_photo:
             try:
-                target_w = card_w - 10
-                target_h = int(target_w * (headshot.height / headshot.width))
-                hs_res = headshot.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                
-                fade_mask = Image.new("L", hs_res.size, 255)
-                f_mask_draw = ImageDraw.Draw(fade_mask)
-                fade_start_y = int(target_h * 0.72)
-                for my in range(fade_start_y, target_h):
-                    alpha_factor = int(255 * (1.0 - (my - fade_start_y) / (target_h - fade_start_y)))
-                    f_mask_draw.line([(0, my), (target_w, my)], fill=alpha_factor)
-                
-                hs_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                r_c, g_c, b_c, a_c = hs_res.split()
-                merged_alpha = Image.composite(a_c, Image.new("L", a_c.size, 0), fade_mask)
-                hs_res.putalpha(merged_alpha)
+                photo_w, photo_h = card_w - 16, 268
+                px, py = cx + 8, cy + 54
+                aspect = action_photo.width / max(1, action_photo.height)
+                if aspect > (photo_w / photo_h):
+                    scale_h = photo_h
+                    scale_w = int(scale_h * aspect)
+                else:
+                    scale_w = photo_w
+                    scale_h = int(scale_w / aspect)
+                p_scaled = action_photo.resize((scale_w, scale_h), Image.Resampling.LANCZOS)
+                left = max(0, (p_scaled.width - photo_w) // 2)
+                top = max(0, (p_scaled.height - photo_h) // 3)
+                p_cropped = p_scaled.crop((left, top, left + photo_w, top + photo_h))
+                p_cropped = ImageEnhance.Contrast(p_cropped).enhance(1.15)
+                p_cropped = ImageEnhance.Color(p_cropped).enhance(1.18)
 
-                hs_layer.paste(hs_res, (cx + 5, cy + 48))
-                canvas = Image.alpha_composite(canvas, hs_layer)
+                mask = Image.new("L", (photo_w, photo_h), 255)
+                m_draw = ImageDraw.Draw(mask)
+                for my in range(0, 30):
+                    m_draw.line([(0, my), (photo_w, my)], fill=int(255 * (my / 30)))
+                fade_bot = 60
+                for my in range(photo_h - fade_bot, photo_h):
+                    m_draw.line([(0, my), (photo_w, my)], fill=int(255 * (1.0 - (my - (photo_h - fade_bot)) / fade_bot)))
+                for mx in range(0, 20):
+                    for my in range(photo_h):
+                        cur = mask.getpixel((mx, my))
+                        mask.putpixel((mx, my), min(cur, int(255 * (mx / 20))))
+                        mask.putpixel((photo_w - 1 - mx, my), min(cur, int(255 * (mx / 20))))
+                mask = mask.filter(ImageFilter.GaussianBlur(5))
+
+                p_rgba = p_cropped.convert("RGBA")
+                p_rgba.putalpha(mask)
+
+                photo_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                photo_layer.paste(p_rgba, (px, py))
+                canvas = Image.alpha_composite(canvas, photo_layer)
                 draw = ImageDraw.Draw(canvas)
+                photo_rendered = True
             except Exception as hs_err:
-                logger.debug(f"Error pasting headshot for {p_name}: {hs_err}")
-        else:
-            ph = Image.new("RGBA", (card_w - 30, 260), (20, 28, 44, 200))
-            ph_draw = ImageDraw.Draw(ph)
-            f_ph = _get_nba_card_font(36, bold=True)
-            initials = "".join([p[0] for p in p_name.split(" ") if p])[:2]
-            ph_draw.text(((card_w - 30)//2 - 25, 90), initials, fill=b_col, font=f_ph)
-            canvas.paste(ph, (cx + 15, cy + 55), ph)
-            draw = ImageDraw.Draw(canvas)
+                logger.debug(f"Error pasting moment photo for {p_name}: {hs_err}")
+
+        if not photo_rendered:
+            headshot = get_nba_player_headshot(p_name)
+            if headshot:
+                try:
+                    target_w = card_w - 10
+                    target_h = int(target_w * (headshot.height / headshot.width))
+                    hs_res = headshot.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                    
+                    fade_mask = Image.new("L", hs_res.size, 255)
+                    f_mask_draw = ImageDraw.Draw(fade_mask)
+                    fade_start_y = int(target_h * 0.72)
+                    for my in range(fade_start_y, target_h):
+                        alpha_factor = int(255 * (1.0 - (my - fade_start_y) / (target_h - fade_start_y)))
+                        f_mask_draw.line([(0, my), (target_w, my)], fill=alpha_factor)
+                    
+                    hs_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                    r_c, g_c, b_c, a_c = hs_res.split()
+                    merged_alpha = Image.composite(a_c, Image.new("L", a_c.size, 0), fade_mask)
+                    hs_res.putalpha(merged_alpha)
+
+                    hs_layer.paste(hs_res, (cx + 5, cy + 48))
+                    canvas = Image.alpha_composite(canvas, hs_layer)
+                    draw = ImageDraw.Draw(canvas)
+                except Exception as hs_err:
+                    logger.debug(f"Error pasting headshot for {p_name}: {hs_err}")
+            else:
+                ph = Image.new("RGBA", (card_w - 30, 260), (20, 28, 44, 200))
+                ph_draw = ImageDraw.Draw(ph)
+                f_ph = _get_nba_card_font(36, bold=True)
+                initials = "".join([p[0] for p in p_name.split(" ") if p])[:2]
+                ph_draw.text(((card_w - 30)//2 - 25, 90), initials, fill=b_col, font=f_ph)
+                canvas.paste(ph, (cx + 15, cy + 55), ph)
+                draw = ImageDraw.Draw(canvas)
 
         # 3.6 Player Nameplate Banner (Lower-middle)
         np_y = cy + 325
@@ -7395,20 +7442,46 @@ def generate_versus_matchup_image(
             draw.text((W//2 - 24, ry + 54), "- EVEN -", fill=(255, 184, 0, 255), font=f_edge)
 
         # Team A Player Details (Left)
-        hs_a = get_nba_player_headshot(p_a.get("name", ""))
-        if hs_a:
+        photo_a = get_nba_player_moment_photo(p_a.get("name", ""))
+        rendered_a = False
+        if photo_a:
             try:
-                target_w = 105
-                target_h = int(target_w * (hs_a.height / hs_a.width))
-                hs_res = hs_a.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                canvas.paste(hs_res, (40, ry + row_h - target_h), hs_res)
+                target_w, target_h = 100, row_h - 16
+                aspect = photo_a.width / max(1, photo_a.height)
+                if aspect > (target_w / target_h):
+                    scale_h = target_h
+                    scale_w = int(scale_h * aspect)
+                else:
+                    scale_w = target_w
+                    scale_h = int(scale_w / aspect)
+                p_sc = photo_a.resize((scale_w, scale_h), Image.Resampling.LANCZOS)
+                p_cr = p_sc.crop(((p_sc.width - target_w)//2, (p_sc.height - target_h)//3, (p_sc.width - target_w)//2 + target_w, (p_sc.height - target_h)//3 + target_h))
+                mask_a = Image.new("L", (target_w, target_h), 0)
+                ma_draw = ImageDraw.Draw(mask_a)
+                ma_draw.rounded_rectangle([(0, 0), (target_w, target_h)], radius=8, fill=255)
+                p_rgba = p_cr.convert("RGBA")
+                p_rgba.putalpha(mask_a)
+                canvas.paste(p_rgba, (42, ry + 8), p_rgba)
                 draw = ImageDraw.Draw(canvas)
+                rendered_a = True
             except Exception:
                 pass
-        else:
-            draw.rounded_rectangle([(42, ry + 15), (130, ry + row_h - 15)], radius=8, fill=(25, 34, 52, 255))
-            inits_a = "".join([p[0] for p in p_a.get("name", "").split(" ") if p])[:2]
-            draw.text((68, ry + 35), inits_a, fill=(248, 113, 113, 255), font=f_pname)
+
+        if not rendered_a:
+            hs_a = get_nba_player_headshot(p_a.get("name", ""))
+            if hs_a:
+                try:
+                    target_w = 105
+                    target_h = int(target_w * (hs_a.height / hs_a.width))
+                    hs_res = hs_a.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                    canvas.paste(hs_res, (40, ry + row_h - target_h), hs_res)
+                    draw = ImageDraw.Draw(canvas)
+                except Exception:
+                    pass
+            else:
+                draw.rounded_rectangle([(42, ry + 15), (130, ry + row_h - 15)], radius=8, fill=(25, 34, 52, 255))
+                inits_a = "".join([p[0] for p in p_a.get("name", "").split(" ") if p])[:2]
+                draw.text((68, ry + 35), inits_a, fill=(248, 113, 113, 255), font=f_pname)
 
         draw.text((155, ry + 16), p_a.get("name", "Player").upper(), fill=(255, 255, 255, 255), font=f_pname)
         draw.text((155, ry + 42), f"${p_a.get('cost', 1)} | {p_a.get('team', 'NBA')} | {p_a.get('archetype', 'Player')}", fill=(148, 163, 184, 255), font=f_parch)
@@ -7432,20 +7505,46 @@ def generate_versus_matchup_image(
         stat_summary_b = f"3PT {p_b.get('pts_3', 80)}  |  DEF {p_b.get('defense', 80)}  |  INS {p_b.get('inside', 80)}  |  CLU {p_b.get('clutch', 80)}"
         draw.text((W//2 + 180, ry + 68), stat_summary_b, fill=(203, 213, 225, 255), font=f_parch)
 
-        hs_b = get_nba_player_headshot(p_b.get("name", ""))
-        if hs_b:
+        photo_b = get_nba_player_moment_photo(p_b.get("name", ""))
+        rendered_b = False
+        if photo_b:
             try:
-                target_w = 105
-                target_h = int(target_w * (hs_b.height / hs_b.width))
-                hs_res_b = hs_b.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                canvas.paste(hs_res_b, (W - 145, ry + row_h - target_h), hs_res_b)
+                target_w, target_h = 100, row_h - 16
+                aspect = photo_b.width / max(1, photo_b.height)
+                if aspect > (target_w / target_h):
+                    scale_h = target_h
+                    scale_w = int(scale_h * aspect)
+                else:
+                    scale_w = target_w
+                    scale_h = int(scale_w / aspect)
+                p_sc_b = photo_b.resize((scale_w, scale_h), Image.Resampling.LANCZOS)
+                p_cr_b = p_sc_b.crop(((p_sc_b.width - target_w)//2, (p_sc_b.height - target_h)//3, (p_sc_b.width - target_w)//2 + target_w, (p_sc_b.height - target_h)//3 + target_h))
+                mask_b = Image.new("L", (target_w, target_h), 0)
+                mb_draw = ImageDraw.Draw(mask_b)
+                mb_draw.rounded_rectangle([(0, 0), (target_w, target_h)], radius=8, fill=255)
+                p_rgba_b = p_cr_b.convert("RGBA")
+                p_rgba_b.putalpha(mask_b)
+                canvas.paste(p_rgba_b, (W - 145, ry + 8), p_rgba_b)
                 draw = ImageDraw.Draw(canvas)
+                rendered_b = True
             except Exception:
                 pass
-        else:
-            draw.rounded_rectangle([(W - 145, ry + 15), (W - 57, ry + row_h - 15)], radius=8, fill=(25, 34, 52, 255))
-            inits_b = "".join([p[0] for p in p_b.get("name", "").split(" ") if p])[:2]
-            draw.text((W - 120, ry + 35), inits_b, fill=(96, 165, 250, 255), font=f_pname)
+
+        if not rendered_b:
+            hs_b = get_nba_player_headshot(p_b.get("name", ""))
+            if hs_b:
+                try:
+                    target_w = 105
+                    target_h = int(target_w * (hs_b.height / hs_b.width))
+                    hs_res_b = hs_b.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                    canvas.paste(hs_res_b, (W - 145, ry + row_h - target_h), hs_res_b)
+                    draw = ImageDraw.Draw(canvas)
+                except Exception:
+                    pass
+            else:
+                draw.rounded_rectangle([(W - 145, ry + 15), (W - 57, ry + row_h - 15)], radius=8, fill=(25, 34, 52, 255))
+                inits_b = "".join([p[0] for p in p_b.get("name", "").split(" ") if p])[:2]
+                draw.text((W - 120, ry + 35), inits_b, fill=(96, 165, 250, 255), font=f_pname)
 
     # 4. Bottom Team Attribute Comparison Telemetry HUD
     hud_y = row_y_start + 5 * (row_h + row_gap) + 5
