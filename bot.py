@@ -11316,30 +11316,6 @@ async def obsidian_prefix_cmd(ctx: commands.Context, action: Optional[str] = "he
         await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
-@bot.command(name="note")
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-@commands.guild_only()
-async def note_prefix_alias(ctx: commands.Context, *, args: str = ""):
-    """Quick shortcut to create an Obsidian note: !note <Title> | <Content> [| tags]"""
-    try:
-        await obsidian_prefix_cmd(ctx, action="note", args=args)
-    except Exception as e:
-        logger.error(f"Error in !note: {e}")
-        await ctx.reply(f"❌ Error: {e}", mention_author=False)
-
-
-@bot.command(name="daily")
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-@commands.guild_only()
-async def daily_prefix_alias(ctx: commands.Context, *, entry: str = ""):
-    """Quick shortcut to log an entry in today's Obsidian Daily Note: !daily <entry>"""
-    try:
-        await obsidian_prefix_cmd(ctx, action="daily", args=entry)
-    except Exception as e:
-        logger.error(f"Error in !daily: {e}")
-        await ctx.reply(f"❌ Error: {e}", mention_author=False)
-
-
 # ── App Slash & Prefix Help ──────────────────────────────────────────────────
 
 def make_help_embed() -> discord.Embed:
@@ -11356,7 +11332,7 @@ def make_help_embed() -> discord.Embed:
     )
     embed.add_field(
         name="🔮 **Obsidian Vault & PKM Notes**",
-        value="• `/obsidian [action]` / `!obsidian` — Sync notes, daily task logs, channel clips & export .zip\n• `!note <title> | <content>` — Fast note capture to Obsidian Inbox\n• `!daily <task>` — Instant timestamped task entry in Daily Note",
+        value="• `/obsidian [action]` / `!obsidian` — Sync notes, daily task logs, channel clips & export .zip",
         inline=False
     )
     embed.add_field(
@@ -11381,12 +11357,12 @@ def make_help_embed() -> discord.Embed:
     )
     embed.add_field(
         name="⏰ **Productivity & Utilities**",
-        value="• `/ping` / `!ping` — Real-time Discord gateway & Supabase DB latency\n• `/pin <msg_id>` / `!pin` — Pin a message to the channel\n• `/remindme <time> <note>` — Set private timers & reminders\n• `/reminders` — View or cancel active scheduled reminders\n• `/afk [reason]` — Set AFK status with automatic mention alerts",
+        value="• `/remindme <time> <note>` — Set private timers & reminders\n• `/reminders` — View or cancel active scheduled reminders\n• `/afk [reason]` — Set AFK status with automatic mention alerts",
         inline=False
     )
     embed.add_field(
         name="💖 **Social & Roles**",
-        value="• `/hug`, `/pat`, `/kiss`, `/highfive`, `/wave`, `/slap`, `/punch`\n• `/voicerole [action]` / `!voicerole` — Dynamic in-voice role for VC pings\n• `/autorole <role>` — Auto-assign role to new members\n• `/addrole` / `/removerole` / `/roleall` / `/roleallremove`",
+        value="• `/hug`, `/kiss`, `/wave`, `/slap`, `/punch`\n• `/autorole <role>` — Auto-assign role to new members\n• `/addrole` / `/removerole` / `/roleall` / `/roleallremove`",
         inline=False
     )
     embed.set_footer(text="Powered by Google Gemini 2.5 Flash / Groq • Supabase PostgreSQL")
@@ -11417,159 +11393,6 @@ async def help_prefix_cmd(ctx: commands.Context):
     except Exception as e:
         logger.error(f"Error in !help: {e}")
         await ctx.send(f"❌ Error: {e}")
-
-
-@bot.tree.command(name="ping", description="Check Sweety's latency, Supabase database response time, and connection health")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def ping_slash(interaction: discord.Interaction):
-    try:
-        start_time = time.perf_counter()
-        await interaction.response.defer(ephemeral=False)
-        api_latency = round(bot.latency * 1000)
-        
-        # Measure DB latency
-        db_start = time.perf_counter()
-        db_ok = False
-        try:
-            if db.is_postgres and db.pg_pool:
-                async with db.pg_pool.acquire() as conn:
-                    await conn.fetchval("SELECT 1;")
-                db_ok = True
-            elif db.sqlite_conn:
-                await db.sqlite_conn.execute("SELECT 1;")
-                db_ok = True
-        except Exception as e:
-            logger.error(f"DB ping failed: {e}")
-        db_latency = round((time.perf_counter() - db_start) * 1000)
-        roundtrip = round((time.perf_counter() - start_time) * 1000)
-
-        embed = discord.Embed(
-            title="🏓 Pong! • Sweety Diagnostics",
-            color=discord.Color.from_rgb(88, 101, 242),
-            timestamp=discord.utils.utcnow()
-        )
-        embed.add_field(name="📶 Discord Gateway", value=f"`{api_latency}ms`", inline=True)
-        embed.add_field(name="⚡ Roundtrip Latency", value=f"`{roundtrip}ms`", inline=True)
-        embed.add_field(
-            name="🗄️ Database (Supabase)" if db.is_postgres else "🗄️ Database (SQLite)",
-            value=f"`{db_latency}ms` (Online 🟢)" if db_ok else "`Failed 🔴`",
-            inline=True
-        )
-        embed.set_footer(text=f"Sweety Bot • Shard {interaction.guild.shard_id if interaction.guild else 0}")
-        await interaction.followup.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /ping: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-
-@bot.command(name="ping", aliases=["pong", "latency"])
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-@commands.guild_only()
-async def ping_prefix(ctx: commands.Context):
-    """Check Sweety's latency and database health: !ping"""
-    try:
-        start_time = time.perf_counter()
-        msg = await ctx.send("🏓 Pinging...")
-        roundtrip = round((time.perf_counter() - start_time) * 1000)
-        api_latency = round(bot.latency * 1000)
-        
-        # Measure DB latency
-        db_start = time.perf_counter()
-        db_ok = False
-        try:
-            if db.is_postgres and db.pg_pool:
-                async with db.pg_pool.acquire() as conn:
-                    await conn.fetchval("SELECT 1;")
-                db_ok = True
-            elif db.sqlite_conn:
-                await db.sqlite_conn.execute("SELECT 1;")
-                db_ok = True
-        except Exception as e:
-            logger.error(f"DB ping failed: {e}")
-        db_latency = round((time.perf_counter() - db_start) * 1000)
-
-        embed = discord.Embed(
-            title="🏓 Pong! • Sweety Diagnostics",
-            color=discord.Color.from_rgb(88, 101, 242),
-            timestamp=discord.utils.utcnow()
-        )
-        embed.add_field(name="📶 Discord Gateway", value=f"`{api_latency}ms`", inline=True)
-        embed.add_field(name="⚡ Roundtrip Latency", value=f"`{roundtrip}ms`", inline=True)
-        embed.add_field(
-            name="🗄️ Database (Supabase)" if db.is_postgres else "🗄️ Database (SQLite)",
-            value=f"`{db_latency}ms` (Online 🟢)" if db_ok else "`Failed 🔴`",
-            inline=True
-        )
-        embed.set_footer(text=f"Sweety Bot • Server: {ctx.guild.name if ctx.guild else 'DM'}")
-        await msg.edit(content="", embed=embed)
-    except Exception as e:
-        logger.error(f"Error in !ping: {e}")
-        await ctx.send(f"❌ Error: {e}")
-
-
-
-@bot.tree.command(name="pin", description="Pin a message in the channel by Message ID or link")
-@app_commands.describe(message_id="The ID or URL of the message to pin")
-@app_commands.default_permissions(manage_messages=True)
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def pin_slash(interaction: discord.Interaction, message_id: str):
-    try:
-        if not interaction.user.guild_permissions.manage_messages and not interaction.user.guild_permissions.administrator and interaction.user.id != getattr(interaction.guild, "owner_id", None):
-            return await interaction.response.send_message("❌ You need **Manage Messages** permission to pin messages.", ephemeral=True)
-        
-        clean_id = message_id.strip().rstrip("/").split("/")[-1]
-        if not clean_id.isdigit():
-            return await interaction.response.send_message("❌ Please provide a valid message ID or message link.", ephemeral=True)
-            
-        try:
-            msg = await interaction.channel.fetch_message(int(clean_id))
-            await msg.pin(reason=f"Pinned by {interaction.user}")
-            await interaction.response.send_message(f"📌 [Message]({msg.jump_url}) by {msg.author.mention} has been pinned to {interaction.channel.mention}!", ephemeral=False)
-        except discord.NotFound:
-            await interaction.response.send_message("❌ Message not found in this channel.", ephemeral=True)
-        except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot lacks permission to pin messages in this channel.", ephemeral=True)
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Failed to pin message: {e}", ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /pin: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-
-@bot.command(name="pin")
-@commands.has_permissions(manage_messages=True)
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-@commands.guild_only()
-async def pin_prefix(ctx: commands.Context, message: Optional[discord.Message] = None):
-    """Pin a message by replying to it with !pin or providing message ID: !pin <message_id>"""
-    try:
-        target_msg = message
-        if not target_msg and ctx.message.reference and ctx.message.reference.message_id:
-            try:
-                target_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-            except Exception:
-                pass
-        if not target_msg:
-            return await ctx.send("⚠️ Reply to a message with `!pin` or pass its message ID: `!pin <message_id>`")
-        try:
-            await target_msg.pin(reason=f"Pinned by {ctx.author}")
-            await ctx.send(f"📌 [Message]({target_msg.jump_url}) by {target_msg.author.mention} has been pinned!")
-        except Exception as e:
-            await ctx.send(f"❌ Failed to pin message: {e}")
-    except Exception as e:
-        logger.error(f"Error in !pin: {e}")
-        await ctx.send(f"❌ Error: {e}")
-
-
-
 
 
 @bot.tree.command(name="setup", description="Generate a server structure preview and build it (Theme or Custom)")
@@ -12625,54 +12448,6 @@ async def teamqueue_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error joining queue: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="battlecard", description="⚔️ Generate a high-definition 2K Head-to-Head Versus Matchup card against another member or @Sweety")
-@app_commands.describe(opponent="The member whose dream team you want to scout / face off against (or @Sweety)")
-@app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id or 0, i.user.id))
-@app_commands.guild_only()
-async def battlecard_slash_cmd(interaction: discord.Interaction, opponent: discord.Member):
-    try:
-        if not check_image_render_limit(interaction.guild_id or 0):
-            return await interaction.response.send_message(
-                "⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.",
-                ephemeral=True
-            )
-
-        await interaction.response.defer()
-        target_a = interaction.user
-        target_b = opponent
-        if target_a.id == target_b.id:
-            await interaction.followup.send("❌ You cannot generate a versus card against yourself! Pick another member or `@Sweety`.", ephemeral=True)
-            return
-
-        row_a = await db.get_dream_team(target_a.id)
-        if not row_a:
-            await interaction.followup.send("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your squad first.", ephemeral=True)
-            return
-
-        if getattr(target_b, "bot", False) or (bot.user and target_b.id == bot.user.id):
-            row_b = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target_b.id)
-        else:
-            row_b = await db.get_dream_team(target_b.id)
-
-        if not row_b:
-            await interaction.followup.send(f"❌ **{target_b.display_name}** hasn't built a $15 Dream Team yet! Tell them to run `/buildteam`.", ephemeral=True)
-            return
-
-        card_embed, card_file = await build_battlecard_embed(target_a, target_b, row_a, row_b)
-        if card_embed and card_file:
-            await interaction.followup.send(embed=card_embed, file=card_file)
-        elif card_file:
-            await interaction.followup.send(file=card_file)
-        elif card_embed:
-            await interaction.followup.send(embed=card_embed)
-    except Exception as e:
-        logger.error(f"Error in /battlecard: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error generating matchup card: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error generating matchup card: {e}", ephemeral=True)
-
-
 @bot.tree.command(name="teambattle", description="⚔️ Challenge another member's $15 Dream Team to a tactical live NBA card battle!")
 @app_commands.describe(opponent="The member whose dream team you want to challenge")
 @app_commands.guild_only()
@@ -12988,40 +12763,6 @@ async def hug_slash_cmd(interaction: discord.Interaction, member: Optional[disco
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="pat", description="Give gentle, wholesome headpats to someone")
-@app_commands.describe(member="The member you want to pat")
-@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def pat_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    try:
-        target = member or interaction.user
-        embed = create_action_embed("pat", interaction.user, target, bot.user)
-        await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /pat: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="highfive", description="Share an epic, high-energy celebration high-five with someone")
-@app_commands.describe(member="The member you want to high-five")
-@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def highfive_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    try:
-        target = member or interaction.user
-        embed = create_action_embed("highfive", interaction.user, target, bot.user)
-        await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /highfive: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-
 @bot.tree.command(name="wave", description="Wave hello or goodbye with a cheerful anime wave")
 @app_commands.describe(member="The member you want to wave at")
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
@@ -13227,244 +12968,6 @@ async def antiraid_command(interaction: discord.Interaction, mode: str):
             await interaction.followup.send(f"❌ Error updating anti-raid settings: {e}", ephemeral=True)
         else:
             await interaction.response.send_message(f"❌ Error updating anti-raid settings: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="voicerole", description="Configure dynamic @Voice Channel role for in-VC member pinging")
-@app_commands.describe(
-    action="Choose action: setup default, set custom role, sync in-VC members, or disable",
-    role="Custom role to use as the voice activity role (required for 'set')"
-)
-@app_commands.choices(
-    action=[
-        app_commands.Choice(name="⚡ Setup / Auto-Create (@Voice Channel)", value="setup"),
-        app_commands.Choice(name="⚙️ Set Custom Role", value="set"),
-        app_commands.Choice(name="🔄 Sync In-Voice Members", value="sync"),
-        app_commands.Choice(name="📋 View Status & Active VC Members", value="status"),
-        app_commands.Choice(name="🔴 Disable Dynamic Voice Role", value="disable")
-    ]
-)
-@app_commands.default_permissions(administrator=True)
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
-async def voicerole_slash_cmd(interaction: discord.Interaction, action: str = "status", role: Optional[discord.Role] = None):
-    if not is_protected(interaction.user) and not interaction.permissions.administrator:
-        return await interaction.response.send_message("❌ Only Server Administrators can configure the voice activity role.", ephemeral=True)
-
-    guild = interaction.guild
-    act = action.lower()
-
-    try:
-        if act == "setup":
-            await interaction.response.defer()
-            await db.set_config(guild.id, "voice_activity_role_enabled", True)
-            v_role = await get_or_create_voice_role(guild)
-            if not v_role:
-                return await interaction.followup.send("❌ Could not create or find the @Voice Channel role. Please check bot role permissions.")
-            added, removed = await sync_guild_voice_roles(guild)
-            embed = discord.Embed(
-                title="🔊 Dynamic Voice Role Enabled",
-                description=(
-                    f"✅ **Active Voice Role:** {v_role.mention} (`{v_role.id}`)\n\n"
-                    f"• **Auto-Assignment:** Members will automatically receive {v_role.mention} when they join any voice channel.\n"
-                    f"• **Auto-Removal:** The role is automatically removed when they leave voice.\n"
-                    f"• **Pinging:** You can now mention {v_role.mention} in text channels to alert everyone currently in voice!\n"
-                    f"• **Initial Sync:** `{added}` members assigned, `{removed}` cleaned up."
-                ),
-                color=discord.Color.green()
-            )
-            embed.set_footer(text=f"Configured by {interaction.user.display_name}")
-            await interaction.followup.send(embed=embed)
-
-        elif act == "set":
-            if not role:
-                return await interaction.response.send_message("❌ Please specify a role: `/voicerole action:Set Custom Role role:@Role`", ephemeral=True)
-            await interaction.response.defer()
-            await db.set_config(guild.id, "voice_activity_role_enabled", True)
-            await db.set_config(guild.id, "voice_activity_role_id", role.id)
-            if not role.mentionable:
-                try:
-                    await role.edit(mentionable=True, reason="Made mentionable for in-VC pinging")
-                except Exception:
-                    pass
-            added, removed = await sync_guild_voice_roles(guild)
-            embed = discord.Embed(
-                title="🔊 Voice Role Configured",
-                description=(
-                    f"✅ **Active Voice Role set to:** {role.mention}\n\n"
-                    f"Members joining any voice channel will automatically get {role.mention} and lose it when leaving.\n"
-                    f"• **Synced:** `{added}` assigned, `{removed}` cleaned up."
-                ),
-                color=discord.Color.green()
-            )
-            embed.set_footer(text=f"Configured by {interaction.user.display_name}")
-            await interaction.followup.send(embed=embed)
-
-        elif act == "sync":
-            await interaction.response.defer()
-            added, removed = await sync_guild_voice_roles(guild)
-            v_role = await get_or_create_voice_role(guild)
-            role_str = v_role.mention if v_role else "Voice Role"
-            embed = discord.Embed(
-                title="🔄 Voice Role Re-Synced",
-                description=f"✅ Re-scanned all voice channels for {role_str}!\n• **Assigned to in-VC members:** `{added}`\n• **Removed from non-VC members:** `{removed}`",
-                color=discord.Color.blue()
-            )
-            await interaction.followup.send(embed=embed)
-
-        elif act == "disable":
-            await db.set_config(guild.id, "voice_activity_role_enabled", False)
-            v_role = await get_or_create_voice_role(guild)
-            if v_role:
-                for m in list(v_role.members):
-                    try:
-                        await m.remove_roles(v_role, reason="Disabled voice activity role system")
-                    except Exception:
-                        pass
-            embed = discord.Embed(
-                title="🔴 Dynamic Voice Role Disabled",
-                description="The dynamic in-voice role assignment system has been turned off and cleaned up.",
-                color=discord.Color.orange()
-            )
-            await interaction.response.send_message(embed=embed)
-
-        else:  # status
-            is_enabled = await db.get_config(guild.id, "voice_activity_role_enabled", True)
-            v_role = await get_or_create_voice_role(guild) if is_enabled else None
-            in_vc_count = sum(len(vc.members) for vc in list(guild.voice_channels) + list(getattr(guild, "stage_channels", [])))
-            embed = discord.Embed(
-                title=f"🔊 Dynamic Voice Role Status — {guild.name}",
-                color=discord.Color.green() if (is_enabled and v_role) else discord.Color.gold()
-            )
-            embed.add_field(name="Status", value="🟢 **Enabled**" if is_enabled else "🔴 **Disabled**", inline=True)
-            if v_role:
-                embed.add_field(name="Voice Role", value=f"✅ {v_role.mention} (`{v_role.id}`)", inline=True)
-                embed.add_field(name="Mentionable", value="✅ Yes (Can ping in text chat)" if v_role.mentionable else "⚠️ No", inline=True)
-            else:
-                embed.add_field(name="Voice Role", value="*Not configured (Use `/voicerole setup`)*", inline=True)
-            embed.add_field(name="Active In-VC Members", value=f"🎙️ **{in_vc_count}** members currently in voice", inline=False)
-            embed.add_field(
-                name="ℹ️ How It Works",
-                value="When a member connects to any voice channel, they automatically receive this role. When they disconnect, the role is instantly removed so you can ping all active in-VC members without pinging offline or AFK members!",
-                inline=False
-            )
-            embed.set_footer(text="Use /voicerole setup to auto-configure or /voicerole set @Role to customize.")
-            await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /voicerole: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Failed to configure voice role: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Failed to configure voice role: {e}", ephemeral=True)
-
-
-@bot.command(name="voicerole", aliases=["setvoicerole", "vcrole", "setvcrole", "invoicerole"])
-@commands.has_permissions(administrator=True)
-@commands.cooldown(1, 5.0, commands.BucketType.user)
-@commands.guild_only()
-async def voicerole_prefix_cmd(ctx: commands.Context, action: Optional[str] = "status", role: Optional[discord.Role] = None):
-    """Configure dynamic voice role: !voicerole setup | !voicerole set @Role | !voicerole sync | !voicerole disable | !voicerole status"""
-    try:
-        guild = ctx.guild
-        act = (action or "status").lower()
-
-        if act in ("setup", "create", "enable", "on", "start"):
-            await db.set_config(guild.id, "voice_activity_role_enabled", True)
-            v_role = await get_or_create_voice_role(guild)
-            if not v_role:
-                return await ctx.send("❌ Could not create or find the @Voice Channel role. Please check bot role permissions.")
-            added, removed = await sync_guild_voice_roles(guild)
-            embed = discord.Embed(
-                title="🔊 Dynamic Voice Role Enabled",
-                description=(
-                    f"✅ **Active Voice Role:** {v_role.mention} (`{v_role.id}`)\n\n"
-                    f"• **Auto-Assignment:** Members will automatically receive {v_role.mention} when they join any voice channel.\n"
-                    f"• **Auto-Removal:** The role is automatically removed when they leave voice.\n"
-                    f"• **Pinging:** You can now mention {v_role.mention} in text channels to alert everyone currently in voice!\n"
-                    f"• **Initial Sync:** `{added}` members assigned, `{removed}` cleaned up."
-                ),
-                color=discord.Color.green()
-            )
-            embed.set_footer(text=f"Configured by {ctx.author.display_name}")
-            await ctx.send(embed=embed)
-
-        elif act in ("set", "add", "role"):
-            target_role = role
-            if not target_role and ctx.message.role_mentions:
-                target_role = ctx.message.role_mentions[0]
-            if not target_role:
-                return await ctx.send("❌ Please specify or mention a role: `!voicerole set @Role`")
-            await db.set_config(guild.id, "voice_activity_role_enabled", True)
-            await db.set_config(guild.id, "voice_activity_role_id", target_role.id)
-            if not target_role.mentionable:
-                try:
-                    await target_role.edit(mentionable=True, reason="Made mentionable for in-VC pinging")
-                except Exception:
-                    pass
-            added, removed = await sync_guild_voice_roles(guild)
-            embed = discord.Embed(
-                title="🔊 Voice Role Configured",
-                description=(
-                    f"✅ **Active Voice Role set to:** {target_role.mention}\n\n"
-                    f"Members joining any voice channel will automatically get {target_role.mention} and lose it when leaving.\n"
-                    f"• **Synced:** `{added}` assigned, `{removed}` cleaned up."
-                ),
-                color=discord.Color.green()
-            )
-            embed.set_footer(text=f"Configured by {ctx.author.display_name}")
-            await ctx.send(embed=embed)
-
-        elif act in ("sync", "resync", "refresh"):
-            added, removed = await sync_guild_voice_roles(guild)
-            v_role = await get_or_create_voice_role(guild)
-            role_str = v_role.mention if v_role else "Voice Role"
-            embed = discord.Embed(
-                title="🔄 Voice Role Re-Synced",
-                description=f"✅ Re-scanned all voice channels for {role_str}!\n• **Assigned to in-VC members:** `{added}`\n• **Removed from non-VC members:** `{removed}`",
-                color=discord.Color.blue()
-            )
-            await ctx.send(embed=embed)
-
-        elif act in ("disable", "off", "remove", "clear", "delete"):
-            await db.set_config(guild.id, "voice_activity_role_enabled", False)
-            v_role = await get_or_create_voice_role(guild)
-            if v_role:
-                for m in list(v_role.members):
-                    try:
-                        await m.remove_roles(v_role, reason="Disabled voice activity role system")
-                    except Exception:
-                        pass
-            embed = discord.Embed(
-                title="🔴 Dynamic Voice Role Disabled",
-                description="The dynamic in-voice role assignment system has been turned off and cleaned up.",
-                color=discord.Color.orange()
-            )
-            await ctx.send(embed=embed)
-
-        else:  # status / view
-            is_enabled = await db.get_config(guild.id, "voice_activity_role_enabled", True)
-            v_role = await get_or_create_voice_role(guild) if is_enabled else None
-            in_vc_count = sum(len(vc.members) for vc in list(guild.voice_channels) + list(getattr(guild, "stage_channels", [])))
-            embed = discord.Embed(
-                title=f"🔊 Dynamic Voice Role Status — {guild.name}",
-                color=discord.Color.green() if (is_enabled and v_role) else discord.Color.gold()
-            )
-            embed.add_field(name="Status", value="🟢 **Enabled**" if is_enabled else "🔴 **Disabled**", inline=True)
-            if v_role:
-                embed.add_field(name="Voice Role", value=f"✅ {v_role.mention} (`{v_role.id}`)", inline=True)
-                embed.add_field(name="Mentionable", value="✅ Yes (Can ping in text chat)" if v_role.mentionable else "⚠️ No", inline=True)
-            else:
-                embed.add_field(name="Voice Role", value="*Not configured (Use `!voicerole setup`)*", inline=True)
-            embed.add_field(name="Active In-VC Members", value=f"🎙️ **{in_vc_count}** members currently in voice", inline=False)
-            embed.add_field(
-                name="ℹ️ How It Works",
-                value="When a member connects to any voice channel, they automatically receive this role. When they disconnect, the role is instantly removed so you can ping all active in-VC members without pinging offline or AFK members!",
-                inline=False
-            )
-            embed.set_footer(text="Use !voicerole setup to auto-configure or !voicerole set @Role to customize.")
-            await ctx.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in !voicerole: {e}", exc_info=True)
-        await ctx.send(f"❌ Failed to configure voice role: {e}")
 
 
 @bot.tree.command(name="slowmode", description="Set chat slowmode to throttle raid spam")
@@ -15023,34 +14526,6 @@ async def hug_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member]
         await ctx.send(f"❌ Error: {e}")
 
 
-@bot.command(name="pat", aliases=["headpat", "pats"])
-@commands.guild_only()
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-async def pat_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
-    """Give gentle headpats: !pat [@user]"""
-    try:
-        target = member or ctx.author
-        embed = create_action_embed("pat", ctx.author, target, bot.user)
-        await ctx.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in !pat: {e}", exc_info=True)
-        await ctx.send(f"❌ Error: {e}")
-
-
-@bot.command(name="highfive", aliases=["h5", "high-five"])
-@commands.guild_only()
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-async def highfive_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
-    """Share an epic high five: !highfive [@user] or !h5 [@user]"""
-    try:
-        target = member or ctx.author
-        embed = create_action_embed("highfive", ctx.author, target, bot.user)
-        await ctx.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in !highfive: {e}", exc_info=True)
-        await ctx.send(f"❌ Error: {e}")
-
-
 @bot.command(name="wave", aliases=["hi", "hello", "bye"])
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
@@ -15245,47 +14720,6 @@ async def teamqueue_prefix_cmd(ctx: commands.Context):
     except Exception as e:
         logger.error(f"Error in !teamqueue: {e}", exc_info=True)
         await ctx.send(f"❌ Failed to join queue: {e}")
-
-
-@bot.command(name="battlecard", aliases=["versus", "matchup", "faceoff", "scout"])
-@commands.cooldown(1, 10.0, commands.BucketType.user)
-@commands.guild_only()
-async def battlecard_prefix_cmd(ctx: commands.Context, opponent: discord.Member):
-    """Generate a high-definition 2K Head-to-Head Versus Matchup card against another member: !battlecard @user"""
-    try:
-        if not check_image_render_limit(ctx.guild.id if ctx.guild else 0):
-            return await ctx.send("⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.")
-
-        target_a = ctx.author
-        target_b = opponent
-        if target_a.id == target_b.id:
-            await ctx.send("❌ You cannot generate a versus card against yourself! Pick another member or `@Sweety`.")
-            return
-
-        row_a = await db.get_dream_team(target_a.id)
-        if not row_a:
-            await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` to draft your squad first.")
-            return
-
-        if getattr(target_b, "bot", False) or (bot.user and target_b.id == bot.user.id):
-            row_b = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=target_b.id)
-        else:
-            row_b = await db.get_dream_team(target_b.id)
-
-        if not row_b:
-            await ctx.send(f"❌ **{target_b.display_name}** hasn't built a $15 Dream Team yet! Tell them to run `!buildteam`.")
-            return
-
-        card_embed, card_file = await build_battlecard_embed(target_a, target_b, row_a, row_b)
-        if card_embed and card_file:
-            await ctx.send(embed=card_embed, file=card_file)
-        elif card_file:
-            await ctx.send(file=card_file)
-        elif card_embed:
-            await ctx.send(embed=card_embed)
-    except Exception as e:
-        logger.error(f"Error in !battlecard: {e}", exc_info=True)
-        await ctx.send(f"❌ Failed to generate matchup card: {e}")
 
 
 @bot.command(name="teambattle", aliases=["finals", "nbabattle", "squadbattle"])
