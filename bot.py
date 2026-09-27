@@ -8445,6 +8445,53 @@ _nba_drop_msg_counts: Dict[int, int] = {}
 _nba_drop_last_timestamps: Dict[int, float] = {}
 _guild_last_active_channels: Dict[int, int] = {}
 
+IGNORED_DROP_CHANNEL_KEYWORDS = {
+    "welcome", "rules", "announcement", "announcements", "log", "logs", 
+    "mod-log", "mod-logs", "audit", "bot-log", "bot-logs", "ticket", 
+    "tickets", "appeals", "strike-appeal", "goodbye", "leave", "leaves", 
+    "verify", "verification", "roles", "reaction-roles", "landing", "info", "guidelines"
+}
+
+def is_valid_drop_channel(channel: Optional[discord.abc.GuildChannel], allow_system: bool = False) -> bool:
+    """Checks if a channel is appropriate for NBA card drops (not a welcome/rules/log channel)."""
+    if not channel or not isinstance(channel, discord.TextChannel):
+        return False
+    if not channel.permissions_for(channel.guild.me).send_messages:
+        return False
+    if not channel.permissions_for(channel.guild.me).attach_files:
+        return False
+    if not allow_system and channel.guild.system_channel and channel.id == channel.guild.system_channel.id:
+        return False
+    cname = channel.name.lower().replace("_", "-")
+    for kw in IGNORED_DROP_CHANNEL_KEYWORDS:
+        if kw in cname:
+            return False
+    return True
+
+def get_best_drop_channel(guild: discord.Guild) -> Optional[discord.TextChannel]:
+    """Finds the best chat channel for wild NBA card drops (prioritizing general/chat and excluding welcome/logs)."""
+    # 1. Check last active chat channel if valid
+    chan_id = _guild_last_active_channels.get(guild.id)
+    if chan_id:
+        cand = guild.get_channel(chan_id)
+        if is_valid_drop_channel(cand):
+            return cand
+
+    # 2. Search for common active chat channels
+    chat_keywords = ["chat", "general", "main", "lounge", "talk", "hangout", "nba", "cards", "bot-commands", "commands", "gaming"]
+    valid_text_channels = [ch for ch in guild.text_channels if is_valid_drop_channel(ch)]
+    
+    for kw in chat_keywords:
+        for ch in valid_text_channels:
+            if kw in ch.name.lower():
+                return ch
+
+    # 3. Fallback to any valid text channel that isn't welcome/logs
+    if valid_text_channels:
+        return valid_text_channels[0]
+
+    return None
+
 NBA_2K_CARD_THEMES: Dict[str, Dict[str, Any]] = {
     "dark_matter": {
         "name": "DARK MATTER",
@@ -13402,16 +13449,8 @@ class GeminiBot(commands.Bot):
                     if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
                         target_chan = None  # configured channel unavailable, skip
                 else:
-                    # Fallback: last-active → system channel → first writable channel
-                    chan_id = _guild_last_active_channels.get(guild.id)
-                    target_chan = guild.get_channel(chan_id) if chan_id else None
-                    if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
-                        target_chan = guild.system_channel
-                        if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
-                            for ch in guild.text_channels:
-                                if ch.permissions_for(guild.me).send_messages:
-                                    target_chan = ch
-                                    break
+                    # Smart Fallback: Active chat channel / General / Lounge (excludes welcome, rules, logs)
+                    target_chan = get_best_drop_channel(guild)
 
                 if target_chan and isinstance(target_chan, discord.TextChannel):
                     active = get_active_nba_drop(target_chan.id, guild.id)
@@ -21317,32 +21356,33 @@ async def on_message(message):
 
         # ── NBA 2K Mobile Wild Card Chat Spawns (Every 25 messages) ────────
         if message.guild and not message.author.bot:
-            chan_id = message.channel.id
-            _guild_last_active_channels[message.guild.id] = chan_id
-            _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
-            now_drop_ts = time.time()
+            if is_valid_drop_channel(message.channel, allow_system=False):
+                chan_id = message.channel.id
+                _guild_last_active_channels[message.guild.id] = chan_id
+                _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
+                now_drop_ts = time.time()
 
-            # Trigger drop every 25 messages in chat
-            if _nba_drop_msg_counts[chan_id] >= 25:
-                _nba_drop_msg_counts[chan_id] = 0
-                _nba_drop_last_timestamps[chan_id] = now_drop_ts
+                # Trigger drop every 25 messages in chat
+                if _nba_drop_msg_counts[chan_id] >= 25:
+                    _nba_drop_msg_counts[chan_id] = 0
+                    _nba_drop_last_timestamps[chan_id] = now_drop_ts
 
-                # Respect pinned drop channel (if configured for this guild)
-                configured_id = await db.get_config(message.guild.id, "nba_drop_channel", None)
-                if configured_id:
-                    drop_chan = message.guild.get_channel(int(configured_id))
-                    if not drop_chan or not isinstance(drop_chan, discord.TextChannel) or not drop_chan.permissions_for(message.guild.me).send_messages:
-                        drop_chan = None  # configured channel unavailable
-                else:
-                    drop_chan = message.channel  # original behavior
+                    # Respect pinned drop channel (if configured for this guild)
+                    configured_id = await db.get_config(message.guild.id, "nba_drop_channel", None)
+                    if configured_id:
+                        drop_chan = message.guild.get_channel(int(configured_id))
+                        if not drop_chan or not isinstance(drop_chan, discord.TextChannel) or not drop_chan.permissions_for(message.guild.me).send_messages:
+                            drop_chan = None  # configured channel unavailable
+                    else:
+                        drop_chan = message.channel  # already verified valid chat channel
 
-                if drop_chan:
-                    active = get_active_nba_drop(drop_chan.id, message.guild.id)
-                    if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
-                        try:
-                            await spawn_nba_card_drop(drop_chan)
-                        except Exception as drop_err:
-                            logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
+                    if drop_chan:
+                        active = get_active_nba_drop(drop_chan.id, message.guild.id)
+                        if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
+                            try:
+                                await spawn_nba_card_drop(drop_chan)
+                            except Exception as drop_err:
+                                logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
 
 
     # ── Solution 3: Direct Message !appeal Command & Appeal Assistant ──────────
