@@ -561,6 +561,40 @@ class DatabaseManager:
         self._config_cache[cache_key] = "None" if default is None else str(default)
         return default
 
+    async def get_promo_channels(self, guild_id: Any) -> List[int]:
+        """Gets all designated links-only / promo channel IDs for a guild."""
+        val = await self.get_config(guild_id, "promo_channels", "[]")
+        if isinstance(val, list):
+            return [int(x) for x in val]
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, list):
+                    return [int(x) for x in parsed]
+            except Exception:
+                pass
+        return []
+
+    async def add_promo_channel(self, guild_id: Any, channel_id: int) -> bool:
+        """Adds a channel to the links-only promo list."""
+        channels = await self.get_promo_channels(guild_id)
+        cid = int(channel_id)
+        if cid not in channels:
+            channels.append(cid)
+            await self.set_config(guild_id, "promo_channels", json.dumps(channels))
+            return True
+        return False
+
+    async def remove_promo_channel(self, guild_id: Any, channel_id: int) -> bool:
+        """Removes a channel from the links-only promo list."""
+        channels = await self.get_promo_channels(guild_id)
+        cid = int(channel_id)
+        if cid in channels:
+            channels.remove(cid)
+            await self.set_config(guild_id, "promo_channels", json.dumps(channels))
+            return True
+        return False
+
     # ── Dashboard Helper Queries ──────────────────────────────────────────
 
     async def increment_analytics(self, guild_id: Any, column_name: str, amount: int = 1):
