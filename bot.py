@@ -6788,7 +6788,7 @@ def generate_dream_team_card(
         canvas = Image.alpha_composite(canvas, card_fx)
         draw = ImageDraw.Draw(canvas)
 
-        # 3.2 Card Body Background (Dark Obsidian Plate)
+        # 3.2 Card Body Background (Dark Matte Carbon Plate)
         draw.rounded_rectangle([(cx, cy), (cx + card_w, cy + card_h)], radius=18, fill=(12, 17, 28, 255), outline=b_col, width=3)
         draw.rounded_rectangle([(cx + 5, cy + 5), (cx + card_w - 5, cy + card_h - 5)], radius=14, outline=(255, 255, 255, 25), width=1)
 
@@ -12929,626 +12929,336 @@ async def forget_prefix_cmd(ctx: commands.Context, *, key: str = ""):
         await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
-# ── Obsidian Vault & Markdown Note-Taking System ──────────────────────────
+# ── Interactive Help Menu & System Guide ──────────────────────────────────────
 
-def format_obsidian_markdown(
-    title: str,
-    content: str,
-    author: str,
-    tags_str: str = "",
-    folder: str = "Inbox",
-    created_at: Optional[float] = None
-) -> str:
-    """Formats note with standard Obsidian frontmatter YAML and markdown heading."""
-    created_dt = datetime.datetime.fromtimestamp(created_at or time.time())
-    iso_date = created_dt.strftime("%Y-%m-%d %H:%M:%S")
-    
-    tag_list = [t.strip().lstrip("#") for t in tags_str.replace(";", ",").split(",") if t.strip()]
-    
-    frontmatter_lines = [
-        "---",
-        f'title: "{title}"',
-        f'author: "{author}"',
-        f'created: "{iso_date}"',
-        f'folder: "{folder}"',
-    ]
-    if tag_list:
-        frontmatter_lines.append("tags:")
-        for t in tag_list:
-            frontmatter_lines.append(f"  - {t}")
-    else:
-        frontmatter_lines.append("tags: []")
-    frontmatter_lines.append("---")
-    frontmatter_lines.append("")
-    
-    body = [
-        f"# {title}",
-        "",
-        content.strip()
-    ]
-    return "\n".join(frontmatter_lines) + "\n" + "\n".join(body) + "\n"
+def make_help_embed(category: str = "all") -> discord.Embed:
+    """Builds categorical and global help guide embeds with all features."""
+    if category == "nba_2k":
+        embed = discord.Embed(
+            title="🏀 NBA 2K Mobile Card Dex & Economy Commands",
+            description="Collect authentic NBA 2K Mobile player cards, open packs, earn VC currency, and catch wild court drops!",
+            color=discord.Color.from_rgb(235, 94, 40)
+        )
+        embed.add_field(
+            name="📦 **Packs & Drops**",
+            value=(
+                "• `/openpack [tier]` / `!openpack` — Open Standard (1.5k VC), Premium (3.5k VC), Deluxe (7.5k VC), or Galaxy Opal (15k VC) packs\n"
+                "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops in chat\n"
+                "• `/nbahint` / `!nbahint` — Reveal progressive letter hints for active wild court drops"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="📖 **Binder & Inventory**",
+            value=(
+                "• `/nbadex [page]` / `!nbadex` — Open your interactive NBA 2K Mobile Card Binder & Dex\n"
+                "• `/nbacard <card_id>` / `!nbacard` — View high-res 2K card stats, tier, OVR rating & attributes\n"
+                "• `/nbafav <card_id>` / `!nbafav` — Set your favorite showcase card on your profile"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="💰 **Virtual Currency (VC) & Market**",
+            value=(
+                "• `/nbadaily` / `!nbadaily` — Claim daily VC bonus and keep your Court Pass streak active\n"
+                "• `/nbabal [@user]` / `!nbabal` — Check your current VC wallet balance & pack stats\n"
+                "• `/nbasell <card_id>` / `!nbasell` — Sell duplicate or unwanted cards for instant VC\n"
+                "• `/nbatrade @user <card_id>` / `!nbatrade` — Secure peer-to-peer card trading\n"
+                "• `/nbatop` / `!nbatop` — Server leaderboards for top VC tycoons and card collectors"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="🏀 NBA 2K Mobile Subsystem • Select another category below to explore more")
+        return embed
 
+    elif category == "dream_team":
+        embed = discord.Embed(
+            title="🏆 $15 NBA Dream Team GM & Matchmaking",
+            description="Draft your 5-man fantasy lineup under the $15 salary cap and battle other managers in live matchmaking!",
+            color=discord.Color.gold()
+        )
+        embed.add_field(
+            name="📋 **Draft & Squad Management**",
+            value=(
+                "• `/buildteam` / `!buildteam` — Interactive GM Draft Room with live budget tracker ($15 cap)\n"
+                "• `/myteam [user]` / `!myteam` — Generate high-res visual squad card, win streaks & GM badges\n"
+                "• `/setupnbachannel` / `!setupnbachannel` — Create a dedicated arena channel in the 2K Mobile Hub category"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="⚔️ **Matchmaking & Battles**",
+            value=(
+                "• `/teamqueue` / `!teamqueue` — Enter the live matchmaking arena queue to battle random players\n"
+                "• `/teambattle <user>` / `!teambattle` — Challenge any server member to a head-to-head 5v5 showdown\n"
+                "• `/teamleaderboard` / `!teamlb` — View server top-ranked Dream Teams and GM ratings"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="🏆 NBA Dream Team Subsystem • Select another category below to explore more")
+        return embed
 
-class ObsidianNoteView(discord.ui.View):
-    """Interactive view attached to Obsidian notes with download and delete buttons."""
-    def __init__(self, note_id: int, user_id: int, title: str, md_content: str):
-        super().__init__(timeout=300)
-        self.note_id = note_id
-        self.user_id = user_id
-        self.title = title
-        self.md_content = md_content
+    elif category == "ai":
+        embed = discord.Embed(
+            title="🧠 AI Intelligence & Persistent Memory",
+            description="Powered by Google Gemini 2.5 Flash & Groq with personalized long-term memory!",
+            color=discord.Color.purple()
+        )
+        embed.add_field(
+            name="💬 **Personalized AI Assistant**",
+            value=(
+                "• `/ask <question>` — Ask Sweety anything with intelligent memory recall\n"
+                "• `/remember <fact>` / `!remember` — Save personal facts, preferences, and details\n"
+                "• `/memories [user]` / `!memories` — View all remembered profile facts\n"
+                "• `/forget [key]` / `!forget` — Wipe specific or all saved memories"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="🧠 Gemini 2.5 Flash / Groq AI • Select another category below to explore more")
+        return embed
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ This note belongs to another member.", ephemeral=True)
-            return False
-        return True
+    elif category == "architect":
+        embed = discord.Embed(
+            title="🏗️ AI Server Architect & Dynamic Channels",
+            description="Build, configure, and restore entire Discord servers with intelligent AI presets!",
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="🛠️ **Server Generation & Channels**",
+            value=(
+                "• `/setup [theme] [desc]` — Generate full server categories, channels & roles via AI\n"
+                "• `/addcategory <desc>` — AI creates a tailored category with configured channels\n"
+                "• `/createchannel <name>` — Create text or voice channels with custom presets\n"
+                "• `/aiperms <target> <desc>` — Smart channel permissions overrides generated by AI\n"
+                "• `/dynamicvoice` — Automated Join-to-Create voice channel system\n"
+                "• `/backup` & `/restore <file>` — Export and import full server layouts as JSON"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="🏗️ Server Architect Subsystem • Select another category below to explore more")
+        return embed
 
-    @discord.ui.button(label="📥 Download .md File", style=discord.ButtonStyle.primary, emoji="📄")
-    async def download_md(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', self.title).strip().replace(' ', '_') or "note"
-            file_obj = discord.File(
-                fp=io.BytesIO(self.md_content.encode('utf-8')),
-                filename=f"{clean_filename}.md"
-            )
-            await interaction.response.send_message(
-                f"📄 **Obsidian Note:** `{clean_filename}.md`\n*Drop this file directly into your Obsidian Vault folder!*",
-                file=file_obj,
-                ephemeral=True
-            )
-        except Exception as e:
-            logger.error(f"Error downloading note: {e}")
-            await interaction.response.send_message(f"❌ Error generating download: {e}", ephemeral=True)
+    elif category == "moderation":
+        embed = discord.Embed(
+            title="🛡️ Moderation, Warnings & Server Defense",
+            description="Comprehensive auto-mod, multi-stage infraction enforcement, appeals, and security tools.",
+            color=discord.Color.red()
+        )
+        embed.add_field(
+            name="⚠️ **Infractions & Strike Appeals**",
+            value=(
+                "• `/warn <user> [reason]` — Warn a member (auto-escalates to timeout at threshold)\n"
+                "• `/warnings [user]` — View infractions and warning logs with appeal button\n"
+                "• `/clearwarns <user> [amt]` — Clear warnings (all or specified count)\n"
+                "• `/delwarn <id>` — Delete a single infraction by ID\n"
+                "• `/warnleaderboard` — Server infraction leaderboard\n"
+                "• `/appeal [reason]` / `!appeal <reason>` — Submit strike/timeout appeal ticket (DM & server)\n"
+                "• `/appealpanel [channel]` — Post interactive appeal button panel for muted members\n"
+                "• `/appealrole [role]` — Set staff role pinged for new appeal tickets\n"
+                "• `/whois [user]` — Deep audit of member profile, joined dates, roles & history"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="⚔️ **Moderation Actions & Defense**",
+            value=(
+                "• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n"
+                "• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n"
+                "• `/deafen <user>` / `/undeafen <user>` — Voice deafen\n"
+                "• `/promochannel [action] [channel]` — Auto-mod links-only promotion channels\n"
+                "• `/antighostping [status]` — Expose and catch deleted ghost pings\n"
+                "• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n"
+                "• `/lockdown <status>` / `/purge <num>` & `/unpurge` — Chat freeze & cleaner with Undo"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="🛡️ Server Security & Moderation • Select another category below to explore more")
+        return embed
 
-    @discord.ui.button(label="🗑️ Delete Note", style=discord.ButtonStyle.danger, emoji="🗑️")
-    async def delete_note(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            success = await db.delete_obsidian_note(self.note_id, self.user_id)
-            if success:
-                for item in self.children:
-                    item.disabled = True
-                await interaction.response.edit_message(content=f"🗑️ Note **`{self.title}`** deleted from your Obsidian vault.", view=self)
-            else:
-                await interaction.response.send_message("❌ Failed to delete note from database.", ephemeral=True)
-        except Exception as e:
-            logger.error(f"Error deleting note: {e}")
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+    elif category == "utility":
+        embed = discord.Embed(
+            title="⏰ Productivity, Social & Role Utilities",
+            description="Timers, AFK system, automatic role assignment, and social interactions.",
+            color=discord.Color.green()
+        )
+        embed.add_field(
+            name="⏱️ **Productivity & Status**",
+            value=(
+                "• `/remindme <time> <note>` — Set private timers & reminders\n"
+                "• `/reminders` — View or cancel active scheduled reminders\n"
+                "• `/afk [reason]` — Set AFK status with automatic mention alerts"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🎭 **Roles & Social**",
+            value=(
+                "• `/autorole <role>` — Auto-assign role to new members\n"
+                "• `/addrole` / `/removerole` / `/roleall` / `/roleallremove` — Mass role management\n"
+                "• `/hug`, `/kiss`, `/wave`, `/slap`, `/punch` — Fun animated social interactions"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="⏰ Productivity & Utilities • Select another category below to explore more")
+        return embed
 
-
-@bot.tree.command(name="obsidian", description="Obsidian Vault sync & notes: capture thoughts, daily logs, clips & export markdown")
-@app_commands.describe(
-    action="Action to perform: create note, daily log, clip channel, search, list, or export vault",
-    title="Title of the note (for 'note' or 'clip')",
-    content="Note content or thought to save (for 'note' or 'daily')",
-    tags="Comma-separated tags (e.g. 'discord, bot, ideas')",
-    folder="Folder in Obsidian vault (default: Inbox, Daily, Clippings)",
-    query="Search keyword (for 'search')",
-    clip_limit="Number of recent messages to clip from this channel (for 'clip', max 30)"
-)
-@app_commands.choices(action=[
-    app_commands.Choice(name="📝 Create Note (Save Markdown Note)", value="note"),
-    app_commands.Choice(name="📅 Daily Log (Append to today's Daily Note)", value="daily"),
-    app_commands.Choice(name="📎 Clip Channel (Save/Summarize Chat into Vault)", value="clip"),
-    app_commands.Choice(name="🔍 Search Notes (Find notes in your vault)", value="search"),
-    app_commands.Choice(name="📂 List Notes (View recent notes by folder)", value="list"),
-    app_commands.Choice(name="📦 Export Vault (.zip of all Markdown files)", value="export"),
-    app_commands.Choice(name="ℹ️ Obsidian Help & Setup Guide", value="help")
-])
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def obsidian_slash_cmd(
-    interaction: discord.Interaction,
-    action: str,
-    title: Optional[str] = None,
-    content: Optional[str] = None,
-    tags: Optional[str] = None,
-    folder: Optional[str] = None,
-    query: Optional[str] = None,
-    clip_limit: Optional[int] = 10
-):
-    try:
-        await interaction.response.defer(ephemeral=False if action in ("clip", "export") else True)
-        user = interaction.user
-        guild = interaction.guild
-
-        if action == "note":
-            if not content:
-                return await interaction.followup.send("❌ Please provide the `content` for your note.", ephemeral=True)
-            note_title = (title or f"Note {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}").strip()
-            note_folder = (folder or "Inbox").strip().strip("/").strip("\\") or "Inbox"
-            note_tags = (tags or "").strip()
-
-            note_id = await db.create_obsidian_note(
-                user_id=user.id,
-                guild_id=guild.id if guild else None,
-                title=note_title,
-                content=content,
-                tags=note_tags,
-                folder=note_folder
-            )
-            if not note_id:
-                return await interaction.followup.send("❌ Failed to save note into database.", ephemeral=True)
-
-            md_text = format_obsidian_markdown(note_title, content, user.display_name, note_tags, note_folder)
-            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', note_title).strip().replace(' ', '_') or "note"
-            file_obj = discord.File(
-                fp=io.BytesIO(md_text.encode('utf-8')),
-                filename=f"{clean_filename}.md"
-            )
-
-            embed = discord.Embed(
-                title=f"📝 Obsidian Note Created: {note_title}",
-                description=content[:500] + ("..." if len(content) > 500 else ""),
-                color=discord.Color.purple(),
-                timestamp=datetime.datetime.utcnow()
-            )
-            embed.add_field(name="📂 Folder", value=f"`{note_folder}`", inline=True)
-            embed.add_field(name="🏷️ Tags", value=f"`{note_tags or 'None'}`", inline=True)
-            embed.add_field(name="📊 Word Count", value=f"`{len(content.split())}` words", inline=True)
-            embed.set_footer(text="Obsidian Markdown Ready • Drag attached .md into your Obsidian Vault")
-
-            view = ObsidianNoteView(note_id, user.id, note_title, md_text)
-            await interaction.followup.send(embed=embed, file=file_obj, view=view, ephemeral=True)
-
-        elif action == "daily":
-            if not content:
-                return await interaction.followup.send("❌ Please provide the `content` / task to log in today's Daily Note.", ephemeral=True)
-
-            res = await db.append_daily_obsidian_note(user.id, guild.id if guild else None, content)
-            daily_title = res.get("title", f"Daily Note {datetime.date.today().isoformat()}")
-            daily_content = res.get("content", "")
-            note_id = res.get("id", 0)
-
-            md_text = format_obsidian_markdown(daily_title, daily_content, user.display_name, "daily, log, tasks", "Daily")
-            clean_filename = daily_title.replace(' ', '_')
-            file_obj = discord.File(
-                fp=io.BytesIO(md_text.encode('utf-8')),
-                filename=f"{clean_filename}.md"
-            )
-
-            embed = discord.Embed(
-                title=f"📅 Daily Note Updated — {datetime.date.today().isoformat()}",
-                description=f"**New Entry Logged:**\n- [ ] **{datetime.datetime.now().strftime('%H:%M')}** — {content}\n\n*Updated daily note attached below ready for your Obsidian Vault.*",
-                color=discord.Color.teal(),
-                timestamp=datetime.datetime.utcnow()
-            )
-            embed.set_footer(text="Obsidian Daily Notes • Synchronized via Sweety")
-            view = ObsidianNoteView(note_id, user.id, daily_title, md_text)
-            await interaction.followup.send(embed=embed, file=file_obj, view=view, ephemeral=True)
-
-        elif action == "clip":
-            if not interaction.channel:
-                return await interaction.followup.send("❌ Cannot clip from outside a channel.", ephemeral=True)
-            limit = max(3, min(clip_limit or 10, 30))
-            
-            messages = []
-            async for m in interaction.channel.history(limit=limit):
-                if m.content or m.attachments:
-                    messages.append(m)
-            messages.reverse()
-
-            if not messages:
-                return await interaction.followup.send("❌ No recent messages found to clip.", ephemeral=True)
-
-            transcript_lines = []
-            for m in messages:
-                ts = m.created_at.strftime("%H:%M")
-                author = m.author.display_name
-                text = m.clean_content
-                if m.attachments:
-                    att_urls = " ".join(f"[{a.filename}]({a.url})" for a in m.attachments)
-                    text = f"{text} *(Attachments: {att_urls})*" if text else f"*(Attachments: {att_urls})*"
-                transcript_lines.append(f"> **{author}** ({ts}): {text}")
-
-            transcript_text = "\n>\n".join(transcript_lines)
-            
-            clip_title = (title or f"Chat Clip - #{interaction.channel.name} ({datetime.date.today()})").strip()
-            clip_folder = (folder or "Clippings").strip().strip("/").strip("\\") or "Clippings"
-            clip_tags = (tags or f"clipping, discord, {interaction.channel.name}").strip()
-
-            # AI Executive Summary
-            summary_prompt = (
-                f"Generate a concise 2-3 bullet point executive summary of this Discord chat discussion:\n\n"
-                f"{transcript_text[:1500]}"
-            )
-            ai_summary = ""
-            try:
-                ai_summary = await call_ai_generation(summary_prompt, "You are an executive note-taking assistant. Provide a clean 2-3 bullet summary.")
-            except Exception:
-                ai_summary = "Discussion captured from Discord channel."
-
-            full_md_content = f"## 📌 Executive Summary\n{ai_summary}\n\n## 💬 Discord Transcript\n{transcript_text}\n"
-            
-            note_id = await db.create_obsidian_note(
-                user_id=user.id,
-                guild_id=guild.id if guild else None,
-                title=clip_title,
-                content=full_md_content,
-                tags=clip_tags,
-                folder=clip_folder
-            )
-
-            md_text = format_obsidian_markdown(clip_title, full_md_content, user.display_name, clip_tags, clip_folder)
-            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', clip_title).strip().replace(' ', '_') or "chat_clip"
-            file_obj = discord.File(
-                fp=io.BytesIO(md_text.encode('utf-8')),
-                filename=f"{clean_filename}.md"
-            )
-
-            embed = discord.Embed(
-                title=f"📎 Channel Clipped to Obsidian: {clip_title}",
-                description=f"**Executive Summary:**\n{ai_summary[:400]}\n\n*Captured {len(messages)} messages from {interaction.channel.mention}*",
-                color=discord.Color.gold(),
-                timestamp=datetime.datetime.utcnow()
-            )
-            embed.add_field(name="📂 Folder", value=f"`{clip_folder}`", inline=True)
-            embed.add_field(name="🏷️ Tags", value=f"`{clip_tags}`", inline=True)
-            embed.set_footer(text="Obsidian Clipping • Drag attached .md into your Obsidian Vault")
-
-            view = ObsidianNoteView(note_id or 0, user.id, clip_title, md_text)
-            await interaction.followup.send(embed=embed, file=file_obj, view=view)
-
-        elif action == "search":
-            search_q = query or title or content or tags or ""
-            if not search_q:
-                return await interaction.followup.send("❌ Please provide a search `query` (e.g. `/obsidian search query:bot ideas`).", ephemeral=True)
-            
-            notes = await db.search_obsidian_notes(user.id, search_q, limit=10)
-            if not notes:
-                return await interaction.followup.send(f"🔍 No notes found in your Obsidian vault matching **`{search_q}`**.", ephemeral=True)
-
-            embed = discord.Embed(
-                title=f"🔍 Obsidian Search Results for \"{search_q}\"",
-                description=f"Found **{len(notes)}** note(s) matching your query:",
-                color=discord.Color.purple(),
-                timestamp=datetime.datetime.utcnow()
-            )
-            for n in notes:
-                n_id = n["id"]
-                n_title = n["title"]
-                n_folder = n.get("folder", "Inbox")
-                n_tags = n.get("tags", "")
-                preview = n.get("content", "").replace("\n", " ")[:90]
-                embed.add_field(
-                    name=f"📄 {n_title} (ID: `{n_id}`)",
-                    value=f"• **Folder:** `{n_folder}` | **Tags:** `{n_tags or 'None'}`\n• **Preview:** {preview}...",
-                    inline=False
-                )
-            embed.set_footer(text="Use /obsidian export to download all notes as a zip archive")
-            await interaction.followup.send(embed=embed, ephemeral=True)
-
-        elif action == "list":
-            notes = await db.get_user_obsidian_notes(user.id, folder=folder, limit=15)
-            if not notes:
-                return await interaction.followup.send("📂 You currently have 0 notes saved in your Obsidian vault.", ephemeral=True)
-
-            embed = discord.Embed(
-                title=f"📂 Your Obsidian Vault Notes" + (f" ({folder})" if folder else ""),
-                description=f"Showing your **{len(notes)}** most recent notes:",
-                color=discord.Color.blue(),
-                timestamp=datetime.datetime.utcnow()
-            )
-            for n in notes:
-                n_id = n["id"]
-                n_title = n["title"]
-                n_folder = n.get("folder", "Inbox")
-                n_tags = n.get("tags", "")
-                n_time = datetime.datetime.fromtimestamp(n.get("updated_at", time.time())).strftime("%Y-%m-%d %H:%M")
-                embed.add_field(
-                    name=f"📄 {n_title} (ID: `{n_id}`)",
-                    value=f"• **Folder:** `{n_folder}` | **Updated:** `{n_time}`\n• **Tags:** `{n_tags or 'None'}`",
-                    inline=False
-                )
-            embed.set_footer(text="Use /obsidian export to bundle and download everything")
-            await interaction.followup.send(embed=embed, ephemeral=True)
-
-        elif action == "export":
-            import zipfile
-            notes = await db.get_user_obsidian_notes(user.id, limit=5000)
-            if not notes:
-                return await interaction.followup.send("❌ You don't have any notes saved to export yet! Create some with `/obsidian note` or `/obsidian daily`.", ephemeral=True)
-
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for n in notes:
-                    n_title = n["title"]
-                    n_content = n.get("content", "")
-                    n_tags = n.get("tags", "")
-                    n_folder = n.get("folder", "Inbox")
-                    n_time = n.get("created_at", time.time())
-
-                    md_text = format_obsidian_markdown(n_title, n_content, user.display_name, n_tags, n_folder, n_time)
-                    clean_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_title).strip().replace(' ', '_') or "note"
-                    clean_folder = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_folder).strip() or "Inbox"
-                    
-                    zip_path = f"Vault/{clean_folder}/{clean_title}.md"
-                    zip_file.writestr(zip_path, md_text)
-
-            zip_buffer.seek(0)
-            file_obj = discord.File(
-                fp=zip_buffer,
-                filename=f"Sweety_Obsidian_Vault_{user.name}_{datetime.date.today().isoformat()}.zip"
-            )
-
-            embed = discord.Embed(
-                title="📦 Obsidian Vault Export Complete!",
-                description=(
-                    f"Successfully bundled **{len(notes)} note(s)** into an Obsidian-ready ZIP archive!\n\n"
-                    "**How to use:**\n"
-                    "1. Download the attached `.zip` file.\n"
-                    "2. Extract the `Vault/` folder into your Obsidian Vault location or drag the `.md` files into Obsidian.\n"
-                    "3. Obsidian will immediately recognize all tags, frontmatter YAML, and folder hierarchy!"
-                ),
-                color=discord.Color.brand_green(),
-                timestamp=datetime.datetime.utcnow()
-            )
-            embed.set_footer(text="Sweety Obsidian Vault Bridge")
-            await interaction.followup.send(embed=embed, file=file_obj)
-
-        elif action == "help":
-            embed = discord.Embed(
-                title="🔮 Sweety × Obsidian Vault Integration Guide",
-                description=(
-                    "Connect Discord thoughts, channel clippings, and daily task logs directly to your **Obsidian Knowledge Base**!\n\n"
-                    "### 📌 Available Commands:\n"
-                    "• **`/obsidian note`** / `!note <title> | <content>` — Create a Markdown note with YAML frontmatter & tags.\n"
-                    "• **`/obsidian daily`** / `!daily <task/log>` — Append timestamped tasks to today's Daily Note (`YYYY-MM-DD.md`).\n"
-                    "• **`/obsidian clip`** / `!obsidian clip` — Clip & summarize recent channel conversations into a formatted markdown file.\n"
-                    "• **`/obsidian search`** / `!obsidian search <query>` — Search your saved notes by keyword, title, or tag.\n"
-                    "• **`/obsidian list`** / `!obsidian list` — View all recent notes in your vault by folder.\n"
-                    "• **`/obsidian export`** / `!obsidian export` — Export all notes as a structured `.zip` archive ready to drop into Obsidian.\n\n"
-                    "### 💡 Obsidian Features Supported:\n"
-                    "✅ Frontmatter YAML metadata (`title`, `author`, `created`, `folder`, `tags`)\n"
-                    "✅ Markdown checkboxes (`- [ ]`) & timestamps\n"
-                    "✅ Folder hierarchy (`Inbox/`, `Daily/`, `Clippings/`)\n"
-                    "✅ 1-Click `.md` file download & `.zip` full vault backup"
-                ),
-                color=discord.Color.purple()
-            )
-            embed.set_footer(text="Sweety PKM & Obsidian Bridge")
-            await interaction.followup.send(embed=embed, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /obsidian: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Obsidian error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Obsidian error: {e}", ephemeral=True)
-
-
-# ── Prefix Obsidian Commands ───────────────────────────────────────────────
-
-@bot.command(name="obsidian")
-@commands.guild_only()
-@commands.cooldown(1, 5.0, commands.BucketType.user)
-async def obsidian_prefix_cmd(ctx: commands.Context, action: Optional[str] = "help", *, args: Optional[str] = ""):
-    """Obsidian vault commands: !obsidian note | !obsidian daily | !obsidian search | !obsidian export"""
-    try:
-        act = (action or "help").lower()
-        user = ctx.author
-        guild = ctx.guild
-
-        if act in ("note", "new", "create", "add"):
-            if not args:
-                return await ctx.reply("❌ Usage: `!obsidian note <Title> | <Content> [| tags]`\nExample: `!obsidian note Bot Architecture | Need to optimize database connection pooling | discord, coding`")
-            parts = [p.strip() for p in args.split("|")]
-            note_title = parts[0] if len(parts) >= 1 else f"Note {datetime.date.today()}"
-            note_content = parts[1] if len(parts) >= 2 else parts[0]
-            note_tags = parts[2] if len(parts) >= 3 else ""
-
-            note_id = await db.create_obsidian_note(user.id, guild.id if guild else None, note_title, note_content, note_tags, "Inbox")
-            md_text = format_obsidian_markdown(note_title, note_content, user.display_name, note_tags, "Inbox")
-            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', note_title).strip().replace(' ', '_') or "note"
-            file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
-
-            embed = discord.Embed(
-                title=f"📝 Obsidian Note Created: {note_title}",
-                description=note_content[:400] + ("..." if len(note_content) > 400 else ""),
-                color=discord.Color.purple()
-            )
-            embed.set_footer(text="Obsidian Markdown Ready • Drag attached .md into your Obsidian Vault")
-            view = ObsidianNoteView(note_id or 0, user.id, note_title, md_text)
-            await ctx.reply(embed=embed, file=file_obj, view=view)
-
-        elif act in ("daily", "today", "log"):
-            if not args:
-                return await ctx.reply("❌ Usage: `!obsidian daily <your task or thought here>`\nExample: `!obsidian daily Research Discord voice state updates`")
-            
-            res = await db.append_daily_obsidian_note(user.id, guild.id if guild else None, args)
-            daily_title = res.get("title", f"Daily Note {datetime.date.today().isoformat()}")
-            daily_content = res.get("content", "")
-            note_id = res.get("id", 0)
-
-            md_text = format_obsidian_markdown(daily_title, daily_content, user.display_name, "daily, log, tasks", "Daily")
-            clean_filename = daily_title.replace(' ', '_')
-            file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
-
-            embed = discord.Embed(
-                title=f"📅 Daily Note Updated — {datetime.date.today().isoformat()}",
-                description=f"**New Entry Logged:**\n- [ ] **{datetime.datetime.now().strftime('%H:%M')}** — {args}\n\n*Updated daily note attached below for your Obsidian Vault.*",
-                color=discord.Color.teal()
-            )
-            view = ObsidianNoteView(note_id, user.id, daily_title, md_text)
-            await ctx.reply(embed=embed, file=file_obj, view=view)
-
-        elif act in ("clip", "capture"):
-            limit = 10
-            if args and args.isdigit():
-                limit = max(3, min(int(args), 30))
-            
-            messages = []
-            async for m in ctx.channel.history(limit=limit + 1):
-                if m.id != ctx.message.id and (m.content or m.attachments):
-                    messages.append(m)
-            messages.reverse()
-
-            if not messages:
-                return await ctx.reply("❌ No recent messages found to clip.")
-
-            transcript_lines = []
-            for m in messages:
-                ts = m.created_at.strftime("%H:%M")
-                author = m.author.display_name
-                text = m.clean_content
-                if m.attachments:
-                    att_urls = " ".join(f"[{a.filename}]({a.url})" for a in m.attachments)
-                    text = f"{text} *(Attachments: {att_urls})*" if text else f"*(Attachments: {att_urls})*"
-                transcript_lines.append(f"> **{author}** ({ts}): {text}")
-
-            transcript_text = "\n>\n".join(transcript_lines)
-            clip_title = f"Chat Clip - #{ctx.channel.name} ({datetime.date.today()})"
-            clip_tags = f"clipping, discord, {ctx.channel.name}"
-
-            summary_prompt = f"Generate a concise 2-3 bullet point summary of this chat:\n\n{transcript_text[:1500]}"
-            try:
-                ai_summary = await call_ai_generation(summary_prompt, "You are a note-taking assistant. Provide a clean 2-3 bullet summary.")
-            except Exception:
-                ai_summary = "Discussion captured from Discord channel."
-
-            full_md_content = f"## 📌 Executive Summary\n{ai_summary}\n\n## 💬 Discord Transcript\n{transcript_text}\n"
-            note_id = await db.create_obsidian_note(user.id, guild.id if guild else None, clip_title, full_md_content, clip_tags, "Clippings")
-
-            md_text = format_obsidian_markdown(clip_title, full_md_content, user.display_name, clip_tags, "Clippings")
-            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', clip_title).strip().replace(' ', '_') or "chat_clip"
-            file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
-
-            embed = discord.Embed(
-                title=f"📎 Channel Clipped to Obsidian: {clip_title}",
-                description=f"**Executive Summary:**\n{ai_summary[:400]}\n\n*Captured {len(messages)} messages from {ctx.channel.mention}*",
-                color=discord.Color.gold()
-            )
-            view = ObsidianNoteView(note_id or 0, user.id, clip_title, md_text)
-            await ctx.reply(embed=embed, file=file_obj, view=view)
-
-        elif act in ("search", "find"):
-            if not args:
-                return await ctx.reply("❌ Usage: `!obsidian search <query>`")
-            notes = await db.search_obsidian_notes(user.id, args, limit=10)
-            if not notes:
-                return await ctx.reply(f"🔍 No notes found matching **`{args}`**.")
-            embed = discord.Embed(
-                title=f"🔍 Obsidian Search Results for \"{args}\"",
-                description=f"Found **{len(notes)}** note(s):",
-                color=discord.Color.purple()
-            )
-            for n in notes:
-                n_title = n["title"]
-                n_folder = n.get("folder", "Inbox")
-                embed.add_field(name=f"📄 {n_title}", value=f"• Folder: `{n_folder}` (ID: `{n['id']}`)", inline=False)
-            await ctx.reply(embed=embed)
-
-        elif act in ("export", "download", "backup"):
-            import zipfile
-            notes = await db.get_user_obsidian_notes(user.id, limit=5000)
-            if not notes:
-                return await ctx.reply("❌ You don't have any notes saved to export yet! Create some with `!note <title> | <content>`.")
-
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for n in notes:
-                    n_title = n["title"]
-                    n_content = n.get("content", "")
-                    n_tags = n.get("tags", "")
-                    n_folder = n.get("folder", "Inbox")
-                    n_time = n.get("created_at", time.time())
-
-                    md_text = format_obsidian_markdown(n_title, n_content, user.display_name, n_tags, n_folder, n_time)
-                    clean_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_title).strip().replace(' ', '_') or "note"
-                    clean_folder = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_folder).strip() or "Inbox"
-                    zip_path = f"Vault/{clean_folder}/{clean_title}.md"
-                    zip_file.writestr(zip_path, md_text)
-
-            zip_buffer.seek(0)
-            file_obj = discord.File(
-                fp=zip_buffer,
-                filename=f"Sweety_Obsidian_Vault_{user.name}_{datetime.date.today().isoformat()}.zip"
-            )
-            embed = discord.Embed(
-                title="📦 Obsidian Vault Export Complete!",
-                description=f"Successfully bundled **{len(notes)} note(s)** into a ZIP archive ready for your Obsidian Vault.",
-                color=discord.Color.brand_green()
-            )
-            await ctx.reply(embed=embed, file=file_obj)
-
-        else:
-            embed = discord.Embed(
-                title="🔮 Sweety × Obsidian Vault Integration Guide",
-                description=(
-                    "**Available Commands:**\n"
-                    "• `!obsidian note <Title> | <Content> [| tags]` — Create a markdown note with YAML frontmatter\n"
-                    "• `!obsidian daily <task/thought>` (or `!daily <task>`) — Append to today's Daily Note\n"
-                    "• `!obsidian clip [limit]` — Clip & AI-summarize recent channel conversation into Obsidian\n"
-                    "• `!obsidian search <query>` — Search your saved notes\n"
-                    "• `!obsidian export` — Download your entire vault as a `.zip` archive\n"
-                    "• `/obsidian` — Interactive Slash command interface with direct `.md` file generator"
-                ),
-                color=discord.Color.purple()
-            )
-            await ctx.reply(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in !obsidian: {e}")
-        await ctx.reply(f"❌ Error: {e}", mention_author=False)
-
-
-# ── App Slash & Prefix Help ──────────────────────────────────────────────────
-
-def make_help_embed() -> discord.Embed:
-    """Builds the global help guide embed with all system features."""
+    # Default / Full Overview
     embed = discord.Embed(
-        title="🤖 Discord Gemini Server Builder & Shield", 
-        description="An all-in-one AI Architect, Auto-Mod, Community Restorer Bot, and NBA Game Engine powered by Gemini 2.5 Flash / Groq!", 
+        title="🤖 Discord Gemini Server Builder & Shield",
+        description=(
+            "An all-in-one AI Architect, Auto-Mod, Community Restorer Bot, and NBA 2K Mobile Card Engine!\n"
+            "Use the dropdown menu below to view detailed commands for any category."
+        ),
         color=discord.Color.blurple()
     )
     embed.add_field(
+        name="🏀 **NBA 2K Mobile Cards, Packs & Dex**",
+        value=(
+            "• `/openpack [tier]` / `!openpack` — Open Standard, Premium, Deluxe & Opal packs\n"
+            "• `/nbadex [page]` / `!nbadex` — Open 2K Mobile Card Binder & Dex collection\n"
+            "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops\n"
+            "• `/nbahint` / `!nbahint` — Reveal masked name hints for active court spawns\n"
+            "• `/nbacard <id>` / `!nbacard` — High-res visual card stats, tier & attributes\n"
+            "• `/nbadaily` / `!nbadaily` — Daily VC currency & Court Pass streak bonus\n"
+            "• `/nbabal [@user]` / `!nbabal` — VC balance & pack opening statistics\n"
+            "• `/nbasell <id>` / `!nbasell` — Sell duplicate cards for VC payout\n"
+            "• `/nbatrade @user <id>` / `!nbatrade` — Secure peer-to-peer card trading\n"
+            "• `/nbatop` / `!nbatop` — Leaderboards for top VC tycoons & card collectors"
+        ),
+        inline=False
+    )
+    embed.add_field(
+        name="🏆 **$15 NBA Dream Team GM & Battles**",
+        value=(
+            "• `/buildteam` / `!buildteam` — Interactive GM Draft Room ($15 salary cap)\n"
+            "• `/myteam [user]` / `!myteam` — Squad card, win streaks & GM badges\n"
+            "• `/teamqueue` / `!teamqueue` — Live matchmaking queue & battles\n"
+            "• `/teambattle <user>` / `!teambattle` — Card battle simulator\n"
+            "• `/teamleaderboard` / `!teamlb` — View top-rated GM Dream Teams\n"
+            "• `/setupnbachannel` — Create dedicated arena channel in 2K Mobile Hub"
+        ),
+        inline=False
+    )
+    embed.add_field(
         name="🧠 **AI Chat & Persistent Memory**",
-        value="• `/ask <question>` — Ask Sweety any question with memory personalization\n• `/remember <fact>` / `!remember` — Save personal facts for Sweety to recall\n• `/memories [user]` / `!memories` — View your remembered facts\n• `/forget [key]` / `!forget` — Wipe specific or all saved memories",
+        value=(
+            "• `/ask <question>` — Ask Sweety any question with memory personalization\n"
+            "• `/remember <fact>` / `!remember` — Save personal facts for Sweety to recall\n"
+            "• `/memories [user]` / `!memories` — View your remembered profile facts\n"
+            "• `/forget [key]` / `!forget` — Wipe specific or all saved memories"
+        ),
         inline=False
     )
     embed.add_field(
-        name="🔮 **Obsidian Vault & PKM Notes**",
-        value="• `/obsidian [action]` / `!obsidian` — Sync notes, daily task logs, channel clips & export .zip",
-        inline=False
-    )
-    embed.add_field(
-        name="🏗️ **AI Server Architect & Channels**",
-        value="• `/setup [theme] [desc]` — Generate full server theme, categories & roles\n• `/addcategory <desc>` — AI builds and adds 1 category with channels\n• `/createchannel <name>` — Create custom text/voice channel\n• `/aiperms <target> <desc>` — Configure roles/users channel overrides using AI\n• `/dynamicvoice` — Setup dynamic Join-to-Create voice system\n• `/backup` & `/restore <file>` — Export/import server layout JSON",
-        inline=False
-    )
-    embed.add_field(
-        name="🏀 **$15 All-Time NBA Dream Team & Battles**",
-        value="• `/buildteam` / `!buildteam` — Interactive GM Draft Room ($15 cap)\n• `/myteam [user]` / `!myteam` — Squad card, win streaks & GM badges\n• `/teamqueue` / `!teamqueue` — Matchmaking queue to find live opponents\n• `/teambattle <user>` / `!teambattle` — Card battle simulator\n• `/teamleaderboard` / `!teamlb` — View top-rated Dream Teams\n• `/setupnbachannel` — Create dedicated arena channel in 2K Mobile Hub",
+        name="🏗️ **AI Server Architect & Dynamic Channels**",
+        value=(
+            "• `/setup [theme] [desc]` — Generate full server theme, categories & roles\n"
+            "• `/addcategory <desc>` — AI builds categories & configured channels\n"
+            "• `/createchannel <name>` — Create custom text/voice channel\n"
+            "• `/aiperms <target> <desc>` — Configure roles/users channel overrides using AI\n"
+            "• `/dynamicvoice` — Setup dynamic Join-to-Create voice system\n"
+            "• `/backup` & `/restore <file>` — Export/import server layout JSON"
+        ),
         inline=False
     )
     embed.add_field(
         name="🛡️ **Strikes, Warnings & Appeals**",
-        value="• `/appeal [reason]` / `!appeal <reason>` — Submit strike/timeout appeal ticket (DM & server)\n• `/warn <user> [reason]` — Formally warn a member (Auto-escalates to timeout)\n• `/warnings [user]` — View active infractions & warning logs with appeal button\n• `/clearwarns <user> [amt]` — Clear warnings (all or specified amount)\n• `/delwarn <id>` — Delete a single warning by ID\n• `/warnleaderboard` — Server infractions leaderboard\n• `/appealpanel [chan]` — Post interactive appeal button panel (accessible to muted members)\n• `/appealrole [role]` — Configure pinged staff role for ticket alerts\n• `/whois [user]` — Deep audit of member profile, roles & history",
+        value=(
+            "• `/appeal [reason]` / `!appeal <reason>` — Submit strike/timeout appeal ticket\n"
+            "• `/warn <user> [reason]` — Formally warn a member (Auto-escalates to timeout)\n"
+            "• `/warnings [user]` — View active infractions & warning logs with appeal button\n"
+            "• `/clearwarns <user> [amt]` — Clear warnings (all or specified amount)\n"
+            "• `/delwarn <id>` — Delete a single warning by ID\n"
+            "• `/warnleaderboard` — Server infractions leaderboard\n"
+            "• `/appealpanel [chan]` — Post interactive appeal button panel\n"
+            "• `/appealrole [role]` — Configure pinged staff role for ticket alerts\n"
+            "• `/whois [user]` — Deep audit of member profile, roles & history"
+        ),
         inline=False
     )
     embed.add_field(
         name="⚔️ **Moderation & Security Actions**",
-        value="• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n• `/deafen <user>` / `/undeafen <user>` — Voice channel deafen\n• `/promochannel [action] [chan]` — Links-only promo channels (auto-deletes chatting)\n• `/antighostping [status]` — Auto-catch & expose deleted ghost pings\n• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n• `/lockdown <status>` / `/purge <num>` & `/unpurge` — Chat freeze & cleaner with Undo",
+        value=(
+            "• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n"
+            "• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n"
+            "• `/deafen <user>` / `/undeafen <user>` — Voice channel deafen\n"
+            "• `/promochannel [action] [chan]` — Links-only promo channels (auto-deletes chatting)\n"
+            "• `/antighostping [status]` — Auto-catch & expose deleted ghost pings\n"
+            "• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n"
+            "• `/lockdown <status>` / `/purge <num>` & `/unpurge` — Chat freeze & cleaner with Undo"
+        ),
         inline=False
     )
     embed.add_field(
-        name="⏰ **Productivity & Utilities**",
-        value="• `/remindme <time> <note>` — Set private timers & reminders\n• `/reminders` — View or cancel active scheduled reminders\n• `/afk [reason]` — Set AFK status with automatic mention alerts",
-        inline=False
-    )
-    embed.add_field(
-        name="💖 **Social & Roles**",
-        value="• `/hug`, `/kiss`, `/wave`, `/slap`, `/punch`\n• `/autorole <role>` — Auto-assign role to new members\n• `/addrole` / `/removerole` / `/roleall` / `/roleallremove`",
+        name="⏰ **Productivity, Social & Roles**",
+        value=(
+            "• `/remindme <time> <note>` — Set private timers & reminders\n"
+            "• `/reminders` — View or cancel active scheduled reminders\n"
+            "• `/afk [reason]` — Set AFK status with automatic mention alerts\n"
+            "• `/autorole <role>` — Auto-assign role to new members\n"
+            "• `/addrole` / `/removerole` / `/roleall` / `/roleallremove` — Role management\n"
+            "• `/hug`, `/kiss`, `/wave`, `/slap`, `/punch` — Fun social interactions"
+        ),
         inline=False
     )
     embed.set_footer(text="Powered by Google Gemini 2.5 Flash / Groq • Supabase PostgreSQL")
     return embed
 
 
-@bot.tree.command(name="help", description="Show all available commands and help options")
+class HelpCategorySelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Full Overview", value="all", description="View all command categories", emoji="📋", default=True),
+            discord.SelectOption(label="NBA 2K Mobile & Dex", value="nba_2k", description="Packs, Dex, Card Drops, Economy & VC", emoji="🏀"),
+            discord.SelectOption(label="NBA Dream Team GM", value="dream_team", description="$15 Salary Cap Drafts & Matchmaking", emoji="🏆"),
+            discord.SelectOption(label="AI Intelligence", value="ai", description="Gemini AI Chat & Long-term Memory", emoji="🧠"),
+            discord.SelectOption(label="Server Architect", value="architect", description="AI Server Generation, Voice & Channels", emoji="🏗️"),
+            discord.SelectOption(label="Moderation & Security", value="moderation", description="Auto-mod, Warnings, Appeals & Protection", emoji="🛡️"),
+            discord.SelectOption(label="Productivity & Social", value="utility", description="Reminders, AFK, Auto-Roles & Fun", emoji="⏰"),
+        ]
+        super().__init__(placeholder="📂 Jump to a command category...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        selected = self.values[0]
+        for opt in self.options:
+            opt.default = (opt.value == selected)
+        embed = make_help_embed(selected)
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+
+class HelpView(discord.ui.View):
+    def __init__(self, user_id: Optional[int] = None):
+        super().__init__(timeout=180)
+        self.user_id = user_id
+        self.add_item(HelpCategorySelect())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.user_id and interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ This help menu was requested by another user. Type `/help` or `!help` to open your own.", ephemeral=True)
+            return False
+        return True
+
+
+@bot.tree.command(name="help", description="Show all available commands and interactive category guide")
+@app_commands.describe(category="Optionally open a specific category directly")
+@app_commands.choices(category=[
+    app_commands.Choice(name="📋 Full Overview", value="all"),
+    app_commands.Choice(name="🏀 NBA 2K Mobile & Dex", value="nba_2k"),
+    app_commands.Choice(name="🏆 NBA Dream Team GM", value="dream_team"),
+    app_commands.Choice(name="🧠 AI Intelligence", value="ai"),
+    app_commands.Choice(name="🏗️ Server Architect", value="architect"),
+    app_commands.Choice(name="🛡️ Moderation & Security", value="moderation"),
+    app_commands.Choice(name="⏰ Productivity & Social", value="utility"),
+])
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def help_command(interaction: discord.Interaction):
+async def help_command(interaction: discord.Interaction, category: Optional[str] = "all"):
     try:
-        embed = make_help_embed()
-        await interaction.response.send_message(embed=embed)
+        embed = make_help_embed(category or "all")
+        view = HelpView(interaction.user.id)
+        if category and category != "all":
+            for opt in view.children[0].options:
+                opt.default = (opt.value == category)
+        await interaction.response.send_message(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in /help: {e}")
         if interaction.response.is_done():
@@ -13559,11 +13269,35 @@ async def help_command(interaction: discord.Interaction):
 
 @bot.command(name="help")
 @commands.cooldown(1, 3.0, commands.BucketType.user)
-async def help_prefix_cmd(ctx: commands.Context):
-    """Show all available commands and help options: !help"""
+async def help_prefix_cmd(ctx: commands.Context, category: Optional[str] = "all"):
+    """Show all available commands and interactive category guide: !help [category]"""
     try:
-        embed = make_help_embed()
-        await ctx.send(embed=embed)
+        cat_key = (category or "all").lower().strip()
+        alias_map = {
+            "nba": "nba_2k",
+            "2k": "nba_2k",
+            "cards": "nba_2k",
+            "packs": "nba_2k",
+            "dex": "nba_2k",
+            "team": "dream_team",
+            "dreamteam": "dream_team",
+            "gm": "dream_team",
+            "mod": "moderation",
+            "warn": "moderation",
+            "appeal": "moderation",
+            "util": "utility",
+            "utils": "utility",
+            "social": "utility",
+            "arch": "architect",
+            "build": "architect",
+        }
+        clean_cat = alias_map.get(cat_key, cat_key if cat_key in ["nba_2k", "dream_team", "ai", "architect", "moderation", "utility"] else "all")
+        embed = make_help_embed(clean_cat)
+        view = HelpView(ctx.author.id)
+        if clean_cat != "all":
+            for opt in view.children[0].options:
+                opt.default = (opt.value == clean_cat)
+        await ctx.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in !help: {e}")
         await ctx.send(f"❌ Error: {e}")
