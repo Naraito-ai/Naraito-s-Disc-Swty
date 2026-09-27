@@ -10157,56 +10157,114 @@ def generate_nba_card_graphic(
         card_img = Image.alpha_composite(card_img, sil_layer)
         draw = ImageDraw.Draw(card_img)
     else:
-        if not headshot_img:
-            headshot_img = get_nba_player_headshot(card.get("name", ""))
-        if headshot_img:
+        # Check if local real match moment photo exists
+        local_moment_path = None
+        p_name = card.get("name", "").strip()
+        candidates = [
+            os.path.join(os.path.dirname(__file__), "assets", "moments", p_name, "1.jpg"),
+            os.path.join(os.path.dirname(__file__), "assets", "moments", p_name, "2.jpg"),
+            os.path.join(os.path.dirname(__file__), "assets", "moments", re.sub(r'[\\/*?:"<>|]', "", p_name), "1.jpg"),
+        ]
+        for cp in candidates:
+            if os.path.exists(cp) and os.path.getsize(cp) > 4000:
+                local_moment_path = cp
+                break
+
+        if local_moment_path and not headshot_img:
             try:
-                # Enhance vibrancy & contrast for intense live match lighting
-                enh_con = ImageEnhance.Contrast(headshot_img)
-                p_enhanced = enh_con.enhance(1.18)
-                enh_col = ImageEnhance.Color(p_enhanced)
-                p_enhanced = enh_col.enhance(1.22)
-
-                # Scale player to bold full card presence
-                target_w = 460
-                aspect = p_enhanced.height / max(1, p_enhanced.width)
-                target_h = int(target_w * aspect)
-                p_scaled = p_enhanced.resize((target_w, target_h), Image.Resampling.LANCZOS)
-
-                # Tier Energy Aura Backlight behind player silhouette
-                aura_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                a_draw = ImageDraw.Draw(aura_layer)
-                cx, cy = W // 2, 280
-                a_draw.ellipse([cx - 175, cy - 185, cx + 175, cy + 185], fill=(*theme["glow"], 50))
-                a_draw.ellipse([cx - 130, cy - 140, cx + 130, cy + 140], fill=(*theme["primary"], 75))
-                aura_layer = aura_layer.filter(ImageFilter.GaussianBlur(30))
-                card_img = Image.alpha_composite(card_img, aura_layer)
-
-                px = (W - p_scaled.width) // 2
-                py = 85
-
-                # Feathered bottom alpha mask: smooth fade into the stats dock
-                p_rgba = p_scaled.convert("RGBA")
-                p_mask = p_rgba.split()[3]
+                raw_img = Image.open(local_moment_path)
+                target_w, target_h = 480, 420
+                aspect = raw_img.width / max(1, raw_img.height)
+                if aspect > 1.15:
+                    scale_h = target_h
+                    scale_w = int(scale_h * aspect)
+                else:
+                    scale_w = target_w
+                    scale_h = int(scale_w / aspect)
+                p_scaled = raw_img.resize((scale_w, scale_h), Image.Resampling.LANCZOS)
+                left = max(0, (p_scaled.width - target_w) // 2)
+                top = max(0, (p_scaled.height - target_h) // 3)
+                p_cropped = p_scaled.crop((left, top, left + target_w, top + target_h))
                 
-                fade_h = 110
-                grad_fade = Image.new("L", (p_scaled.width, p_scaled.height), 255)
-                gf_draw = ImageDraw.Draw(grad_fade)
-                for gy in range(p_scaled.height - fade_h, p_scaled.height):
-                    alpha_val = int(255 * (1.0 - (gy - (p_scaled.height - fade_h)) / fade_h))
-                    gf_draw.line([(0, gy), (p_scaled.width, gy)], fill=alpha_val)
+                p_cropped = ImageEnhance.Contrast(p_cropped).enhance(1.18)
+                p_cropped = ImageEnhance.Color(p_cropped).enhance(1.22)
                 
-                final_mask = Image.composite(grad_fade, Image.new("L", p_mask.size, 0), p_mask)
-                card_img.paste(p_rgba, (px, py), final_mask)
+                # 4-way feathered vignette & bottom fade
+                mask = Image.new("L", (target_w, target_h), 255)
+                m_draw = ImageDraw.Draw(mask)
+                for y in range(0, 45):
+                    alpha = int(255 * (y / 45))
+                    m_draw.line([(0, y), (target_w, y)], fill=alpha)
+                fade_bot = 120
+                for y in range(target_h - fade_bot, target_h):
+                    alpha = int(255 * (1.0 - (y - (target_h - fade_bot)) / fade_bot))
+                    m_draw.line([(0, y), (target_w, y)], fill=alpha)
+                for x in range(0, 30):
+                    alpha = int(255 * (x / 30))
+                    for y in range(target_h):
+                        cur = mask.getpixel((x, y))
+                        mask.putpixel((x, y), min(cur, alpha))
+                        mask.putpixel((target_w - 1 - x, y), min(cur, alpha))
+                mask = mask.filter(ImageFilter.GaussianBlur(8))
+                
+                px = (W - target_w) // 2
+                py = 70
+                card_img.paste(p_cropped.convert("RGBA"), (px, py), mask)
                 draw = ImageDraw.Draw(card_img)
             except Exception:
-                pass
-        else:
-            cx, cy = W // 2, H // 2 - 40
-            draw.ellipse([cx - 95, cy - 95, cx + 95, cy + 95], fill=(20, 26, 42, 220), outline=(*theme["primary"], 200), width=3)
-            f_init = _get_nba_card_font(72, bold=True)
-            initials = "".join([part[0] for part in card.get("name", "NBA").split()[:2]])
-            draw.text((cx - 45, cy - 45), initials, fill=theme["border"], font=f_init)
+                local_moment_path = None
+
+        if not local_moment_path:
+            if not headshot_img:
+                headshot_img = get_nba_player_headshot(card.get("name", ""))
+            if headshot_img:
+                try:
+                    # Enhance vibrancy & contrast for intense live match lighting
+                    enh_con = ImageEnhance.Contrast(headshot_img)
+                    p_enhanced = enh_con.enhance(1.18)
+                    enh_col = ImageEnhance.Color(p_enhanced)
+                    p_enhanced = enh_col.enhance(1.22)
+
+                    # Scale player to bold full card presence
+                    target_w = 460
+                    aspect = p_enhanced.height / max(1, p_enhanced.width)
+                    target_h = int(target_w * aspect)
+                    p_scaled = p_enhanced.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+                    # Tier Energy Aura Backlight behind player silhouette
+                    aura_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                    a_draw = ImageDraw.Draw(aura_layer)
+                    cx, cy = W // 2, 280
+                    a_draw.ellipse([cx - 175, cy - 185, cx + 175, cy + 185], fill=(*theme["glow"], 50))
+                    a_draw.ellipse([cx - 130, cy - 140, cx + 130, cy + 140], fill=(*theme["primary"], 75))
+                    aura_layer = aura_layer.filter(ImageFilter.GaussianBlur(30))
+                    card_img = Image.alpha_composite(card_img, aura_layer)
+
+                    px = (W - p_scaled.width) // 2
+                    py = 85
+
+                    # Feathered bottom alpha mask: smooth fade into the stats dock
+                    p_rgba = p_scaled.convert("RGBA")
+                    p_mask = p_rgba.split()[3]
+                    
+                    fade_h = 110
+                    grad_fade = Image.new("L", (p_scaled.width, p_scaled.height), 255)
+                    gf_draw = ImageDraw.Draw(grad_fade)
+                    for gy in range(p_scaled.height - fade_h, p_scaled.height):
+                        alpha_val = int(255 * (1.0 - (gy - (p_scaled.height - fade_h)) / fade_h))
+                        gf_draw.line([(0, gy), (p_scaled.width, gy)], fill=alpha_val)
+                    
+                    final_mask = Image.composite(grad_fade, Image.new("L", p_mask.size, 0), p_mask)
+                    card_img.paste(p_rgba, (px, py), final_mask)
+                    draw = ImageDraw.Draw(card_img)
+                except Exception:
+                    pass
+            else:
+                cx, cy = W // 2, H // 2 - 40
+                draw.ellipse([cx - 95, cy - 95, cx + 95, cy + 95], fill=(20, 26, 42, 220), outline=(*theme["primary"], 200), width=3)
+                f_init = _get_nba_card_font(72, bold=True)
+                initials = "".join([part[0] for part in card.get("name", "NBA").split()[:2]])
+                draw.text((cx - 45, cy - 45), initials, fill=theme["border"], font=f_init)
 
     # 4. Top Ribbon Bar: Tier Edition
     draw.rounded_rectangle([(margin + 12, margin + 10), (W - margin - 12, margin + 40)], radius=8, fill=(10, 14, 24, 230), outline=(*theme["border"], 180), width=1)
