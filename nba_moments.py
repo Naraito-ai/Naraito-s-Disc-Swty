@@ -29,7 +29,7 @@ def sanitize_folder_name(name: str) -> str:
 
 def fetch_player_moments(
     player_name: str,
-    moment_type: str = "dunk",
+    moment_type: str = "celebration roar scream",
     output_dir: str = "./assets/moments",
     api_key: str = None,
     limit: int = 5,
@@ -43,7 +43,9 @@ def fetch_player_moments(
         print("[-] Error: SERPAPI_KEY not found in environment variables or configuration.", file=sys.stderr)
         return []
 
-    query = f"{player_name} {moment_type} NBA HD"
+    # Build intense, high-impact action query
+    clean_moment = moment_type.strip()
+    query = f"{player_name} {clean_moment} NBA match HD wallpaper"
     print(f"\n[+] Searching SerpAPI Google Images for: \"{query}\"...")
 
     params = {
@@ -51,7 +53,7 @@ def fetch_player_moments(
         "q": query,
         "tbm": "isch",
         "api_key": api_key,
-        "num": 10
+        "num": 15
     }
 
     data = None
