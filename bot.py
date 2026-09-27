@@ -9742,14 +9742,18 @@ bot = GeminiBot()
 ERROR_LOG_CHANNEL_ID = os.getenv("ERROR_LOG_CHANNEL_ID", "").strip()
 
 async def log_error_to_channel(command_name: str, error: Exception, guild: Optional[discord.Guild] = None, user: Optional[Union[discord.User, discord.Member]] = None):
-    """Dispatches unhandled command exceptions to a dedicated Discord error log channel or mod log."""
+    """Dispatches unhandled command exceptions to a dedicated Discord error log channel (if configured)."""
     try:
-        target_channel = None
-        if ERROR_LOG_CHANNEL_ID and ERROR_LOG_CHANNEL_ID.isdigit():
-            target_channel = bot.get_channel(int(ERROR_LOG_CHANNEL_ID))
-        
-        if not target_channel and guild:
-            target_channel = await get_mod_log_channel(guild)
+        if not ERROR_LOG_CHANNEL_ID or not ERROR_LOG_CHANNEL_ID.isdigit():
+            logger.error(f"Command Exception in {command_name} (User: {user}, Guild: {guild}): {error}", exc_info=True)
+            return
+
+        target_channel = bot.get_channel(int(ERROR_LOG_CHANNEL_ID))
+        if not target_channel:
+            try:
+                target_channel = await bot.fetch_channel(int(ERROR_LOG_CHANNEL_ID))
+            except Exception:
+                target_channel = None
 
         if target_channel:
             embed = discord.Embed(
@@ -9811,7 +9815,8 @@ bot.tree.interaction_check = globally_block_blacklisted_users_interaction
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     """Global handler for slash command errors to ensure the bot always responds gracefully."""
     cmd_name = interaction.command.name if interaction.command else "command"
-    logger.error(f"Error in /{cmd_name}: {error}")
+    orig_error = getattr(error, 'original', error)
+    logger.error(f"Error in /{cmd_name}: {orig_error}")
     
     if isinstance(error, app_commands.CommandOnCooldown):
         msg = f"⏳ This command is on cooldown. Try again in `{error.retry_after:.1f}s`."
@@ -9823,9 +9828,16 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
         msg = f"⚠️ I lack the required permissions to execute `/{cmd_name}`: {perms}"
     elif isinstance(error, app_commands.CheckFailure):
         msg = f"🚫 You do not have permission or meet the requirements to run `/{cmd_name}`."
+    elif isinstance(orig_error, discord.Forbidden):
+        msg = "🚫 I do not have permission in Discord to perform this action (check role hierarchy and channel permissions)."
+    elif isinstance(orig_error, discord.NotFound):
+        msg = "🔍 The requested member, message, or channel was not found."
+    elif isinstance(orig_error, discord.HTTPException):
+        msg = f"⚠️ Discord API error: {getattr(orig_error, 'text', str(orig_error))[:200]}"
     else:
-        msg = f"❌ An error occurred while executing `/{cmd_name}`. Our developers have been notified."
-        asyncio.create_task(log_error_to_channel(f"/{cmd_name}", error, interaction.guild, interaction.user))
+        msg = f"❌ An error occurred while executing `/{cmd_name}`."
+        if ERROR_LOG_CHANNEL_ID:
+            asyncio.create_task(log_error_to_channel(f"/{cmd_name}", orig_error, interaction.guild, interaction.user))
 
     try:
         if interaction.response.is_done():
@@ -9843,7 +9855,8 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         return
 
     cmd_name = ctx.command.name if ctx.command else "command"
-    logger.error(f"Prefix error in !{cmd_name}: {error}")
+    orig_error = getattr(error, 'original', error)
+    logger.error(f"Prefix error in !{cmd_name}: {orig_error}")
 
     if isinstance(error, commands.CommandOnCooldown):
         msg = f"⏳ Command `!{cmd_name}` is on cooldown. Try again in `{error.retry_after:.1f}s`."
@@ -9859,9 +9872,16 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         msg = f"❌ Invalid argument provided for `!{cmd_name}`: {error}"
     elif isinstance(error, commands.CheckFailure):
         msg = f"🚫 You do not meet the permission requirements to run `!{cmd_name}`."
+    elif isinstance(orig_error, discord.Forbidden):
+        msg = "🚫 I do not have permission in Discord to perform this action (check role hierarchy and channel permissions)."
+    elif isinstance(orig_error, discord.NotFound):
+        msg = "🔍 The requested member, message, or channel was not found."
+    elif isinstance(orig_error, discord.HTTPException):
+        msg = f"⚠️ Discord API error: {getattr(orig_error, 'text', str(orig_error))[:200]}"
     else:
         msg = f"❌ An error occurred while executing `!{cmd_name}`."
-        asyncio.create_task(log_error_to_channel(f"!{cmd_name}", error, ctx.guild, ctx.author))
+        if ERROR_LOG_CHANNEL_ID:
+            asyncio.create_task(log_error_to_channel(f"!{cmd_name}", orig_error, ctx.guild, ctx.author))
 
     try:
         await ctx.reply(msg, mention_author=False)
@@ -9880,68 +9900,89 @@ blacklist_group = app_commands.Group(
 @app_commands.describe(user="The user to blacklist", reason="Reason for blacklisting")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: i.user.id)
 async def blacklist_add_cmd(interaction: discord.Interaction, user: discord.User, reason: str = "Violating bot usage policies"):
-    if not is_creator(interaction.user):
-        return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
-    if is_creator(user):
-        return await interaction.response.send_message("❌ You cannot blacklist the Bot Creator!", ephemeral=True)
-    
-    await interaction.response.defer(ephemeral=True)
-    clean_reason = discord.utils.escape_mentions(reason[:500])
-    success = await db.add_blacklist_user(user.id, reason=clean_reason, blacklisted_by=interaction.user.id)
-    if success:
-        _blacklisted_user_ids.add(user.id)
-        embed = discord.Embed(
-            title="🚫 User Blacklisted Globally",
-            description=f"**{user.mention}** (`{user.id}`) has been added to the global blacklist.\nThey can no longer invoke any Sweety commands.",
-            color=discord.Color.red()
-        )
-        embed.add_field(name="Reason", value=clean_reason, inline=False)
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    else:
-        await interaction.followup.send("❌ Failed to add user to blacklist database.", ephemeral=True)
+    try:
+        if not is_creator(interaction.user):
+            return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
+        if is_creator(user):
+            return await interaction.response.send_message("❌ You cannot blacklist the Bot Creator!", ephemeral=True)
+        
+        await interaction.response.defer(ephemeral=True)
+        clean_reason = discord.utils.escape_mentions(reason[:500])
+        success = await db.add_blacklist_user(user.id, reason=clean_reason, blacklisted_by=interaction.user.id)
+        if success:
+            _blacklisted_user_ids.add(user.id)
+            embed = discord.Embed(
+                title="🚫 User Blacklisted Globally",
+                description=f"**{user.mention}** (`{user.id}`) has been added to the global blacklist.\nThey can no longer invoke any Sweety commands.",
+                color=discord.Color.red()
+            )
+            embed.add_field(name="Reason", value=clean_reason, inline=False)
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to add user to blacklist database.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /blacklist add: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error adding user to blacklist: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error adding user to blacklist: {e}", ephemeral=True)
 
 @blacklist_group.command(name="remove", description="Remove a user from the global blacklist")
 @app_commands.describe(user="The user to unblacklist")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: i.user.id)
 async def blacklist_remove_cmd(interaction: discord.Interaction, user: discord.User):
-    if not is_creator(interaction.user):
-        return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
-    
-    await interaction.response.defer(ephemeral=True)
-    success = await db.remove_blacklist_user(user.id)
-    if success:
-        _blacklisted_user_ids.discard(user.id)
-        await interaction.followup.send(f"✅ **{user.mention}** (`{user.id}`) has been removed from the global blacklist.", ephemeral=True)
-    else:
-        await interaction.followup.send("❌ Failed to remove user from blacklist database.", ephemeral=True)
+    try:
+        if not is_creator(interaction.user):
+            return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
+        
+        await interaction.response.defer(ephemeral=True)
+        success = await db.remove_blacklist_user(user.id)
+        if success:
+            _blacklisted_user_ids.discard(user.id)
+            await interaction.followup.send(f"✅ **{user.mention}** (`{user.id}`) has been removed from the global blacklist.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to remove user from blacklist database.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /blacklist remove: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error removing user from blacklist: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error removing user from blacklist: {e}", ephemeral=True)
 
 @blacklist_group.command(name="list", description="List all globally blacklisted users")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: i.user.id)
 async def blacklist_list_cmd(interaction: discord.Interaction):
-    if not is_creator(interaction.user):
-        return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
-    
-    await interaction.response.defer(ephemeral=True)
-    records = await db.get_blacklisted_users()
-    if not records:
-        return await interaction.followup.send("ℹ️ No users are currently blacklisted globally.", ephemeral=True)
-    
-    embed = discord.Embed(
-        title=f"🚫 Global Blacklisted Users ({len(records)})",
-        color=discord.Color.dark_red(),
-        timestamp=discord.utils.utcnow()
-    )
-    lines = []
-    for r in records[:25]:
-        uid = r.get("user_id") if isinstance(r, dict) and "user_id" in r else r[0]
-        rsn = r.get("reason", "No reason") if isinstance(r, dict) and "reason" in r else (r[1] if len(r) > 1 else "No reason")
-        ts = int(r.get("blacklisted_at", 0) if isinstance(r, dict) and "blacklisted_at" in r else (r[3] if len(r) > 3 else 0))
-        time_str = f"<t:{ts}:R>" if ts else "N/A"
-        lines.append(f"• <@{uid}> (`{uid}`) — *{discord.utils.escape_mentions(str(rsn)[:80])}* ({time_str})")
-    
-    embed.description = "\n".join(lines)[:4000]
-    await interaction.followup.send(embed=embed, ephemeral=True)
+    try:
+        if not is_creator(interaction.user):
+            return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
+        
+        await interaction.response.defer(ephemeral=True)
+        records = await db.get_blacklisted_users()
+        if not records:
+            return await interaction.followup.send("ℹ️ No users are currently blacklisted globally.", ephemeral=True)
+        
+        embed = discord.Embed(
+            title=f"🚫 Global Blacklisted Users ({len(records)})",
+            color=discord.Color.dark_red(),
+            timestamp=discord.utils.utcnow()
+        )
+        lines = []
+        for r in records[:25]:
+            uid = r.get("user_id") if isinstance(r, dict) and "user_id" in r else r[0]
+            rsn = r.get("reason", "No reason") if isinstance(r, dict) and "reason" in r else (r[1] if len(r) > 1 else "No reason")
+            ts = int(r.get("blacklisted_at", 0) if isinstance(r, dict) and "blacklisted_at" in r else (r[3] if len(r) > 3 else 0))
+            time_str = f"<t:{ts}:R>" if ts else "N/A"
+            lines.append(f"• <@{uid}> (`{uid}`) — *{discord.utils.escape_mentions(str(rsn)[:80])}* ({time_str})")
+        
+        embed.description = "\n".join(lines)[:4000]
+        await interaction.followup.send(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /blacklist list: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error fetching blacklisted users: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error fetching blacklisted users: {e}", ephemeral=True)
 
 bot.tree.add_command(blacklist_group)
 
@@ -9952,36 +9993,43 @@ bot.tree.add_command(blacklist_group)
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: i.user.id)
 async def servers_slash_cmd(interaction: discord.Interaction):
     """Creator-only dashboard providing full visibility into all connected guilds."""
-    if not is_creator(interaction.user):
-        return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
+    try:
+        if not is_creator(interaction.user):
+            return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
 
-    guilds = list(bot.guilds)
-    total_members = sum(g.member_count or 0 for g in guilds)
+        guilds = list(bot.guilds)
+        total_members = sum(g.member_count or 0 for g in guilds)
 
-    embed = discord.Embed(
-        title=f"🌐 Sweety Guild Network ({len(guilds)} Servers • {total_members:,} Members)",
-        color=discord.Color.blue(),
-        timestamp=discord.utils.utcnow()
-    )
+        embed = discord.Embed(
+            title=f"🌐 Sweety Guild Network ({len(guilds)} Servers • {total_members:,} Members)",
+            color=discord.Color.blue(),
+            timestamp=discord.utils.utcnow()
+        )
 
-    if not guilds:
-        embed.description = "ℹ️ Sweety is currently not in any servers."
-        return await interaction.response.send_message(embed=embed, ephemeral=True)
+        if not guilds:
+            embed.description = "ℹ️ Sweety is currently not in any servers."
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # Sort by member count descending
-    guilds_sorted = sorted(guilds, key=lambda g: g.member_count or 0, reverse=True)
-    lines = []
-    for idx, g in enumerate(guilds_sorted[:30], 1):
-        owner_str = f"Owner: <@{g.owner_id}> (`{g.owner_id}`)" if g.owner_id else "Owner: Unknown"
-        lines.append(f"**{idx}. {g.name}**\n• **ID:** `{g.id}` • **Members:** `{g.member_count:,}`\n• {owner_str}")
+        # Sort by member count descending
+        guilds_sorted = sorted(guilds, key=lambda g: g.member_count or 0, reverse=True)
+        lines = []
+        for idx, g in enumerate(guilds_sorted[:30], 1):
+            owner_str = f"Owner: <@{g.owner_id}> (`{g.owner_id}`)" if g.owner_id else "Owner: Unknown"
+            lines.append(f"**{idx}. {g.name}**\n• **ID:** `{g.id}` • **Members:** `{g.member_count:,}`\n• {owner_str}")
 
-    embed.description = "\n\n".join(lines)[:4000]
-    if len(guilds_sorted) > 30:
-        embed.set_footer(text=f"Showing top 30 of {len(guilds_sorted)} servers • Use /leaveserver <id> to leave a server")
-    else:
-        embed.set_footer(text="Sweety Server Management • Use /leaveserver <id> to leave a server")
+        embed.description = "\n".join(lines)[:4000]
+        if len(guilds_sorted) > 30:
+            embed.set_footer(text=f"Showing top 30 of {len(guilds_sorted)} servers • Use /leaveserver <id> to leave a server")
+        else:
+            embed.set_footer(text="Sweety Server Management • Use /leaveserver <id> to leave a server")
 
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /servers: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error generating server network audit: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error generating server network audit: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="leaveserver", description="Remotely make Sweety leave a specific server (Creator only)")
@@ -9989,80 +10037,95 @@ async def servers_slash_cmd(interaction: discord.Interaction):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: i.user.id)
 async def leaveserver_slash_cmd(interaction: discord.Interaction, guild_id: str):
     """Creator-only tool to remotely disconnect Sweety from a problematic or abusive server."""
-    if not is_creator(interaction.user):
-        return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
-
     try:
-        gid = int(guild_id.strip())
-    except ValueError:
-        return await interaction.response.send_message("❌ Please provide a valid numerical Guild ID.", ephemeral=True)
+        if not is_creator(interaction.user):
+            return await interaction.response.send_message("❌ This command is restricted to the Bot Creator.", ephemeral=True)
 
-    guild = bot.get_guild(gid)
-    if not guild:
-        return await interaction.response.send_message(f"❌ Server with ID `{gid}` was not found in active guild cache.", ephemeral=True)
+        try:
+            gid = int(guild_id.strip())
+        except ValueError:
+            return await interaction.response.send_message("❌ Please provide a valid numerical Guild ID.", ephemeral=True)
 
-    guild_name = guild.name
-    member_count = guild.member_count or 0
-    try:
-        await guild.leave()
-        await interaction.response.send_message(
-            f"✅ **Successfully left server:** **{guild_name}** (`{gid}`) with `{member_count:,}` members.",
-            ephemeral=True
-        )
-        logger.info(f"Creator {interaction.user} remotely triggered leave for guild '{guild_name}' ({gid})")
-    except Exception as e:
-        logger.error(f"Error leaving guild {gid}: {e}")
-        await interaction.response.send_message(f"❌ Failed to leave server: {e}", ephemeral=True)
+        guild = bot.get_guild(gid)
+        if not guild:
+            return await interaction.response.send_message(f"❌ Server with ID `{gid}` was not found in active guild cache.", ephemeral=True)
+
+        guild_name = guild.name
+        member_count = guild.member_count or 0
+        try:
+            await guild.leave()
+            await interaction.response.send_message(
+                f"✅ **Successfully left server:** **{guild_name}** (`{gid}`) with `{member_count:,}` members.",
+                ephemeral=True
+            )
+            logger.info(f"Creator {interaction.user} remotely triggered leave for guild '{guild_name}' ({gid})")
+        except Exception as e:
+            logger.error(f"Error leaving guild {gid}: {e}")
+            await interaction.response.send_message(f"❌ Failed to leave server: {e}", ephemeral=True)
+    except Exception as err:
+        logger.error(f"Error in /leaveserver: {err}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {err}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {err}", ephemeral=True)
 
 
 @bot.command(name="servers", aliases=["guilds", "guildlist"])
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def servers_prefix_cmd(ctx: commands.Context):
     """Creator-only command to list all servers: !servers"""
-    if not is_creator(ctx.author):
-        return
+    try:
+        if not is_creator(ctx.author):
+            return
 
-    guilds = list(bot.guilds)
-    total_members = sum(g.member_count or 0 for g in guilds)
-    guilds_sorted = sorted(guilds, key=lambda g: g.member_count or 0, reverse=True)
+        guilds = list(bot.guilds)
+        total_members = sum(g.member_count or 0 for g in guilds)
+        guilds_sorted = sorted(guilds, key=lambda g: g.member_count or 0, reverse=True)
 
-    embed = discord.Embed(
-        title=f"🌐 Sweety Guild Network ({len(guilds)} Servers • {total_members:,} Members)",
-        color=discord.Color.blue(),
-        timestamp=discord.utils.utcnow()
-    )
+        embed = discord.Embed(
+            title=f"🌐 Sweety Guild Network ({len(guilds)} Servers • {total_members:,} Members)",
+            color=discord.Color.blue(),
+            timestamp=discord.utils.utcnow()
+        )
 
-    lines = []
-    for idx, g in enumerate(guilds_sorted[:25], 1):
-        lines.append(f"`{idx}.` **{g.name}** (`{g.id}`) — `{g.member_count:,}` members")
+        lines = []
+        for idx, g in enumerate(guilds_sorted[:25], 1):
+            lines.append(f"`{idx}.` **{g.name}** (`{g.id}`) — `{g.member_count:,}` members")
 
-    embed.description = "\n".join(lines)[:4000]
-    embed.set_footer(text="Use !leaveserver <id> to make Sweety leave a server")
-    await ctx.reply(embed=embed, mention_author=False)
+        embed.description = "\n".join(lines)[:4000]
+        embed.set_footer(text="Use !leaveserver <id> to make Sweety leave a server")
+        await ctx.reply(embed=embed, mention_author=False)
+    except Exception as e:
+        logger.error(f"Error in !servers: {e}")
+        await ctx.reply(f"❌ Error listing servers: {e}", mention_author=False)
 
 
 @bot.command(name="leaveserver", aliases=["leaveguild", "forceleave"])
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def leaveserver_prefix_cmd(ctx: commands.Context, guild_id: str):
     """Creator-only command to remotely leave a server: !leaveserver <guild_id>"""
-    if not is_creator(ctx.author):
-        return
-
     try:
-        gid = int(guild_id.strip())
-    except ValueError:
-        return await ctx.reply("❌ Invalid numerical Guild ID.", mention_author=False)
+        if not is_creator(ctx.author):
+            return
 
-    guild = bot.get_guild(gid)
-    if not guild:
-        return await ctx.reply(f"❌ Server `{gid}` not found.", mention_author=False)
+        try:
+            gid = int(guild_id.strip())
+        except ValueError:
+            return await ctx.reply("❌ Invalid numerical Guild ID.", mention_author=False)
 
-    guild_name = guild.name
-    try:
-        await guild.leave()
-        await ctx.reply(f"✅ Left server **{guild_name}** (`{gid}`).", mention_author=False)
+        guild = bot.get_guild(gid)
+        if not guild:
+            return await ctx.reply(f"❌ Server `{gid}` not found.", mention_author=False)
+
+        guild_name = guild.name
+        try:
+            await guild.leave()
+            await ctx.reply(f"✅ Left server **{guild_name}** (`{gid}`).", mention_author=False)
+        except Exception as e:
+            await ctx.reply(f"❌ Error leaving server: {e}", mention_author=False)
     except Exception as e:
-        await ctx.reply(f"❌ Error leaving server: {e}", mention_author=False)
+        logger.error(f"Error in !leaveserver: {e}")
+        await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
 
@@ -10071,108 +10134,151 @@ async def leaveserver_prefix_cmd(ctx: commands.Context, guild_id: str):
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def appeal_slash_cmd(interaction: discord.Interaction, reason: Optional[str] = None):
-    warns = await db.get_warnings(interaction.guild.id, interaction.user.id)
-    active_mute = await db.get_active_mute(interaction.guild.id, interaction.user.id)
+    try:
+        warns = await db.get_warnings(interaction.guild.id, interaction.user.id)
+        active_mute = await db.get_active_mute(interaction.guild.id, interaction.user.id)
 
-    if not warns and not active_mute:
-        return await interaction.response.send_message(
-            "ℹ️ **You have a clean record!** You currently have 0 active warnings, strikes, or timeouts in this server.",
-            ephemeral=True
-        )
-
-    active_ticket = await db.get_active_appeal_by_user(interaction.guild.id, interaction.user.id)
-    if active_ticket:
-        chan = interaction.guild.get_channel(active_ticket.get("channel_id"))
-        chan_mention = chan.mention if chan else "your ticket channel"
-        return await interaction.response.send_message(
-            f"ℹ️ You already have an open appeal ticket pending review: {chan_mention}.",
-            ephemeral=True
-        )
-
-    if reason:
-        await interaction.response.defer(ephemeral=True)
-        ticket_chan = await create_appeal_ticket_channel(interaction.guild, interaction.user, reason, "Submitted via /appeal slash command")
-        if ticket_chan:
-            chan_link = f"https://discord.com/channels/{interaction.guild.id}/{ticket_chan.id}"
-            await interaction.followup.send(
-                f"✅ **Your appeal ticket has been opened in {interaction.guild.name}: [{ticket_chan.name}]({chan_link}) ({ticket_chan.mention})!**\n"
-                f"You have been granted permission to talk directly with the moderation team in your appeal channel. Staff has been notified to review your appeal.",
+        if not warns and not active_mute:
+            return await interaction.response.send_message(
+                "ℹ️ **You have a clean record!** You currently have 0 active warnings, strikes, or timeouts in this server.",
                 ephemeral=True
             )
+
+        active_ticket = await db.get_active_appeal_by_user(interaction.guild.id, interaction.user.id)
+        if active_ticket:
+            channel_id_raw = active_ticket.get("channel_id")
+            chan = None
+            try:
+                if channel_id_raw:
+                    chan = interaction.guild.get_channel(int(channel_id_raw))
+                    if not chan:
+                        try:
+                            chan = await bot.fetch_channel(int(channel_id_raw))
+                        except Exception:
+                            chan = None
+            except Exception:
+                chan = None
+
+            if not chan:
+                # Ghost ticket! Channel was deleted from Discord. Close it in DB so user can appeal again
+                await db.close_appeal_ticket(interaction.guild.id, int(channel_id_raw) if channel_id_raw else 0, "Channel deleted", interaction.user.id)
+            else:
+                chan_mention = chan.mention
+                return await interaction.response.send_message(
+                    f"ℹ️ You already have an open appeal ticket pending review: {chan_mention}.",
+                    ephemeral=True
+                )
+
+        if reason:
+            await interaction.response.defer(ephemeral=True)
+            ticket_chan = await create_appeal_ticket_channel(interaction.guild, interaction.user, reason, "Submitted via /appeal slash command")
+            if ticket_chan:
+                chan_link = f"https://discord.com/channels/{interaction.guild.id}/{ticket_chan.id}"
+                await interaction.followup.send(
+                    f"✅ **Your appeal ticket has been opened in {interaction.guild.name}: [{ticket_chan.name}]({chan_link}) ({ticket_chan.mention})!**\n"
+                    f"You have been granted permission to talk directly with the moderation team in your appeal channel. Staff has been notified to review your appeal.",
+                    ephemeral=True
+                )
+            else:
+                await interaction.followup.send("❌ Failed to create appeal ticket. Please contact a moderator directly.", ephemeral=True)
         else:
-            await interaction.followup.send("❌ Failed to create appeal ticket. Please contact a moderator directly.", ephemeral=True)
-    else:
-        await interaction.response.send_modal(StrikeAppealModal())
+            await interaction.response.send_modal(StrikeAppealModal())
+    except Exception as e:
+        logger.error(f"Error in /appeal: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ An error occurred while opening appeal ticket: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ An error occurred while opening appeal ticket: {e}", ephemeral=True)
 
 
 @bot.command(name="appeal", aliases=["submitappeal", "strikeappeal"])
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def appeal_prefix_cmd(ctx: commands.Context, *, reason: Optional[str] = None):
     """Submit an official appeal for your active warnings, strikes, or timeout: !appeal <reason>"""
-    user = ctx.author
-    guild = ctx.guild
+    try:
+        user = ctx.author
+        guild = ctx.guild
 
-    # If launched in DM, locate target guild where user has active strikes or timeout
-    if not guild:
-        for g in ctx.bot.guilds:
-            if g.get_member(user.id):
-                active_mute = await db.get_active_mute(g.id, user.id)
-                warnings = await db.get_warnings(g.id, user.id)
-                if active_mute or len(warnings) >= 1:
-                    guild = g
-                    break
-        if not guild and ctx.bot.guilds:
+        # If launched in DM, locate target guild where user has active strikes or timeout
+        if not guild:
             for g in ctx.bot.guilds:
                 if g.get_member(user.id):
-                    guild = g
-                    break
+                    active_mute = await db.get_active_mute(g.id, user.id)
+                    warnings = await db.get_warnings(g.id, user.id)
+                    if active_mute or len(warnings) >= 1:
+                        guild = g
+                        break
+            if not guild and ctx.bot.guilds:
+                for g in ctx.bot.guilds:
+                    if g.get_member(user.id):
+                        guild = g
+                        break
 
-    if not guild:
-        return await ctx.send("❌ Could not find a server where you have active strikes, warnings, or timeouts to appeal.")
+        if not guild:
+            return await ctx.send("❌ Could not find a server where you have active strikes, warnings, or timeouts to appeal.")
 
-    warns = await db.get_warnings(guild.id, user.id)
-    active_mute = await db.get_active_mute(guild.id, user.id)
+        warns = await db.get_warnings(guild.id, user.id)
+        active_mute = await db.get_active_mute(guild.id, user.id)
 
-    if not warns and not active_mute:
-        return await ctx.send(f"ℹ️ **You have a clean record in {guild.name}!** You currently have 0 active warnings, strikes, or timeouts.")
+        if not warns and not active_mute:
+            return await ctx.send(f"ℹ️ **You have a clean record in {guild.name}!** You currently have 0 active warnings, strikes, or timeouts.")
 
-    active_ticket = await db.get_active_appeal_by_user(guild.id, user.id)
-    if active_ticket:
-        chan = guild.get_channel(active_ticket.get("channel_id"))
-        chan_link = f"https://discord.com/channels/{guild.id}/{active_ticket.get('channel_id')}"
-        chan_mention = f"[{chan.name}]({chan_link})" if chan else "your ticket channel"
-        return await ctx.send(f"ℹ️ You already have an open appeal ticket pending review by staff in **{guild.name}**: {chan_mention}.")
+        active_ticket = await db.get_active_appeal_by_user(guild.id, user.id)
+        if active_ticket:
+            channel_id_raw = active_ticket.get("channel_id")
+            chan = None
+            try:
+                if channel_id_raw:
+                    chan = guild.get_channel(int(channel_id_raw))
+                    if not chan:
+                        try:
+                            chan = await bot.fetch_channel(int(channel_id_raw))
+                        except Exception:
+                            chan = None
+            except Exception:
+                chan = None
 
-    if not reason:
-        embed = discord.Embed(
-            title="📩 Submit a Strike / Timeout Appeal",
-            description=(
-                f"Please provide a reason with your appeal command for **{guild.name}**:\n\n"
-                "**Usage:** `!appeal <your explanation / reason here>`\n"
-                "**Example:** `!appeal I believe the strike was a misunderstanding because...`\n\n"
-                "Or click the button below to open the interactive appeal form!"
-            ),
-            color=discord.Color.blue()
-        )
-        view = DMAppealLauncherView()
-        return await ctx.send(embed=embed, view=view)
+            if not chan:
+                # Ghost ticket: close in DB
+                await db.close_appeal_ticket(guild.id, int(channel_id_raw) if channel_id_raw else 0, "Channel deleted", user.id)
+            else:
+                chan_link = f"https://discord.com/channels/{guild.id}/{channel_id_raw}"
+                chan_mention = f"[{chan.name}]({chan_link})"
+                return await ctx.send(f"ℹ️ You already have an open appeal ticket pending review by staff in **{guild.name}**: {chan_mention}.")
 
-    member = guild.get_member(user.id) or user
-    ticket_chan = await create_appeal_ticket_channel(guild, member, reason, f"Submitted via !appeal command by {user.name}")
-    if ticket_chan:
-        chan_link = f"https://discord.com/channels/{guild.id}/{ticket_chan.id}"
-        embed = discord.Embed(
-            title="✅ Strike Appeal Ticket Created",
-            description=(
-                f"Your official appeal ticket has been opened in **{guild.name}**: [{ticket_chan.name}]({chan_link}) ({ticket_chan.mention})!\n\n"
-                f"• **Status:** Staff and admins have been notified.\n"
-                f"• **Access:** You can now view and chat directly in your private appeal channel [{ticket_chan.name}]({chan_link})."
-            ),
-            color=discord.Color.green()
-        )
-        await ctx.send(embed=embed)
-    else:
-        await ctx.send(f"❌ Failed to create appeal ticket channel in **{guild.name}**. Please contact staff directly.")
+        if not reason:
+            embed = discord.Embed(
+                title="📩 Submit a Strike / Timeout Appeal",
+                description=(
+                    f"Please provide a reason with your appeal command for **{guild.name}**:\n\n"
+                    "**Usage:** `!appeal <your explanation / reason here>`\n"
+                    "**Example:** `!appeal I believe the strike was a misunderstanding because...`\n\n"
+                    "Or click the button below to open the interactive appeal form!"
+                ),
+                color=discord.Color.blue()
+            )
+            view = DMAppealLauncherView()
+            return await ctx.send(embed=embed, view=view)
+
+        member = guild.get_member(user.id) or user
+        ticket_chan = await create_appeal_ticket_channel(guild, member, reason, f"Submitted via !appeal command by {user.name}")
+        if ticket_chan:
+            chan_link = f"https://discord.com/channels/{guild.id}/{ticket_chan.id}"
+            embed = discord.Embed(
+                title="✅ Strike Appeal Ticket Created",
+                description=(
+                    f"Your official appeal ticket has been opened in **{guild.name}**: [{ticket_chan.name}]({chan_link}) ({ticket_chan.mention})!\n\n"
+                    f"• **Status:** Staff and admins have been notified.\n"
+                    f"• **Access:** You can now view and chat directly in your private appeal channel [{ticket_chan.name}]({chan_link})."
+                ),
+                color=discord.Color.green()
+            )
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send(f"❌ Failed to create appeal ticket channel in **{guild.name}**. Please contact staff directly.")
+    except Exception as e:
+        logger.error(f"Error in !appeal: {e}")
+        await ctx.send(f"❌ Error creating appeal ticket: {e}")
 
 
 @bot.tree.command(name="appealrole", description="Configure which staff role gets pinged when a user opens an appeal ticket")
@@ -10191,51 +10297,58 @@ async def appeal_prefix_cmd(ctx: commands.Context, *, reason: Optional[str] = No
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def appealrole_slash_cmd(interaction: discord.Interaction, action: str = "view", role: Optional[discord.Role] = None):
-    if not is_protected(interaction.user) and not interaction.permissions.administrator:
-        return await interaction.response.send_message("❌ Only Server Administrators can configure appeal ping roles.", ephemeral=True)
+    try:
+        if not is_protected(interaction.user) and not interaction.permissions.administrator:
+            return await interaction.response.send_message("❌ Only Server Administrators can configure appeal ping roles.", ephemeral=True)
 
-    guild = interaction.guild
-    if action == "set":
-        if not role:
-            return await interaction.response.send_message("❌ Please specify a role: `/appealrole set role:@Role`", ephemeral=True)
-        await db.set_config(guild.id, "appeal_ping_role_id", role.id)
-        embed = discord.Embed(
-            title="📩 Appeal Ping Role Updated",
-            description=f"When a member submits a strike/warning appeal, {role.mention} will now be pinged and given access to the appeal ticket channel.",
-            color=discord.Color.green()
-        )
-        embed.set_footer(text=f"Configured by {interaction.user.display_name}")
-        await interaction.response.send_message(embed=embed)
-    elif action == "remove":
-        await db.set_config(guild.id, "appeal_ping_role_id", "None")
-        embed = discord.Embed(
-            title="🔄 Appeal Ping Role Reset",
-            description="Reset to default: All Server Administrators and Moderator roles will be pinged on new appeal tickets.",
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text=f"Configured by {interaction.user.display_name}")
-        await interaction.response.send_message(embed=embed)
-    else:  # view
-        role_id_raw = await db.get_config(guild.id, "appeal_ping_role_id", None)
-        role_obj = None
-        if role_id_raw and str(role_id_raw).lower() not in ("none", "null", "0", ""):
-            try:
-                role_obj = guild.get_role(int(role_id_raw))
-            except (ValueError, TypeError):
-                role_obj = None
-        
-        embed = discord.Embed(
-            title=f"📩 Appeal Ticket Notification Settings — {guild.name}",
-            color=discord.Color.gold()
-        )
-        if role_obj:
-            embed.add_field(name="🎭 Configured Ping Role", value=f"✅ {role_obj.mention} (`{role_obj.id}`)", inline=False)
-            embed.add_field(name="ℹ️ Behavior", value="Only members with this role will be pinged when an appeal ticket opens.", inline=False)
+        guild = interaction.guild
+        if action == "set":
+            if not role:
+                return await interaction.response.send_message("❌ Please specify a role: `/appealrole set role:@Role`", ephemeral=True)
+            await db.set_config(guild.id, "appeal_ping_role_id", role.id)
+            embed = discord.Embed(
+                title="📩 Appeal Ping Role Updated",
+                description=f"When a member submits a strike/warning appeal, {role.mention} will now be pinged and given access to the appeal ticket channel.",
+                color=discord.Color.green()
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}")
+            await interaction.response.send_message(embed=embed)
+        elif action == "remove":
+            await db.set_config(guild.id, "appeal_ping_role_id", "None")
+            embed = discord.Embed(
+                title="🔄 Appeal Ping Role Reset",
+                description="Reset to default: All Server Administrators and Moderator roles will be pinged on new appeal tickets.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}")
+            await interaction.response.send_message(embed=embed)
+        else:  # view
+            role_id_raw = await db.get_config(guild.id, "appeal_ping_role_id", None)
+            role_obj = None
+            if role_id_raw and str(role_id_raw).lower() not in ("none", "null", "0", ""):
+                try:
+                    role_obj = guild.get_role(int(role_id_raw))
+                except (ValueError, TypeError):
+                    role_obj = None
+            
+            embed = discord.Embed(
+                title=f"📩 Appeal Ticket Notification Settings — {guild.name}",
+                color=discord.Color.gold()
+            )
+            if role_obj:
+                embed.add_field(name="🎭 Configured Ping Role", value=f"✅ {role_obj.mention} (`{role_obj.id}`)", inline=False)
+                embed.add_field(name="ℹ️ Behavior", value="Only members with this role will be pinged when an appeal ticket opens.", inline=False)
+            else:
+                embed.add_field(name="🎭 Configured Ping Role", value="*Default: All staff and admin roles*", inline=False)
+                embed.add_field(name="ℹ️ Behavior", value="The bot automatically pings all moderator and administrator roles.", inline=False)
+            embed.set_footer(text="Use /appealrole set @Role to customize, or /appealrole remove to reset.")
+            await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /appealrole: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error configuring appeal role: {e}", ephemeral=True)
         else:
-            embed.add_field(name="🎭 Configured Ping Role", value="*Default: All staff and admin roles*", inline=False)
-            embed.add_field(name="ℹ️ Behavior", value="The bot automatically pings all moderator and administrator roles.", inline=False)
-        embed.set_footer(text="Use /appealrole set @Role to customize, or /appealrole remove to reset.")
-        await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(f"❌ Error configuring appeal role: {e}", ephemeral=True)
 
 
 @bot.command(name="appealrole", aliases=["setappealrole", "appealping", "setappealping"])
@@ -10244,51 +10357,55 @@ async def appealrole_slash_cmd(interaction: discord.Interaction, action: str = "
 @commands.guild_only()
 async def appealrole_prefix_cmd(ctx: commands.Context, action: Optional[str] = "view", role: Optional[discord.Role] = None):
     """Configure which role is pinged for appeal tickets: !appealrole set @Role | !appealrole remove | !appealrole view"""
-    guild = ctx.guild
-    act = (action or "view").lower()
-    if act in ("set", "add", "enable"):
-        target_role = role
-        if not target_role and ctx.message.role_mentions:
-            target_role = ctx.message.role_mentions[0]
-        if not target_role:
-            return await ctx.send("❌ Please specify or mention a role: `!appealrole set @Role`")
-        await db.set_config(guild.id, "appeal_ping_role_id", target_role.id)
-        embed = discord.Embed(
-            title="📩 Appeal Ping Role Updated",
-            description=f"When a member submits a strike/warning appeal, {target_role.mention} will now be pinged and given access to the appeal ticket channel.",
-            color=discord.Color.green()
-        )
-        embed.set_footer(text=f"Configured by {ctx.author.display_name}")
-        await ctx.send(embed=embed)
-    elif act in ("remove", "reset", "clear", "delete", "disable"):
-        await db.set_config(guild.id, "appeal_ping_role_id", "None")
-        embed = discord.Embed(
-            title="🔄 Appeal Ping Role Reset",
-            description="Reset to default: All Server Administrators and Moderator roles will be pinged on new appeal tickets.",
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text=f"Configured by {ctx.author.display_name}")
-        await ctx.send(embed=embed)
-    else:  # view
-        role_id_raw = await db.get_config(guild.id, "appeal_ping_role_id", None)
-        role_obj = None
-        if role_id_raw and str(role_id_raw).lower() not in ("none", "null", "0", ""):
-            try:
-                role_obj = guild.get_role(int(role_id_raw))
-            except (ValueError, TypeError):
-                role_obj = None
-        embed = discord.Embed(
-            title=f"📩 Appeal Ticket Notification Settings — {guild.name}",
-            color=discord.Color.gold()
-        )
-        if role_obj:
-            embed.add_field(name="🎭 Configured Ping Role", value=f"✅ {role_obj.mention} (`{role_obj.id}`)", inline=False)
-            embed.add_field(name="ℹ️ Behavior", value="Only members with this role will be pinged when an appeal ticket opens.", inline=False)
-        else:
-            embed.add_field(name="🎭 Configured Ping Role", value="*Default: All staff and admin roles*", inline=False)
-            embed.add_field(name="ℹ️ Behavior", value="The bot automatically pings all moderator and administrator roles.", inline=False)
-        embed.set_footer(text="Use !appealrole set @Role to customize, or !appealrole remove to reset.")
-        await ctx.send(embed=embed)
+    try:
+        guild = ctx.guild
+        act = (action or "view").lower()
+        if act in ("set", "add", "enable"):
+            target_role = role
+            if not target_role and ctx.message.role_mentions:
+                target_role = ctx.message.role_mentions[0]
+            if not target_role:
+                return await ctx.send("❌ Please specify or mention a role: `!appealrole set @Role`")
+            await db.set_config(guild.id, "appeal_ping_role_id", target_role.id)
+            embed = discord.Embed(
+                title="📩 Appeal Ping Role Updated",
+                description=f"When a member submits a strike/warning appeal, {target_role.mention} will now be pinged and given access to the appeal ticket channel.",
+                color=discord.Color.green()
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}")
+            await ctx.send(embed=embed)
+        elif act in ("remove", "reset", "clear", "delete", "disable"):
+            await db.set_config(guild.id, "appeal_ping_role_id", "None")
+            embed = discord.Embed(
+                title="🔄 Appeal Ping Role Reset",
+                description="Reset to default: All Server Administrators and Moderator roles will be pinged on new appeal tickets.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}")
+            await ctx.send(embed=embed)
+        else:  # view
+            role_id_raw = await db.get_config(guild.id, "appeal_ping_role_id", None)
+            role_obj = None
+            if role_id_raw and str(role_id_raw).lower() not in ("none", "null", "0", ""):
+                try:
+                    role_obj = guild.get_role(int(role_id_raw))
+                except (ValueError, TypeError):
+                    role_obj = None
+            embed = discord.Embed(
+                title=f"📩 Appeal Ticket Notification Settings — {guild.name}",
+                color=discord.Color.gold()
+            )
+            if role_obj:
+                embed.add_field(name="🎭 Configured Ping Role", value=f"✅ {role_obj.mention} (`{role_obj.id}`)", inline=False)
+                embed.add_field(name="ℹ️ Behavior", value="Only members with this role will be pinged when an appeal ticket opens.", inline=False)
+            else:
+                embed.add_field(name="🎭 Configured Ping Role", value="*Default: All staff and admin roles*", inline=False)
+                embed.add_field(name="ℹ️ Behavior", value="The bot automatically pings all moderator and administrator roles.", inline=False)
+            embed.set_footer(text="Use !appealrole set @Role to customize, or !appealrole remove to reset.")
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !appealrole: {e}")
+        await ctx.send(f"❌ Error configuring appeal role: {e}")
 
 
 @bot.tree.command(name="appealpanel", description="Post the official interactive strike appeal button panel in a channel")
@@ -10297,44 +10414,51 @@ async def appealrole_prefix_cmd(ctx: commands.Context, action: Optional[str] = "
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def appealpanel_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
-    if not is_protected(interaction.user) and not interaction.permissions.administrator:
-        return await interaction.response.send_message("❌ Only Server Administrators can post the appeal panel.", ephemeral=True)
-
-    target_channel = channel or interaction.channel
-    guild = interaction.guild
-
-    embed = discord.Embed(
-        title=f"🛡️ {guild.name} • Official Strike Appeal Center",
-        description=(
-            "Welcome to the official Strike & Moderation Appeal Portal.\n\n"
-            "If you have received a formal warning strike or a 7-day timeout and believe it was issued in error or you have proper justification, you can open an official appeal ticket here for staff review.\n\n"
-            "📌 **How It Works:**\n"
-            "1️⃣ Click the **`📩 Submit Strike Appeal`** button below.\n"
-            "2️⃣ Provide your reason and any relevant context in the popup form.\n"
-            "3️⃣ A private ticket channel (`#appeal-username`) will be created where you can speak directly with the moderation team.\n\n"
-            "🔇 **Muted / Timed-Out Members:**\n"
-            "• *Discord's client disables button clicks inside server channels during an active timeout.*\n"
-            "• **To appeal while timed out:**\n"
-            "  👉 Check your **Direct Message (DM) from Sweety** to click the appeal button, OR\n"
-            "  👉 Send `!appeal <your reason>` directly in **DM to Sweety**!"
-        ),
-        color=discord.Color.blue(),
-        timestamp=datetime.datetime.utcnow()
-    )
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-    embed.set_footer(text="Sweety Strike Appeal Shield • Click below or DM !appeal <reason> to appeal")
-
-    view = DMAppealLauncherView()
     try:
-        await target_channel.send(embed=embed, view=view)
-        await interaction.response.send_message(
-            f"✅ **Appeal Panel posted successfully in {target_channel.mention}!**\nMembers can click the button, and timed-out members can appeal via DM or `!appeal`.",
-            ephemeral=True
+        if not is_protected(interaction.user) and not interaction.permissions.administrator:
+            return await interaction.response.send_message("❌ Only Server Administrators can post the appeal panel.", ephemeral=True)
+
+        target_channel = channel or interaction.channel
+        guild = interaction.guild
+
+        embed = discord.Embed(
+            title=f"🛡️ {guild.name} • Official Strike Appeal Center",
+            description=(
+                "Welcome to the official Strike & Moderation Appeal Portal.\n\n"
+                "If you have received a formal warning strike or a 7-day timeout and believe it was issued in error or you have proper justification, you can open an official appeal ticket here for staff review.\n\n"
+                "📌 **How It Works:**\n"
+                "1️⃣ Click the **`📩 Submit Strike Appeal`** button below.\n"
+                "2️⃣ Provide your reason and any relevant context in the popup form.\n"
+                "3️⃣ A private ticket channel (`#appeal-username`) will be created where you can speak directly with the moderation team.\n\n"
+                "🔇 **Muted / Timed-Out Members:**\n"
+                "• *Discord's client disables button clicks inside server channels during an active timeout.*\n"
+                "• **To appeal while timed out:**\n"
+                "  👉 Check your **Direct Message (DM) from Sweety** to click the appeal button, OR\n"
+                "  👉 Send `!appeal <your reason>` directly in **DM to Sweety**!"
+            ),
+            color=discord.Color.blue(),
+            timestamp=datetime.datetime.utcnow()
         )
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        embed.set_footer(text="Sweety Strike Appeal Shield • Click below or DM !appeal <reason> to appeal")
+
+        view = DMAppealLauncherView()
+        try:
+            await target_channel.send(embed=embed, view=view)
+            await interaction.response.send_message(
+                f"✅ **Appeal Panel posted successfully in {target_channel.mention}!**\nMembers can click the button, and timed-out members can appeal via DM or `!appeal`.",
+                ephemeral=True
+            )
+        except Exception as e:
+            logger.error(f"Failed to post appeal panel in {target_channel.id}: {e}")
+            await interaction.response.send_message(f"❌ Failed to post appeal panel in {target_channel.mention}: {e}", ephemeral=True)
     except Exception as e:
-        logger.error(f"Failed to post appeal panel in {target_channel.id}: {e}")
-        await interaction.response.send_message(f"❌ Failed to post appeal panel in {target_channel.mention}: {e}", ephemeral=True)
+        logger.error(f"Error in /appealpanel: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.command(name="appealpanel", aliases=["setappealpanel", "postappealpanel", "ticketpanel"])
@@ -10343,39 +10467,43 @@ async def appealpanel_slash_cmd(interaction: discord.Interaction, channel: Optio
 @commands.guild_only()
 async def appealpanel_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
     """Post the official appeal button panel: !appealpanel [#channel]"""
-    target_channel = channel or ctx.channel
-    guild = ctx.guild
-
-    embed = discord.Embed(
-        title=f"🛡️ {guild.name} • Official Strike Appeal Center",
-        description=(
-            "Welcome to the official Strike & Moderation Appeal Portal.\n\n"
-            "If you have received a formal warning strike or a 7-day timeout and believe it was issued in error or you have proper justification, you can open an official appeal ticket here for staff review.\n\n"
-            "📌 **How It Works:**\n"
-            "1️⃣ Click the **`📩 Submit Strike Appeal`** button below.\n"
-            "2️⃣ Provide your reason and any relevant context in the popup form.\n"
-            "3️⃣ A private ticket channel (`#appeal-username`) will be created where you can speak directly with the moderation team.\n\n"
-            "🔇 **Muted / Timed-Out Members:**\n"
-            "• *Discord's client disables button clicks inside server channels during an active timeout.*\n"
-            "• **To appeal while timed out:**\n"
-            "  👉 Check your **Direct Message (DM) from Sweety** to click the appeal button, OR\n"
-            "  👉 Send `!appeal <your reason>` directly in **DM to Sweety**!"
-        ),
-        color=discord.Color.blue(),
-        timestamp=datetime.datetime.utcnow()
-    )
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-    embed.set_footer(text="Sweety Strike Appeal Shield • Click below or DM !appeal <reason> to appeal")
-
-    view = DMAppealLauncherView()
     try:
-        await target_channel.send(embed=embed, view=view)
-        if target_channel.id != ctx.channel.id:
-            await ctx.send(f"✅ **Appeal Panel posted successfully in {target_channel.mention}!**")
+        target_channel = channel or ctx.channel
+        guild = ctx.guild
+
+        embed = discord.Embed(
+            title=f"🛡️ {guild.name} • Official Strike Appeal Center",
+            description=(
+                "Welcome to the official Strike & Moderation Appeal Portal.\n\n"
+                "If you have received a formal warning strike or a 7-day timeout and believe it was issued in error or you have proper justification, you can open an official appeal ticket here for staff review.\n\n"
+                "📌 **How It Works:**\n"
+                "1️⃣ Click the **`📩 Submit Strike Appeal`** button below.\n"
+                "2️⃣ Provide your reason and any relevant context in the popup form.\n"
+                "3️⃣ A private ticket channel (`#appeal-username`) will be created where you can speak directly with the moderation team.\n\n"
+                "🔇 **Muted / Timed-Out Members:**\n"
+                "• *Discord's client disables button clicks inside server channels during an active timeout.*\n"
+                "• **To appeal while timed out:**\n"
+                "  👉 Check your **Direct Message (DM) from Sweety** to click the appeal button, OR\n"
+                "  👉 Send `!appeal <your reason>` directly in **DM to Sweety**!"
+            ),
+            color=discord.Color.blue(),
+            timestamp=datetime.datetime.utcnow()
+        )
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        embed.set_footer(text="Sweety Strike Appeal Shield • Click below or DM !appeal <reason> to appeal")
+
+        view = DMAppealLauncherView()
+        try:
+            await target_channel.send(embed=embed, view=view)
+            if target_channel.id != ctx.channel.id:
+                await ctx.send(f"✅ **Appeal Panel posted successfully in {target_channel.mention}!**")
+        except Exception as e:
+            logger.error(f"Failed to post appeal panel: {e}")
+            await ctx.send(f"❌ Failed to post appeal panel: {e}")
     except Exception as e:
-        logger.error(f"Failed to post appeal panel: {e}")
-        await ctx.send(f"❌ Failed to post appeal panel: {e}")
+        logger.error(f"Error in !appealpanel: {e}")
+        await ctx.send(f"❌ Error: {e}")
 
 
 # ── AI User Profile Memory Commands ──────────────────────────────────────────
@@ -10385,50 +10513,57 @@ async def appealpanel_prefix_cmd(ctx: commands.Context, channel: Optional[discor
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def remember_slash_cmd(interaction: discord.Interaction, fact: str):
-    await interaction.response.defer(ephemeral=True)
-    is_clean, clean_fact = _sanitize_ai_input(fact)
-    if not is_clean:
-        return await interaction.followup.send("⚠️ Your input contained restricted characters or words.", ephemeral=True)
-
-    extract_prompt = (
-        f"Extract key personal facts from this user statement: \"{clean_fact}\"\n"
-        "Return a JSON object in this format:\n"
-        "{\n"
-        "  \"facts\": [\n"
-        "    {\"key\": \"short_snake_case_key\", \"value\": \"concise value\"}\n"
-        "  ]\n"
-        "}\n"
-        "Examples of valid keys: nickname, favorite_team, favorite_food, hobby, location, profession, birthday."
-    )
-    system_instruction = "You are a user preference extraction engine. Return ONLY valid JSON."
-    
-    saved = []
     try:
-        raw_res = await call_ai_generation(extract_prompt, system_instruction, json_mode=True)
-        if isinstance(raw_res, dict) and "facts" in raw_res and raw_res["facts"]:
-            for item in raw_res["facts"]:
-                if isinstance(item, dict):
-                    k = str(item.get("key", "")).strip().lower().replace(" ", "_")[:50]
-                    v = str(item.get("value", "")).strip()[:400]
-                    if k and v:
-                        await db.set_user_memory(interaction.user.id, k, v, guild_id=interaction.guild.id if interaction.guild else None, source="manual")
-                        saved.append(f"• **{k.replace('_', ' ').title()}**: {v}")
+        await interaction.response.defer(ephemeral=True)
+        is_clean, clean_fact = _sanitize_ai_input(fact)
+        if not is_clean:
+            return await interaction.followup.send("⚠️ Your input contained restricted characters or words.", ephemeral=True)
+
+        extract_prompt = (
+            f"Extract key personal facts from this user statement: \"{clean_fact}\"\n"
+            "Return a JSON object in this format:\n"
+            "{\n"
+            "  \"facts\": [\n"
+            "    {\"key\": \"short_snake_case_key\", \"value\": \"concise value\"}\n"
+            "  ]\n"
+            "}\n"
+            "Examples of valid keys: nickname, favorite_team, favorite_food, hobby, location, profession, birthday."
+        )
+        system_instruction = "You are a user preference extraction engine. Return ONLY valid JSON."
+        
+        saved = []
+        try:
+            raw_res = await call_ai_generation(extract_prompt, system_instruction, json_mode=True)
+            if isinstance(raw_res, dict) and "facts" in raw_res and raw_res["facts"]:
+                for item in raw_res["facts"]:
+                    if isinstance(item, dict):
+                        k = str(item.get("key", "")).strip().lower().replace(" ", "_")[:50]
+                        v = str(item.get("value", "")).strip()[:400]
+                        if k and v:
+                            await db.set_user_memory(interaction.user.id, k, v, guild_id=interaction.guild.id if interaction.guild else None, source="manual")
+                            saved.append(f"• **{k.replace('_', ' ').title()}**: {v}")
+        except Exception as e:
+            logger.debug(f"AI extraction fallback in /remember: {e}")
+
+        if not saved:
+            k = "personal_note"
+            v = clean_fact[:300]
+            await db.set_user_memory(interaction.user.id, k, v, guild_id=interaction.guild.id if interaction.guild else None, source="manual")
+            saved.append(f"• **Personal Note**: {v}")
+
+        embed = discord.Embed(
+            title="🧠 Memory Saved!",
+            description=f"Sweety will remember the following about you, **{interaction.user.display_name}**:\n\n" + "\n".join(saved),
+            color=discord.Color.brand_green()
+        )
+        embed.set_footer(text="Use /memories to view everything Sweety knows about you or /forget to remove facts.")
+        await interaction.followup.send(embed=embed, ephemeral=True)
     except Exception as e:
-        logger.debug(f"AI extraction fallback in /remember: {e}")
-
-    if not saved:
-        k = "personal_note"
-        v = clean_fact[:300]
-        await db.set_user_memory(interaction.user.id, k, v, guild_id=interaction.guild.id if interaction.guild else None, source="manual")
-        saved.append(f"• **Personal Note**: {v}")
-
-    embed = discord.Embed(
-        title="🧠 Memory Saved!",
-        description=f"Sweety will remember the following about you, **{interaction.user.display_name}**:\n\n" + "\n".join(saved),
-        color=discord.Color.brand_green()
-    )
-    embed.set_footer(text="Use /memories to view everything Sweety knows about you or /forget to remove facts.")
-    await interaction.followup.send(embed=embed, ephemeral=True)
+        logger.error(f"Error in /remember: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error saving memory: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error saving memory: {e}", ephemeral=True)
 
 
 @bot.command(name="remember")
@@ -10436,47 +10571,51 @@ async def remember_slash_cmd(interaction: discord.Interaction, fact: str):
 @commands.guild_only()
 async def remember_prefix_cmd(ctx: commands.Context, *, fact: str = ""):
     """Tell Sweety to remember a personal fact: !remember <fact>"""
-    if not fact:
-        return await ctx.reply("❌ Please provide a fact! Example: `!remember My favorite basketball team is Golden State Warriors`")
-    
-    is_clean, clean_fact = _sanitize_ai_input(fact)
-    if not is_clean:
-        return await ctx.reply("⚠️ Input contains restricted characters.")
-
-    extract_prompt = (
-        f"Extract key personal facts from this user statement: \"{clean_fact}\"\n"
-        "Return a JSON object in this format:\n"
-        "{\n"
-        "  \"facts\": [\n"
-        "    {\"key\": \"short_snake_case_key\", \"value\": \"concise value\"}\n"
-        "  ]\n"
-        "}\n"
-    )
-    saved = []
     try:
-        raw_res = await call_ai_generation(extract_prompt, "Extract user facts. Return JSON.", json_mode=True)
-        if isinstance(raw_res, dict) and "facts" in raw_res and raw_res["facts"]:
-            for item in raw_res["facts"]:
-                if isinstance(item, dict):
-                    k = str(item.get("key", "")).strip().lower().replace(" ", "_")[:50]
-                    v = str(item.get("value", "")).strip()[:400]
-                    if k and v:
-                        await db.set_user_memory(ctx.author.id, k, v, guild_id=ctx.guild.id if ctx.guild else None, source="manual")
-                        saved.append(f"• **{k.replace('_', ' ').title()}**: {v}")
-    except Exception:
-        pass
+        if not fact:
+            return await ctx.reply("❌ Please provide a fact! Example: `!remember My favorite basketball team is Golden State Warriors`")
+        
+        is_clean, clean_fact = _sanitize_ai_input(fact)
+        if not is_clean:
+            return await ctx.reply("⚠️ Input contains restricted characters.")
 
-    if not saved:
-        await db.set_user_memory(ctx.author.id, "personal_note", clean_fact[:300], guild_id=ctx.guild.id if ctx.guild else None, source="manual")
-        saved.append(f"• **Note**: {clean_fact[:300]}")
+        extract_prompt = (
+            f"Extract key personal facts from this user statement: \"{clean_fact}\"\n"
+            "Return a JSON object in this format:\n"
+            "{\n"
+            "  \"facts\": [\n"
+            "    {\"key\": \"short_snake_case_key\", \"value\": \"concise value\"}\n"
+            "  ]\n"
+            "}\n"
+        )
+        saved = []
+        try:
+            raw_res = await call_ai_generation(extract_prompt, "Extract user facts. Return JSON.", json_mode=True)
+            if isinstance(raw_res, dict) and "facts" in raw_res and raw_res["facts"]:
+                for item in raw_res["facts"]:
+                    if isinstance(item, dict):
+                        k = str(item.get("key", "")).strip().lower().replace(" ", "_")[:50]
+                        v = str(item.get("value", "")).strip()[:400]
+                        if k and v:
+                            await db.set_user_memory(ctx.author.id, k, v, guild_id=ctx.guild.id if ctx.guild else None, source="manual")
+                            saved.append(f"• **{k.replace('_', ' ').title()}**: {v}")
+        except Exception:
+            pass
 
-    embed = discord.Embed(
-        title="🧠 Memory Saved!",
-        description=f"Sweety will remember this about you, **{ctx.author.display_name}**:\n\n" + "\n".join(saved),
-        color=discord.Color.brand_green()
-    )
-    embed.set_footer(text="Use !memories to view all facts or !forget to delete.")
-    await ctx.reply(embed=embed, mention_author=False)
+        if not saved:
+            await db.set_user_memory(ctx.author.id, "personal_note", clean_fact[:300], guild_id=ctx.guild.id if ctx.guild else None, source="manual")
+            saved.append(f"• **Note**: {clean_fact[:300]}")
+
+        embed = discord.Embed(
+            title="🧠 Memory Saved!",
+            description=f"Sweety will remember this about you, **{ctx.author.display_name}**:\n\n" + "\n".join(saved),
+            color=discord.Color.brand_green()
+        )
+        embed.set_footer(text="Use !memories to view all facts or !forget to delete.")
+        await ctx.reply(embed=embed, mention_author=False)
+    except Exception as e:
+        logger.error(f"Error in !remember: {e}")
+        await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
 @bot.tree.command(name="memories", description="View all personal facts and preferences Sweety has remembered about you")
@@ -10484,42 +10623,49 @@ async def remember_prefix_cmd(ctx: commands.Context, *, fact: str = ""):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def memories_slash_cmd(interaction: discord.Interaction, user: Optional[discord.User] = None):
-    target_user = user or interaction.user
-    is_self = target_user.id == interaction.user.id
+    try:
+        target_user = user or interaction.user
+        is_self = target_user.id == interaction.user.id
 
-    if not is_self:
-        is_mod = is_admin_or_mod(interaction.user) or interaction.user.id == 719932313919684670
-        if not is_mod:
-            return await interaction.response.send_message("🚫 You can only view your own remembered facts.", ephemeral=True)
+        if not is_self:
+            is_mod = is_admin_or_mod(interaction.user) or interaction.user.id == 719932313919684670
+            if not is_mod:
+                return await interaction.response.send_message("🚫 You can only view your own remembered facts.", ephemeral=True)
 
-    mems = await db.get_user_memories(target_user.id, limit=25)
-    if not mems:
-        subject = "You have not" if is_self else f"{target_user.name} has not"
-        empty_msg = (
-            f"ℹ️ **No stored memories yet!**\n"
-            f"{subject} saved any facts with Sweety yet.\n"
-            f"Use `/remember fact: <text>` or simply chat with `@Sweety` to let her learn about you!"
+        mems = await db.get_user_memories(target_user.id, limit=25)
+        if not mems:
+            subject = "You have not" if is_self else f"{target_user.name} has not"
+            empty_msg = (
+                f"ℹ️ **No stored memories yet!**\n"
+                f"{subject} saved any facts with Sweety yet.\n"
+                f"Use `/remember fact: <text>` or simply chat with `@Sweety` to let her learn about you!"
+            )
+            return await interaction.response.send_message(empty_msg, ephemeral=True)
+
+        lines = []
+        for m in mems:
+            k_disp = m["fact_key"].replace("_", " ").title()
+            v_disp = m["fact_value"]
+            src = "🤖 *Auto-learned*" if m.get("source") == "auto" else "✍️ *Manual*"
+            t_epoch = int(m.get("updated_at", time.time()))
+            lines.append(f"• **{k_disp}**: {v_disp} — {src} (<t:{t_epoch}:R>)")
+
+        embed = discord.Embed(
+            title=f"🧠 Sweety's Memory Log — {target_user.display_name}",
+            description="\n".join(lines),
+            color=discord.Color.purple()
         )
-        return await interaction.response.send_message(empty_msg, ephemeral=True)
+        embed.set_thumbnail(url=target_user.display_avatar.url)
+        embed.set_footer(text=f"Total memories: {len(mems)} • Powered by Groq AI Memory Engine")
 
-    lines = []
-    for m in mems:
-        k_disp = m["fact_key"].replace("_", " ").title()
-        v_disp = m["fact_value"]
-        src = "🤖 *Auto-learned*" if m.get("source") == "auto" else "✍️ *Manual*"
-        t_epoch = int(m.get("updated_at", time.time()))
-        lines.append(f"• **{k_disp}**: {v_disp} — {src} (<t:{t_epoch}:R>)")
-
-    embed = discord.Embed(
-        title=f"🧠 Sweety's Memory Log — {target_user.display_name}",
-        description="\n".join(lines),
-        color=discord.Color.purple()
-    )
-    embed.set_thumbnail(url=target_user.display_avatar.url)
-    embed.set_footer(text=f"Total memories: {len(mems)} • Powered by Groq AI Memory Engine")
-
-    view = MemoryManageView(target_user.id, interaction.user.id) if is_self else None
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        view = MemoryManageView(target_user.id, interaction.user.id) if is_self else None
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /memories: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error fetching memories: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error fetching memories: {e}", ephemeral=True)
 
 
 @bot.command(name="memories")
@@ -10527,33 +10673,37 @@ async def memories_slash_cmd(interaction: discord.Interaction, user: Optional[di
 @commands.guild_only()
 async def memories_prefix_cmd(ctx: commands.Context, user: Optional[discord.Member] = None):
     """View stored memories: !memories [user]"""
-    target_user = user or ctx.author
-    is_self = target_user.id == ctx.author.id
-    if not is_self:
-        is_mod = is_admin_or_mod(ctx.author) or ctx.author.id == 719932313919684670
-        if not is_mod:
-            return await ctx.reply("🚫 You can only view your own memories.")
+    try:
+        target_user = user or ctx.author
+        is_self = target_user.id == ctx.author.id
+        if not is_self:
+            is_mod = is_admin_or_mod(ctx.author) or ctx.author.id == 719932313919684670
+            if not is_mod:
+                return await ctx.reply("🚫 You can only view your own memories.")
 
-    mems = await db.get_user_memories(target_user.id, limit=25)
-    if not mems:
-        return await ctx.reply(f"ℹ️ No memories stored for {target_user.display_name}. Use `!remember <fact>` to save one!")
+        mems = await db.get_user_memories(target_user.id, limit=25)
+        if not mems:
+            return await ctx.reply(f"ℹ️ No memories stored for {target_user.display_name}. Use `!remember <fact>` to save one!")
 
-    lines = []
-    for m in mems:
-        k_disp = m["fact_key"].replace("_", " ").title()
-        v_disp = m["fact_value"]
-        src = "🤖 *Auto*" if m.get("source") == "auto" else "✍️ *Manual*"
-        lines.append(f"• **{k_disp}**: {v_disp} — {src}")
+        lines = []
+        for m in mems:
+            k_disp = m["fact_key"].replace("_", " ").title()
+            v_disp = m["fact_value"]
+            src = "🤖 *Auto*" if m.get("source") == "auto" else "✍️ *Manual*"
+            lines.append(f"• **{k_disp}**: {v_disp} — {src}")
 
-    embed = discord.Embed(
-        title=f"🧠 Memory Log — {target_user.display_name}",
-        description="\n".join(lines),
-        color=discord.Color.purple()
-    )
-    embed.set_thumbnail(url=target_user.display_avatar.url)
-    embed.set_footer(text=f"Total memories: {len(mems)} • Use !forget <key> to delete a fact.")
-    view = MemoryManageView(target_user.id, ctx.author.id) if is_self else None
-    await ctx.reply(embed=embed, view=view, mention_author=False)
+        embed = discord.Embed(
+            title=f"🧠 Memory Log — {target_user.display_name}",
+            description="\n".join(lines),
+            color=discord.Color.purple()
+        )
+        embed.set_thumbnail(url=target_user.display_avatar.url)
+        embed.set_footer(text=f"Total memories: {len(mems)} • Use !forget <key> to delete a fact.")
+        view = MemoryManageView(target_user.id, ctx.author.id) if is_self else None
+        await ctx.reply(embed=embed, view=view, mention_author=False)
+    except Exception as e:
+        logger.error(f"Error in !memories: {e}")
+        await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
 @bot.tree.command(name="forget", description="Tell Sweety to forget a specific fact or all facts about you")
@@ -10561,17 +10711,24 @@ async def memories_prefix_cmd(ctx: commands.Context, user: Optional[discord.Memb
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def forget_slash_cmd(interaction: discord.Interaction, key: str):
-    await interaction.response.defer(ephemeral=True)
-    target = key.strip().lower()
-    if target in ("all", "*", "everything"):
-        await db.clear_user_memories(interaction.user.id)
-        return await interaction.followup.send("🧹 **All your stored memories have been completely wiped!**", ephemeral=True)
+    try:
+        await interaction.response.defer(ephemeral=True)
+        target = key.strip().lower()
+        if target in ("all", "*", "everything"):
+            await db.clear_user_memories(interaction.user.id)
+            return await interaction.followup.send("🧹 **All your stored memories have been completely wiped!**", ephemeral=True)
 
-    ok = await db.delete_user_memory(interaction.user.id, target)
-    if ok:
-        await interaction.followup.send(f"🗑️ **Forgotten!** Sweety has removed `{target}` from your remembered facts.", ephemeral=True)
-    else:
-        await interaction.followup.send(f"❌ Could not find fact `{target}` in your saved memories. Use `/memories` to check your saved keys.", ephemeral=True)
+        ok = await db.delete_user_memory(interaction.user.id, target)
+        if ok:
+            await interaction.followup.send(f"🗑️ **Forgotten!** Sweety has removed `{target}` from your remembered facts.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Could not find fact `{target}` in your saved memories. Use `/memories` to check your saved keys.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /forget: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.command(name="forget")
@@ -10579,19 +10736,23 @@ async def forget_slash_cmd(interaction: discord.Interaction, key: str):
 @commands.guild_only()
 async def forget_prefix_cmd(ctx: commands.Context, *, key: str = ""):
     """Forget a specific fact: !forget <key> or !forget all"""
-    if not key:
-        return await ctx.reply("❌ Please specify the fact key to forget. Example: `!forget favorite_team` or `!forget all`")
-    
-    target = key.strip().lower()
-    if target in ("all", "*", "everything"):
-        await db.clear_user_memories(ctx.author.id)
-        return await ctx.reply("🧹 **All your stored memories have been completely wiped!**")
+    try:
+        if not key:
+            return await ctx.reply("❌ Please specify the fact key to forget. Example: `!forget favorite_team` or `!forget all`")
+        
+        target = key.strip().lower()
+        if target in ("all", "*", "everything"):
+            await db.clear_user_memories(ctx.author.id)
+            return await ctx.reply("🧹 **All your stored memories have been completely wiped!**")
 
-    ok = await db.delete_user_memory(ctx.author.id, target)
-    if ok:
-        await ctx.reply(f"🗑️ **Forgotten!** Sweety has removed `{target}` from your memories.")
-    else:
-        await ctx.reply(f"❌ Could not find fact `{target}` in your saved memories. Check with `!memories`.")
+        ok = await db.delete_user_memory(ctx.author.id, target)
+        if ok:
+            await ctx.reply(f"🗑️ **Forgotten!** Sweety has removed `{target}` from your memories.")
+        else:
+            await ctx.reply(f"❌ Could not find fact `{target}` in your saved memories. Check with `!memories`.")
+    except Exception as e:
+        logger.error(f"Error in !forget: {e}")
+        await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
 # ── Obsidian Vault & Markdown Note-Taking System ──────────────────────────
@@ -10651,26 +10812,34 @@ class ObsidianNoteView(discord.ui.View):
 
     @discord.ui.button(label="📥 Download .md File", style=discord.ButtonStyle.primary, emoji="📄")
     async def download_md(self, interaction: discord.Interaction, button: discord.ui.Button):
-        clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', self.title).strip().replace(' ', '_') or "note"
-        file_obj = discord.File(
-            fp=io.BytesIO(self.md_content.encode('utf-8')),
-            filename=f"{clean_filename}.md"
-        )
-        await interaction.response.send_message(
-            f"📄 **Obsidian Note:** `{clean_filename}.md`\n*Drop this file directly into your Obsidian Vault folder!*",
-            file=file_obj,
-            ephemeral=True
-        )
+        try:
+            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', self.title).strip().replace(' ', '_') or "note"
+            file_obj = discord.File(
+                fp=io.BytesIO(self.md_content.encode('utf-8')),
+                filename=f"{clean_filename}.md"
+            )
+            await interaction.response.send_message(
+                f"📄 **Obsidian Note:** `{clean_filename}.md`\n*Drop this file directly into your Obsidian Vault folder!*",
+                file=file_obj,
+                ephemeral=True
+            )
+        except Exception as e:
+            logger.error(f"Error downloading note: {e}")
+            await interaction.response.send_message(f"❌ Error generating download: {e}", ephemeral=True)
 
     @discord.ui.button(label="🗑️ Delete Note", style=discord.ButtonStyle.danger, emoji="🗑️")
     async def delete_note(self, interaction: discord.Interaction, button: discord.ui.Button):
-        success = await db.delete_obsidian_note(self.note_id, self.user_id)
-        if success:
-            for item in self.children:
-                item.disabled = True
-            await interaction.response.edit_message(content=f"🗑️ Note **`{self.title}`** deleted from your Obsidian vault.", view=self)
-        else:
-            await interaction.response.send_message("❌ Failed to delete note from database.", ephemeral=True)
+        try:
+            success = await db.delete_obsidian_note(self.note_id, self.user_id)
+            if success:
+                for item in self.children:
+                    item.disabled = True
+                await interaction.response.edit_message(content=f"🗑️ Note **`{self.title}`** deleted from your Obsidian vault.", view=self)
+            else:
+                await interaction.response.send_message("❌ Failed to delete note from database.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error deleting note: {e}")
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="obsidian", description="Obsidian Vault sync & notes: capture thoughts, daily logs, clips & export markdown")
@@ -10704,266 +10873,273 @@ async def obsidian_slash_cmd(
     query: Optional[str] = None,
     clip_limit: Optional[int] = 10
 ):
-    await interaction.response.defer(ephemeral=False if action in ("clip", "export") else True)
-    user = interaction.user
-    guild = interaction.guild
+    try:
+        await interaction.response.defer(ephemeral=False if action in ("clip", "export") else True)
+        user = interaction.user
+        guild = interaction.guild
 
-    if action == "note":
-        if not content:
-            return await interaction.followup.send("❌ Please provide the `content` for your note.", ephemeral=True)
-        note_title = (title or f"Note {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}").strip()
-        note_folder = (folder or "Inbox").strip().strip("/").strip("\\") or "Inbox"
-        note_tags = (tags or "").strip()
+        if action == "note":
+            if not content:
+                return await interaction.followup.send("❌ Please provide the `content` for your note.", ephemeral=True)
+            note_title = (title or f"Note {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}").strip()
+            note_folder = (folder or "Inbox").strip().strip("/").strip("\\") or "Inbox"
+            note_tags = (tags or "").strip()
 
-        note_id = await db.create_obsidian_note(
-            user_id=user.id,
-            guild_id=guild.id if guild else None,
-            title=note_title,
-            content=content,
-            tags=note_tags,
-            folder=note_folder
-        )
-        if not note_id:
-            return await interaction.followup.send("❌ Failed to save note into database.", ephemeral=True)
-
-        md_text = format_obsidian_markdown(note_title, content, user.display_name, note_tags, note_folder)
-        clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', note_title).strip().replace(' ', '_') or "note"
-        file_obj = discord.File(
-            fp=io.BytesIO(md_text.encode('utf-8')),
-            filename=f"{clean_filename}.md"
-        )
-
-        embed = discord.Embed(
-            title=f"📝 Obsidian Note Created: {note_title}",
-            description=content[:500] + ("..." if len(content) > 500 else ""),
-            color=discord.Color.purple(),
-            timestamp=datetime.datetime.utcnow()
-        )
-        embed.add_field(name="📂 Folder", value=f"`{note_folder}`", inline=True)
-        embed.add_field(name="🏷️ Tags", value=f"`{note_tags or 'None'}`", inline=True)
-        embed.add_field(name="📊 Word Count", value=f"`{len(content.split())}` words", inline=True)
-        embed.set_footer(text="Obsidian Markdown Ready • Drag attached .md into your Obsidian Vault")
-
-        view = ObsidianNoteView(note_id, user.id, note_title, md_text)
-        await interaction.followup.send(embed=embed, file=file_obj, view=view, ephemeral=True)
-
-    elif action == "daily":
-        if not content:
-            return await interaction.followup.send("❌ Please provide the `content` / task to log in today's Daily Note.", ephemeral=True)
-
-        res = await db.append_daily_obsidian_note(user.id, guild.id if guild else None, content)
-        daily_title = res.get("title", f"Daily Note {datetime.date.today().isoformat()}")
-        daily_content = res.get("content", "")
-        note_id = res.get("id", 0)
-
-        md_text = format_obsidian_markdown(daily_title, daily_content, user.display_name, "daily, log, tasks", "Daily")
-        clean_filename = daily_title.replace(' ', '_')
-        file_obj = discord.File(
-            fp=io.BytesIO(md_text.encode('utf-8')),
-            filename=f"{clean_filename}.md"
-        )
-
-        embed = discord.Embed(
-            title=f"📅 Daily Note Updated — {datetime.date.today().isoformat()}",
-            description=f"**New Entry Logged:**\n- [ ] **{datetime.datetime.now().strftime('%H:%M')}** — {content}\n\n*Updated daily note attached below ready for your Obsidian Vault.*",
-            color=discord.Color.teal(),
-            timestamp=datetime.datetime.utcnow()
-        )
-        embed.set_footer(text="Obsidian Daily Notes • Synchronized via Sweety")
-        view = ObsidianNoteView(note_id, user.id, daily_title, md_text)
-        await interaction.followup.send(embed=embed, file=file_obj, view=view, ephemeral=True)
-
-    elif action == "clip":
-        if not interaction.channel:
-            return await interaction.followup.send("❌ Cannot clip from outside a channel.", ephemeral=True)
-        limit = max(3, min(clip_limit or 10, 30))
-        
-        messages = []
-        async for m in interaction.channel.history(limit=limit):
-            if m.content or m.attachments:
-                messages.append(m)
-        messages.reverse()
-
-        if not messages:
-            return await interaction.followup.send("❌ No recent messages found to clip.", ephemeral=True)
-
-        transcript_lines = []
-        for m in messages:
-            ts = m.created_at.strftime("%H:%M")
-            author = m.author.display_name
-            text = m.clean_content
-            if m.attachments:
-                att_urls = " ".join(f"[{a.filename}]({a.url})" for a in m.attachments)
-                text = f"{text} *(Attachments: {att_urls})*" if text else f"*(Attachments: {att_urls})*"
-            transcript_lines.append(f"> **{author}** ({ts}): {text}")
-
-        transcript_text = "\n>\n".join(transcript_lines)
-        
-        clip_title = (title or f"Chat Clip - #{interaction.channel.name} ({datetime.date.today()})").strip()
-        clip_folder = (folder or "Clippings").strip().strip("/").strip("\\") or "Clippings"
-        clip_tags = (tags or f"clipping, discord, {interaction.channel.name}").strip()
-
-        # AI Executive Summary
-        summary_prompt = (
-            f"Generate a concise 2-3 bullet point executive summary of this Discord chat discussion:\n\n"
-            f"{transcript_text[:1500]}"
-        )
-        ai_summary = ""
-        try:
-            ai_summary = await call_ai_generation(summary_prompt, "You are an executive note-taking assistant. Provide a clean 2-3 bullet summary.")
-        except Exception:
-            ai_summary = "Discussion captured from Discord channel."
-
-        full_md_content = f"## 📌 Executive Summary\n{ai_summary}\n\n## 💬 Discord Transcript\n{transcript_text}\n"
-        
-        note_id = await db.create_obsidian_note(
-            user_id=user.id,
-            guild_id=guild.id if guild else None,
-            title=clip_title,
-            content=full_md_content,
-            tags=clip_tags,
-            folder=clip_folder
-        )
-
-        md_text = format_obsidian_markdown(clip_title, full_md_content, user.display_name, clip_tags, clip_folder)
-        clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', clip_title).strip().replace(' ', '_') or "chat_clip"
-        file_obj = discord.File(
-            fp=io.BytesIO(md_text.encode('utf-8')),
-            filename=f"{clean_filename}.md"
-        )
-
-        embed = discord.Embed(
-            title=f"📎 Channel Clipped to Obsidian: {clip_title}",
-            description=f"**Executive Summary:**\n{ai_summary[:400]}\n\n*Captured {len(messages)} messages from {interaction.channel.mention}*",
-            color=discord.Color.gold(),
-            timestamp=datetime.datetime.utcnow()
-        )
-        embed.add_field(name="📂 Folder", value=f"`{clip_folder}`", inline=True)
-        embed.add_field(name="🏷️ Tags", value=f"`{clip_tags}`", inline=True)
-        embed.set_footer(text="Obsidian Clipping • Drag attached .md into your Obsidian Vault")
-
-        view = ObsidianNoteView(note_id or 0, user.id, clip_title, md_text)
-        await interaction.followup.send(embed=embed, file=file_obj, view=view)
-
-    elif action == "search":
-        search_q = query or title or content or tags or ""
-        if not search_q:
-            return await interaction.followup.send("❌ Please provide a search `query` (e.g. `/obsidian search query:bot ideas`).", ephemeral=True)
-        
-        notes = await db.search_obsidian_notes(user.id, search_q, limit=10)
-        if not notes:
-            return await interaction.followup.send(f"🔍 No notes found in your Obsidian vault matching **`{search_q}`**.", ephemeral=True)
-
-        embed = discord.Embed(
-            title=f"🔍 Obsidian Search Results for \"{search_q}\"",
-            description=f"Found **{len(notes)}** note(s) matching your query:",
-            color=discord.Color.purple(),
-            timestamp=datetime.datetime.utcnow()
-        )
-        for n in notes:
-            n_id = n["id"]
-            n_title = n["title"]
-            n_folder = n.get("folder", "Inbox")
-            n_tags = n.get("tags", "")
-            preview = n.get("content", "").replace("\n", " ")[:90]
-            embed.add_field(
-                name=f"📄 {n_title} (ID: `{n_id}`)",
-                value=f"• **Folder:** `{n_folder}` | **Tags:** `{n_tags or 'None'}`\n• **Preview:** {preview}...",
-                inline=False
+            note_id = await db.create_obsidian_note(
+                user_id=user.id,
+                guild_id=guild.id if guild else None,
+                title=note_title,
+                content=content,
+                tags=note_tags,
+                folder=note_folder
             )
-        embed.set_footer(text="Use /obsidian export to download all notes as a zip archive")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+            if not note_id:
+                return await interaction.followup.send("❌ Failed to save note into database.", ephemeral=True)
 
-    elif action == "list":
-        notes = await db.get_user_obsidian_notes(user.id, folder=folder, limit=15)
-        if not notes:
-            return await interaction.followup.send("📂 You currently have 0 notes saved in your Obsidian vault.", ephemeral=True)
-
-        embed = discord.Embed(
-            title=f"📂 Your Obsidian Vault Notes" + (f" ({folder})" if folder else ""),
-            description=f"Showing your **{len(notes)}** most recent notes:",
-            color=discord.Color.blue(),
-            timestamp=datetime.datetime.utcnow()
-        )
-        for n in notes:
-            n_id = n["id"]
-            n_title = n["title"]
-            n_folder = n.get("folder", "Inbox")
-            n_tags = n.get("tags", "")
-            n_time = datetime.datetime.fromtimestamp(n.get("updated_at", time.time())).strftime("%Y-%m-%d %H:%M")
-            embed.add_field(
-                name=f"📄 {n_title} (ID: `{n_id}`)",
-                value=f"• **Folder:** `{n_folder}` | **Updated:** `{n_time}`\n• **Tags:** `{n_tags or 'None'}`",
-                inline=False
+            md_text = format_obsidian_markdown(note_title, content, user.display_name, note_tags, note_folder)
+            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', note_title).strip().replace(' ', '_') or "note"
+            file_obj = discord.File(
+                fp=io.BytesIO(md_text.encode('utf-8')),
+                filename=f"{clean_filename}.md"
             )
-        embed.set_footer(text="Use /obsidian export to bundle and download everything")
-        await interaction.followup.send(embed=embed, ephemeral=True)
 
-    elif action == "export":
-        import zipfile
-        notes = await db.get_user_obsidian_notes(user.id, limit=5000)
-        if not notes:
-            return await interaction.followup.send("❌ You don't have any notes saved to export yet! Create some with `/obsidian note` or `/obsidian daily`.", ephemeral=True)
+            embed = discord.Embed(
+                title=f"📝 Obsidian Note Created: {note_title}",
+                description=content[:500] + ("..." if len(content) > 500 else ""),
+                color=discord.Color.purple(),
+                timestamp=datetime.datetime.utcnow()
+            )
+            embed.add_field(name="📂 Folder", value=f"`{note_folder}`", inline=True)
+            embed.add_field(name="🏷️ Tags", value=f"`{note_tags or 'None'}`", inline=True)
+            embed.add_field(name="📊 Word Count", value=f"`{len(content.split())}` words", inline=True)
+            embed.set_footer(text="Obsidian Markdown Ready • Drag attached .md into your Obsidian Vault")
 
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            view = ObsidianNoteView(note_id, user.id, note_title, md_text)
+            await interaction.followup.send(embed=embed, file=file_obj, view=view, ephemeral=True)
+
+        elif action == "daily":
+            if not content:
+                return await interaction.followup.send("❌ Please provide the `content` / task to log in today's Daily Note.", ephemeral=True)
+
+            res = await db.append_daily_obsidian_note(user.id, guild.id if guild else None, content)
+            daily_title = res.get("title", f"Daily Note {datetime.date.today().isoformat()}")
+            daily_content = res.get("content", "")
+            note_id = res.get("id", 0)
+
+            md_text = format_obsidian_markdown(daily_title, daily_content, user.display_name, "daily, log, tasks", "Daily")
+            clean_filename = daily_title.replace(' ', '_')
+            file_obj = discord.File(
+                fp=io.BytesIO(md_text.encode('utf-8')),
+                filename=f"{clean_filename}.md"
+            )
+
+            embed = discord.Embed(
+                title=f"📅 Daily Note Updated — {datetime.date.today().isoformat()}",
+                description=f"**New Entry Logged:**\n- [ ] **{datetime.datetime.now().strftime('%H:%M')}** — {content}\n\n*Updated daily note attached below ready for your Obsidian Vault.*",
+                color=discord.Color.teal(),
+                timestamp=datetime.datetime.utcnow()
+            )
+            embed.set_footer(text="Obsidian Daily Notes • Synchronized via Sweety")
+            view = ObsidianNoteView(note_id, user.id, daily_title, md_text)
+            await interaction.followup.send(embed=embed, file=file_obj, view=view, ephemeral=True)
+
+        elif action == "clip":
+            if not interaction.channel:
+                return await interaction.followup.send("❌ Cannot clip from outside a channel.", ephemeral=True)
+            limit = max(3, min(clip_limit or 10, 30))
+            
+            messages = []
+            async for m in interaction.channel.history(limit=limit):
+                if m.content or m.attachments:
+                    messages.append(m)
+            messages.reverse()
+
+            if not messages:
+                return await interaction.followup.send("❌ No recent messages found to clip.", ephemeral=True)
+
+            transcript_lines = []
+            for m in messages:
+                ts = m.created_at.strftime("%H:%M")
+                author = m.author.display_name
+                text = m.clean_content
+                if m.attachments:
+                    att_urls = " ".join(f"[{a.filename}]({a.url})" for a in m.attachments)
+                    text = f"{text} *(Attachments: {att_urls})*" if text else f"*(Attachments: {att_urls})*"
+                transcript_lines.append(f"> **{author}** ({ts}): {text}")
+
+            transcript_text = "\n>\n".join(transcript_lines)
+            
+            clip_title = (title or f"Chat Clip - #{interaction.channel.name} ({datetime.date.today()})").strip()
+            clip_folder = (folder or "Clippings").strip().strip("/").strip("\\") or "Clippings"
+            clip_tags = (tags or f"clipping, discord, {interaction.channel.name}").strip()
+
+            # AI Executive Summary
+            summary_prompt = (
+                f"Generate a concise 2-3 bullet point executive summary of this Discord chat discussion:\n\n"
+                f"{transcript_text[:1500]}"
+            )
+            ai_summary = ""
+            try:
+                ai_summary = await call_ai_generation(summary_prompt, "You are an executive note-taking assistant. Provide a clean 2-3 bullet summary.")
+            except Exception:
+                ai_summary = "Discussion captured from Discord channel."
+
+            full_md_content = f"## 📌 Executive Summary\n{ai_summary}\n\n## 💬 Discord Transcript\n{transcript_text}\n"
+            
+            note_id = await db.create_obsidian_note(
+                user_id=user.id,
+                guild_id=guild.id if guild else None,
+                title=clip_title,
+                content=full_md_content,
+                tags=clip_tags,
+                folder=clip_folder
+            )
+
+            md_text = format_obsidian_markdown(clip_title, full_md_content, user.display_name, clip_tags, clip_folder)
+            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', clip_title).strip().replace(' ', '_') or "chat_clip"
+            file_obj = discord.File(
+                fp=io.BytesIO(md_text.encode('utf-8')),
+                filename=f"{clean_filename}.md"
+            )
+
+            embed = discord.Embed(
+                title=f"📎 Channel Clipped to Obsidian: {clip_title}",
+                description=f"**Executive Summary:**\n{ai_summary[:400]}\n\n*Captured {len(messages)} messages from {interaction.channel.mention}*",
+                color=discord.Color.gold(),
+                timestamp=datetime.datetime.utcnow()
+            )
+            embed.add_field(name="📂 Folder", value=f"`{clip_folder}`", inline=True)
+            embed.add_field(name="🏷️ Tags", value=f"`{clip_tags}`", inline=True)
+            embed.set_footer(text="Obsidian Clipping • Drag attached .md into your Obsidian Vault")
+
+            view = ObsidianNoteView(note_id or 0, user.id, clip_title, md_text)
+            await interaction.followup.send(embed=embed, file=file_obj, view=view)
+
+        elif action == "search":
+            search_q = query or title or content or tags or ""
+            if not search_q:
+                return await interaction.followup.send("❌ Please provide a search `query` (e.g. `/obsidian search query:bot ideas`).", ephemeral=True)
+            
+            notes = await db.search_obsidian_notes(user.id, search_q, limit=10)
+            if not notes:
+                return await interaction.followup.send(f"🔍 No notes found in your Obsidian vault matching **`{search_q}`**.", ephemeral=True)
+
+            embed = discord.Embed(
+                title=f"🔍 Obsidian Search Results for \"{search_q}\"",
+                description=f"Found **{len(notes)}** note(s) matching your query:",
+                color=discord.Color.purple(),
+                timestamp=datetime.datetime.utcnow()
+            )
             for n in notes:
+                n_id = n["id"]
                 n_title = n["title"]
-                n_content = n.get("content", "")
-                n_tags = n.get("tags", "")
                 n_folder = n.get("folder", "Inbox")
-                n_time = n.get("created_at", time.time())
+                n_tags = n.get("tags", "")
+                preview = n.get("content", "").replace("\n", " ")[:90]
+                embed.add_field(
+                    name=f"📄 {n_title} (ID: `{n_id}`)",
+                    value=f"• **Folder:** `{n_folder}` | **Tags:** `{n_tags or 'None'}`\n• **Preview:** {preview}...",
+                    inline=False
+                )
+            embed.set_footer(text="Use /obsidian export to download all notes as a zip archive")
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
-                md_text = format_obsidian_markdown(n_title, n_content, user.display_name, n_tags, n_folder, n_time)
-                clean_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_title).strip().replace(' ', '_') or "note"
-                clean_folder = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_folder).strip() or "Inbox"
-                
-                zip_path = f"Vault/{clean_folder}/{clean_title}.md"
-                zip_file.writestr(zip_path, md_text)
+        elif action == "list":
+            notes = await db.get_user_obsidian_notes(user.id, folder=folder, limit=15)
+            if not notes:
+                return await interaction.followup.send("📂 You currently have 0 notes saved in your Obsidian vault.", ephemeral=True)
 
-        zip_buffer.seek(0)
-        file_obj = discord.File(
-            fp=zip_buffer,
-            filename=f"Sweety_Obsidian_Vault_{user.name}_{datetime.date.today().isoformat()}.zip"
-        )
+            embed = discord.Embed(
+                title=f"📂 Your Obsidian Vault Notes" + (f" ({folder})" if folder else ""),
+                description=f"Showing your **{len(notes)}** most recent notes:",
+                color=discord.Color.blue(),
+                timestamp=datetime.datetime.utcnow()
+            )
+            for n in notes:
+                n_id = n["id"]
+                n_title = n["title"]
+                n_folder = n.get("folder", "Inbox")
+                n_tags = n.get("tags", "")
+                n_time = datetime.datetime.fromtimestamp(n.get("updated_at", time.time())).strftime("%Y-%m-%d %H:%M")
+                embed.add_field(
+                    name=f"📄 {n_title} (ID: `{n_id}`)",
+                    value=f"• **Folder:** `{n_folder}` | **Updated:** `{n_time}`\n• **Tags:** `{n_tags or 'None'}`",
+                    inline=False
+                )
+            embed.set_footer(text="Use /obsidian export to bundle and download everything")
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
-        embed = discord.Embed(
-            title="📦 Obsidian Vault Export Complete!",
-            description=(
-                f"Successfully bundled **{len(notes)} note(s)** into an Obsidian-ready ZIP archive!\n\n"
-                "**How to use:**\n"
-                "1. Download the attached `.zip` file.\n"
-                "2. Extract the `Vault/` folder into your Obsidian Vault location or drag the `.md` files into Obsidian.\n"
-                "3. Obsidian will immediately recognize all tags, frontmatter YAML, and folder hierarchy!"
-            ),
-            color=discord.Color.brand_green(),
-            timestamp=datetime.datetime.utcnow()
-        )
-        embed.set_footer(text="Sweety Obsidian Vault Bridge")
-        await interaction.followup.send(embed=embed, file=file_obj)
+        elif action == "export":
+            import zipfile
+            notes = await db.get_user_obsidian_notes(user.id, limit=5000)
+            if not notes:
+                return await interaction.followup.send("❌ You don't have any notes saved to export yet! Create some with `/obsidian note` or `/obsidian daily`.", ephemeral=True)
 
-    elif action == "help":
-        embed = discord.Embed(
-            title="🔮 Sweety × Obsidian Vault Integration Guide",
-            description=(
-                "Connect Discord thoughts, channel clippings, and daily task logs directly to your **Obsidian Knowledge Base**!\n\n"
-                "### 📌 Available Commands:\n"
-                "• **`/obsidian note`** / `!note <title> | <content>` — Create a Markdown note with YAML frontmatter & tags.\n"
-                "• **`/obsidian daily`** / `!daily <task/log>` — Append timestamped tasks to today's Daily Note (`YYYY-MM-DD.md`).\n"
-                "• **`/obsidian clip`** / `!obsidian clip` — Clip & summarize recent channel conversations into a formatted markdown file.\n"
-                "• **`/obsidian search`** / `!obsidian search <query>` — Search your saved notes by keyword, title, or tag.\n"
-                "• **`/obsidian list`** / `!obsidian list` — View all recent notes in your vault by folder.\n"
-                "• **`/obsidian export`** / `!obsidian export` — Export all notes as a structured `.zip` archive ready to drop into Obsidian.\n\n"
-                "### 💡 Obsidian Features Supported:\n"
-                "✅ Frontmatter YAML metadata (`title`, `author`, `created`, `folder`, `tags`)\n"
-                "✅ Markdown checkboxes (`- [ ]`) & timestamps\n"
-                "✅ Folder hierarchy (`Inbox/`, `Daily/`, `Clippings/`)\n"
-                "✅ 1-Click `.md` file download & `.zip` full vault backup"
-            ),
-            color=discord.Color.purple()
-        )
-        embed.set_footer(text="Sweety PKM & Obsidian Bridge")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for n in notes:
+                    n_title = n["title"]
+                    n_content = n.get("content", "")
+                    n_tags = n.get("tags", "")
+                    n_folder = n.get("folder", "Inbox")
+                    n_time = n.get("created_at", time.time())
+
+                    md_text = format_obsidian_markdown(n_title, n_content, user.display_name, n_tags, n_folder, n_time)
+                    clean_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_title).strip().replace(' ', '_') or "note"
+                    clean_folder = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_folder).strip() or "Inbox"
+                    
+                    zip_path = f"Vault/{clean_folder}/{clean_title}.md"
+                    zip_file.writestr(zip_path, md_text)
+
+            zip_buffer.seek(0)
+            file_obj = discord.File(
+                fp=zip_buffer,
+                filename=f"Sweety_Obsidian_Vault_{user.name}_{datetime.date.today().isoformat()}.zip"
+            )
+
+            embed = discord.Embed(
+                title="📦 Obsidian Vault Export Complete!",
+                description=(
+                    f"Successfully bundled **{len(notes)} note(s)** into an Obsidian-ready ZIP archive!\n\n"
+                    "**How to use:**\n"
+                    "1. Download the attached `.zip` file.\n"
+                    "2. Extract the `Vault/` folder into your Obsidian Vault location or drag the `.md` files into Obsidian.\n"
+                    "3. Obsidian will immediately recognize all tags, frontmatter YAML, and folder hierarchy!"
+                ),
+                color=discord.Color.brand_green(),
+                timestamp=datetime.datetime.utcnow()
+            )
+            embed.set_footer(text="Sweety Obsidian Vault Bridge")
+            await interaction.followup.send(embed=embed, file=file_obj)
+
+        elif action == "help":
+            embed = discord.Embed(
+                title="🔮 Sweety × Obsidian Vault Integration Guide",
+                description=(
+                    "Connect Discord thoughts, channel clippings, and daily task logs directly to your **Obsidian Knowledge Base**!\n\n"
+                    "### 📌 Available Commands:\n"
+                    "• **`/obsidian note`** / `!note <title> | <content>` — Create a Markdown note with YAML frontmatter & tags.\n"
+                    "• **`/obsidian daily`** / `!daily <task/log>` — Append timestamped tasks to today's Daily Note (`YYYY-MM-DD.md`).\n"
+                    "• **`/obsidian clip`** / `!obsidian clip` — Clip & summarize recent channel conversations into a formatted markdown file.\n"
+                    "• **`/obsidian search`** / `!obsidian search <query>` — Search your saved notes by keyword, title, or tag.\n"
+                    "• **`/obsidian list`** / `!obsidian list` — View all recent notes in your vault by folder.\n"
+                    "• **`/obsidian export`** / `!obsidian export` — Export all notes as a structured `.zip` archive ready to drop into Obsidian.\n\n"
+                    "### 💡 Obsidian Features Supported:\n"
+                    "✅ Frontmatter YAML metadata (`title`, `author`, `created`, `folder`, `tags`)\n"
+                    "✅ Markdown checkboxes (`- [ ]`) & timestamps\n"
+                    "✅ Folder hierarchy (`Inbox/`, `Daily/`, `Clippings/`)\n"
+                    "✅ 1-Click `.md` file download & `.zip` full vault backup"
+                ),
+                color=discord.Color.purple()
+            )
+            embed.set_footer(text="Sweety PKM & Obsidian Bridge")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /obsidian: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Obsidian error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Obsidian error: {e}", ephemeral=True)
 
 
 # ── Prefix Obsidian Commands ───────────────────────────────────────────────
@@ -10973,167 +11149,171 @@ async def obsidian_slash_cmd(
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def obsidian_prefix_cmd(ctx: commands.Context, action: Optional[str] = "help", *, args: Optional[str] = ""):
     """Obsidian vault commands: !obsidian note | !obsidian daily | !obsidian search | !obsidian export"""
-    act = (action or "help").lower()
-    user = ctx.author
-    guild = ctx.guild
+    try:
+        act = (action or "help").lower()
+        user = ctx.author
+        guild = ctx.guild
 
-    if act in ("note", "new", "create", "add"):
-        if not args:
-            return await ctx.reply("❌ Usage: `!obsidian note <Title> | <Content> [| tags]`\nExample: `!obsidian note Bot Architecture | Need to optimize database connection pooling | discord, coding`")
-        parts = [p.strip() for p in args.split("|")]
-        note_title = parts[0] if len(parts) >= 1 else f"Note {datetime.date.today()}"
-        note_content = parts[1] if len(parts) >= 2 else parts[0]
-        note_tags = parts[2] if len(parts) >= 3 else ""
+        if act in ("note", "new", "create", "add"):
+            if not args:
+                return await ctx.reply("❌ Usage: `!obsidian note <Title> | <Content> [| tags]`\nExample: `!obsidian note Bot Architecture | Need to optimize database connection pooling | discord, coding`")
+            parts = [p.strip() for p in args.split("|")]
+            note_title = parts[0] if len(parts) >= 1 else f"Note {datetime.date.today()}"
+            note_content = parts[1] if len(parts) >= 2 else parts[0]
+            note_tags = parts[2] if len(parts) >= 3 else ""
 
-        note_id = await db.create_obsidian_note(user.id, guild.id if guild else None, note_title, note_content, note_tags, "Inbox")
-        md_text = format_obsidian_markdown(note_title, note_content, user.display_name, note_tags, "Inbox")
-        clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', note_title).strip().replace(' ', '_') or "note"
-        file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
+            note_id = await db.create_obsidian_note(user.id, guild.id if guild else None, note_title, note_content, note_tags, "Inbox")
+            md_text = format_obsidian_markdown(note_title, note_content, user.display_name, note_tags, "Inbox")
+            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', note_title).strip().replace(' ', '_') or "note"
+            file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
 
-        embed = discord.Embed(
-            title=f"📝 Obsidian Note Created: {note_title}",
-            description=note_content[:400] + ("..." if len(note_content) > 400 else ""),
-            color=discord.Color.purple()
-        )
-        embed.set_footer(text="Obsidian Markdown Ready • Drag attached .md into your Obsidian Vault")
-        view = ObsidianNoteView(note_id or 0, user.id, note_title, md_text)
-        await ctx.reply(embed=embed, file=file_obj, view=view)
+            embed = discord.Embed(
+                title=f"📝 Obsidian Note Created: {note_title}",
+                description=note_content[:400] + ("..." if len(note_content) > 400 else ""),
+                color=discord.Color.purple()
+            )
+            embed.set_footer(text="Obsidian Markdown Ready • Drag attached .md into your Obsidian Vault")
+            view = ObsidianNoteView(note_id or 0, user.id, note_title, md_text)
+            await ctx.reply(embed=embed, file=file_obj, view=view)
 
-    elif act in ("daily", "today", "log"):
-        if not args:
-            return await ctx.reply("❌ Usage: `!obsidian daily <your task or thought here>`\nExample: `!obsidian daily Research Discord voice state updates`")
-        
-        res = await db.append_daily_obsidian_note(user.id, guild.id if guild else None, args)
-        daily_title = res.get("title", f"Daily Note {datetime.date.today().isoformat()}")
-        daily_content = res.get("content", "")
-        note_id = res.get("id", 0)
+        elif act in ("daily", "today", "log"):
+            if not args:
+                return await ctx.reply("❌ Usage: `!obsidian daily <your task or thought here>`\nExample: `!obsidian daily Research Discord voice state updates`")
+            
+            res = await db.append_daily_obsidian_note(user.id, guild.id if guild else None, args)
+            daily_title = res.get("title", f"Daily Note {datetime.date.today().isoformat()}")
+            daily_content = res.get("content", "")
+            note_id = res.get("id", 0)
 
-        md_text = format_obsidian_markdown(daily_title, daily_content, user.display_name, "daily, log, tasks", "Daily")
-        clean_filename = daily_title.replace(' ', '_')
-        file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
+            md_text = format_obsidian_markdown(daily_title, daily_content, user.display_name, "daily, log, tasks", "Daily")
+            clean_filename = daily_title.replace(' ', '_')
+            file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
 
-        embed = discord.Embed(
-            title=f"📅 Daily Note Updated — {datetime.date.today().isoformat()}",
-            description=f"**New Entry Logged:**\n- [ ] **{datetime.datetime.now().strftime('%H:%M')}** — {args}\n\n*Updated daily note attached below for your Obsidian Vault.*",
-            color=discord.Color.teal()
-        )
-        view = ObsidianNoteView(note_id, user.id, daily_title, md_text)
-        await ctx.reply(embed=embed, file=file_obj, view=view)
+            embed = discord.Embed(
+                title=f"📅 Daily Note Updated — {datetime.date.today().isoformat()}",
+                description=f"**New Entry Logged:**\n- [ ] **{datetime.datetime.now().strftime('%H:%M')}** — {args}\n\n*Updated daily note attached below for your Obsidian Vault.*",
+                color=discord.Color.teal()
+            )
+            view = ObsidianNoteView(note_id, user.id, daily_title, md_text)
+            await ctx.reply(embed=embed, file=file_obj, view=view)
 
-    elif act in ("clip", "capture"):
-        limit = 10
-        if args and args.isdigit():
-            limit = max(3, min(int(args), 30))
-        
-        messages = []
-        async for m in ctx.channel.history(limit=limit + 1):
-            if m.id != ctx.message.id and (m.content or m.attachments):
-                messages.append(m)
-        messages.reverse()
+        elif act in ("clip", "capture"):
+            limit = 10
+            if args and args.isdigit():
+                limit = max(3, min(int(args), 30))
+            
+            messages = []
+            async for m in ctx.channel.history(limit=limit + 1):
+                if m.id != ctx.message.id and (m.content or m.attachments):
+                    messages.append(m)
+            messages.reverse()
 
-        if not messages:
-            return await ctx.reply("❌ No recent messages found to clip.")
+            if not messages:
+                return await ctx.reply("❌ No recent messages found to clip.")
 
-        transcript_lines = []
-        for m in messages:
-            ts = m.created_at.strftime("%H:%M")
-            author = m.author.display_name
-            text = m.clean_content
-            if m.attachments:
-                att_urls = " ".join(f"[{a.filename}]({a.url})" for a in m.attachments)
-                text = f"{text} *(Attachments: {att_urls})*" if text else f"*(Attachments: {att_urls})*"
-            transcript_lines.append(f"> **{author}** ({ts}): {text}")
+            transcript_lines = []
+            for m in messages:
+                ts = m.created_at.strftime("%H:%M")
+                author = m.author.display_name
+                text = m.clean_content
+                if m.attachments:
+                    att_urls = " ".join(f"[{a.filename}]({a.url})" for a in m.attachments)
+                    text = f"{text} *(Attachments: {att_urls})*" if text else f"*(Attachments: {att_urls})*"
+                transcript_lines.append(f"> **{author}** ({ts}): {text}")
 
-        transcript_text = "\n>\n".join(transcript_lines)
-        clip_title = f"Chat Clip - #{ctx.channel.name} ({datetime.date.today()})"
-        clip_tags = f"clipping, discord, {ctx.channel.name}"
+            transcript_text = "\n>\n".join(transcript_lines)
+            clip_title = f"Chat Clip - #{ctx.channel.name} ({datetime.date.today()})"
+            clip_tags = f"clipping, discord, {ctx.channel.name}"
 
-        summary_prompt = f"Generate a concise 2-3 bullet point summary of this chat:\n\n{transcript_text[:1500]}"
-        try:
-            ai_summary = await call_ai_generation(summary_prompt, "You are a note-taking assistant. Provide a clean 2-3 bullet summary.")
-        except Exception:
-            ai_summary = "Discussion captured from Discord channel."
+            summary_prompt = f"Generate a concise 2-3 bullet point summary of this chat:\n\n{transcript_text[:1500]}"
+            try:
+                ai_summary = await call_ai_generation(summary_prompt, "You are a note-taking assistant. Provide a clean 2-3 bullet summary.")
+            except Exception:
+                ai_summary = "Discussion captured from Discord channel."
 
-        full_md_content = f"## 📌 Executive Summary\n{ai_summary}\n\n## 💬 Discord Transcript\n{transcript_text}\n"
-        note_id = await db.create_obsidian_note(user.id, guild.id if guild else None, clip_title, full_md_content, clip_tags, "Clippings")
+            full_md_content = f"## 📌 Executive Summary\n{ai_summary}\n\n## 💬 Discord Transcript\n{transcript_text}\n"
+            note_id = await db.create_obsidian_note(user.id, guild.id if guild else None, clip_title, full_md_content, clip_tags, "Clippings")
 
-        md_text = format_obsidian_markdown(clip_title, full_md_content, user.display_name, clip_tags, "Clippings")
-        clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', clip_title).strip().replace(' ', '_') or "chat_clip"
-        file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
+            md_text = format_obsidian_markdown(clip_title, full_md_content, user.display_name, clip_tags, "Clippings")
+            clean_filename = re.sub(r'[^a-zA-Z0-9_\- ]', '', clip_title).strip().replace(' ', '_') or "chat_clip"
+            file_obj = discord.File(fp=io.BytesIO(md_text.encode('utf-8')), filename=f"{clean_filename}.md")
 
-        embed = discord.Embed(
-            title=f"📎 Channel Clipped to Obsidian: {clip_title}",
-            description=f"**Executive Summary:**\n{ai_summary[:400]}\n\n*Captured {len(messages)} messages from {ctx.channel.mention}*",
-            color=discord.Color.gold()
-        )
-        view = ObsidianNoteView(note_id or 0, user.id, clip_title, md_text)
-        await ctx.reply(embed=embed, file=file_obj, view=view)
+            embed = discord.Embed(
+                title=f"📎 Channel Clipped to Obsidian: {clip_title}",
+                description=f"**Executive Summary:**\n{ai_summary[:400]}\n\n*Captured {len(messages)} messages from {ctx.channel.mention}*",
+                color=discord.Color.gold()
+            )
+            view = ObsidianNoteView(note_id or 0, user.id, clip_title, md_text)
+            await ctx.reply(embed=embed, file=file_obj, view=view)
 
-    elif act in ("search", "find"):
-        if not args:
-            return await ctx.reply("❌ Usage: `!obsidian search <query>`")
-        notes = await db.search_obsidian_notes(user.id, args, limit=10)
-        if not notes:
-            return await ctx.reply(f"🔍 No notes found matching **`{args}`**.")
-        embed = discord.Embed(
-            title=f"🔍 Obsidian Search Results for \"{args}\"",
-            description=f"Found **{len(notes)}** note(s):",
-            color=discord.Color.purple()
-        )
-        for n in notes:
-            n_title = n["title"]
-            n_folder = n.get("folder", "Inbox")
-            embed.add_field(name=f"📄 {n_title}", value=f"• Folder: `{n_folder}` (ID: `{n['id']}`)", inline=False)
-        await ctx.reply(embed=embed)
-
-    elif act in ("export", "download", "backup"):
-        import zipfile
-        notes = await db.get_user_obsidian_notes(user.id, limit=5000)
-        if not notes:
-            return await ctx.reply("❌ You don't have any notes saved to export yet! Create some with `!note <title> | <content>`.")
-
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        elif act in ("search", "find"):
+            if not args:
+                return await ctx.reply("❌ Usage: `!obsidian search <query>`")
+            notes = await db.search_obsidian_notes(user.id, args, limit=10)
+            if not notes:
+                return await ctx.reply(f"🔍 No notes found matching **`{args}`**.")
+            embed = discord.Embed(
+                title=f"🔍 Obsidian Search Results for \"{args}\"",
+                description=f"Found **{len(notes)}** note(s):",
+                color=discord.Color.purple()
+            )
             for n in notes:
                 n_title = n["title"]
-                n_content = n.get("content", "")
-                n_tags = n.get("tags", "")
                 n_folder = n.get("folder", "Inbox")
-                n_time = n.get("created_at", time.time())
+                embed.add_field(name=f"📄 {n_title}", value=f"• Folder: `{n_folder}` (ID: `{n['id']}`)", inline=False)
+            await ctx.reply(embed=embed)
 
-                md_text = format_obsidian_markdown(n_title, n_content, user.display_name, n_tags, n_folder, n_time)
-                clean_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_title).strip().replace(' ', '_') or "note"
-                clean_folder = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_folder).strip() or "Inbox"
-                zip_path = f"Vault/{clean_folder}/{clean_title}.md"
-                zip_file.writestr(zip_path, md_text)
+        elif act in ("export", "download", "backup"):
+            import zipfile
+            notes = await db.get_user_obsidian_notes(user.id, limit=5000)
+            if not notes:
+                return await ctx.reply("❌ You don't have any notes saved to export yet! Create some with `!note <title> | <content>`.")
 
-        zip_buffer.seek(0)
-        file_obj = discord.File(
-            fp=zip_buffer,
-            filename=f"Sweety_Obsidian_Vault_{user.name}_{datetime.date.today().isoformat()}.zip"
-        )
-        embed = discord.Embed(
-            title="📦 Obsidian Vault Export Complete!",
-            description=f"Successfully bundled **{len(notes)} note(s)** into a ZIP archive ready for your Obsidian Vault.",
-            color=discord.Color.brand_green()
-        )
-        await ctx.reply(embed=embed, file=file_obj)
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for n in notes:
+                    n_title = n["title"]
+                    n_content = n.get("content", "")
+                    n_tags = n.get("tags", "")
+                    n_folder = n.get("folder", "Inbox")
+                    n_time = n.get("created_at", time.time())
 
-    else:
-        embed = discord.Embed(
-            title="🔮 Sweety × Obsidian Vault Integration Guide",
-            description=(
-                "**Available Commands:**\n"
-                "• `!obsidian note <Title> | <Content> [| tags]` — Create a markdown note with YAML frontmatter\n"
-                "• `!obsidian daily <task/thought>` (or `!daily <task>`) — Append to today's Daily Note\n"
-                "• `!obsidian clip [limit]` — Clip & AI-summarize recent channel conversation into Obsidian\n"
-                "• `!obsidian search <query>` — Search your saved notes\n"
-                "• `!obsidian export` — Download your entire vault as a `.zip` archive\n"
-                "• `/obsidian` — Interactive Slash command interface with direct `.md` file generator"
-            ),
-            color=discord.Color.purple()
-        )
-        await ctx.reply(embed=embed)
+                    md_text = format_obsidian_markdown(n_title, n_content, user.display_name, n_tags, n_folder, n_time)
+                    clean_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_title).strip().replace(' ', '_') or "note"
+                    clean_folder = re.sub(r'[^a-zA-Z0-9_\- ]', '', n_folder).strip() or "Inbox"
+                    zip_path = f"Vault/{clean_folder}/{clean_title}.md"
+                    zip_file.writestr(zip_path, md_text)
+
+            zip_buffer.seek(0)
+            file_obj = discord.File(
+                fp=zip_buffer,
+                filename=f"Sweety_Obsidian_Vault_{user.name}_{datetime.date.today().isoformat()}.zip"
+            )
+            embed = discord.Embed(
+                title="📦 Obsidian Vault Export Complete!",
+                description=f"Successfully bundled **{len(notes)} note(s)** into a ZIP archive ready for your Obsidian Vault.",
+                color=discord.Color.brand_green()
+            )
+            await ctx.reply(embed=embed, file=file_obj)
+
+        else:
+            embed = discord.Embed(
+                title="🔮 Sweety × Obsidian Vault Integration Guide",
+                description=(
+                    "**Available Commands:**\n"
+                    "• `!obsidian note <Title> | <Content> [| tags]` — Create a markdown note with YAML frontmatter\n"
+                    "• `!obsidian daily <task/thought>` (or `!daily <task>`) — Append to today's Daily Note\n"
+                    "• `!obsidian clip [limit]` — Clip & AI-summarize recent channel conversation into Obsidian\n"
+                    "• `!obsidian search <query>` — Search your saved notes\n"
+                    "• `!obsidian export` — Download your entire vault as a `.zip` archive\n"
+                    "• `/obsidian` — Interactive Slash command interface with direct `.md` file generator"
+                ),
+                color=discord.Color.purple()
+            )
+            await ctx.reply(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !obsidian: {e}")
+        await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
 @bot.command(name="note")
@@ -11141,7 +11321,11 @@ async def obsidian_prefix_cmd(ctx: commands.Context, action: Optional[str] = "he
 @commands.guild_only()
 async def note_prefix_alias(ctx: commands.Context, *, args: str = ""):
     """Quick shortcut to create an Obsidian note: !note <Title> | <Content> [| tags]"""
-    await obsidian_prefix_cmd(ctx, action="note", args=args)
+    try:
+        await obsidian_prefix_cmd(ctx, action="note", args=args)
+    except Exception as e:
+        logger.error(f"Error in !note: {e}")
+        await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
 @bot.command(name="daily")
@@ -11149,7 +11333,11 @@ async def note_prefix_alias(ctx: commands.Context, *, args: str = ""):
 @commands.guild_only()
 async def daily_prefix_alias(ctx: commands.Context, *, entry: str = ""):
     """Quick shortcut to log an entry in today's Obsidian Daily Note: !daily <entry>"""
-    await obsidian_prefix_cmd(ctx, action="daily", args=entry)
+    try:
+        await obsidian_prefix_cmd(ctx, action="daily", args=entry)
+    except Exception as e:
+        logger.error(f"Error in !daily: {e}")
+        await ctx.reply(f"❌ Error: {e}", mention_author=False)
 
 
 # ── App Slash & Prefix Help ──────────────────────────────────────────────────
@@ -11208,56 +11396,74 @@ def make_help_embed() -> discord.Embed:
 @bot.tree.command(name="help", description="Show all available commands and help options")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def help_command(interaction: discord.Interaction):
-    embed = make_help_embed()
-    await interaction.response.send_message(embed=embed)
+    try:
+        embed = make_help_embed()
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /help: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.command(name="help")
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def help_prefix_cmd(ctx: commands.Context):
     """Show all available commands and help options: !help"""
-    embed = make_help_embed()
-    await ctx.send(embed=embed)
+    try:
+        embed = make_help_embed()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !help: {e}")
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.tree.command(name="ping", description="Check Sweety's latency, Supabase database response time, and connection health")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def ping_slash(interaction: discord.Interaction):
-    start_time = time.perf_counter()
-    await interaction.response.defer(ephemeral=False)
-    api_latency = round(bot.latency * 1000)
-    
-    # Measure DB latency
-    db_start = time.perf_counter()
-    db_ok = False
     try:
-        if db.is_postgres and db.pg_pool:
-            async with db.pg_pool.acquire() as conn:
-                await conn.fetchval("SELECT 1;")
-            db_ok = True
-        elif db.sqlite_conn:
-            await db.sqlite_conn.execute("SELECT 1;")
-            db_ok = True
-    except Exception as e:
-        logger.error(f"DB ping failed: {e}")
-    db_latency = round((time.perf_counter() - db_start) * 1000)
-    roundtrip = round((time.perf_counter() - start_time) * 1000)
+        start_time = time.perf_counter()
+        await interaction.response.defer(ephemeral=False)
+        api_latency = round(bot.latency * 1000)
+        
+        # Measure DB latency
+        db_start = time.perf_counter()
+        db_ok = False
+        try:
+            if db.is_postgres and db.pg_pool:
+                async with db.pg_pool.acquire() as conn:
+                    await conn.fetchval("SELECT 1;")
+                db_ok = True
+            elif db.sqlite_conn:
+                await db.sqlite_conn.execute("SELECT 1;")
+                db_ok = True
+        except Exception as e:
+            logger.error(f"DB ping failed: {e}")
+        db_latency = round((time.perf_counter() - db_start) * 1000)
+        roundtrip = round((time.perf_counter() - start_time) * 1000)
 
-    embed = discord.Embed(
-        title="🏓 Pong! • Sweety Diagnostics",
-        color=discord.Color.from_rgb(88, 101, 242),
-        timestamp=discord.utils.utcnow()
-    )
-    embed.add_field(name="📶 Discord Gateway", value=f"`{api_latency}ms`", inline=True)
-    embed.add_field(name="⚡ Roundtrip Latency", value=f"`{roundtrip}ms`", inline=True)
-    embed.add_field(
-        name="🗄️ Database (Supabase)" if db.is_postgres else "🗄️ Database (SQLite)",
-        value=f"`{db_latency}ms` (Online 🟢)" if db_ok else "`Failed 🔴`",
-        inline=True
-    )
-    embed.set_footer(text=f"Sweety Bot • Shard {interaction.guild.shard_id if interaction.guild else 0}")
-    await interaction.followup.send(embed=embed)
+        embed = discord.Embed(
+            title="🏓 Pong! • Sweety Diagnostics",
+            color=discord.Color.from_rgb(88, 101, 242),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.add_field(name="📶 Discord Gateway", value=f"`{api_latency}ms`", inline=True)
+        embed.add_field(name="⚡ Roundtrip Latency", value=f"`{roundtrip}ms`", inline=True)
+        embed.add_field(
+            name="🗄️ Database (Supabase)" if db.is_postgres else "🗄️ Database (SQLite)",
+            value=f"`{db_latency}ms` (Online 🟢)" if db_ok else "`Failed 🔴`",
+            inline=True
+        )
+        embed.set_footer(text=f"Sweety Bot • Shard {interaction.guild.shard_id if interaction.guild else 0}")
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /ping: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.command(name="ping", aliases=["pong", "latency"])
@@ -11265,40 +11471,44 @@ async def ping_slash(interaction: discord.Interaction):
 @commands.guild_only()
 async def ping_prefix(ctx: commands.Context):
     """Check Sweety's latency and database health: !ping"""
-    start_time = time.perf_counter()
-    msg = await ctx.send("🏓 Pinging...")
-    roundtrip = round((time.perf_counter() - start_time) * 1000)
-    api_latency = round(bot.latency * 1000)
-    
-    # Measure DB latency
-    db_start = time.perf_counter()
-    db_ok = False
     try:
-        if db.is_postgres and db.pg_pool:
-            async with db.pg_pool.acquire() as conn:
-                await conn.fetchval("SELECT 1;")
-            db_ok = True
-        elif db.sqlite_conn:
-            await db.sqlite_conn.execute("SELECT 1;")
-            db_ok = True
-    except Exception as e:
-        logger.error(f"DB ping failed: {e}")
-    db_latency = round((time.perf_counter() - db_start) * 1000)
+        start_time = time.perf_counter()
+        msg = await ctx.send("🏓 Pinging...")
+        roundtrip = round((time.perf_counter() - start_time) * 1000)
+        api_latency = round(bot.latency * 1000)
+        
+        # Measure DB latency
+        db_start = time.perf_counter()
+        db_ok = False
+        try:
+            if db.is_postgres and db.pg_pool:
+                async with db.pg_pool.acquire() as conn:
+                    await conn.fetchval("SELECT 1;")
+                db_ok = True
+            elif db.sqlite_conn:
+                await db.sqlite_conn.execute("SELECT 1;")
+                db_ok = True
+        except Exception as e:
+            logger.error(f"DB ping failed: {e}")
+        db_latency = round((time.perf_counter() - db_start) * 1000)
 
-    embed = discord.Embed(
-        title="🏓 Pong! • Sweety Diagnostics",
-        color=discord.Color.from_rgb(88, 101, 242),
-        timestamp=discord.utils.utcnow()
-    )
-    embed.add_field(name="📶 Discord Gateway", value=f"`{api_latency}ms`", inline=True)
-    embed.add_field(name="⚡ Roundtrip Latency", value=f"`{roundtrip}ms`", inline=True)
-    embed.add_field(
-        name="🗄️ Database (Supabase)" if db.is_postgres else "🗄️ Database (SQLite)",
-        value=f"`{db_latency}ms` (Online 🟢)" if db_ok else "`Failed 🔴`",
-        inline=True
-    )
-    embed.set_footer(text=f"Sweety Bot • Server: {ctx.guild.name if ctx.guild else 'DM'}")
-    await msg.edit(content="", embed=embed)
+        embed = discord.Embed(
+            title="🏓 Pong! • Sweety Diagnostics",
+            color=discord.Color.from_rgb(88, 101, 242),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.add_field(name="📶 Discord Gateway", value=f"`{api_latency}ms`", inline=True)
+        embed.add_field(name="⚡ Roundtrip Latency", value=f"`{roundtrip}ms`", inline=True)
+        embed.add_field(
+            name="🗄️ Database (Supabase)" if db.is_postgres else "🗄️ Database (SQLite)",
+            value=f"`{db_latency}ms` (Online 🟢)" if db_ok else "`Failed 🔴`",
+            inline=True
+        )
+        embed.set_footer(text=f"Sweety Bot • Server: {ctx.guild.name if ctx.guild else 'DM'}")
+        await msg.edit(content="", embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !ping: {e}")
+        await ctx.send(f"❌ Error: {e}")
 
 
 
@@ -11308,23 +11518,30 @@ async def ping_prefix(ctx: commands.Context):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def pin_slash(interaction: discord.Interaction, message_id: str):
-    if not interaction.user.guild_permissions.manage_messages and not interaction.user.guild_permissions.administrator and interaction.user.id != getattr(interaction.guild, "owner_id", None):
-        return await interaction.response.send_message("❌ You need **Manage Messages** permission to pin messages.", ephemeral=True)
-    
-    clean_id = message_id.strip().rstrip("/").split("/")[-1]
-    if not clean_id.isdigit():
-        return await interaction.response.send_message("❌ Please provide a valid message ID or message link.", ephemeral=True)
-        
     try:
-        msg = await interaction.channel.fetch_message(int(clean_id))
-        await msg.pin(reason=f"Pinned by {interaction.user}")
-        await interaction.response.send_message(f"📌 [Message]({msg.jump_url}) by {msg.author.mention} has been pinned to {interaction.channel.mention}!", ephemeral=False)
-    except discord.NotFound:
-        await interaction.response.send_message("❌ Message not found in this channel.", ephemeral=True)
-    except discord.Forbidden:
-        await interaction.response.send_message("❌ Bot lacks permission to pin messages in this channel.", ephemeral=True)
+        if not interaction.user.guild_permissions.manage_messages and not interaction.user.guild_permissions.administrator and interaction.user.id != getattr(interaction.guild, "owner_id", None):
+            return await interaction.response.send_message("❌ You need **Manage Messages** permission to pin messages.", ephemeral=True)
+        
+        clean_id = message_id.strip().rstrip("/").split("/")[-1]
+        if not clean_id.isdigit():
+            return await interaction.response.send_message("❌ Please provide a valid message ID or message link.", ephemeral=True)
+            
+        try:
+            msg = await interaction.channel.fetch_message(int(clean_id))
+            await msg.pin(reason=f"Pinned by {interaction.user}")
+            await interaction.response.send_message(f"📌 [Message]({msg.jump_url}) by {msg.author.mention} has been pinned to {interaction.channel.mention}!", ephemeral=False)
+        except discord.NotFound:
+            await interaction.response.send_message("❌ Message not found in this channel.", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message("❌ Bot lacks permission to pin messages in this channel.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Failed to pin message: {e}", ephemeral=True)
     except Exception as e:
-        await interaction.response.send_message(f"❌ Failed to pin message: {e}", ephemeral=True)
+        logger.error(f"Error in /pin: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.command(name="pin")
@@ -11333,19 +11550,23 @@ async def pin_slash(interaction: discord.Interaction, message_id: str):
 @commands.guild_only()
 async def pin_prefix(ctx: commands.Context, message: Optional[discord.Message] = None):
     """Pin a message by replying to it with !pin or providing message ID: !pin <message_id>"""
-    target_msg = message
-    if not target_msg and ctx.message.reference and ctx.message.reference.message_id:
-        try:
-            target_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-        except Exception:
-            pass
-    if not target_msg:
-        return await ctx.send("⚠️ Reply to a message with `!pin` or pass its message ID: `!pin <message_id>`")
     try:
-        await target_msg.pin(reason=f"Pinned by {ctx.author}")
-        await ctx.send(f"📌 [Message]({target_msg.jump_url}) by {target_msg.author.mention} has been pinned!")
+        target_msg = message
+        if not target_msg and ctx.message.reference and ctx.message.reference.message_id:
+            try:
+                target_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+            except Exception:
+                pass
+        if not target_msg:
+            return await ctx.send("⚠️ Reply to a message with `!pin` or pass its message ID: `!pin <message_id>`")
+        try:
+            await target_msg.pin(reason=f"Pinned by {ctx.author}")
+            await ctx.send(f"📌 [Message]({target_msg.jump_url}) by {target_msg.author.mention} has been pinned!")
+        except Exception as e:
+            await ctx.send(f"❌ Failed to pin message: {e}")
     except Exception as e:
-        await ctx.send(f"❌ Failed to pin message: {e}")
+        logger.error(f"Error in !pin: {e}")
+        await ctx.send(f"❌ Error: {e}")
 
 
 
@@ -11369,128 +11590,135 @@ async def pin_prefix(ctx: commands.Context, message: Optional[discord.Message] =
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def setup_command(interaction: discord.Interaction, theme: str = None, description: str = None):
-    # Runtime Administrator Guard
-    if not interaction.user.guild_permissions.administrator and interaction.user.id != getattr(interaction.guild, "owner_id", None) and interaction.user.id != 719932313919684670:
-        return await interaction.response.send_message(
-            "❌ Only server administrators can use this command. Moderators and managers do not have access.",
-            ephemeral=True
+    try:
+        # Runtime Administrator Guard
+        if not interaction.user.guild_permissions.administrator and interaction.user.id != getattr(interaction.guild, "owner_id", None) and interaction.user.id != 719932313919684670:
+            return await interaction.response.send_message(
+                "❌ Only server administrators can use this command. Moderators and managers do not have access.",
+                ephemeral=True
+            )
+
+        if not theme and not description:
+            await interaction.response.send_message("❌ Please provide a preset `theme` OR a custom `description` to set up your server.", ephemeral=True)
+            return
+
+        # Double Confirmation View
+        confirm_embed = discord.Embed(
+            title="⚙️ Confirm Server Setup",
+            description=(
+                "This will create channels, roles, and categories for Sweety.\n"
+                "Existing bot-created content may be overwritten.\n\n"
+                "**Are you sure you want to proceed?**"
+            ),
+            color=discord.Color.orange()
         )
+        confirm_view = ConfirmActionView(interaction.user.id, "setup")
+        await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
+        await confirm_view.wait()
 
-    if not theme and not description:
-        await interaction.response.send_message("❌ Please provide a preset `theme` OR a custom `description` to set up your server.", ephemeral=True)
-        return
-
-    # Double Confirmation View
-    confirm_embed = discord.Embed(
-        title="⚙️ Confirm Server Setup",
-        description=(
-            "This will create channels, roles, and categories for Sweety.\n"
-            "Existing bot-created content may be overwritten.\n\n"
-            "**Are you sure you want to proceed?**"
-        ),
-        color=discord.Color.orange()
-    )
-    confirm_view = ConfirmActionView(interaction.user.id, "setup")
-    await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
-    await confirm_view.wait()
-
-    if not confirm_view.confirmed:
-        return
-
-    # ── Layer 1: Rate limit (user cooldown) ────────────────────────────────
-    # Only applies when AI is actually being called (description provided)
-    if description:
-        allowed, remaining = _check_user_cooldown(interaction.user.id)
-        if not allowed:
-            await interaction.followup.send(
-                f"⏳ You're sending commands too fast. Please wait **{remaining}s** before using `/setup` again.",
-                ephemeral=True
-            )
+        if not confirm_view.confirmed:
             return
 
-        # ── Layer 2: Rate limit (server hourly cap) ─────────────────────────
-        if not _check_server_limit(interaction.guild.id):
-            await interaction.followup.send(
-                f"🚫 This server has reached the **{_SERVER_HOURLY_LIMIT} AI uses/hour** limit. Try again later or use a preset theme.",
-                ephemeral=True
-            )
-            return
+        # ── Layer 1: Rate limit (user cooldown) ────────────────────────────────
+        # Only applies when AI is actually being called (description provided)
+        if description:
+            allowed, remaining = _check_user_cooldown(interaction.user.id)
+            if not allowed:
+                await interaction.followup.send(
+                    f"⏳ You're sending commands too fast. Please wait **{remaining}s** before using `/setup` again.",
+                    ephemeral=True
+                )
+                return
 
-        # ── Layer 3: Input sanitization ─────────────────────────────────────
-        is_clean, result = _sanitize_ai_input(description)
-        if not is_clean:
-            logger.warning(f"Prompt injection attempt in /setup by {interaction.user} ({interaction.user.id}) in guild {interaction.guild.id}: matched '{result}'")
-            await interaction.followup.send(
-                "⚠️ Your description was flagged for suspicious content. Please describe a normal Discord server.",
-                ephemeral=True
-            )
-            return
-        description = result  # use sanitized (truncated) version
+            # ── Layer 2: Rate limit (server hourly cap) ─────────────────────────
+            if not _check_server_limit(interaction.guild.id):
+                await interaction.followup.send(
+                    f"🚫 This server has reached the **{_SERVER_HOURLY_LIMIT} AI uses/hour** limit. Try again later or use a preset theme.",
+                    ephemeral=True
+                )
+                return
 
-    data = None
-    
-    # Case 1: Preset Theme only (runs instantly, zero quota usage)
-    if theme and not description:
-        logger.info(f"Loading preset theme '{theme}' for guild '{interaction.guild.name}'")
-        data = THEME_PRESETS.get(theme)
+            # ── Layer 3: Input sanitization ─────────────────────────────────────
+            is_clean, result = _sanitize_ai_input(description)
+            if not is_clean:
+                logger.warning(f"Prompt injection attempt in /setup by {interaction.user} ({interaction.user.id}) in guild {interaction.guild.id}: matched '{result}'")
+                await interaction.followup.send(
+                    "⚠️ Your description was flagged for suspicious content. Please describe a normal Discord server.",
+                    ephemeral=True
+                )
+                return
+            description = result  # use sanitized (truncated) version
+
+        data = None
         
-    # Case 2: Custom Description or Hybrid Prompt (runs AI)
-    else:
-        try:
-            prompt = description
-            sys_prompt = SYSTEM_PROMPT
+        # Case 1: Preset Theme only (runs instantly, zero quota usage)
+        if theme and not description:
+            logger.info(f"Loading preset theme '{theme}' for guild '{interaction.guild.name}'")
+            data = THEME_PRESETS.get(theme)
             
-            if theme:
-                theme_data = THEME_PRESETS.get(theme)
-                prompt = f"Using this preset layout as a reference: {json.dumps(theme_data)}, please modify and expand it to match the user's custom request: '{description}'."
+        # Case 2: Custom Description or Hybrid Prompt (runs AI)
+        else:
+            try:
+                prompt = description
+                sys_prompt = SYSTEM_PROMPT
                 
-            raw_response = await call_ai_generation(prompt, sys_prompt, json_mode=True)
-            raw_response = raw_response.strip()
+                if theme:
+                    theme_data = THEME_PRESETS.get(theme)
+                    prompt = f"Using this preset layout as a reference: {json.dumps(theme_data)}, please modify and expand it to match the user's custom request: '{description}'."
+                    
+                raw_response = await call_ai_generation(prompt, sys_prompt, json_mode=True)
+                raw_response = raw_response.strip()
 
-            if raw_response.startswith("```"):
-                lines = raw_response.splitlines()
-                lines = lines[1:] if lines[0].startswith("```") else lines
-                lines = lines[:-1] if lines and lines[-1].startswith("```") else lines
-                raw_response = "\n".join(lines).strip()
-                
-            data = json.loads(raw_response)
-        except Exception as e:
-            logger.error(f"AI API error during setup: {e}", exc_info=True)
-            await interaction.followup.send("❌ **AI Generation Failed:** An unexpected error occurred while communicating with the AI. The error has been logged for our developers.")
+                if raw_response.startswith("```"):
+                    lines = raw_response.splitlines()
+                    lines = lines[1:] if lines[0].startswith("```") else lines
+                    lines = lines[:-1] if lines and lines[-1].startswith("```") else lines
+                    raw_response = "\n".join(lines).strip()
+                    
+                data = json.loads(raw_response)
+            except Exception as e:
+                logger.error(f"AI API error during setup: {e}", exc_info=True)
+                await interaction.followup.send("❌ **AI Generation Failed:** An unexpected error occurred while communicating with the AI. The error has been logged for our developers.")
+                return
+
+        if not data:
+            await interaction.followup.send("❌ Error loading or generating the server layout.", ephemeral=True)
             return
 
-    if not data:
-        await interaction.followup.send("❌ Error loading or generating the server layout.", ephemeral=True)
-        return
+        # Prepare Preview Embed
+        roles_summary = [f"`{r['name']}` ({r.get('color', '#fff')})" for r in data.get("roles", [])]
+        categories_summary = []
+        total_channels = 0
 
-    # Prepare Preview Embed
-    roles_summary = [f"`{r['name']}` ({r.get('color', '#fff')})" for r in data.get("roles", [])]
-    categories_summary = []
-    total_channels = 0
+        for cat in data.get("categories", []):
+            chans = cat.get("channels", [])
+            total_channels += len(chans)
+            private_tag = " 🔒" if cat.get("private_for") else ""
+            
+            chan_names = []
+            for c in chans:
+                c_name = c.get('name', 'channel')
+                if c.get('topic'):
+                    chan_names.append(f"#{c_name} 💬")
+                else:
+                    chan_names.append(f"#{c_name}")
+                    
+            categories_summary.append(f"**{cat.get('name')}**{private_tag} ({len(chans)} channels: {', '.join(chan_names[:5])}{'...' if len(chan_names)>5 else ''})")
 
-    for cat in data.get("categories", []):
-        chans = cat.get("channels", [])
-        total_channels += len(chans)
-        private_tag = " 🔒" if cat.get("private_for") else ""
-        
-        chan_names = []
-        for c in chans:
-            c_name = c.get('name', 'channel')
-            if c.get('topic'):
-                chan_names.append(f"#{c_name} 💬")
-            else:
-                chan_names.append(f"#{c_name}")
-                
-        categories_summary.append(f"**{cat.get('name')}**{private_tag} ({len(chans)} channels: {', '.join(chan_names[:5])}{'...' if len(chan_names)>5 else ''})")
+        embed = discord.Embed(title="📋 Server Structure Preview", description="Review the generated layout below before creating channels and roles.\n*(Channels marked with 💬 include automatic topics & descriptions!)*", color=discord.Color.gold())
+        embed.add_field(name="🎭 Roles to Create", value=", ".join(roles_summary) or "None", inline=False)
+        embed.add_field(name=f"📁 Categories & Channels ({total_channels} channels total)", value="\n".join(categories_summary) or "None", inline=False)
+        embed.set_footer(text="Click Confirm & Build below to execute this plan.")
 
-    embed = discord.Embed(title="📋 Server Structure Preview", description="Review the generated layout below before creating channels and roles.\n*(Channels marked with 💬 include automatic topics & descriptions!)*", color=discord.Color.gold())
-    embed.add_field(name="🎭 Roles to Create", value=", ".join(roles_summary) or "None", inline=False)
-    embed.add_field(name=f"📁 Categories & Channels ({total_channels} channels total)", value="\n".join(categories_summary) or "None", inline=False)
-    embed.set_footer(text="Click Confirm & Build below to execute this plan.")
-
-    view = SetupConfirmView(interaction.user, interaction.guild, data, interaction)
-    await interaction.followup.send(embed=embed, view=view)
-    await log_mod_action(interaction.guild, interaction.user, interaction.guild.me, "Server Setup Initiated", f"Theme: {theme or 'Custom'}", f"🔧 /setup executed by {interaction.user.mention} at <t:{int(time.time())}:F>")
+        view = SetupConfirmView(interaction.user, interaction.guild, data, interaction)
+        await interaction.followup.send(embed=embed, view=view)
+        await log_mod_action(interaction.guild, interaction.user, interaction.guild.me, "Server Setup Initiated", f"Theme: {theme or 'Custom'}", f"🔧 /setup executed by {interaction.user.mention} at <t:{int(time.time())}:F>")
+    except Exception as e:
+        logger.error(f"Error in /setup: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Setup error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Setup error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="stylechannels", description="Apply a custom text styling aesthetic to all text channels in the server")
@@ -11508,37 +11736,44 @@ async def setup_command(interaction: discord.Interaction, theme: str = None, des
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 20.0, key=lambda i: (i.guild_id, i.user.id))
 async def stylechannels_command(interaction: discord.Interaction, style: str):
-    await interaction.response.defer(thinking=True)
-    success_count = 0
-    fail_count = 0
-    
-    for channel in interaction.guild.text_channels:
-        old_name = channel.name
+    try:
+        await interaction.response.defer(thinking=True)
+        success_count = 0
+        fail_count = 0
         
-        match = re.match(r"^([\u2000-\u32ff\ud83c-\udbff\udf00-\udfff]+[-#|]*)?(.*)$", old_name)
-        if match:
-            emoji_prefix = match.group(1) or ""
-            core_name = match.group(2) or ""
+        for channel in interaction.guild.text_channels:
+            old_name = channel.name
+            
+            match = re.match(r"^([\u2000-\u32ff\ud83c-\udbff\udf00-\udfff]+[-#|]*)?(.*)$", old_name)
+            if match:
+                emoji_prefix = match.group(1) or ""
+                core_name = match.group(2) or ""
+            else:
+                emoji_prefix = ""
+                core_name = old_name
+                
+            clean_core = destyle_text(core_name)
+            styled_core = style_text(clean_core, style)
+            new_name = f"{emoji_prefix}{styled_core}"
+            
+            if old_name == new_name:
+                continue
+                
+            try:
+                await channel.edit(name=new_name, reason="Style Channels Command")
+                success_count += 1
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Failed to style channel {old_name}: {e}")
+                fail_count += 1
+                
+        await interaction.followup.send(f"✅ Re-styled `{success_count}` text channels to chosen style! (Failed: `{fail_count}` due to permissions/limits)")
+    except Exception as e:
+        logger.error(f"Error in /stylechannels: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error styling channels: {e}")
         else:
-            emoji_prefix = ""
-            core_name = old_name
-            
-        clean_core = destyle_text(core_name)
-        styled_core = style_text(clean_core, style)
-        new_name = f"{emoji_prefix}{styled_core}"
-        
-        if old_name == new_name:
-            continue
-            
-        try:
-            await channel.edit(name=new_name, reason="Style Channels Command")
-            success_count += 1
-            await asyncio.sleep(0.5)
-        except Exception as e:
-            logger.warning(f"Failed to style channel {old_name}: {e}")
-            fail_count += 1
-            
-    await interaction.followup.send(f"✅ Re-styled `{success_count}` text channels to chosen style! (Failed: `{fail_count}` due to permissions/limits)")
+            await interaction.response.send_message(f"❌ Error styling channels: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="backup", description="Export the current server structure (roles, categories, channels) as a JSON template")
@@ -11546,13 +11781,13 @@ async def stylechannels_command(interaction: discord.Interaction, style: str):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 30.0, key=lambda i: (i.guild_id, i.user.id))
 async def backup_command(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True, ephemeral=False)
-    guild = interaction.guild
-    if not guild:
-        await interaction.followup.send("❌ This command can only be used in a server.", ephemeral=True)
-        return
-    
     try:
+        await interaction.response.defer(thinking=True, ephemeral=False)
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("❌ This command can only be used in a server.", ephemeral=True)
+            return
+        
         # 1. Export Roles
         roles_list = []
         for role in guild.roles:
@@ -11657,7 +11892,10 @@ async def backup_command(interaction: discord.Interaction):
         )
     except Exception as e:
         logger.error(f"Failed to generate backup: {e}", exc_info=True)
-        await interaction.followup.send(f"❌ Failed to generate server backup: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to generate server backup: {e}")
+        else:
+            await interaction.response.send_message(f"❌ Failed to generate server backup: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="restore", description="Restore or clone a server structure from a backup JSON file")
@@ -11666,51 +11904,58 @@ async def backup_command(interaction: discord.Interaction):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.guild_id, i.user.id))
 async def restore_command(interaction: discord.Interaction, file: discord.Attachment):
-    if not file.filename.endswith(".json"):
-        await interaction.response.send_message("❌ Please upload a valid JSON template file (.json).", ephemeral=True)
-        return
-        
-    await interaction.response.defer(thinking=True)
     try:
-        file_bytes = await file.read()
-        raw_data = file_bytes.decode("utf-8")
-        data = json.loads(raw_data)
+        if not file.filename.endswith(".json"):
+            await interaction.response.send_message("❌ Please upload a valid JSON template file (.json).", ephemeral=True)
+            return
+            
+        await interaction.response.defer(thinking=True)
+        try:
+            file_bytes = await file.read()
+            raw_data = file_bytes.decode("utf-8")
+            data = json.loads(raw_data)
+        except Exception as e:
+            logger.error(f"Failed to read backup file: {e}", exc_info=True)
+            await interaction.followup.send("❌ Failed to parse the backup file. Please ensure it is a valid backup JSON.")
+            return
+            
+        if "categories" not in data:
+            await interaction.followup.send("❌ Invalid template format. Missing the `categories` array.")
+            return
+            
+        # Prepare Preview Embed
+        roles_summary = [f"`{r['name']}` ({r.get('color', '#fff')})" for r in data.get("roles", [])]
+        categories_summary = []
+        total_channels = 0
+
+        for cat in data.get("categories", []):
+            chans = cat.get("channels", [])
+            total_channels += len(chans)
+            private_tag = " 🔒" if cat.get("private_for") else ""
+            
+            chan_names = []
+            for c in chans:
+                c_name = c.get('name', 'channel')
+                if c.get('topic'):
+                    chan_names.append(f"#{c_name} 💬")
+                else:
+                    chan_names.append(f"#{c_name}")
+                    
+            categories_summary.append(f"**{cat.get('name')}**{private_tag} ({len(chans)} channels: {', '.join(chan_names[:5])}{'...' if len(chan_names)>5 else ''})")
+
+        embed = discord.Embed(title="📋 Server Structure Preview (Restore)", description="Review the backup template layout below before creating channels and roles.", color=discord.Color.gold())
+        embed.add_field(name="🎭 Roles to Create", value=", ".join(roles_summary) or "None", inline=False)
+        embed.add_field(name=f"📁 Categories & Channels ({total_channels} channels total)", value="\n".join(categories_summary) or "None", inline=False)
+        embed.set_footer(text="Click Confirm & Build below to restore this layout.")
+
+        view = SetupConfirmView(interaction.user, interaction.guild, data, interaction)
+        await interaction.followup.send(embed=embed, view=view)
     except Exception as e:
-        logger.error(f"Failed to read backup file: {e}", exc_info=True)
-        await interaction.followup.send("❌ Failed to parse the backup file. Please ensure it is a valid backup JSON.")
-        return
-        
-    if "categories" not in data:
-        await interaction.followup.send("❌ Invalid template format. Missing the `categories` array.")
-        return
-        
-    # Prepare Preview Embed
-    roles_summary = [f"`{r['name']}` ({r.get('color', '#fff')})" for r in data.get("roles", [])]
-    categories_summary = []
-    total_channels = 0
-
-    for cat in data.get("categories", []):
-        chans = cat.get("channels", [])
-        total_channels += len(chans)
-        private_tag = " 🔒" if cat.get("private_for") else ""
-        
-        chan_names = []
-        for c in chans:
-            c_name = c.get('name', 'channel')
-            if c.get('topic'):
-                chan_names.append(f"#{c_name} 💬")
-            else:
-                chan_names.append(f"#{c_name}")
-                
-        categories_summary.append(f"**{cat.get('name')}**{private_tag} ({len(chans)} channels: {', '.join(chan_names[:5])}{'...' if len(chan_names)>5 else ''})")
-
-    embed = discord.Embed(title="📋 Server Structure Preview (Restore)", description="Review the backup template layout below before creating channels and roles.", color=discord.Color.gold())
-    embed.add_field(name="🎭 Roles to Create", value=", ".join(roles_summary) or "None", inline=False)
-    embed.add_field(name=f"📁 Categories & Channels ({total_channels} channels total)", value="\n".join(categories_summary) or "None", inline=False)
-    embed.set_footer(text="Click Confirm & Build below to restore this layout.")
-
-    view = SetupConfirmView(interaction.user, interaction.guild, data, interaction)
-    await interaction.followup.send(embed=embed, view=view)
+        logger.error(f"Error in /restore: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error restoring layout: {e}")
+        else:
+            await interaction.response.send_message(f"❌ Error restoring layout: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="dynamicvoice", description="Set up a dynamic Join-to-Create voice channel system")
@@ -11718,10 +11963,10 @@ async def restore_command(interaction: discord.Interaction, file: discord.Attach
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def dynamicvoice_command(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
-    guild = interaction.guild
-    
     try:
+        await interaction.response.defer(thinking=True)
+        guild = interaction.guild
+        
         category = await guild.create_category("🔊 DYNAMIC VOICE", reason="Dynamic Voice Setup")
         generator_channel = await guild.create_voice_channel(
             name="➕ Join to Create",
@@ -11736,7 +11981,10 @@ async def dynamicvoice_command(interaction: discord.Interaction):
         await interaction.followup.send(f"✅ **Dynamic Voice System set up successfully!**\nMembers joining {generator_channel.mention} will automatically get their own temporary voice rooms.")
     except Exception as e:
         logger.error(f"Failed to set up dynamic voice system: {e}", exc_info=True)
-        await interaction.followup.send("❌ Failed to set up dynamic voice system due to an internal error.")
+        if interaction.response.is_done():
+            await interaction.followup.send("❌ Failed to set up dynamic voice system due to an internal error.")
+        else:
+            await interaction.response.send_message("❌ Failed to set up dynamic voice system due to an internal error.", ephemeral=True)
 
 
 @bot.tree.command(name="setlogchannel", description="Set the channel where all moderation logs and Auto-Mod flags will be sent")
@@ -11745,13 +11993,20 @@ async def dynamicvoice_command(interaction: discord.Interaction):
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def setlogchannel_command(interaction: discord.Interaction, channel: discord.TextChannel):
-    permissions = channel.permissions_for(interaction.guild.me)
-    if not permissions.view_channel or not permissions.send_messages or not permissions.embed_links:
-        await interaction.response.send_message(f"❌ I don't have permission to view, send messages, or embed links in {channel.mention}!", ephemeral=True)
-        return
-        
-    await db.set_config(interaction.guild.id, "mod_log_channel_id", channel.id)
-    await interaction.response.send_message(f"✅ **Logging channel updated!** All moderation events and Auto-Mod logs will now be sent to {channel.mention}.")
+    try:
+        permissions = channel.permissions_for(interaction.guild.me)
+        if not permissions.view_channel or not permissions.send_messages or not permissions.embed_links:
+            await interaction.response.send_message(f"❌ I don't have permission to view, send messages, or embed links in {channel.mention}!", ephemeral=True)
+            return
+            
+        await db.set_config(interaction.guild.id, "mod_log_channel_id", channel.id)
+        await interaction.response.send_message(f"✅ **Logging channel updated!** All moderation events and Auto-Mod logs will now be sent to {channel.mention}.")
+    except Exception as e:
+        logger.error(f"Error in /setlogchannel: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error setting log channel: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error setting log channel: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="automod", description="Configure the Auto-Mod security and scam shield")
@@ -11773,23 +12028,30 @@ async def setlogchannel_command(interaction: discord.Interaction, channel: disco
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def automod_command(interaction: discord.Interaction, status: str, mode: str = "local"):
-    if status == "on":
-        if mode == "ai":
-            gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
-            groq_key = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
-            if not gemini_key and not groq_key:
-                await interaction.response.send_message("❌ **Cannot enable AI Scanner**: Neither `GEMINI_API_KEY` nor `GROQ_API_KEY` is set in the environment variables.", ephemeral=True)
-                return
-                
-        await db.set_config(interaction.guild_id, "automod", True)
-        await db.set_config(interaction.guild_id, "automod_mode", mode)
-        if mode == "local":
-            await interaction.response.send_message("🧠 **Auto-Mod is now ON (Local Shield)!**\nScanning real-time chat instantly for curse words, slurs, and spam links without using API key quota.")
+    try:
+        if status == "on":
+            if mode == "ai":
+                gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
+                groq_key = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
+                if not gemini_key and not groq_key:
+                    await interaction.response.send_message("❌ **Cannot enable AI Scanner**: Neither `GEMINI_API_KEY` nor `GROQ_API_KEY` is set in the environment variables.", ephemeral=True)
+                    return
+                    
+            await db.set_config(interaction.guild_id, "automod", True)
+            await db.set_config(interaction.guild_id, "automod_mode", mode)
+            if mode == "local":
+                await interaction.response.send_message("🧠 **Auto-Mod is now ON (Local Shield)!**\nScanning real-time chat instantly for curse words, slurs, and spam links without using API key quota.")
+            else:
+                await interaction.response.send_message("🧠 **Auto-Mod is now ON (AI Scanner)!**\nReal-time messages will be scanned using AI. *(Note: This uses your API key quota!)*")
         else:
-            await interaction.response.send_message("🧠 **Auto-Mod is now ON (AI Scanner)!**\nReal-time messages will be scanned using AI. *(Note: This uses your API key quota!)*")
-    else:
-        await db.set_config(interaction.guild_id, "automod", False)
-        await interaction.response.send_message("🛡️ **Auto-Mod disabled.**")
+            await db.set_config(interaction.guild_id, "automod", False)
+            await interaction.response.send_message("🛡️ **Auto-Mod disabled.**")
+    except Exception as e:
+        logger.error(f"Error in /automod: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error configuring automod: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error configuring automod: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="testautomod", description="Test how the AI Auto-Mod rates a specific text block")
@@ -11798,24 +12060,31 @@ async def automod_command(interaction: discord.Interaction, status: str, mode: s
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def testautomod_command(interaction: discord.Interaction, text: str):
-    gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
-    groq_key = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
-    if not gemini_key and not groq_key:
-        await interaction.response.send_message("❌ **Cannot run test**: Neither `GEMINI_API_KEY` nor `GROQ_API_KEY` is configured in your environment.", ephemeral=True)
-        return
-        
-    await interaction.response.defer(thinking=True)
     try:
-        prompt = f"Analyze if this chat message contains extreme toxicity, slurs, hate speech, severe harassment, or scam/phishing links: '{text}'."
-        res = await call_ai_generation(prompt, "You are an expert content moderator. Respond with ONLY the word SAFE or TOXIC. Do not add any other text.")
-        result = res.strip().upper()
-        if "TOXIC" in result:
-            await interaction.followup.send(f"🚨 **Auto-Mod Result:** `TOXIC`\n\n*If sent by a member, this message would have been deleted and logged.*")
-        else:
-            await interaction.followup.send(f"✅ **Auto-Mod Result:** `SAFE`\n\n*This message would be allowed in chat.*")
+        gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
+        groq_key = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
+        if not gemini_key and not groq_key:
+            await interaction.response.send_message("❌ **Cannot run test**: Neither `GEMINI_API_KEY` nor `GROQ_API_KEY` is configured in your environment.", ephemeral=True)
+            return
+            
+        await interaction.response.defer(thinking=True)
+        try:
+            prompt = f"Analyze if this chat message contains extreme toxicity, slurs, hate speech, severe harassment, or scam/phishing links: '{text}'."
+            res = await call_ai_generation(prompt, "You are an expert content moderator. Respond with ONLY the word SAFE or TOXIC. Do not add any other text.")
+            result = res.strip().upper()
+            if "TOXIC" in result:
+                await interaction.followup.send(f"🚨 **Auto-Mod Result:** `TOXIC`\n\n*If sent by a member, this message would have been deleted and logged.*")
+            else:
+                await interaction.followup.send(f"✅ **Auto-Mod Result:** `SAFE`\n\n*This message would be allowed in chat.*")
+        except Exception as e:
+            logger.error(f"Test Auto-Mod evaluation failed: {e}", exc_info=True)
+            await interaction.followup.send("❌ Evaluation failed due to an internal error.")
     except Exception as e:
-        logger.error(f"Test Auto-Mod evaluation failed: {e}", exc_info=True)
-        await interaction.followup.send("❌ Evaluation failed due to an internal error.")
+        logger.error(f"Error in /testautomod: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="lockdown", description="Freeze or unfreeze public chat channels in an emergency")
@@ -11830,39 +12099,46 @@ async def testautomod_command(interaction: discord.Interaction, text: str):
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def lockdown_command(interaction: discord.Interaction, status: str):
-    await interaction.response.defer(thinking=True)
-    guild = interaction.guild
-    if status == "on":
-        locked = 0
-        for chan in guild.text_channels:
-            # Skip if regular members already cannot send messages
-            overwrites = chan.overwrites_for(guild.default_role)
-            if overwrites.send_messages is False:
-                continue
-                
-            try:
-                await chan.set_permissions(guild.default_role, send_messages=False, reason="Emergency Lockdown")
-                await db.add_resource(guild.id, "locked_channels", chan.id)
-                locked += 1
-                await asyncio.sleep(0.2)  # Avoid rate limiting
-            except Exception:
-                pass
-        await interaction.followup.send(f"🚨 **EMERGENCY LOCKDOWN INITIATED!** 🚨\nLocked `{locked}` public text channels. Regular members cannot type until unlocked.")
-    else:
-        unlocked = 0
-        locked_resources = await db.get_resources(guild.id, "locked_channels")
-        locked_ids = {r["resource_id"] for r in locked_resources}
-        
-        for chan in guild.text_channels:
-            if chan.id in locked_ids:
+    try:
+        await interaction.response.defer(thinking=True)
+        guild = interaction.guild
+        if status == "on":
+            locked = 0
+            for chan in guild.text_channels:
+                # Skip if regular members already cannot send messages
+                overwrites = chan.overwrites_for(guild.default_role)
+                if overwrites.send_messages is False:
+                    continue
+                    
                 try:
-                    await chan.set_permissions(guild.default_role, send_messages=None, reason="Lockdown Lifted")
-                    unlocked += 1
+                    await chan.set_permissions(guild.default_role, send_messages=False, reason="Emergency Lockdown")
+                    await db.add_resource(guild.id, "locked_channels", chan.id)
+                    locked += 1
                     await asyncio.sleep(0.2)  # Avoid rate limiting
                 except Exception:
                     pass
-        await db.delete_resources_by_type(guild.id, "locked_channels")
-        await interaction.followup.send(f"🔓 **LOCKDOWN LIFTED!** Unlocked `{unlocked}` channels. Public chat is reopened.")
+            await interaction.followup.send(f"🚨 **EMERGENCY LOCKDOWN INITIATED!** 🚨\nLocked `{locked}` public text channels. Regular members cannot type until unlocked.")
+        else:
+            unlocked = 0
+            locked_resources = await db.get_resources(guild.id, "locked_channels")
+            locked_ids = {r["resource_id"] for r in locked_resources}
+            
+            for chan in guild.text_channels:
+                if chan.id in locked_ids:
+                    try:
+                        await chan.set_permissions(guild.default_role, send_messages=None, reason="Lockdown Lifted")
+                        unlocked += 1
+                        await asyncio.sleep(0.2)  # Avoid rate limiting
+                    except Exception:
+                        pass
+            await db.delete_resources_by_type(guild.id, "locked_channels")
+            await interaction.followup.send(f"🔓 **LOCKDOWN LIFTED!** Unlocked `{unlocked}` channels. Public chat is reopened.")
+    except Exception as e:
+        logger.error(f"Error in /lockdown: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Lockdown error: {e}")
+        else:
+            await interaction.response.send_message(f"❌ Lockdown error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="purge", description="Quickly delete a specified number of messages from this channel")
@@ -11871,16 +12147,23 @@ async def lockdown_command(interaction: discord.Interaction, status: str):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def purge_command(interaction: discord.Interaction, amount: int):
-    amount = max(1, min(amount, 100))
-    await interaction.response.defer(ephemeral=True)
     try:
-        deleted = await interaction.channel.purge(limit=amount)
-        for msg in deleted:
-            _bot_deleted_message_ids.add(msg.id)
-        await interaction.followup.send(f"🧹 Successfully purged `{len(deleted)}` messages.", ephemeral=True)
+        amount = max(1, min(amount, 100))
+        await interaction.response.defer(ephemeral=True)
+        try:
+            deleted = await interaction.channel.purge(limit=amount)
+            for msg in deleted:
+                _bot_deleted_message_ids.add(msg.id)
+            await interaction.followup.send(f"🧹 Successfully purged `{len(deleted)}` messages.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Purge failed: {e}", exc_info=True)
+            await interaction.followup.send("❌ Purge failed due to an internal error.", ephemeral=True)
     except Exception as e:
-        logger.error(f"Purge failed: {e}", exc_info=True)
-        await interaction.followup.send("❌ Purge failed due to an internal error.", ephemeral=True)
+        logger.error(f"Error in /purge: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="snipe", description="View recently deleted messages in this or a specific channel")
@@ -11891,19 +12174,26 @@ async def purge_command(interaction: discord.Interaction, amount: int):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def snipe_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None, index: Optional[int] = 1):
-    target_channel = channel or interaction.channel
-    
-    # Permission check: Caller must have View Channel permission on target channel (Staff/Admins always bypass)
-    if not is_protected(interaction.user):
-        user_perms = target_channel.permissions_for(interaction.user)
-        if not user_perms.view_channel or not user_perms.read_message_history:
-            return await interaction.response.send_message("❌ You do not have permission to view messages in that channel.", ephemeral=True)
+    try:
+        target_channel = channel or interaction.channel
+        
+        # Permission check: Caller must have View Channel permission on target channel (Staff/Admins always bypass)
+        if not is_protected(interaction.user):
+            user_perms = target_channel.permissions_for(interaction.user)
+            if not user_perms.view_channel or not user_perms.read_message_history:
+                return await interaction.response.send_message("❌ You do not have permission to view messages in that channel.", ephemeral=True)
 
-    embed, err_msg = create_snipe_embed(target_channel, index=index or 1)
-    if err_msg:
-        await interaction.response.send_message(err_msg, ephemeral=True)
-    else:
-        await interaction.response.send_message(embed=embed)
+        embed, err_msg = create_snipe_embed(target_channel, index=index or 1)
+        if err_msg:
+            await interaction.response.send_message(err_msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /snipe: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="editsnipe", description="View recently edited messages in this or a specific channel")
@@ -11914,19 +12204,26 @@ async def snipe_slash_cmd(interaction: discord.Interaction, channel: Optional[di
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def editsnipe_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None, index: Optional[int] = 1):
-    target_channel = channel or interaction.channel
-    
-    # Permission check: Caller must have View Channel permission on target channel (Staff/Admins always bypass)
-    if not is_protected(interaction.user):
-        user_perms = target_channel.permissions_for(interaction.user)
-        if not user_perms.view_channel or not user_perms.read_message_history:
-            return await interaction.response.send_message("❌ You do not have permission to view messages in that channel.", ephemeral=True)
+    try:
+        target_channel = channel or interaction.channel
+        
+        # Permission check: Caller must have View Channel permission on target channel (Staff/Admins always bypass)
+        if not is_protected(interaction.user):
+            user_perms = target_channel.permissions_for(interaction.user)
+            if not user_perms.view_channel or not user_perms.read_message_history:
+                return await interaction.response.send_message("❌ You do not have permission to view messages in that channel.", ephemeral=True)
 
-    embed, err_msg = create_editsnipe_embed(target_channel, index=index or 1)
-    if err_msg:
-        await interaction.response.send_message(err_msg, ephemeral=True)
-    else:
-        await interaction.response.send_message(embed=embed)
+        embed, err_msg = create_editsnipe_embed(target_channel, index=index or 1)
+        if err_msg:
+            await interaction.response.send_message(err_msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /editsnipe: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="clearsnipe", description="Clear deleted and edited message snipe history for safety/privacy")
@@ -11938,23 +12235,30 @@ async def editsnipe_slash_cmd(interaction: discord.Interaction, channel: Optiona
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def clearsnipe_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None, user: Optional[discord.Member] = None):
-    if not is_protected(interaction.user) and not interaction.permissions.manage_messages:
-        await interaction.response.send_message("❌ You need `Manage Messages` permissions to clear the snipe cache.", ephemeral=True)
-        return
+    try:
+        if not is_protected(interaction.user) and not interaction.permissions.manage_messages:
+            await interaction.response.send_message("❌ You need `Manage Messages` permissions to clear the snipe cache.", ephemeral=True)
+            return
 
-    target_channel = channel or interaction.channel
-    del_cnt, edit_cnt = clear_snipe_history(target_channel.id)
-    
-    user_purged = 0
-    if user:
-        user_purged = await db.clear_user_snipe_history(interaction.guild.id, user.id)
+        target_channel = channel or interaction.channel
+        del_cnt, edit_cnt = clear_snipe_history(target_channel.id)
+        
+        user_purged = 0
+        if user:
+            user_purged = await db.clear_user_snipe_history(interaction.guild.id, user.id)
 
-    embed = discord.Embed(
-        title="🧹 Snipe History Cleared",
-        description=f"Cleared **`{del_cnt}`** deleted messages and **`{edit_cnt}`** edited messages from {target_channel.mention}." + (f"\nAlso purged **`{user_purged}`** persistent 30-day records for {user.mention}." if user else ""),
-        color=discord.Color.green()
-    )
-    await interaction.response.send_message(embed=embed)
+        embed = discord.Embed(
+            title="🧹 Snipe History Cleared",
+            description=f"Cleared **`{del_cnt}`** deleted messages and **`{edit_cnt}`** edited messages from {target_channel.mention}." + (f"\nAlso purged **`{user_purged}`** persistent 30-day records for {user.mention}." if user else ""),
+            color=discord.Color.green()
+        )
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /clearsnipe: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="usersnipe", description="🎯 View up to 30 days of deleted and edited message history for a specific user")
@@ -11978,38 +12282,45 @@ async def usersnipe_slash_cmd(
     days: Optional[int] = 30,
     filter_type: Optional[str] = "all"
 ):
-    await interaction.response.defer()
-    days_val = min(30, max(1, days or 30))
-    f_type = filter_type or "all"
-    
-    records = await db.get_user_snipe_history(interaction.guild.id, user.id, days=days_val)
-    stats = await db.get_user_snipe_stats(interaction.guild.id, user.id, days=days_val)
-    
-    # Filter out records originating from channels caller cannot view
-    filtered_records = []
-    is_caller_staff = is_protected(interaction.user)
-    for rec in records:
-        cid = rec.get("channel_id") if isinstance(rec, dict) else rec[3]
-        if cid and not is_caller_staff:
-            src_chan = interaction.guild.get_channel(int(cid))
-            if src_chan:
-                u_perms = src_chan.permissions_for(interaction.user)
-                if not u_perms.view_channel or not u_perms.read_message_history:
-                    continue
-        filtered_records.append(rec)
+    try:
+        await interaction.response.defer()
+        days_val = min(30, max(1, days or 30))
+        f_type = filter_type or "all"
+        
+        records = await db.get_user_snipe_history(interaction.guild.id, user.id, days=days_val)
+        stats = await db.get_user_snipe_stats(interaction.guild.id, user.id, days=days_val)
+        
+        # Filter out records originating from channels caller cannot view
+        filtered_records = []
+        is_caller_staff = is_protected(interaction.user)
+        for rec in records:
+            cid = rec.get("channel_id") if isinstance(rec, dict) else rec[3]
+            if cid and not is_caller_staff:
+                src_chan = interaction.guild.get_channel(int(cid))
+                if src_chan:
+                    u_perms = src_chan.permissions_for(interaction.user)
+                    if not u_perms.view_channel or not u_perms.read_message_history:
+                        continue
+            filtered_records.append(rec)
 
-    view = UserSnipePaginationView(
-        author=interaction.user,
-        target_user=user,
-        guild_id=interaction.guild.id,
-        records=filtered_records,
-        stats=stats,
-        days=days_val,
-        filter_type=f_type,
-        page=0
-    )
-    embed = view.make_embed()
-    await interaction.followup.send(embed=embed, view=view)
+        view = UserSnipePaginationView(
+            author=interaction.user,
+            target_user=user,
+            guild_id=interaction.guild.id,
+            records=filtered_records,
+            stats=stats,
+            days=days_val,
+            filter_type=f_type,
+            page=0
+        )
+        embed = view.make_embed()
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /usersnipe: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error fetching user snipe records: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error fetching user snipe records: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="antighostping", description="Configure automated Anti-Ghost-Ping detection and public exposure shield")
@@ -12025,39 +12336,46 @@ async def usersnipe_slash_cmd(
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def antighostping_command(interaction: discord.Interaction, status: str):
-    if not is_protected(interaction.user) and not interaction.permissions.administrator:
-        await interaction.response.send_message("❌ You need `Administrator` permissions to configure the Anti-Ghost-Ping shield.", ephemeral=True)
-        return
+    try:
+        if not is_protected(interaction.user) and not interaction.permissions.administrator:
+            await interaction.response.send_message("❌ You need `Administrator` permissions to configure the Anti-Ghost-Ping shield.", ephemeral=True)
+            return
 
-    guild = interaction.guild
-    if status == "status":
-        is_enabled = await db.get_config(guild.id, "ghost_ping_detector", True)
-        embed = discord.Embed(
-            title=f"👻 Anti-Ghost-Ping Shield Status — {guild.name}",
-            color=discord.Color.from_rgb(155, 89, 182) if is_enabled else discord.Color.greyple()
-        )
-        embed.add_field(name="Detector Status", value="🟢 **ENABLED (Active)**" if is_enabled else "🔴 **DISABLED (Inactive)**", inline=False)
-        embed.add_field(name="How it Works", value="If someone mentions a member or role and deletes their message within 60 seconds, Sweety immediately catches and exposes the author, pinged targets, and original message content in chat.", inline=False)
-        embed.set_footer(text="Use /antighostping to toggle this feature.")
-        await interaction.response.send_message(embed=embed)
-        return
+        guild = interaction.guild
+        if status == "status":
+            is_enabled = await db.get_config(guild.id, "ghost_ping_detector", True)
+            embed = discord.Embed(
+                title=f"👻 Anti-Ghost-Ping Shield Status — {guild.name}",
+                color=discord.Color.from_rgb(155, 89, 182) if is_enabled else discord.Color.greyple()
+            )
+            embed.add_field(name="Detector Status", value="🟢 **ENABLED (Active)**" if is_enabled else "🔴 **DISABLED (Inactive)**", inline=False)
+            embed.add_field(name="How it Works", value="If someone mentions a member or role and deletes their message within 60 seconds, Sweety immediately catches and exposes the author, pinged targets, and original message content in chat.", inline=False)
+            embed.set_footer(text="Use /antighostping to toggle this feature.")
+            await interaction.response.send_message(embed=embed)
+            return
 
-    if status == "enable":
-        await db.set_config(guild.id, "ghost_ping_detector", True)
-        embed = discord.Embed(
-            title="👻 Anti-Ghost-Ping Shield ENABLED",
-            description="Sweety will now catch and expose anyone who pings members and quickly deletes their message!",
-            color=discord.Color.green()
-        )
-        await interaction.response.send_message(embed=embed)
-    else:
-        await db.set_config(guild.id, "ghost_ping_detector", False)
-        embed = discord.Embed(
-            title="👻 Anti-Ghost-Ping Shield DISABLED",
-            description="Automated ghost-ping detection is now turned off for this server.",
-            color=discord.Color.red()
-        )
-        await interaction.response.send_message(embed=embed)
+        if status == "enable":
+            await db.set_config(guild.id, "ghost_ping_detector", True)
+            embed = discord.Embed(
+                title="👻 Anti-Ghost-Ping Shield ENABLED",
+                description="Sweety will now catch and expose anyone who pings members and quickly deletes their message!",
+                color=discord.Color.green()
+            )
+            await interaction.response.send_message(embed=embed)
+        else:
+            await db.set_config(guild.id, "ghost_ping_detector", False)
+            embed = discord.Embed(
+                title="👻 Anti-Ghost-Ping Shield DISABLED",
+                description="Automated ghost-ping detection is now turned off for this server.",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /antighostping: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error configuring Anti-Ghost-Ping: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error configuring Anti-Ghost-Ping: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="remindme", description="Set a private custom timer and reminder for tasks, study, pizza, or games")
@@ -12070,74 +12388,81 @@ async def antighostping_command(interaction: discord.Interaction, status: str):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def remindme_slash_cmd(interaction: discord.Interaction, time_arg: str, note: str, dm: Optional[bool] = True):
-    seconds = parse_duration_string(time_arg)
-    if not seconds:
-        await interaction.response.send_message(
-            "❌ **Invalid time format!**\nExamples of valid formats: `10m`, `2h`, `1d`, `30s`, `1h30m`, `3 days`, `tomorrow`.",
-            ephemeral=True
+    try:
+        seconds = parse_duration_string(time_arg)
+        if not seconds:
+            await interaction.response.send_message(
+                "❌ **Invalid time format!**\nExamples of valid formats: `10m`, `2h`, `1d`, `30s`, `1h30m`, `3 days`, `tomorrow`.",
+                ephemeral=True
+            )
+            return
+
+        if seconds < MIN_REMINDER_SECONDS:
+            await interaction.response.send_message(
+                f"❌ **Reminder duration too short!** Minimum duration is `{MIN_REMINDER_SECONDS}s`.",
+                ephemeral=True
+            )
+            return
+
+        if seconds > MAX_REMINDER_SECONDS:
+            await interaction.response.send_message(
+                "❌ **Reminder duration too long!** Maximum duration cannot exceed 365 days (1 year).",
+                ephemeral=True
+            )
+            return
+
+        clean_note = sanitize_reminder_text(note)
+        if not clean_note:
+            await interaction.response.send_message(
+                "❌ **Reminder text cannot be empty or contain only invisible characters!**",
+                ephemeral=True
+            )
+            return
+
+        active_reminders = await db.get_user_reminders(interaction.user.id)
+        if active_reminders and len(active_reminders) >= 10:
+            await interaction.response.send_message(
+                "❌ **Reminder limit reached!** You can have a maximum of **10** active reminders at once. Use `/reminders` to view or `/reminders clear` to cancel them.",
+                ephemeral=True
+            )
+            return
+
+        now = time.time()
+        remind_at = now + seconds
+        rem_id = f"rem_{interaction.user.id}_{int(remind_at)}_{int(now)}"
+        dest = "dm" if (dm is None or dm is True) else "channel"
+
+        await db.add_reminder(
+            reminder_id=rem_id,
+            user_id=interaction.user.id,
+            guild_id=interaction.guild.id,
+            channel_id=interaction.channel.id,
+            reminder_text=clean_note,
+            remind_at=remind_at,
+            created_at=now,
+            delivery_method=dest
         )
-        return
 
-    if seconds < MIN_REMINDER_SECONDS:
-        await interaction.response.send_message(
-            f"❌ **Reminder duration too short!** Minimum duration is `{MIN_REMINDER_SECONDS}s`.",
-            ephemeral=True
+        embed = discord.Embed(
+            title="🔒 Reminder Scheduled (Private)!",
+            description=f"I will remind you <t:{int(remind_at)}:R> (<t:{int(remind_at)}:f>).",
+            color=discord.Color.blue()
         )
-        return
-
-    if seconds > MAX_REMINDER_SECONDS:
-        await interaction.response.send_message(
-            "❌ **Reminder duration too long!** Maximum duration cannot exceed 365 days (1 year).",
-            ephemeral=True
+        embed.add_field(name="📝 Note", value=f">>> {clean_note[:1000]}", inline=False)
+        embed.add_field(
+            name="📍 Delivery Location",
+            value="📬 **Direct Message (DM)** (Private)" if dest == "dm" else f"💬 **{interaction.channel.mention}**",
+            inline=True
         )
-        return
-
-    clean_note = sanitize_reminder_text(note)
-    if not clean_note:
-        await interaction.response.send_message(
-            "❌ **Reminder text cannot be empty or contain only invisible characters!**",
-            ephemeral=True
-        )
-        return
-
-    active_reminders = await db.get_user_reminders(interaction.user.id)
-    if active_reminders and len(active_reminders) >= 10:
-        await interaction.response.send_message(
-            "❌ **Reminder limit reached!** You can have a maximum of **10** active reminders at once. Use `/reminders` to view or `/reminders clear` to cancel them.",
-            ephemeral=True
-        )
-        return
-
-    now = time.time()
-    remind_at = now + seconds
-    rem_id = f"rem_{interaction.user.id}_{int(remind_at)}_{int(now)}"
-    dest = "dm" if (dm is None or dm is True) else "channel"
-
-    await db.add_reminder(
-        reminder_id=rem_id,
-        user_id=interaction.user.id,
-        guild_id=interaction.guild.id,
-        channel_id=interaction.channel.id,
-        reminder_text=clean_note,
-        remind_at=remind_at,
-        created_at=now,
-        delivery_method=dest
-    )
-
-    embed = discord.Embed(
-        title="🔒 Reminder Scheduled (Private)!",
-        description=f"I will remind you <t:{int(remind_at)}:R> (<t:{int(remind_at)}:f>).",
-        color=discord.Color.blue()
-    )
-    embed.add_field(name="📝 Note", value=f">>> {clean_note[:1000]}", inline=False)
-    embed.add_field(
-        name="📍 Delivery Location",
-        value="📬 **Direct Message (DM)** (Private)" if dest == "dm" else f"💬 **{interaction.channel.mention}**",
-        inline=True
-    )
-    embed.set_footer(text=f"ID: {rem_id[:16]} • Sweety Productivity Suite (Private)")
-    embed.timestamp = discord.utils.utcnow()
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.set_footer(text=f"ID: {rem_id[:16]} • Sweety Productivity Suite (Private)")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /remindme: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error scheduling reminder: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error scheduling reminder: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="reminders", description="View or cancel all your active pending reminders (private)")
@@ -12151,44 +12476,51 @@ async def remindme_slash_cmd(interaction: discord.Interaction, time_arg: str, no
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def reminders_slash_cmd(interaction: discord.Interaction, action: Optional[str] = "list"):
-    if action == "clear":
+    try:
+        if action == "clear":
+            rows = await db.get_user_reminders(interaction.user.id)
+            if not rows:
+                await interaction.response.send_message("ℹ️ You have no active reminders to clear.", ephemeral=True)
+                return
+            for r in rows:
+                rid = r["id"] if isinstance(r, dict) and "id" in r else r[0]
+                await db.delete_reminder(rid)
+            await interaction.response.send_message(f"🧹 Cleared all **`{len(rows)}`** active reminder(s)!", ephemeral=True)
+            return
+
         rows = await db.get_user_reminders(interaction.user.id)
         if not rows:
-            await interaction.response.send_message("ℹ️ You have no active reminders to clear.", ephemeral=True)
+            embed = discord.Embed(
+                title="🔒 Your Active Reminders",
+                description="You have **0** pending reminders. Schedule one privately with `/remindme`!",
+                color=discord.Color.blue()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        for r in rows:
-            rid = r["id"] if isinstance(r, dict) and "id" in r else r[0]
-            await db.delete_reminder(rid)
-        await interaction.response.send_message(f"🧹 Cleared all **`{len(rows)}`** active reminder(s)!", ephemeral=True)
-        return
 
-    rows = await db.get_user_reminders(interaction.user.id)
-    if not rows:
         embed = discord.Embed(
-            title="🔒 Your Active Reminders",
-            description="You have **0** pending reminders. Schedule one privately with `/remindme`!",
+            title="🔒 Your Active Reminders (Private)",
+            description=f"You have **`{len(rows)}`** active scheduled reminder(s):\n",
             color=discord.Color.blue()
         )
+        for idx, r in enumerate(rows[:10], 1):
+            note = r["reminder_text"] if isinstance(r, dict) and "reminder_text" in r else r[3]
+            rem_at = float(r["remind_at"] if isinstance(r, dict) and "remind_at" in r else r[4])
+            dest = r.get("delivery_method", "dm") if isinstance(r, dict) else (r[6] if len(r) > 6 else "dm")
+            loc_str = "DM (Private)" if dest == "dm" else f"<#{r['channel_id'] if isinstance(r, dict) else r[2]}>"
+            embed.add_field(
+                name=f"#{idx} • Due <t:{int(rem_at)}:R>",
+                value=f"• **Note:** {note[:150]}\n• **Location:** {loc_str}",
+                inline=False
+            )
+        embed.set_footer(text="Use /reminders clear to cancel all reminders")
         await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-
-    embed = discord.Embed(
-        title="🔒 Your Active Reminders (Private)",
-        description=f"You have **`{len(rows)}`** active scheduled reminder(s):\n",
-        color=discord.Color.blue()
-    )
-    for idx, r in enumerate(rows[:10], 1):
-        note = r["reminder_text"] if isinstance(r, dict) and "reminder_text" in r else r[3]
-        rem_at = float(r["remind_at"] if isinstance(r, dict) and "remind_at" in r else r[4])
-        dest = r.get("delivery_method", "dm") if isinstance(r, dict) else (r[6] if len(r) > 6 else "dm")
-        loc_str = "DM (Private)" if dest == "dm" else f"<#{r['channel_id'] if isinstance(r, dict) else r[2]}>"
-        embed.add_field(
-            name=f"#{idx} • Due <t:{int(rem_at)}:R>",
-            value=f"• **Note:** {note[:150]}\n• **Location:** {loc_str}",
-            inline=False
-        )
-    embed.set_footer(text="Use /reminders clear to cancel all reminders")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /reminders: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error fetching reminders: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error fetching reminders: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="afk", description="Set your AFK status so Sweety notifies anyone who pings you while you are away")
@@ -12196,21 +12528,28 @@ async def reminders_slash_cmd(interaction: discord.Interaction, action: Optional
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def afk_slash_cmd(interaction: discord.Interaction, reason: Optional[str] = "AFK (Away From Keyboard)"):
-    reason = (reason or "AFK (Away From Keyboard)").strip()[:200]
-    now = time.time()
-    _afk_cache[(interaction.guild.id, interaction.user.id)] = {
-        "reason": reason,
-        "since": now
-    }
-    await db.set_afk(interaction.user.id, interaction.guild.id, reason, now)
+    try:
+        reason = (reason or "AFK (Away From Keyboard)").strip()[:200]
+        now = time.time()
+        _afk_cache[(interaction.guild.id, interaction.user.id)] = {
+            "reason": reason,
+            "since": now
+        }
+        await db.set_afk(interaction.user.id, interaction.guild.id, reason, now)
 
-    embed = discord.Embed(
-        title="💤 AFK Status Enabled",
-        description=f"{interaction.user.mention} is now **AFK**: {reason}\n\n*I will notify anyone who mentions you and automatically remove your AFK status when you chat again.*",
-        color=discord.Color.from_rgb(120, 140, 180)
-    )
-    embed.timestamp = discord.utils.utcnow()
-    await interaction.response.send_message(embed=embed)
+        embed = discord.Embed(
+            title="💤 AFK Status Enabled",
+            description=f"{interaction.user.mention} is now **AFK**: {reason}\n\n*I will notify anyone who mentions you and automatically remove your AFK status when you chat again.*",
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /afk: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error setting AFK: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error setting AFK: {e}", ephemeral=True)
 
 
 # ── $15 All-Time NBA Dream Team Slash Commands ──────────────────────────────
@@ -12219,9 +12558,16 @@ async def afk_slash_cmd(interaction: discord.Interaction, reason: Optional[str] 
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def buildteam_slash_cmd(interaction: discord.Interaction):
-    view = BuildTeamView(author_id=interaction.user.id)
-    embed = view.make_draft_embed()
-    await interaction.response.send_message(embed=embed, view=view)
+    try:
+        view = BuildTeamView(author_id=interaction.user.id)
+        embed = view.make_draft_embed()
+        await interaction.response.send_message(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /buildteam: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error opening draft room: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error opening draft room: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="myteam", description="🏀 View your (or another member's) active $15 Dream Team card, career record & GM badges")
@@ -12229,40 +12575,54 @@ async def buildteam_slash_cmd(interaction: discord.Interaction):
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id or 0, i.user.id))
 @app_commands.guild_only()
 async def myteam_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None):
-    if not check_image_render_limit(interaction.guild_id or 0):
-        return await interaction.response.send_message(
-            "⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.",
-            ephemeral=True
-        )
+    try:
+        if not check_image_render_limit(interaction.guild_id or 0):
+            return await interaction.response.send_message(
+                "⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.",
+                ephemeral=True
+            )
 
-    await interaction.response.defer()
-    target = user or interaction.user
-    if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
-        row = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target.id)
-    else:
-        row = await db.get_dream_team(target.id)
-    
-    if not row:
-        if target.id == interaction.user.id:
-            await interaction.followup.send("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your 5-man championship squad.", ephemeral=True)
+        await interaction.response.defer()
+        target = user or interaction.user
+        if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
+            row = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target.id)
         else:
-            await interaction.followup.send(f"❌ **{target.display_name}** hasn't drafted a $15 Dream Team yet. Tell them to run `/buildteam`!", ephemeral=True)
-        return
+            row = await db.get_dream_team(target.id)
+        
+        if not row:
+            if target.id == interaction.user.id:
+                await interaction.followup.send("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your 5-man championship squad.", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ **{target.display_name}** hasn't drafted a $15 Dream Team yet. Tell them to run `/buildteam`!", ephemeral=True)
+            return
 
-    card_embed, card_file = await build_myteam_embed(target, row)
-    if card_embed and card_file:
-        await interaction.followup.send(embed=card_embed, file=card_file)
-    elif card_file:
-        await interaction.followup.send(file=card_file)
-    elif card_embed:
-        await interaction.followup.send(embed=card_embed)
+        card_embed, card_file = await build_myteam_embed(target, row)
+        if card_embed and card_file:
+            await interaction.followup.send(embed=card_embed, file=card_file)
+        elif card_file:
+            await interaction.followup.send(file=card_file)
+        elif card_embed:
+            await interaction.followup.send(embed=card_embed)
+    except Exception as e:
+        logger.error(f"Error in /myteam: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error displaying team card: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error displaying team card: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="teamqueue", description="⚔️ Join the live matchmaking queue to battle another member's $15 Dream Team")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def teamqueue_slash_cmd(interaction: discord.Interaction):
-    await handle_team_queue(interaction=interaction)
+    try:
+        await handle_team_queue(interaction=interaction)
+    except Exception as e:
+        logger.error(f"Error in /teamqueue: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error joining queue: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error joining queue: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="battlecard", description="⚔️ Generate a high-definition 2K Head-to-Head Versus Matchup card against another member or @Sweety")
@@ -12270,40 +12630,47 @@ async def teamqueue_slash_cmd(interaction: discord.Interaction):
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id or 0, i.user.id))
 @app_commands.guild_only()
 async def battlecard_slash_cmd(interaction: discord.Interaction, opponent: discord.Member):
-    if not check_image_render_limit(interaction.guild_id or 0):
-        return await interaction.response.send_message(
-            "⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.",
-            ephemeral=True
-        )
+    try:
+        if not check_image_render_limit(interaction.guild_id or 0):
+            return await interaction.response.send_message(
+                "⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.",
+                ephemeral=True
+            )
 
-    await interaction.response.defer()
-    target_a = interaction.user
-    target_b = opponent
-    if target_a.id == target_b.id:
-        await interaction.followup.send("❌ You cannot generate a versus card against yourself! Pick another member or `@Sweety`.", ephemeral=True)
-        return
+        await interaction.response.defer()
+        target_a = interaction.user
+        target_b = opponent
+        if target_a.id == target_b.id:
+            await interaction.followup.send("❌ You cannot generate a versus card against yourself! Pick another member or `@Sweety`.", ephemeral=True)
+            return
 
-    row_a = await db.get_dream_team(target_a.id)
-    if not row_a:
-        await interaction.followup.send("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your squad first.", ephemeral=True)
-        return
+        row_a = await db.get_dream_team(target_a.id)
+        if not row_a:
+            await interaction.followup.send("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your squad first.", ephemeral=True)
+            return
 
-    if getattr(target_b, "bot", False) or (bot.user and target_b.id == bot.user.id):
-        row_b = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target_b.id)
-    else:
-        row_b = await db.get_dream_team(target_b.id)
+        if getattr(target_b, "bot", False) or (bot.user and target_b.id == bot.user.id):
+            row_b = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target_b.id)
+        else:
+            row_b = await db.get_dream_team(target_b.id)
 
-    if not row_b:
-        await interaction.followup.send(f"❌ **{target_b.display_name}** hasn't built a $15 Dream Team yet! Tell them to run `/buildteam`.", ephemeral=True)
-        return
+        if not row_b:
+            await interaction.followup.send(f"❌ **{target_b.display_name}** hasn't built a $15 Dream Team yet! Tell them to run `/buildteam`.", ephemeral=True)
+            return
 
-    card_embed, card_file = await build_battlecard_embed(target_a, target_b, row_a, row_b)
-    if card_embed and card_file:
-        await interaction.followup.send(embed=card_embed, file=card_file)
-    elif card_file:
-        await interaction.followup.send(file=card_file)
-    elif card_embed:
-        await interaction.followup.send(embed=card_embed)
+        card_embed, card_file = await build_battlecard_embed(target_a, target_b, row_a, row_b)
+        if card_embed and card_file:
+            await interaction.followup.send(embed=card_embed, file=card_file)
+        elif card_file:
+            await interaction.followup.send(file=card_file)
+        elif card_embed:
+            await interaction.followup.send(embed=card_embed)
+    except Exception as e:
+        logger.error(f"Error in /battlecard: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error generating matchup card: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error generating matchup card: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="teambattle", description="⚔️ Challenge another member's $15 Dream Team to a tactical live NBA card battle!")
@@ -12311,101 +12678,118 @@ async def battlecard_slash_cmd(interaction: discord.Interaction, opponent: disco
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def teambattle_slash_cmd(interaction: discord.Interaction, opponent: discord.Member):
-    if opponent.id == interaction.user.id:
-        await interaction.response.send_message("❌ You cannot battle your own team! Challenge another server member or `@Sweety`.", ephemeral=True)
-        return
+    try:
+        if opponent.id == interaction.user.id:
+            await interaction.response.send_message("❌ You cannot battle your own team! Challenge another server member or `@Sweety`.", ephemeral=True)
+            return
 
-    row_a = await db.get_dream_team(interaction.user.id)
-    if not row_a:
-        await interaction.response.send_message("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your squad before challenging others.", ephemeral=True)
-        return
+        row_a = await db.get_dream_team(interaction.user.id)
+        if not row_a:
+            await interaction.response.send_message("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your squad before challenging others.", ephemeral=True)
+            return
 
-    if getattr(opponent, "bot", False) or (bot.user and opponent.id == bot.user.id):
-        row_b = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=opponent.id)
+        # Defer immediately to prevent 3-second interaction token expiration
+        await interaction.response.defer()
+
+        if getattr(opponent, "bot", False) or (bot.user and opponent.id == bot.user.id):
+            row_b = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=opponent.id)
+            picks_a = extract_picks_from_row(row_a)
+            picks_b = extract_picks_from_row(row_b)
+            eval_a = evaluate_dream_team(picks_a)
+            eval_b = evaluate_dream_team(picks_b)
+            
+            live_view = InteractiveTeamBattleView(interaction.user, opponent, picks_a, picks_b, eval_a, eval_b, row_a, row_b)
+            embed = live_view.make_battle_embed()
+
+            # Attach 2K pre-game faceoff versus graphic
+            versus_file = None
+            try:
+                stats_a = await db.get_team_battle_stats(interaction.user.id)
+                stats_b = await db.get_team_battle_stats(opponent.id)
+                versus_buf = generate_versus_matchup_image(interaction.user.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
+                versus_file = discord.File(versus_buf, filename="versus_matchup.png")
+                embed.set_image(url="attachment://versus_matchup.png")
+            except Exception as e:
+                logger.debug(f"Could not attach versus image: {e}")
+
+            if versus_file:
+                await interaction.followup.send(
+                    content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
+                    embed=embed,
+                    file=versus_file,
+                    view=live_view
+                )
+            else:
+                await interaction.followup.send(
+                    content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
+                    embed=embed,
+                    view=live_view
+                )
+            return
+
+        row_b = await db.get_dream_team(opponent.id)
+        if not row_b:
+            await interaction.followup.send(f"❌ **{opponent.display_name}** hasn't built a $15 Dream Team yet! Ask them to draft one with `/buildteam`.", ephemeral=True)
+            return
+
         picks_a = extract_picks_from_row(row_a)
         picks_b = extract_picks_from_row(row_b)
         eval_a = evaluate_dream_team(picks_a)
         eval_b = evaluate_dream_team(picks_b)
-        
-        live_view = InteractiveTeamBattleView(interaction.user, opponent, picks_a, picks_b, eval_a, eval_b, row_a, row_b)
-        embed = live_view.make_battle_embed()
 
-        # Attach 2K pre-game faceoff versus graphic
+        challenge_view = TeamBattleChallengeView(interaction.user, opponent, row_a, row_b, eval_a, eval_b)
+        challenge_embed = challenge_view.make_challenge_embed()
+        
+        # Attach 2K versus faceoff graphic to challenge embed
         versus_file = None
         try:
             stats_a = await db.get_team_battle_stats(interaction.user.id)
             stats_b = await db.get_team_battle_stats(opponent.id)
             versus_buf = generate_versus_matchup_image(interaction.user.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
             versus_file = discord.File(versus_buf, filename="versus_matchup.png")
-            embed.set_image(url="attachment://versus_matchup.png")
+            challenge_embed.set_image(url="attachment://versus_matchup.png")
         except Exception as e:
-            logger.debug(f"Could not attach versus image: {e}")
+            logger.debug(f"Could not attach versus image to challenge: {e}")
 
         if versus_file:
-            await interaction.response.send_message(
-                content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
-                embed=embed,
+            msg = await interaction.followup.send(
+                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {interaction.user.mention}!",
+                embed=challenge_embed,
                 file=versus_file,
-                view=live_view
+                view=challenge_view
             )
         else:
-            await interaction.response.send_message(
-                content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
-                embed=embed,
-                view=live_view
+            msg = await interaction.followup.send(
+                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {interaction.user.mention}!",
+                embed=challenge_embed,
+                view=challenge_view
             )
-        return
-
-    row_b = await db.get_dream_team(opponent.id)
-    if not row_b:
-        await interaction.response.send_message(f"❌ **{opponent.display_name}** hasn't built a $15 Dream Team yet! Ask them to draft one with `/buildteam`.", ephemeral=True)
-        return
-
-    picks_a = extract_picks_from_row(row_a)
-    picks_b = extract_picks_from_row(row_b)
-    eval_a = evaluate_dream_team(picks_a)
-    eval_b = evaluate_dream_team(picks_b)
-
-    challenge_view = TeamBattleChallengeView(interaction.user, opponent, row_a, row_b, eval_a, eval_b)
-    challenge_embed = challenge_view.make_challenge_embed()
-    
-    # Attach 2K versus faceoff graphic to challenge embed
-    versus_file = None
-    try:
-        stats_a = await db.get_team_battle_stats(interaction.user.id)
-        stats_b = await db.get_team_battle_stats(opponent.id)
-        versus_buf = generate_versus_matchup_image(interaction.user.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
-        versus_file = discord.File(versus_buf, filename="versus_matchup.png")
-        challenge_embed.set_image(url="attachment://versus_matchup.png")
+        try:
+            challenge_view.message = msg
+        except Exception:
+            pass
     except Exception as e:
-        logger.debug(f"Could not attach versus image to challenge: {e}")
-
-    if versus_file:
-        await interaction.response.send_message(
-            content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {interaction.user.mention}!",
-            embed=challenge_embed,
-            file=versus_file,
-            view=challenge_view
-        )
-    else:
-        await interaction.response.send_message(
-            content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {interaction.user.mention}!",
-            embed=challenge_embed,
-            view=challenge_view
-        )
-    try:
-        challenge_view.message = await interaction.original_response()
-    except Exception:
-        pass
+        logger.error(f"Error in /teambattle: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error starting battle: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error starting battle: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="teamleaderboard", description="🏀 View the server leaderboard of highest-rated $15 Dream Teams")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def teamleaderboard_slash_cmd(interaction: discord.Interaction):
-    rows = await db.get_top_dream_teams(10)
-    lb_embed = build_teamleaderboard_embed(rows)
-    await interaction.response.send_message(embed=lb_embed)
+    try:
+        rows = await db.get_top_dream_teams(10)
+        lb_embed = build_teamleaderboard_embed(rows)
+        await interaction.response.send_message(embed=lb_embed)
+    except Exception as e:
+        logger.error(f"Error in /teamleaderboard: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="setupnbachannel", description="🏀 Create a dedicated NBA Dream Team arena channel in the 2K Mobile Hub category")
@@ -12414,27 +12798,34 @@ async def teamleaderboard_slash_cmd(interaction: discord.Interaction):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
 async def setupnbachannel_slash_cmd(interaction: discord.Interaction, category_name: Optional[str] = "2K Mobile Hub"):
-    if not is_protected(interaction.user) and not interaction.permissions.manage_channels:
-        await interaction.response.send_message("❌ You lack `Manage Channels` permission.", ephemeral=True)
-        return
-
-    await interaction.response.defer(ephemeral=True)
     try:
-        channel, cat_name = await setup_nba_dreamteam_channel(interaction.guild, category_name)
-        embed = discord.Embed(
-            title="🏀 NBA Dream Team Channel Created!",
-            description=f"✅ Successfully created and initialized {channel.mention} inside category **`{cat_name}`**!\n\n"
-                        f"• Pinned interactive GM Draft Board posted with 1-click button\n"
-                        f"• Members can build squads with `/buildteam` or `!buildteam`\n"
-                        f"• Members can battle squads with `/teambattle` or `!teambattle`\n"
-                        f"• General Manager Leaderboard live with `/teamleaderboard`",
-            color=discord.Color.green()
-        )
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        if not is_protected(interaction.user) and not interaction.permissions.manage_channels:
+            await interaction.response.send_message("❌ You lack `Manage Channels` permission.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            channel, cat_name = await setup_nba_dreamteam_channel(interaction.guild, category_name)
+            embed = discord.Embed(
+                title="🏀 NBA Dream Team Channel Created!",
+                description=f"✅ Successfully created and initialized {channel.mention} inside category **`{cat_name}`**!\n\n"
+                            f"• Pinned interactive GM Draft Board posted with 1-click button\n"
+                            f"• Members can build squads with `/buildteam` or `!buildteam`\n"
+                            f"• Members can battle squads with `/teambattle` or `!teambattle`\n"
+                            f"• General Manager Leaderboard live with `/teamleaderboard`",
+                color=discord.Color.green()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error in /setupnbachannel: {e}", exc_info=True)
+            await interaction.followup.send(f"❌ Failed to create NBA Dream Team channel: {e}", ephemeral=True)
     except Exception as e:
-        logger.error(f"Error in /setupnbachannel: {e}", exc_info=True)
-        await interaction.followup.send(f"❌ Failed to create NBA Dream Team channel: {e}", ephemeral=True)
+        logger.error(f"Error in /setupnbachannel: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="teamstats", description="🏀 View a member's NBA GM profile, rank ladder, career record, and badges")
@@ -12442,14 +12833,21 @@ async def setupnbachannel_slash_cmd(interaction: discord.Interaction, category_n
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def teamstats_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None):
-    target = user or interaction.user
-    if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
-        row = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target.id)
-    else:
-        row = await db.get_dream_team(target.id)
-    stats = await db.get_team_battle_stats(target.id)
-    embed = await build_gm_stats_embed(target, row, stats)
-    await interaction.response.send_message(embed=embed)
+    try:
+        target = user or interaction.user
+        if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
+            row = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target.id)
+        else:
+            row = await db.get_dream_team(target.id)
+        stats = await db.get_team_battle_stats(target.id)
+        embed = await build_gm_stats_embed(target, row, stats)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /teamstats: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="teamtop", description="🏆 View the top General Manager leaderboard ranked by career wins and rank tiers")
@@ -12464,24 +12862,38 @@ async def teamstats_slash_cmd(interaction: discord.Interaction, user: Optional[d
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def teamtop_slash_cmd(interaction: discord.Interaction, limit: Optional[int] = 10):
-    lim = max(1, min(limit or 10, 25))
-    rows = await db.get_top_battle_records(lim)
-    embed = build_gm_leaderboard_embed(rows)
-    await interaction.response.send_message(embed=embed)
+    try:
+        lim = max(1, min(limit or 10, 25))
+        rows = await db.get_top_battle_records(lim)
+        embed = build_gm_leaderboard_embed(rows)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /teamtop: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="dailynba", description="🏀 Face today's $15 Daily Boss team to earn daily GM wins")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def dailynba_slash_cmd(interaction: discord.Interaction):
-    boss_data = get_daily_challenge_lineup()
-    row = await db.get_dream_team(interaction.user.id)
-    stats = await db.get_team_battle_stats(interaction.user.id)
-    last_win_date = stats.get("last_daily_win_date", "")
-    has_won = (last_win_date == boss_data["date"])
-    embed = build_dailynba_embed(interaction.user, boss_data, stats)
-    view = DailyNbaBossView(interaction.user, boss_data, row, has_won)
-    await interaction.response.send_message(embed=embed, view=view)
+    try:
+        boss_data = get_daily_challenge_lineup()
+        row = await db.get_dream_team(interaction.user.id)
+        stats = await db.get_team_battle_stats(interaction.user.id)
+        last_win_date = stats.get("last_daily_win_date", "")
+        has_won = (last_win_date == boss_data["date"])
+        embed = build_dailynba_embed(interaction.user, boss_data, stats)
+        view = DailyNbaBossView(interaction.user, boss_data, row, has_won)
+        await interaction.response.send_message(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /dailynba: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="createchannel", description="Create a new text or voice channel inside a specific category")
@@ -12507,28 +12919,28 @@ async def createchannel_slash_cmd(
     channel_type: Optional[str] = "text",
     topic: Optional[str] = None
 ):
-    if not is_protected(interaction.user) and not interaction.permissions.manage_channels:
-        await interaction.response.send_message("❌ You lack `Manage Channels` permission.", ephemeral=True)
-        return
-
-    await interaction.response.defer(ephemeral=True)
-    guild = interaction.guild
-    target_category = None
-    
-    if category_name:
-        for cat in guild.categories:
-            if category_name.lower() in cat.name.lower():
-                target_category = cat
-                break
-        if not target_category:
-            target_category = await guild.create_category(name=category_name, reason="Created via /createchannel")
-            try:
-                await db.add_resource(guild.id, "categories", target_category.id)
-            except Exception:
-                pass
-
-    clean_name = name.strip().lower().replace(" ", "-")
     try:
+        if not is_protected(interaction.user) and not interaction.permissions.manage_channels:
+            await interaction.response.send_message("❌ You lack `Manage Channels` permission.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        target_category = None
+        
+        if category_name:
+            for cat in guild.categories:
+                if category_name.lower() in cat.name.lower():
+                    target_category = cat
+                    break
+            if not target_category:
+                target_category = await guild.create_category(name=category_name, reason="Created via /createchannel")
+                try:
+                    await db.add_resource(guild.id, "categories", target_category.id)
+                except Exception:
+                    pass
+
+        clean_name = name.strip().lower().replace(" ", "-")
         if channel_type == "voice":
             new_chan = await guild.create_voice_channel(
                 name=clean_name,
@@ -12551,7 +12963,10 @@ async def createchannel_slash_cmd(
         await interaction.followup.send(f"✅ Created channel {new_chan.mention}{cat_str}!", ephemeral=True)
     except Exception as e:
         logger.error(f"Error in /createchannel: {e}", exc_info=True)
-        await interaction.followup.send(f"❌ Failed to create channel: {e}", ephemeral=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to create channel: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to create channel: {e}", ephemeral=True)
 
 
 # ── Social & Wholesome Anime Action Slash Commands ──────────────────────────
@@ -12561,9 +12976,16 @@ async def createchannel_slash_cmd(
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def hug_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    target = member or interaction.user
-    embed = create_action_embed("hug", interaction.user, target, bot.user)
-    await interaction.response.send_message(embed=embed)
+    try:
+        target = member or interaction.user
+        embed = create_action_embed("hug", interaction.user, target, bot.user)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /hug: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="pat", description="Give gentle, wholesome headpats to someone")
@@ -12571,9 +12993,16 @@ async def hug_slash_cmd(interaction: discord.Interaction, member: Optional[disco
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def pat_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    target = member or interaction.user
-    embed = create_action_embed("pat", interaction.user, target, bot.user)
-    await interaction.response.send_message(embed=embed)
+    try:
+        target = member or interaction.user
+        embed = create_action_embed("pat", interaction.user, target, bot.user)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /pat: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="highfive", description="Share an epic, high-energy celebration high-five with someone")
@@ -12581,9 +13010,16 @@ async def pat_slash_cmd(interaction: discord.Interaction, member: Optional[disco
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def highfive_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    target = member or interaction.user
-    embed = create_action_embed("highfive", interaction.user, target, bot.user)
-    await interaction.response.send_message(embed=embed)
+    try:
+        target = member or interaction.user
+        embed = create_action_embed("highfive", interaction.user, target, bot.user)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /highfive: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="wave", description="Wave hello or goodbye with a cheerful anime wave")
@@ -12591,9 +13027,16 @@ async def highfive_slash_cmd(interaction: discord.Interaction, member: Optional[
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def wave_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    target = member or interaction.user
-    embed = create_action_embed("wave", interaction.user, target, bot.user)
-    await interaction.response.send_message(embed=embed)
+    try:
+        target = member or interaction.user
+        embed = create_action_embed("wave", interaction.user, target, bot.user)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /wave: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="slap", description="Deliver a comedic cartoon/anime comedy slapstick")
@@ -12601,9 +13044,16 @@ async def wave_slash_cmd(interaction: discord.Interaction, member: Optional[disc
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def slap_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    target = member or interaction.user
-    embed = create_action_embed("slap", interaction.user, target, bot.user)
-    await interaction.response.send_message(embed=embed)
+    try:
+        target = member or interaction.user
+        embed = create_action_embed("slap", interaction.user, target, bot.user)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /slap: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="punch", description="Deliver a comedic superhero punch")
@@ -12611,9 +13061,16 @@ async def slap_slash_cmd(interaction: discord.Interaction, member: Optional[disc
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def punch_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    target = member or interaction.user
-    embed = create_action_embed("punch", interaction.user, target, bot.user)
-    await interaction.response.send_message(embed=embed)
+    try:
+        target = member or interaction.user
+        embed = create_action_embed("punch", interaction.user, target, bot.user)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /punch: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="kiss", description="Give a romantic anime kiss (Admins/Owner or authorized role only)")
@@ -12621,18 +13078,25 @@ async def punch_slash_cmd(interaction: discord.Interaction, member: Optional[dis
 @app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
-    is_allowed, allowed_role_id = await can_use_kiss_command(interaction.guild, interaction.user)
-    if not is_allowed:
-        if allowed_role_id:
-            msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the <@&{allowed_role_id}> role can use `/kiss`."
+    try:
+        is_allowed, allowed_role_id = await can_use_kiss_command(interaction.guild, interaction.user)
+        if not is_allowed:
+            if allowed_role_id:
+                msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the <@&{allowed_role_id}> role can use `/kiss`."
+            else:
+                msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `/kiss`.\n*Administrators can configure role access with `/kissrole set @Role`.*"
+            await interaction.response.send_message(msg, ephemeral=True)
+            return
+            
+        target = member or interaction.user
+        embed = create_action_embed("kiss", interaction.user, target, bot.user)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /kiss: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         else:
-            msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `/kiss`.\n*Administrators can configure role access with `/kissrole set @Role`.*"
-        await interaction.response.send_message(msg, ephemeral=True)
-        return
-        
-    target = member or interaction.user
-    embed = create_action_embed("kiss", interaction.user, target, bot.user)
-    await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="kissrole", description="Configure which role has permission to use the /kiss command")
@@ -12651,57 +13115,64 @@ async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[disc
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def kissrole_slash_cmd(interaction: discord.Interaction, action: str = "view", role: Optional[discord.Role] = None):
-    if not can_manage_kiss_role(interaction.guild, interaction.user):
-        await interaction.response.send_message("❌ Only Server Administrators and the Server Owner can manage kiss command permissions.", ephemeral=True)
-        return
-        
-    guild = interaction.guild
-    if action == "set":
-        if not role:
-            await interaction.response.send_message("❌ Please specify a `role` to grant kiss permissions to: `/kissrole set role:@Role`", ephemeral=True)
+    try:
+        if not can_manage_kiss_role(interaction.guild, interaction.user):
+            await interaction.response.send_message("❌ Only Server Administrators and the Server Owner can manage kiss command permissions.", ephemeral=True)
             return
-        await db.set_config(guild.id, "kiss_allowed_role_id", role.id)
-        embed = discord.Embed(
-            title="💋 Kiss Command Role Updated",
-            description=f"Members with the {role.mention} role can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
-            color=discord.Color.from_rgb(255, 105, 180)
-        )
-        embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        await interaction.response.send_message(embed=embed)
-        
-    elif action == "remove":
-        await db.set_config(guild.id, "kiss_allowed_role_id", "None")
-        embed = discord.Embed(
-            title="🔄 Kiss Command Role Reset",
-            description="The custom kiss role has been removed.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        await interaction.response.send_message(embed=embed)
-        
-    else:  # view
-        allowed_role_id_raw = await db.get_config(guild.id, "kiss_allowed_role_id", None)
-        allowed_role_id = None
-        if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
-            try:
-                allowed_role_id = int(allowed_role_id_raw)
-            except (ValueError, TypeError):
-                allowed_role_id = None
-                
-        embed = discord.Embed(
-            title=f"💋 Kiss Command Permissions — {guild.name}",
-            color=discord.Color.from_rgb(255, 105, 180)
-        )
-        embed.add_field(name="👑 Default Access", value="• Server Owner\n• Server Administrators\n• Bot Creator", inline=False)
-        if allowed_role_id:
-            role_obj = guild.get_role(allowed_role_id)
-            role_str = role_obj.mention if role_obj else f"`Role ID: {allowed_role_id}` *(Deleted Role)*"
-            embed.add_field(name="🎭 Configured Role", value=f"✅ {role_str}", inline=False)
-        else:
-            embed.add_field(name="🎭 Configured Role", value="*No custom role set (Admins & Owner only)*", inline=False)
             
-        embed.set_footer(text="Use /kissrole set @Role to change, or /kissrole remove to reset.")
-        await interaction.response.send_message(embed=embed)
+        guild = interaction.guild
+        if action == "set":
+            if not role:
+                await interaction.response.send_message("❌ Please specify a `role` to grant kiss permissions to: `/kissrole set role:@Role`", ephemeral=True)
+                return
+            await db.set_config(guild.id, "kiss_allowed_role_id", role.id)
+            embed = discord.Embed(
+                title="💋 Kiss Command Role Updated",
+                description=f"Members with the {role.mention} role can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
+            
+        elif action == "remove":
+            await db.set_config(guild.id, "kiss_allowed_role_id", "None")
+            embed = discord.Embed(
+                title="🔄 Kiss Command Role Reset",
+                description="The custom kiss role has been removed.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
+            
+        else:  # view
+            allowed_role_id_raw = await db.get_config(guild.id, "kiss_allowed_role_id", None)
+            allowed_role_id = None
+            if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
+                try:
+                    allowed_role_id = int(allowed_role_id_raw)
+                except (ValueError, TypeError):
+                    allowed_role_id = None
+                    
+            embed = discord.Embed(
+                title=f"💋 Kiss Command Permissions — {guild.name}",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.add_field(name="👑 Default Access", value="• Server Owner\n• Server Administrators\n• Bot Creator", inline=False)
+            if allowed_role_id:
+                role_obj = guild.get_role(allowed_role_id)
+                role_str = role_obj.mention if role_obj else f"`Role ID: {allowed_role_id}` *(Deleted Role)*"
+                embed.add_field(name="🎭 Configured Role", value=f"✅ {role_str}", inline=False)
+            else:
+                embed.add_field(name="🎭 Configured Role", value="*No custom role set (Admins & Owner only)*", inline=False)
+                
+            embed.set_footer(text="Use /kissrole set @Role to change, or /kissrole remove to reset.")
+            await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /kissrole: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error configuring kiss permissions: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error configuring kiss permissions: {e}", ephemeral=True)
 
 
 
@@ -12720,35 +13191,42 @@ async def kissrole_slash_cmd(interaction: discord.Interaction, action: str = "vi
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def antiraid_command(interaction: discord.Interaction, mode: str):
-    guild = interaction.guild
-    if mode == "status":
-        current_mode = await db.get_config(guild.id, "antiraid_mode", "enable")
-        now = time.time()
-        is_active_raid = _guild_raid_mode_active.get(guild.id, 0) > now
-        
-        embed = discord.Embed(title=f"🛡️ Anti-Raid Shield Status — {guild.name}", color=discord.Color.blue())
-        embed.add_field(name="Protection Mode", value=f"**{current_mode.upper()}**", inline=True)
-        embed.add_field(name="Current Raid State", value="🚨 **ACTIVE RAID IN PROGRESS**" if is_active_raid else "🟢 Normal (Protected)", inline=True)
-        embed.add_field(
-            name="Thresholds & Rules",
-            value=(
-                "• **Standard**: Triggers at 5 joins/10s, auto-kicks fresh alts (<24h old), auto-slowmodes chat.\n"
-                "• **Strict**: Triggers at 3 joins/10s, auto-kicks alts (<72h old), initiates lockdown.\n"
-                "• **Mass Mention Shield**: Automatically mutes users posting 5+ pings or @everyone."
-            ),
-            inline=False
-        )
-        embed.set_footer(text="Use /antiraid to switch modes or /panic in an emergency.")
-        await interaction.response.send_message(embed=embed)
-        return
+    try:
+        guild = interaction.guild
+        if mode == "status":
+            current_mode = await db.get_config(guild.id, "antiraid_mode", "enable")
+            now = time.time()
+            is_active_raid = _guild_raid_mode_active.get(guild.id, 0) > now
+            
+            embed = discord.Embed(title=f"🛡️ Anti-Raid Shield Status — {guild.name}", color=discord.Color.blue())
+            embed.add_field(name="Protection Mode", value=f"**{current_mode.upper()}**", inline=True)
+            embed.add_field(name="Current Raid State", value="🚨 **ACTIVE RAID IN PROGRESS**" if is_active_raid else "🟢 Normal (Protected)", inline=True)
+            embed.add_field(
+                name="Thresholds & Rules",
+                value=(
+                    "• **Standard**: Triggers at 5 joins/10s, auto-kicks fresh alts (<24h old), auto-slowmodes chat.\n"
+                    "• **Strict**: Triggers at 3 joins/10s, auto-kicks alts (<72h old), initiates lockdown.\n"
+                    "• **Mass Mention Shield**: Automatically mutes users posting 5+ pings or @everyone."
+                ),
+                inline=False
+            )
+            embed.set_footer(text="Use /antiraid to switch modes or /panic in an emergency.")
+            await interaction.response.send_message(embed=embed)
+            return
 
-    await db.set_config(guild.id, "antiraid_mode", mode)
-    if mode == "enable":
-        await interaction.response.send_message("🛡️ **Anti-Raid Shield ENABLED (Standard Mode)**\nMonitors join floods (5 joins/10s), gates burner alts (<24h old), and engages auto-slowmode.")
-    elif mode == "strict":
-        await interaction.response.send_message("🚨 **Anti-Raid Shield set to STRICT Mode**\nMaximum protection active! Sensitive join detection (3 joins/10s), gates accounts <72h old, and locks chat on mass joins.")
-    else:
-        await interaction.response.send_message("⚠️ **Anti-Raid Shield DISABLED**\nAutomated join-flood mitigation is now off.")
+        await db.set_config(guild.id, "antiraid_mode", mode)
+        if mode == "enable":
+            await interaction.response.send_message("🛡️ **Anti-Raid Shield ENABLED (Standard Mode)**\nMonitors join floods (5 joins/10s), gates burner alts (<24h old), and engages auto-slowmode.")
+        elif mode == "strict":
+            await interaction.response.send_message("🚨 **Anti-Raid Shield set to STRICT Mode**\nMaximum protection active! Sensitive join detection (3 joins/10s), gates accounts <72h old, and locks chat on mass joins.")
+        else:
+            await interaction.response.send_message("⚠️ **Anti-Raid Shield DISABLED**\nAutomated join-flood mitigation is now off.")
+    except Exception as e:
+        logger.error(f"Error in /antiraid: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error updating anti-raid settings: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error updating anti-raid settings: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="voicerole", description="Configure dynamic @Voice Channel role for in-VC member pinging")
@@ -12885,104 +13363,108 @@ async def voicerole_slash_cmd(interaction: discord.Interaction, action: str = "s
 @commands.guild_only()
 async def voicerole_prefix_cmd(ctx: commands.Context, action: Optional[str] = "status", role: Optional[discord.Role] = None):
     """Configure dynamic voice role: !voicerole setup | !voicerole set @Role | !voicerole sync | !voicerole disable | !voicerole status"""
-    guild = ctx.guild
-    act = (action or "status").lower()
+    try:
+        guild = ctx.guild
+        act = (action or "status").lower()
 
-    if act in ("setup", "create", "enable", "on", "start"):
-        await db.set_config(guild.id, "voice_activity_role_enabled", True)
-        v_role = await get_or_create_voice_role(guild)
-        if not v_role:
-            return await ctx.send("❌ Could not create or find the @Voice Channel role. Please check bot role permissions.")
-        added, removed = await sync_guild_voice_roles(guild)
-        embed = discord.Embed(
-            title="🔊 Dynamic Voice Role Enabled",
-            description=(
-                f"✅ **Active Voice Role:** {v_role.mention} (`{v_role.id}`)\n\n"
-                f"• **Auto-Assignment:** Members will automatically receive {v_role.mention} when they join any voice channel.\n"
-                f"• **Auto-Removal:** The role is automatically removed when they leave voice.\n"
-                f"• **Pinging:** You can now mention {v_role.mention} in text channels to alert everyone currently in voice!\n"
-                f"• **Initial Sync:** `{added}` members assigned, `{removed}` cleaned up."
-            ),
-            color=discord.Color.green()
-        )
-        embed.set_footer(text=f"Configured by {ctx.author.display_name}")
-        await ctx.send(embed=embed)
+        if act in ("setup", "create", "enable", "on", "start"):
+            await db.set_config(guild.id, "voice_activity_role_enabled", True)
+            v_role = await get_or_create_voice_role(guild)
+            if not v_role:
+                return await ctx.send("❌ Could not create or find the @Voice Channel role. Please check bot role permissions.")
+            added, removed = await sync_guild_voice_roles(guild)
+            embed = discord.Embed(
+                title="🔊 Dynamic Voice Role Enabled",
+                description=(
+                    f"✅ **Active Voice Role:** {v_role.mention} (`{v_role.id}`)\n\n"
+                    f"• **Auto-Assignment:** Members will automatically receive {v_role.mention} when they join any voice channel.\n"
+                    f"• **Auto-Removal:** The role is automatically removed when they leave voice.\n"
+                    f"• **Pinging:** You can now mention {v_role.mention} in text channels to alert everyone currently in voice!\n"
+                    f"• **Initial Sync:** `{added}` members assigned, `{removed}` cleaned up."
+                ),
+                color=discord.Color.green()
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}")
+            await ctx.send(embed=embed)
 
-    elif act in ("set", "add", "role"):
-        target_role = role
-        if not target_role and ctx.message.role_mentions:
-            target_role = ctx.message.role_mentions[0]
-        if not target_role:
-            return await ctx.send("❌ Please specify or mention a role: `!voicerole set @Role`")
-        await db.set_config(guild.id, "voice_activity_role_enabled", True)
-        await db.set_config(guild.id, "voice_activity_role_id", target_role.id)
-        if not target_role.mentionable:
-            try:
-                await target_role.edit(mentionable=True, reason="Made mentionable for in-VC pinging")
-            except Exception:
-                pass
-        added, removed = await sync_guild_voice_roles(guild)
-        embed = discord.Embed(
-            title="🔊 Voice Role Configured",
-            description=(
-                f"✅ **Active Voice Role set to:** {target_role.mention}\n\n"
-                f"Members joining any voice channel will automatically get {target_role.mention} and lose it when leaving.\n"
-                f"• **Synced:** `{added}` assigned, `{removed}` cleaned up."
-            ),
-            color=discord.Color.green()
-        )
-        embed.set_footer(text=f"Configured by {ctx.author.display_name}")
-        await ctx.send(embed=embed)
-
-    elif act in ("sync", "resync", "refresh"):
-        added, removed = await sync_guild_voice_roles(guild)
-        v_role = await get_or_create_voice_role(guild)
-        role_str = v_role.mention if v_role else "Voice Role"
-        embed = discord.Embed(
-            title="🔄 Voice Role Re-Synced",
-            description=f"✅ Re-scanned all voice channels for {role_str}!\n• **Assigned to in-VC members:** `{added}`\n• **Removed from non-VC members:** `{removed}`",
-            color=discord.Color.blue()
-        )
-        await ctx.send(embed=embed)
-
-    elif act in ("disable", "off", "remove", "clear", "delete"):
-        await db.set_config(guild.id, "voice_activity_role_enabled", False)
-        v_role = await get_or_create_voice_role(guild)
-        if v_role:
-            for m in list(v_role.members):
+        elif act in ("set", "add", "role"):
+            target_role = role
+            if not target_role and ctx.message.role_mentions:
+                target_role = ctx.message.role_mentions[0]
+            if not target_role:
+                return await ctx.send("❌ Please specify or mention a role: `!voicerole set @Role`")
+            await db.set_config(guild.id, "voice_activity_role_enabled", True)
+            await db.set_config(guild.id, "voice_activity_role_id", target_role.id)
+            if not target_role.mentionable:
                 try:
-                    await m.remove_roles(v_role, reason="Disabled voice activity role system")
+                    await target_role.edit(mentionable=True, reason="Made mentionable for in-VC pinging")
                 except Exception:
                     pass
-        embed = discord.Embed(
-            title="🔴 Dynamic Voice Role Disabled",
-            description="The dynamic in-voice role assignment system has been turned off and cleaned up.",
-            color=discord.Color.orange()
-        )
-        await ctx.send(embed=embed)
+            added, removed = await sync_guild_voice_roles(guild)
+            embed = discord.Embed(
+                title="🔊 Voice Role Configured",
+                description=(
+                    f"✅ **Active Voice Role set to:** {target_role.mention}\n\n"
+                    f"Members joining any voice channel will automatically get {target_role.mention} and lose it when leaving.\n"
+                    f"• **Synced:** `{added}` assigned, `{removed}` cleaned up."
+                ),
+                color=discord.Color.green()
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}")
+            await ctx.send(embed=embed)
 
-    else:  # status / view
-        is_enabled = await db.get_config(guild.id, "voice_activity_role_enabled", True)
-        v_role = await get_or_create_voice_role(guild) if is_enabled else None
-        in_vc_count = sum(len(vc.members) for vc in list(guild.voice_channels) + list(getattr(guild, "stage_channels", [])))
-        embed = discord.Embed(
-            title=f"🔊 Dynamic Voice Role Status — {guild.name}",
-            color=discord.Color.green() if (is_enabled and v_role) else discord.Color.gold()
-        )
-        embed.add_field(name="Status", value="🟢 **Enabled**" if is_enabled else "🔴 **Disabled**", inline=True)
-        if v_role:
-            embed.add_field(name="Voice Role", value=f"✅ {v_role.mention} (`{v_role.id}`)", inline=True)
-            embed.add_field(name="Mentionable", value="✅ Yes (Can ping in text chat)" if v_role.mentionable else "⚠️ No", inline=True)
-        else:
-            embed.add_field(name="Voice Role", value="*Not configured (Use `!voicerole setup`)*", inline=True)
-        embed.add_field(name="Active In-VC Members", value=f"🎙️ **{in_vc_count}** members currently in voice", inline=False)
-        embed.add_field(
-            name="ℹ️ How It Works",
-            value="When a member connects to any voice channel, they automatically receive this role. When they disconnect, the role is instantly removed so you can ping all active in-VC members without pinging offline or AFK members!",
-            inline=False
-        )
-        embed.set_footer(text="Use !voicerole setup to auto-configure or !voicerole set @Role to customize.")
-        await ctx.send(embed=embed)
+        elif act in ("sync", "resync", "refresh"):
+            added, removed = await sync_guild_voice_roles(guild)
+            v_role = await get_or_create_voice_role(guild)
+            role_str = v_role.mention if v_role else "Voice Role"
+            embed = discord.Embed(
+                title="🔄 Voice Role Re-Synced",
+                description=f"✅ Re-scanned all voice channels for {role_str}!\n• **Assigned to in-VC members:** `{added}`\n• **Removed from non-VC members:** `{removed}`",
+                color=discord.Color.blue()
+            )
+            await ctx.send(embed=embed)
+
+        elif act in ("disable", "off", "remove", "clear", "delete"):
+            await db.set_config(guild.id, "voice_activity_role_enabled", False)
+            v_role = await get_or_create_voice_role(guild)
+            if v_role:
+                for m in list(v_role.members):
+                    try:
+                        await m.remove_roles(v_role, reason="Disabled voice activity role system")
+                    except Exception:
+                        pass
+            embed = discord.Embed(
+                title="🔴 Dynamic Voice Role Disabled",
+                description="The dynamic in-voice role assignment system has been turned off and cleaned up.",
+                color=discord.Color.orange()
+            )
+            await ctx.send(embed=embed)
+
+        else:  # status / view
+            is_enabled = await db.get_config(guild.id, "voice_activity_role_enabled", True)
+            v_role = await get_or_create_voice_role(guild) if is_enabled else None
+            in_vc_count = sum(len(vc.members) for vc in list(guild.voice_channels) + list(getattr(guild, "stage_channels", [])))
+            embed = discord.Embed(
+                title=f"🔊 Dynamic Voice Role Status — {guild.name}",
+                color=discord.Color.green() if (is_enabled and v_role) else discord.Color.gold()
+            )
+            embed.add_field(name="Status", value="🟢 **Enabled**" if is_enabled else "🔴 **Disabled**", inline=True)
+            if v_role:
+                embed.add_field(name="Voice Role", value=f"✅ {v_role.mention} (`{v_role.id}`)", inline=True)
+                embed.add_field(name="Mentionable", value="✅ Yes (Can ping in text chat)" if v_role.mentionable else "⚠️ No", inline=True)
+            else:
+                embed.add_field(name="Voice Role", value="*Not configured (Use `!voicerole setup`)*", inline=True)
+            embed.add_field(name="Active In-VC Members", value=f"🎙️ **{in_vc_count}** members currently in voice", inline=False)
+            embed.add_field(
+                name="ℹ️ How It Works",
+                value="When a member connects to any voice channel, they automatically receive this role. When they disconnect, the role is instantly removed so you can ping all active in-VC members without pinging offline or AFK members!",
+                inline=False
+            )
+            embed.set_footer(text="Use !voicerole setup to auto-configure or !voicerole set @Role to customize.")
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !voicerole: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to configure voice role: {e}")
 
 
 @bot.tree.command(name="slowmode", description="Set chat slowmode to throttle raid spam")
@@ -12991,16 +13473,20 @@ async def voicerole_prefix_cmd(ctx: commands.Context, action: Optional[str] = "s
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def slowmode_command(interaction: discord.Interaction, seconds: int, channel: discord.TextChannel = None):
-    target = channel or interaction.channel
-    seconds = max(0, min(seconds, 21600))
     try:
+        target = channel or interaction.channel
+        seconds = max(0, min(seconds, 21600))
         await target.edit(slowmode_delay=seconds, reason=f"Slowmode set by {interaction.user}")
         if seconds == 0:
             await interaction.response.send_message(f"🔓 Slowmode disabled in {target.mention}.")
         else:
             await interaction.response.send_message(f"⏱️ Slowmode in {target.mention} set to **{seconds} seconds**.")
     except Exception as e:
-        await interaction.response.send_message(f"❌ Failed to update slowmode: {e}", ephemeral=True)
+        logger.error(f"Error in /slowmode: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to update slowmode: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to update slowmode: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="panic", description="🚨 EMERGENCY: 1-click instant server lockdown, slowmode, and raid cleanup")
@@ -13008,57 +13494,64 @@ async def slowmode_command(interaction: discord.Interaction, seconds: int, chann
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 30.0, key=lambda i: (i.guild_id, i.user.id))
 async def panic_command(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
-    guild = interaction.guild
-    now = time.time()
-    
-    # 1. Activate raid mode for 15 minutes
-    _guild_raid_mode_active[guild.id] = now + 900.0
-    
-    # 2. Lock down public text channels
-    locked_count = 0
-    for chan in guild.text_channels:
-        overwrites = chan.overwrites_for(guild.default_role)
-        if overwrites.send_messages is False:
-            continue
-        try:
-            await chan.set_permissions(guild.default_role, send_messages=False, reason="Emergency Panic Lockdown")
-            await chan.edit(slowmode_delay=15, reason="Emergency Panic Slowmode")
-            await db.add_resource(guild.id, "locked_channels", chan.id)
-            locked_count += 1
-            await asyncio.sleep(0.15)
-        except Exception:
-            pass
-
-    # 3. Find and kick accounts that joined in the last 10 minutes
-    kicked_count = 0
-    ten_mins_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
-    for member in guild.members:
-        if member.bot or member.id == guild.owner_id or member.guild_permissions.administrator:
-            continue
-        if member.joined_at and member.joined_at > ten_mins_ago:
-            if is_protected(member): continue
+    try:
+        await interaction.response.defer(thinking=True)
+        guild = interaction.guild
+        now = time.time()
+        
+        # 1. Activate raid mode for 15 minutes
+        _guild_raid_mode_active[guild.id] = now + 900.0
+        
+        # 2. Lock down public text channels
+        locked_count = 0
+        for chan in guild.text_channels:
+            overwrites = chan.overwrites_for(guild.default_role)
+            if overwrites.send_messages is False:
+                continue
             try:
-                await member.kick(reason="Panic Mode: Kicking recent joiners during active raid")
-                kicked_count += 1
+                await chan.set_permissions(guild.default_role, send_messages=False, reason="Emergency Panic Lockdown")
+                await chan.edit(slowmode_delay=15, reason="Emergency Panic Slowmode")
+                await db.add_resource(guild.id, "locked_channels", chan.id)
+                locked_count += 1
                 await asyncio.sleep(0.15)
             except Exception:
                 pass
 
-    embed = discord.Embed(
-        title="🚨 EMERGENCY PANIC PROTOCOL ENGAGED! 🚨",
-        description=(
-            f"🛡️ **{locked_count} public channels** have been frozen with 15s slowmode.\n"
-            f"🧹 **{kicked_count} accounts** that joined in the last 10 minutes were removed.\n"
-            f"⏱️ Raid protection is locked for the next 15 minutes.\n\n"
-            "To lift the freeze when safe, run `/lockdown off` and `/slowmode 0`."
-        ),
-        color=discord.Color.dark_red()
-    )
-    embed.set_footer(text=f"Initiated by {interaction.user}")
-    embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-    
-    await interaction.followup.send(embed=embed)
+        # 3. Find and kick accounts that joined in the last 10 minutes
+        kicked_count = 0
+        ten_mins_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
+        for member in guild.members:
+            if member.bot or member.id == guild.owner_id or member.guild_permissions.administrator:
+                continue
+            if member.joined_at and member.joined_at > ten_mins_ago:
+                if is_protected(member): continue
+                try:
+                    await member.kick(reason="Panic Mode: Kicking recent joiners during active raid")
+                    kicked_count += 1
+                    await asyncio.sleep(0.15)
+                except Exception:
+                    pass
+
+        embed = discord.Embed(
+            title="🚨 EMERGENCY PANIC PROTOCOL ENGAGED! 🚨",
+            description=(
+                f"🛡️ **{locked_count} public channels** have been frozen with 15s slowmode.\n"
+                f"🧹 **{kicked_count} accounts** that joined in the last 10 minutes were removed.\n"
+                f"⏱️ Raid protection is locked for the next 15 minutes.\n\n"
+                "To lift the freeze when safe, run `/lockdown off` and `/slowmode 0`."
+            ),
+            color=discord.Color.dark_red()
+        )
+        embed.set_footer(text=f"Initiated by {interaction.user}")
+        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /panic: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to execute panic protocol: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to execute panic protocol: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="addcategory", description="Ask AI to design and add a single category with custom channels")
@@ -13067,52 +13560,59 @@ async def panic_command(interaction: discord.Interaction):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
 async def addcategory_command(interaction: discord.Interaction, description: str):
-    # ── Layer 1: Rate limit (user cooldown) ────────────────────────────────
-    allowed, remaining = _check_user_cooldown(interaction.user.id)
-    if not allowed:
-        await interaction.response.send_message(
-            f"⏳ Please wait **{remaining}s** before using `/addcategory` again.",
-            ephemeral=True
-        )
-        return
-
-    # ── Layer 2: Rate limit (server hourly cap) ─────────────────────────────
-    if not _check_server_limit(interaction.guild.id):
-        await interaction.response.send_message(
-            f"🚫 This server has reached the **{_SERVER_HOURLY_LIMIT} AI uses/hour** limit. Try again later.",
-            ephemeral=True
-        )
-        return
-
-    # ── Layer 3: Input sanitization ─────────────────────────────────────────
-    is_clean, result = _sanitize_ai_input(description)
-    if not is_clean:
-        logger.warning(f"Prompt injection attempt in /addcategory by {interaction.user} ({interaction.user.id}) in guild {interaction.guild.id}: matched '{result}'")
-        await interaction.response.send_message(
-            "⚠️ Your description was flagged for suspicious content. Please describe a normal Discord category.",
-            ephemeral=True
-        )
-        return
-    description = result  # use sanitized (truncated) version
-
-    await interaction.response.defer(thinking=True)
     try:
-        sys_inst = f"The user wants to create a single Discord category: '{description}'. Return ONLY a raw JSON object with this structure: {{\"categories\": [{{\"name\": \"Category Name\", \"private_for\": [], \"channels\": [{{\"name\": \"chan-name\", \"type\": \"text\", \"topic\": \"chan topic\"}}, {{\"name\": \"voice-chan\", \"type\": \"voice\"}}]}}]}}. Do not include markdown or code blocks. Just JSON."
-        text = await call_ai_generation(description, sys_inst, json_mode=True)
-        
-        text = text.strip()
-        if text.startswith("```"):
-            lines = text.splitlines()
-            lines = lines[1:] if lines[0].startswith("```") else lines
-            lines = lines[:-1] if lines and lines[-1].startswith("```") else lines
-            text = "\n".join(lines).strip()
+        # ── Layer 1: Rate limit (user cooldown) ────────────────────────────────
+        allowed, remaining = _check_user_cooldown(interaction.user.id)
+        if not allowed:
+            await interaction.response.send_message(
+                f"⏳ Please wait **{remaining}s** before using `/addcategory` again.",
+                ephemeral=True
+            )
+            return
+
+        # ── Layer 2: Rate limit (server hourly cap) ─────────────────────────────
+        if not _check_server_limit(interaction.guild.id):
+            await interaction.response.send_message(
+                f"🚫 This server has reached the **{_SERVER_HOURLY_LIMIT} AI uses/hour** limit. Try again later.",
+                ephemeral=True
+            )
+            return
+
+        # ── Layer 3: Input sanitization ─────────────────────────────────────────
+        is_clean, result = _sanitize_ai_input(description)
+        if not is_clean:
+            logger.warning(f"Prompt injection attempt in /addcategory by {interaction.user} ({interaction.user.id}) in guild {interaction.guild.id}: matched '{result}'")
+            await interaction.response.send_message(
+                "⚠️ Your description was flagged for suspicious content. Please describe a normal Discord category.",
+                ephemeral=True
+            )
+            return
+        description = result  # use sanitized (truncated) version
+
+        await interaction.response.defer(thinking=True)
+        try:
+            sys_inst = f"The user wants to create a single Discord category: '{description}'. Return ONLY a raw JSON object with this structure: {{\"categories\": [{{\"name\": \"Category Name\", \"private_for\": [], \"channels\": [{{\"name\": \"chan-name\", \"type\": \"text\", \"topic\": \"chan topic\"}}, {{\"name\": \"voice-chan\", \"type\": \"voice\"}}]}}]}}. Do not include markdown or code blocks. Just JSON."
+            text = await call_ai_generation(description, sys_inst, json_mode=True)
             
-        data = json.loads(text)
-        await interaction.edit_original_response(content="⚙️ **Building new category and channels...**")
-        await build_server_structure(interaction.guild, data, interaction.channel)
+            text = text.strip()
+            if text.startswith("```"):
+                lines = text.splitlines()
+                lines = lines[1:] if lines[0].startswith("```") else lines
+                lines = lines[:-1] if lines and lines[-1].startswith("```") else lines
+                text = "\n".join(lines).strip()
+                
+            data = json.loads(text)
+            await interaction.edit_original_response(content="⚙️ **Building new category and channels...**")
+            await build_server_structure(interaction.guild, data, interaction.channel)
+        except Exception as e:
+            logger.error(f"Failed to build category: {e}", exc_info=True)
+            await interaction.edit_original_response(content="❌ Failed to build category due to an internal error.")
     except Exception as e:
-        logger.error(f"Failed to build category: {e}", exc_info=True)
-        await interaction.edit_original_response(content="❌ Failed to build category due to an internal error.")
+        logger.error(f"Error in /addcategory: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to build category: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to build category: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="aiperms", description="Configure channel/category permissions for roles and users using AI")
@@ -13124,148 +13624,155 @@ async def addcategory_command(interaction: discord.Interaction, description: str
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
 async def aiperms_command(interaction: discord.Interaction, target: discord.abc.GuildChannel, description: str):
-    # Rate limit (user cooldown)
-    allowed, remaining = _check_user_cooldown(interaction.user.id)
-    if not allowed:
-        await interaction.response.send_message(f"⏳ Please wait **{remaining}s** before using `/aiperms` again.", ephemeral=True)
-        return
-
-    # Rate limit (server hourly cap)
-    if not _check_server_limit(interaction.guild.id):
-        await interaction.response.send_message(f"🚫 This server has reached the hourly AI uses limit.", ephemeral=True)
-        return
-
-    # Input sanitization
-    is_clean, result = _sanitize_ai_input(description)
-    if not is_clean:
-        await interaction.response.send_message("⚠️ Your description was flagged for suspicious content.", ephemeral=True)
-        return
-    description = result
-
-    await interaction.response.defer(thinking=True)
-    
-    # Collect roles and active members to send as context
-    roles_list = [r.name for r in interaction.guild.roles]
-    
-    # Extract user mentions like <@123456789...> from the description
-    mentioned_ids = re.findall(r'<@!?(\d+)>', description)
-    mentioned_members = []
-    for m_id in mentioned_ids:
-        try:
-            m = interaction.guild.get_member(int(m_id))
-            if m and not m.bot:
-                mentioned_members.append(m)
-        except Exception:
-            pass
-            
-    # Fallback scan for usernames/display names in text
-    if not mentioned_members:
-        desc_lower = description.lower()
-        count = 0
-        for m in interaction.guild.members:
-            if m.bot:
-                continue
-            if m.name.lower() in desc_lower or m.display_name.lower() in desc_lower:
-                mentioned_members.append(m)
-                count += 1
-                if count >= 10:
-                    break
-                    
-    members_list = [f"{m.name} (display: {m.display_name})" for m in mentioned_members]
-    
-    sys_prompt = SYSTEM_PERMS_PROMPT
-    prompt = f"Roles on server: {json.dumps(roles_list)}\nMembers on server: {json.dumps(members_list)}\nTarget Channel/Category: {target.name}\n\nDescription: {description}"
-    
     try:
-        response = await call_ai_generation(prompt, sys_prompt, json_mode=True)
+        # Rate limit (user cooldown)
+        allowed, remaining = _check_user_cooldown(interaction.user.id)
+        if not allowed:
+            await interaction.response.send_message(f"⏳ Please wait **{remaining}s** before using `/aiperms` again.", ephemeral=True)
+            return
+
+        # Rate limit (server hourly cap)
+        if not _check_server_limit(interaction.guild.id):
+            await interaction.response.send_message(f"🚫 This server has reached the hourly AI uses limit.", ephemeral=True)
+            return
+
+        # Input sanitization
+        is_clean, result = _sanitize_ai_input(description)
+        if not is_clean:
+            await interaction.response.send_message("⚠️ Your description was flagged for suspicious content.", ephemeral=True)
+            return
+        description = result
+
+        await interaction.response.defer(thinking=True)
         
-        # Clean response if markdown code fences are present
-        response = response.strip()
-        if response.startswith("```"):
-            lines = response.splitlines()
-            lines = lines[1:] if lines[0].startswith("```") else lines
-            lines = lines[:-1] if lines and lines[-1].startswith("```") else lines
-            response = "\n".join(lines).strip()
+        # Collect roles and active members to send as context
+        roles_list = [r.name for r in interaction.guild.roles]
+        
+        # Extract user mentions like <@123456789...> from the description
+        mentioned_ids = re.findall(r'<@!?(\d+)>', description)
+        mentioned_members = []
+        for m_id in mentioned_ids:
+            try:
+                m = interaction.guild.get_member(int(m_id))
+                if m and not m.bot:
+                    mentioned_members.append(m)
+            except Exception:
+                pass
+                
+        # Fallback scan for usernames/display names in text
+        if not mentioned_members:
+            desc_lower = description.lower()
+            count = 0
+            for m in interaction.guild.members:
+                if m.bot:
+                    continue
+                if m.name.lower() in desc_lower or m.display_name.lower() in desc_lower:
+                    mentioned_members.append(m)
+                    count += 1
+                    if count >= 10:
+                        break
+                        
+        members_list = [f"{m.name} (display: {m.display_name})" for m in mentioned_members]
+        
+        sys_prompt = SYSTEM_PERMS_PROMPT
+        prompt = f"Roles on server: {json.dumps(roles_list)}\nMembers on server: {json.dumps(members_list)}\nTarget Channel/Category: {target.name}\n\nDescription: {description}"
+        
+        try:
+            response = await call_ai_generation(prompt, sys_prompt, json_mode=True)
             
-        data = json.loads(response)
+            # Clean response if markdown code fences are present
+            response = response.strip()
+            if response.startswith("```"):
+                lines = response.splitlines()
+                lines = lines[1:] if lines[0].startswith("```") else lines
+                lines = lines[:-1] if lines and lines[-1].startswith("```") else lines
+                response = "\n".join(lines).strip()
+                
+            data = json.loads(response)
+        except Exception as e:
+            logger.error(f"AI Perms configuration failed: {e}", exc_info=True)
+            await interaction.followup.send("❌ AI configuration failed due to an internal error.")
+            return
+            
+        success_roles = []
+        success_members = []
+        errors = []
+        
+        role_rules = data.get("roles", {})
+        member_rules = data.get("members", {})
+        
+        user_perms = target.permissions_for(interaction.user)
+        is_owner = interaction.user.id == interaction.guild.owner_id
+        
+        # Apply Role permissions
+        for r_name, perms in role_rules.items():
+            role = None
+            if r_name == "@everyone":
+                role = interaction.guild.default_role
+            else:
+                role = discord.utils.get(interaction.guild.roles, name=r_name)
+                
+            if not role:
+                errors.append(f"Role '{r_name}' not found.")
+                continue
+                
+            try:
+                overwrite = discord.PermissionOverwrite()
+                for perm_key, val in perms.items():
+                    if hasattr(overwrite, perm_key):
+                        # Prevent granting permissions the command executor does not have
+                        if not is_owner and not getattr(user_perms, perm_key, False):
+                            errors.append(f"Permission '{perm_key}' skipped: you do not possess it.")
+                            continue
+                        setattr(overwrite, perm_key, val)
+                await target.set_permissions(role, overwrite=overwrite, reason="AI Permission Configurator")
+                success_roles.append(role.name)
+            except Exception as e:
+                errors.append(f"Failed to set overrides for role '{r_name}': {e}")
+                
+        # Apply Member permissions
+        for m_name, perms in member_rules.items():
+            clean_m_name = m_name.split(" (display:")[0].strip()
+            member = discord.utils.get(interaction.guild.members, name=clean_m_name) or \
+                     discord.utils.get(interaction.guild.members, display_name=clean_m_name)
+                     
+            if not member:
+                errors.append(f"Member '{m_name}' not found.")
+                continue
+                
+            try:
+                overwrite = discord.PermissionOverwrite()
+                for perm_key, val in perms.items():
+                    if hasattr(overwrite, perm_key):
+                        # Prevent granting permissions the command executor does not have
+                        if not is_owner and not getattr(user_perms, perm_key, False):
+                            errors.append(f"Permission '{perm_key}' skipped: you do not possess it.")
+                            continue
+                        setattr(overwrite, perm_key, val)
+                await target.set_permissions(member, overwrite=overwrite, reason="AI Permission Configurator")
+                success_members.append(member.display_name)
+            except Exception as e:
+                errors.append(f"Failed to set overrides for member '{m_name}': {e}")
+                
+        embed = discord.Embed(title="⚙️ AI Permission Configuration Complete", color=discord.Color.green())
+        embed.add_field(name="Target Channel/Category", value=target.mention if hasattr(target, "mention") else f"📁 {target.name}", inline=False)
+        if success_roles:
+            embed.add_field(name="Roles Configured", value=", ".join(success_roles), inline=True)
+        if success_members:
+            embed.add_field(name="Members Configured", value=", ".join(success_members), inline=True)
+        if errors:
+            embed.add_field(name="⚠️ Errors", value="\n".join(errors[:5]), inline=False)
+            
+        await interaction.followup.send(embed=embed)
+        
+        log_details = f"Roles: {', '.join(success_roles) or 'None'} | Members: {', '.join(success_members) or 'None'}"
+        await log_mod_action(interaction.guild, interaction.user, target, "AI Permissions Configuration", description, log_details)
     except Exception as e:
-        logger.error(f"AI Perms configuration failed: {e}", exc_info=True)
-        await interaction.followup.send("❌ AI configuration failed due to an internal error.")
-        return
-        
-    success_roles = []
-    success_members = []
-    errors = []
-    
-    role_rules = data.get("roles", {})
-    member_rules = data.get("members", {})
-    
-    user_perms = target.permissions_for(interaction.user)
-    is_owner = interaction.user.id == interaction.guild.owner_id
-    
-    # Apply Role permissions
-    for r_name, perms in role_rules.items():
-        role = None
-        if r_name == "@everyone":
-            role = interaction.guild.default_role
+        logger.error(f"Error in /aiperms: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ AI configuration failed: {e}", ephemeral=True)
         else:
-            role = discord.utils.get(interaction.guild.roles, name=r_name)
-            
-        if not role:
-            errors.append(f"Role '{r_name}' not found.")
-            continue
-            
-        try:
-            overwrite = discord.PermissionOverwrite()
-            for perm_key, val in perms.items():
-                if hasattr(overwrite, perm_key):
-                    # Prevent granting permissions the command executor does not have
-                    if not is_owner and not getattr(user_perms, perm_key, False):
-                        errors.append(f"Permission '{perm_key}' skipped: you do not possess it.")
-                        continue
-                    setattr(overwrite, perm_key, val)
-            await target.set_permissions(role, overwrite=overwrite, reason="AI Permission Configurator")
-            success_roles.append(role.name)
-        except Exception as e:
-            errors.append(f"Failed to set overrides for role '{r_name}': {e}")
-            
-    # Apply Member permissions
-    for m_name, perms in member_rules.items():
-        clean_m_name = m_name.split(" (display:")[0].strip()
-        member = discord.utils.get(interaction.guild.members, name=clean_m_name) or \
-                 discord.utils.get(interaction.guild.members, display_name=clean_m_name)
-                 
-        if not member:
-            errors.append(f"Member '{m_name}' not found.")
-            continue
-            
-        try:
-            overwrite = discord.PermissionOverwrite()
-            for perm_key, val in perms.items():
-                if hasattr(overwrite, perm_key):
-                    # Prevent granting permissions the command executor does not have
-                    if not is_owner and not getattr(user_perms, perm_key, False):
-                        errors.append(f"Permission '{perm_key}' skipped: you do not possess it.")
-                        continue
-                    setattr(overwrite, perm_key, val)
-            await target.set_permissions(member, overwrite=overwrite, reason="AI Permission Configurator")
-            success_members.append(member.display_name)
-        except Exception as e:
-            errors.append(f"Failed to set overrides for member '{m_name}': {e}")
-            
-    embed = discord.Embed(title="⚙️ AI Permission Configuration Complete", color=discord.Color.green())
-    embed.add_field(name="Target Channel/Category", value=target.mention if hasattr(target, "mention") else f"📁 {target.name}", inline=False)
-    if success_roles:
-        embed.add_field(name="Roles Configured", value=", ".join(success_roles), inline=True)
-    if success_members:
-        embed.add_field(name="Members Configured", value=", ".join(success_members), inline=True)
-    if errors:
-        embed.add_field(name="⚠️ Errors", value="\n".join(errors[:5]), inline=False)
-        
-    await interaction.followup.send(embed=embed)
-    
-    log_details = f"Roles: {', '.join(success_roles) or 'None'} | Members: {', '.join(success_members) or 'None'}"
-    await log_mod_action(interaction.guild, interaction.user, target, "AI Permissions Configuration", description, log_details)
+            await interaction.response.send_message(f"❌ AI configuration failed: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="teardown", description="Delete only the roles, categories, and channels created by this bot")
@@ -13273,39 +13780,46 @@ async def aiperms_command(interaction: discord.Interaction, target: discord.abc.
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.guild_id, i.user.id))
 async def teardown_command(interaction: discord.Interaction):
-    # Runtime Administrator Guard
-    if not interaction.user.guild_permissions.administrator and interaction.user.id != getattr(interaction.guild, "owner_id", None) and interaction.user.id != 719932313919684670:
-        return await interaction.response.send_message(
-            "❌ Only server administrators can use this command. Moderators and managers do not have access.",
-            ephemeral=True
+    try:
+        # Runtime Administrator Guard
+        if not interaction.user.guild_permissions.administrator and interaction.user.id != getattr(interaction.guild, "owner_id", None) and interaction.user.id != 719932313919684670:
+            return await interaction.response.send_message(
+                "❌ Only server administrators can use this command. Moderators and managers do not have access.",
+                ephemeral=True
+            )
+
+        confirm_embed = discord.Embed(
+            title="⚠️ CONFIRM SERVER TEARDOWN",
+            description=(
+                "**This will PERMANENTLY DELETE all bot-created channels, roles, and categories.**\n\n"
+                "⛔ This action CANNOT be undone.\n\n"
+                "**Are you absolutely sure?**"
+            ),
+            color=discord.Color.red()
         )
+        confirm_view = ConfirmActionView(interaction.user.id, "teardown")
+        await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
+        await confirm_view.wait()
 
-    confirm_embed = discord.Embed(
-        title="⚠️ CONFIRM SERVER TEARDOWN",
-        description=(
-            "**This will PERMANENTLY DELETE all bot-created channels, roles, and categories.**\n\n"
-            "⛔ This action CANNOT be undone.\n\n"
-            "**Are you absolutely sure?**"
-        ),
-        color=discord.Color.red()
-    )
-    confirm_view = ConfirmActionView(interaction.user.id, "teardown")
-    await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
-    await confirm_view.wait()
+        if not confirm_view.confirmed:
+            return
 
-    if not confirm_view.confirmed:
-        return
-
-    stats = await teardown_guild(interaction.guild)
-    
-    result_embed = discord.Embed(title="🗑️ Teardown Complete", color=discord.Color.red())
-    result_embed.add_field(name="Channels Deleted", value=str(stats.get('channels', 0)), inline=True)
-    result_embed.add_field(name="Categories Deleted", value=str(stats.get('categories', 0)), inline=True)
-    result_embed.add_field(name="Roles Deleted", value=str(stats.get('roles', 0)), inline=True)
-    result_embed.set_footer(text="Sweety Server Cleanup Engine")
-    
-    await interaction.followup.send(embed=result_embed, ephemeral=True)
-    await log_mod_action(interaction.guild, interaction.user, interaction.guild.me, "Server Teardown Executed", "Purged AI-created infrastructure", f"🗑️ /teardown executed by {interaction.user.mention} at <t:{int(time.time())}:F>")
+        stats = await teardown_guild(interaction.guild)
+        
+        result_embed = discord.Embed(title="🗑️ Teardown Complete", color=discord.Color.red())
+        result_embed.add_field(name="Channels Deleted", value=str(stats.get('channels', 0)), inline=True)
+        result_embed.add_field(name="Categories Deleted", value=str(stats.get('categories', 0)), inline=True)
+        result_embed.add_field(name="Roles Deleted", value=str(stats.get('roles', 0)), inline=True)
+        result_embed.set_footer(text="Sweety Server Cleanup Engine")
+        
+        await interaction.followup.send(embed=result_embed, ephemeral=True)
+        await log_mod_action(interaction.guild, interaction.user, interaction.guild.me, "Server Teardown Executed", "Purged AI-created infrastructure", f"🗑️ /teardown executed by {interaction.user.mention} at <t:{int(time.time())}:F>")
+    except Exception as e:
+        logger.error(f"Error in /teardown: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to execute teardown: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to execute teardown: {e}", ephemeral=True)
 
 
 
@@ -13319,34 +13833,41 @@ async def teardown_command(interaction: discord.Interaction):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def kick_command(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-    if member is None:
-        return await interaction.response.send_message("❌ That member is not in this server or has already left.", ephemeral=True)
-    if not interaction.guild.me.guild_permissions.kick_members:
-        return await interaction.response.send_message("❌ I lack the `Kick Members` permission in this server.", ephemeral=True)
-
-    if is_protected(member):
-        await interaction.response.send_message("❌ This member is staff/immune and cannot be kicked.", ephemeral=True)
-        return
-        
-    if member.id == interaction.guild.owner_id:
-        await interaction.response.send_message("❌ You cannot kick the Server Owner!", ephemeral=True)
-        return
-        
-    if member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
-        await interaction.response.send_message("❌ You cannot kick this member because they have a higher or equal role than you.", ephemeral=True)
-        return
-    if member.top_role >= interaction.guild.me.top_role:
-        await interaction.response.send_message("❌ I cannot kick this member because they have a higher or equal role than me.", ephemeral=True)
-        return
-        
-    clean_reason = discord.utils.escape_mentions(reason[:500])
     try:
-        await member.kick(reason=clean_reason)
-        await interaction.response.send_message(f"✅ **{member.display_name}** has been kicked from the server. (Reason: {clean_reason})")
-        await log_mod_action(interaction.guild, interaction.user, member, "Kick", clean_reason)
+        if member is None:
+            return await interaction.response.send_message("❌ That member is not in this server or has already left.", ephemeral=True)
+        if not interaction.guild.me.guild_permissions.kick_members:
+            return await interaction.response.send_message("❌ I lack the `Kick Members` permission in this server.", ephemeral=True)
+
+        if is_protected(member):
+            await interaction.response.send_message("❌ This member is staff/immune and cannot be kicked.", ephemeral=True)
+            return
+            
+        if member.id == interaction.guild.owner_id:
+            await interaction.response.send_message("❌ You cannot kick the Server Owner!", ephemeral=True)
+            return
+            
+        if member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
+            await interaction.response.send_message("❌ You cannot kick this member because they have a higher or equal role than you.", ephemeral=True)
+            return
+        if member.top_role >= interaction.guild.me.top_role:
+            await interaction.response.send_message("❌ I cannot kick this member because they have a higher or equal role than me.", ephemeral=True)
+            return
+            
+        clean_reason = discord.utils.escape_mentions(reason[:500])
+        try:
+            await member.kick(reason=clean_reason)
+            await interaction.response.send_message(f"✅ **{member.display_name}** has been kicked from the server. (Reason: {clean_reason})")
+            await log_mod_action(interaction.guild, interaction.user, member, "Kick", clean_reason)
+        except Exception as e:
+            logger.error(f"Kick command failed: {e}", exc_info=True)
+            await interaction.response.send_message("❌ Failed to kick member due to an internal error.", ephemeral=True)
     except Exception as e:
-        logger.error(f"Kick command failed: {e}", exc_info=True)
-        await interaction.response.send_message("❌ Failed to kick member due to an internal error.", ephemeral=True)
+        logger.error(f"Error in /kick: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="ban", description="Ban a user from the server")
@@ -13366,35 +13887,42 @@ async def kick_command(interaction: discord.Interaction, member: discord.Member,
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def ban_command(interaction: discord.Interaction, member: discord.User, reason: str = "No reason provided", delete_message_days: int = 0):
-    if not interaction.guild.me.guild_permissions.ban_members:
-        return await interaction.response.send_message("❌ I lack the `Ban Members` permission in this server.", ephemeral=True)
+    try:
+        if not interaction.guild.me.guild_permissions.ban_members:
+            return await interaction.response.send_message("❌ I lack the `Ban Members` permission in this server.", ephemeral=True)
 
-    guild_member = interaction.guild.get_member(member.id)
-    if is_protected(guild_member or member):
-        await interaction.response.send_message("❌ This user is staff/immune and cannot be banned.", ephemeral=True)
-        return
-        
-    if member.id == interaction.guild.owner_id:
-        await interaction.response.send_message("❌ You cannot ban the Server Owner!", ephemeral=True)
-        return
-        
-    if guild_member:
-        if guild_member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
-            await interaction.response.send_message("❌ You cannot ban this member because they have a higher or equal role than you.", ephemeral=True)
-            return
-        if guild_member.top_role >= interaction.guild.me.top_role:
-            await interaction.response.send_message("❌ I cannot ban this member because they have a higher or equal role than me.", ephemeral=True)
+        guild_member = interaction.guild.get_member(member.id)
+        if is_protected(guild_member or member):
+            await interaction.response.send_message("❌ This user is staff/immune and cannot be banned.", ephemeral=True)
             return
             
-    clean_reason = discord.utils.escape_mentions(reason[:500])
-    try:
-        seconds = delete_message_days * 86400
-        await interaction.guild.ban(member, reason=clean_reason, delete_message_seconds=seconds)
-        await interaction.response.send_message(f"✅ **{member.display_name}** has been banned from the server. (Reason: {clean_reason})")
-        await log_mod_action(interaction.guild, interaction.user, member, "Ban", clean_reason, f"Deleted messages history: {delete_message_days} days")
+        if member.id == interaction.guild.owner_id:
+            await interaction.response.send_message("❌ You cannot ban the Server Owner!", ephemeral=True)
+            return
+            
+        if guild_member:
+            if guild_member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
+                await interaction.response.send_message("❌ You cannot ban this member because they have a higher or equal role than you.", ephemeral=True)
+                return
+            if guild_member.top_role >= interaction.guild.me.top_role:
+                await interaction.response.send_message("❌ I cannot ban this member because they have a higher or equal role than me.", ephemeral=True)
+                return
+                
+        clean_reason = discord.utils.escape_mentions(reason[:500])
+        try:
+            seconds = delete_message_days * 86400
+            await interaction.guild.ban(member, reason=clean_reason, delete_message_seconds=seconds)
+            await interaction.response.send_message(f"✅ **{member.display_name}** has been banned from the server. (Reason: {clean_reason})")
+            await log_mod_action(interaction.guild, interaction.user, member, "Ban", clean_reason, f"Deleted messages history: {delete_message_days} days")
+        except Exception as e:
+            logger.error(f"Ban command failed: {e}", exc_info=True)
+            await interaction.response.send_message("❌ Failed to ban user due to an internal error.", ephemeral=True)
     except Exception as e:
-        logger.error(f"Ban command failed: {e}", exc_info=True)
-        await interaction.response.send_message("❌ Failed to ban user due to an internal error.", ephemeral=True)
+        logger.error(f"Error in /ban: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="unban", description="Unban a user from the server")
@@ -13403,22 +13931,29 @@ async def ban_command(interaction: discord.Interaction, member: discord.User, re
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def unban_command(interaction: discord.Interaction, user_id: str, reason: str = "No reason provided"):
-    if not interaction.guild.me.guild_permissions.ban_members:
-        return await interaction.response.send_message("❌ I lack the `Ban Members` permission to unban users in this server.", ephemeral=True)
-    clean_reason = discord.utils.escape_mentions(reason[:500])
     try:
-        uid = int(user_id)
-        user = await bot.fetch_user(uid)
-        await interaction.guild.unban(user, reason=clean_reason)
-        await interaction.response.send_message(f"✅ **{user.display_name}** (ID: {user_id}) has been unbanned. (Reason: {clean_reason})")
-        await log_mod_action(interaction.guild, interaction.user, user, "Unban", clean_reason)
-    except ValueError:
-        await interaction.response.send_message("❌ Please provide a valid numerical User ID.", ephemeral=True)
-    except discord.NotFound:
-        await interaction.response.send_message("❌ That user was not found or is not banned.", ephemeral=True)
+        if not interaction.guild.me.guild_permissions.ban_members:
+            return await interaction.response.send_message("❌ I lack the `Ban Members` permission to unban users in this server.", ephemeral=True)
+        clean_reason = discord.utils.escape_mentions(reason[:500])
+        try:
+            uid = int(user_id)
+            user = await bot.fetch_user(uid)
+            await interaction.guild.unban(user, reason=clean_reason)
+            await interaction.response.send_message(f"✅ **{user.display_name}** (ID: {user_id}) has been unbanned. (Reason: {clean_reason})")
+            await log_mod_action(interaction.guild, interaction.user, user, "Unban", clean_reason)
+        except ValueError:
+            await interaction.response.send_message("❌ Please provide a valid numerical User ID.", ephemeral=True)
+        except discord.NotFound:
+            await interaction.response.send_message("❌ That user was not found or is not banned.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Unban command failed: {e}", exc_info=True)
+            await interaction.response.send_message("❌ Failed to unban user due to an internal error.", ephemeral=True)
     except Exception as e:
-        logger.error(f"Unban command failed: {e}", exc_info=True)
-        await interaction.response.send_message("❌ Failed to unban user due to an internal error.", ephemeral=True)
+        logger.error(f"Error in /unban: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 # ── Formal Warning & Auto-Escalation System ──────────────────────────────────
@@ -13569,35 +14104,42 @@ async def issue_warning_logic(guild: discord.Guild, member: discord.Member, mode
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def warn_command(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-    if member is None:
-        return await interaction.response.send_message("❌ That member is not in this server or has already left.", ephemeral=True)
-    if not interaction.guild.me.guild_permissions.moderate_members:
-        return await interaction.response.send_message("❌ I lack the `Moderate Members (Timeout)` permission in this server.", ephemeral=True)
+    try:
+        if member is None:
+            return await interaction.response.send_message("❌ That member is not in this server or has already left.", ephemeral=True)
+        if not interaction.guild.me.guild_permissions.moderate_members:
+            return await interaction.response.send_message("❌ I lack the `Moderate Members (Timeout)` permission in this server.", ephemeral=True)
 
-    if is_protected(member):
-        await interaction.response.send_message("❌ This member is staff/immune and cannot be warned.", ephemeral=True)
-        return
-    if member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
-        await interaction.response.send_message("❌ You cannot warn this member because they have a higher or equal role than you.", ephemeral=True)
-        return
-    if member.id == interaction.guild.owner_id:
-        await interaction.response.send_message("❌ You cannot warn the Server Owner!", ephemeral=True)
-        return
+        if is_protected(member):
+            await interaction.response.send_message("❌ This member is staff/immune and cannot be warned.", ephemeral=True)
+            return
+        if member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
+            await interaction.response.send_message("❌ You cannot warn this member because they have a higher or equal role than you.", ephemeral=True)
+            return
+        if member.id == interaction.guild.owner_id:
+            await interaction.response.send_message("❌ You cannot warn the Server Owner!", ephemeral=True)
+            return
 
-    await interaction.response.defer()
-    clean_reason = discord.utils.escape_mentions(reason[:500])
-    total_warns, escalation = await issue_warning_logic(interaction.guild, member, interaction.user, clean_reason)
-    
-    embed = discord.Embed(
-        title="⚠️ Member Formally Warned",
-        description=f"**{member.mention}** has been issued a warning.{escalation}",
-        color=discord.Color.gold()
-    )
-    embed.add_field(name="User", value=f"{member.name} (`{member.id}`)", inline=True)
-    embed.add_field(name="Moderator", value=interaction.user.mention, inline=True)
-    embed.add_field(name="Total Warnings", value=f"`{total_warns}`", inline=True)
-    embed.add_field(name="Reason", value=clean_reason, inline=False)
-    await interaction.followup.send(embed=embed)
+        await interaction.response.defer()
+        clean_reason = discord.utils.escape_mentions(reason[:500])
+        total_warns, escalation = await issue_warning_logic(interaction.guild, member, interaction.user, clean_reason)
+        
+        embed = discord.Embed(
+            title="⚠️ Member Formally Warned",
+            description=f"**{member.mention}** has been issued a warning.{escalation}",
+            color=discord.Color.gold()
+        )
+        embed.add_field(name="User", value=f"{member.name} (`{member.id}`)", inline=True)
+        embed.add_field(name="Moderator", value=interaction.user.mention, inline=True)
+        embed.add_field(name="Total Warnings", value=f"`{total_warns}`", inline=True)
+        embed.add_field(name="Reason", value=clean_reason, inline=False)
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /warn: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to warn member: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to warn member: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="strike", description="Issue a formal strike to a member with auto-escalation (alias for /warn)")
@@ -13606,7 +14148,14 @@ async def warn_command(interaction: discord.Interaction, member: discord.Member,
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def strike_slash_cmd(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-    await warn_command(interaction, member, reason)
+    try:
+        await warn_command(interaction, member, reason)
+    except Exception as e:
+        logger.error(f"Error in /strike: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 # ── Interactive Warning Management UI ──────────────────────────────────────────
@@ -13650,50 +14199,57 @@ class WarningActionView(discord.ui.View):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def warnings_command(interaction: discord.Interaction, member: discord.Member = None):
-    target = member or interaction.user
-    await interaction.response.defer()
-    
-    warns = await db.get_warnings(interaction.guild.id, target.id)
-    if not warns:
+    try:
+        target = member or interaction.user
+        await interaction.response.defer()
+        
+        warns = await db.get_warnings(interaction.guild.id, target.id)
+        if not warns:
+            embed = discord.Embed(
+                title=f"📜 Warning History — {target.display_name}",
+                description=f"✅ **{target.mention} has a clean record with 0 warnings!**",
+                color=discord.Color.green()
+            )
+            embed.set_thumbnail(url=target.display_avatar.url)
+            await interaction.followup.send(embed=embed)
+            return
+
         embed = discord.Embed(
-            title=f"📜 Warning History — {target.display_name}",
-            description=f"✅ **{target.mention} has a clean record with 0 warnings!**",
-            color=discord.Color.green()
+            title=f"⚠️ Infraction Record — {target.display_name}",
+            description=f"Total Warnings on file: **`{len(warns)}`**",
+            color=discord.Color.orange()
         )
         embed.set_thumbnail(url=target.display_avatar.url)
-        await interaction.followup.send(embed=embed)
-        return
-
-    embed = discord.Embed(
-        title=f"⚠️ Infraction Record — {target.display_name}",
-        description=f"Total Warnings on file: **`{len(warns)}`**",
-        color=discord.Color.orange()
-    )
-    embed.set_thumbnail(url=target.display_avatar.url)
-    
-    for idx, w in enumerate(warns[:10], 1):
-        warn_id = w.get("id") if isinstance(w, dict) else w[0]
-        mod_id = w.get("moderator_id") if isinstance(w, dict) else w[1]
-        reason = w.get("reason") if isinstance(w, dict) else w[2]
-        ts = w.get("timestamp") if isinstance(w, dict) else w[3]
-        embed.add_field(
-            name=f"Warning #{idx} (ID: `{warn_id}`) • {ts or 'Recently'}",
-            value=f"• **Reason:** {reason}\n• **Moderator:** <@{mod_id}>",
-            inline=False
-        )
-    if len(warns) > 10:
-        embed.set_footer(text=f"Showing top 10 of {len(warns)} total warnings. Use /clearwarns or /delwarn to manage.")
-    else:
-        embed.set_footer(text="Sweety Moderation Shield • Use /clearwarns or /delwarn to manage")
         
-    # Attach interactive action view if viewer is moderator/staff, or appeal button if user checking their own warnings
-    view = None
-    if is_protected(interaction.user):
-        view = WarningActionView(interaction.guild.id, target, interaction.user.id)
-    elif target.id == interaction.user.id and len(warns) > 0:
-        view = DMAppealLauncherView()
+        for idx, w in enumerate(warns[:10], 1):
+            warn_id = w.get("id") if isinstance(w, dict) else w[0]
+            mod_id = w.get("moderator_id") if isinstance(w, dict) else w[1]
+            reason = w.get("reason") if isinstance(w, dict) else w[2]
+            ts = w.get("timestamp") if isinstance(w, dict) else w[3]
+            embed.add_field(
+                name=f"Warning #{idx} (ID: `{warn_id}`) • {ts or 'Recently'}",
+                value=f"• **Reason:** {reason}\n• **Moderator:** <@{mod_id}>",
+                inline=False
+            )
+        if len(warns) > 10:
+            embed.set_footer(text=f"Showing top 10 of {len(warns)} total warnings. Use /clearwarns or /delwarn to manage.")
+        else:
+            embed.set_footer(text="Sweety Moderation Shield • Use /clearwarns or /delwarn to manage")
+            
+        # Attach interactive action view if viewer is moderator/staff, or appeal button if user checking their own warnings
+        view = None
+        if is_protected(interaction.user):
+            view = WarningActionView(interaction.guild.id, target, interaction.user.id)
+        elif target.id == interaction.user.id and len(warns) > 0:
+            view = DMAppealLauncherView()
 
-    await interaction.followup.send(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /warnings: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to fetch warnings: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to fetch warnings: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="clearwarns", description="Clear warnings for a member (all or a specific amount)")
@@ -13707,47 +14263,52 @@ async def warnings_command(interaction: discord.Interaction, member: discord.Mem
     app_commands.Choice(name="3 Warnings", value=3),
     app_commands.Choice(name="5 Warnings", value=5),
     app_commands.Choice(name="10 Warnings", value=10),
+    app_commands.Choice(name="All Warnings", value=0)
 ])
 @app_commands.default_permissions(moderate_members=True)
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def clearwarns_command(interaction: discord.Interaction, member: discord.Member, amount: Optional[int] = None):
-    # Staff / Mod Permission Check
-    if not is_protected(interaction.user):
-        await interaction.response.send_message("❌ You do not have permission to clear warnings.", ephemeral=True)
-        return
+    try:
+        # Staff / Mod Permission Check
+        if not is_protected(interaction.user):
+            await interaction.response.send_message("❌ You do not have permission to clear warnings.", ephemeral=True)
+            return
 
-    # Role Hierarchy Check (Creator/Owner/Admins bypass)
-    is_admin = interaction.user.guild_permissions.administrator or interaction.user.id == interaction.guild.owner_id or interaction.user.id == 719932313919684670
-    if not is_admin and is_protected(member) and member.top_role >= interaction.user.top_role:
-        await interaction.response.send_message("❌ You cannot modify warnings for another staff member with a higher or equal role.", ephemeral=True)
-        return
+        # Role Hierarchy Check (Creator/Owner/Admins bypass)
+        is_admin = interaction.user.guild_permissions.administrator or interaction.user.id == interaction.guild.owner_id or interaction.user.id == 719932313919684670
+        if not is_admin and is_protected(member) and member.top_role >= interaction.user.top_role:
+            await interaction.response.send_message("❌ You cannot modify warnings for another staff member with a higher or equal role.", ephemeral=True)
+            return
 
-    if amount is not None and amount <= 0:
-        await interaction.response.send_message("❌ Amount must be at least 1.", ephemeral=True)
-        return
+        amt = amount if (amount is not None and amount > 0) else None
+        await interaction.response.defer()
+        count = await db.clear_warnings(interaction.guild.id, member.id, amount=amt)
+        if count == 0:
+            await interaction.followup.send(f"ℹ️ **{member.mention}** currently has no warnings on record.", ephemeral=True)
+            return
 
-    await interaction.response.defer()
-    count = await db.clear_warnings(interaction.guild.id, member.id, amount=amount)
-    if count == 0:
-        await interaction.followup.send(f"ℹ️ **{member.mention}** currently has no warnings on record.", ephemeral=True)
-        return
+        if amt is not None:
+            desc = f"Successfully removed **`{count}`** recent warning(s) for **{member.mention}**."
+        else:
+            desc = f"Successfully cleared all **`{count}`** warning(s) for **{member.mention}**.\nTheir record has been reset to clean."
 
-    if amount is not None:
-        desc = f"Successfully removed **`{count}`** recent warning(s) for **{member.mention}**."
-    else:
-        desc = f"Successfully cleared all **`{count}`** warning(s) for **{member.mention}**.\nTheir record has been reset to clean."
-
-    embed = discord.Embed(
-        title="🧹 Warnings Cleared",
-        description=desc,
-        color=discord.Color.green()
-    )
-    embed.add_field(name="Member", value=f"{member.name} (`{member.id}`)", inline=True)
-    embed.add_field(name="Moderator", value=interaction.user.mention, inline=True)
-    embed.add_field(name="Warnings Removed", value=f"`{count}`", inline=True)
-    await interaction.followup.send(embed=embed)
-    await log_mod_action(interaction.guild, interaction.user, member, "Warnings Cleared", f"Cleared {count} warnings")
+        embed = discord.Embed(
+            title="🧹 Warnings Cleared",
+            description=desc,
+            color=discord.Color.green()
+        )
+        embed.add_field(name="Member", value=f"{member.name} (`{member.id}`)", inline=True)
+        embed.add_field(name="Moderator", value=interaction.user.mention, inline=True)
+        embed.add_field(name="Warnings Removed", value=f"`{count}`", inline=True)
+        await interaction.followup.send(embed=embed)
+        await log_mod_action(interaction.guild, interaction.user, member, "Warnings Cleared", f"Cleared {count} warnings")
+    except Exception as e:
+        logger.error(f"Error in /clearwarns: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to clear warnings: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to clear warnings: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="delwarn", description="Delete a single warning by its specific Warning ID")
@@ -13756,23 +14317,30 @@ async def clearwarns_command(interaction: discord.Interaction, member: discord.M
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def delwarn_command(interaction: discord.Interaction, warn_id: int):
-    if not is_protected(interaction.user):
-        await interaction.response.send_message("❌ You do not have permission to delete warnings.", ephemeral=True)
-        return
+    try:
+        if not is_protected(interaction.user):
+            await interaction.response.send_message("❌ You do not have permission to delete warnings.", ephemeral=True)
+            return
 
-    await interaction.response.defer()
-    success = await db.delete_warning_by_id(interaction.guild.id, warn_id)
-    if success:
-        embed = discord.Embed(
-            title="🗑️ Warning Deleted",
-            description=f"Successfully deleted warning with ID **`{warn_id}`**.",
-            color=discord.Color.green()
-        )
-        embed.set_footer(text=f"Action by {interaction.user.display_name}")
-        await interaction.followup.send(embed=embed)
-        await log_mod_action(interaction.guild, interaction.user, None, "Warning Deleted", f"Deleted warning ID {warn_id}")
-    else:
-        await interaction.followup.send(f"❌ Warning with ID **`{warn_id}`** was not found in this server.", ephemeral=True)
+        await interaction.response.defer()
+        success = await db.delete_warning_by_id(interaction.guild.id, warn_id)
+        if success:
+            embed = discord.Embed(
+                title="🗑️ Warning Deleted",
+                description=f"Successfully deleted warning with ID **`{warn_id}`**.",
+                color=discord.Color.green()
+            )
+            embed.set_footer(text=f"Action by {interaction.user.display_name}")
+            await interaction.followup.send(embed=embed)
+            await log_mod_action(interaction.guild, interaction.user, None, "Warning Deleted", f"Deleted warning ID {warn_id}")
+        else:
+            await interaction.followup.send(f"❌ Warning with ID **`{warn_id}`** was not found in this server.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /delwarn: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to delete warning: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to delete warning: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="warnleaderboard", description="Display the server leaderboard of members with the most warnings")
@@ -13787,50 +14355,57 @@ async def delwarn_command(interaction: discord.Interaction, warn_id: int):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def warnleaderboard_command(interaction: discord.Interaction, limit: Optional[int] = 10):
-    await interaction.response.defer()
-    limit = max(1, min(limit or 10, 25))
-    rows = await db.get_warnings_leaderboard(interaction.guild.id, limit=limit)
-    
-    if not rows:
+    try:
+        await interaction.response.defer()
+        limit = max(1, min(limit or 10, 25))
+        rows = await db.get_warnings_leaderboard(interaction.guild.id, limit=limit)
+        
+        if not rows:
+            embed = discord.Embed(
+                title=f"🏆 Warnings Leaderboard — {interaction.guild.name}",
+                description="✅ **No warnings recorded in this server! The record is completely clean.**",
+                color=discord.Color.green()
+            )
+            if interaction.guild.icon:
+                embed.set_thumbnail(url=interaction.guild.icon.url)
+            await interaction.followup.send(embed=embed)
+            return
+
         embed = discord.Embed(
-            title=f"🏆 Warnings Leaderboard — {interaction.guild.name}",
-            description="✅ **No warnings recorded in this server! The record is completely clean.**",
-            color=discord.Color.green()
+            title=f"⚠️ Warnings Leaderboard — {interaction.guild.name}",
+            description=f"Showing top **{len(rows)}** members with active infractions on file.\n",
+            color=discord.Color.orange()
         )
         if interaction.guild.icon:
             embed.set_thumbnail(url=interaction.guild.icon.url)
+
+        rank_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        lines = []
+        for idx, r in enumerate(rows, 1):
+            uid = r["user_id"] if isinstance(r, dict) and "user_id" in r else r[0]
+            cnt = int(r["warn_count"] if isinstance(r, dict) and "warn_count" in r else r[1])
+            
+            if cnt >= 6:
+                risk = f"⛔ **{cnt} Strikes** `(Permanent Ban Applied)`"
+            elif cnt >= 3:
+                remaining = 6 - cnt
+                risk = f"🛑 **{cnt} Strikes** `(7-Day Mute / {remaining} from Ban)`"
+            else:
+                remaining = 3 - cnt
+                risk = f"🟡 **{cnt} Strike{'s' if cnt != 1 else ''}** `({remaining} from 7-Day Mute)`"
+
+            medal = rank_emojis[idx-1] if idx <= len(rank_emojis) else f"`#{idx}`"
+            lines.append(f"{medal} <@{uid}> — {risk}")
+
+        embed.description = "\n\n".join(lines)
+        embed.set_footer(text="Sweety Moderation Shield • Use /warnings <user> or /clearwarns to manage")
         await interaction.followup.send(embed=embed)
-        return
-
-    embed = discord.Embed(
-        title=f"⚠️ Warnings Leaderboard — {interaction.guild.name}",
-        description=f"Showing top **{len(rows)}** members with active infractions on file.\n",
-        color=discord.Color.orange()
-    )
-    if interaction.guild.icon:
-        embed.set_thumbnail(url=interaction.guild.icon.url)
-
-    rank_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-    lines = []
-    for idx, r in enumerate(rows, 1):
-        uid = r["user_id"] if isinstance(r, dict) and "user_id" in r else r[0]
-        cnt = int(r["warn_count"] if isinstance(r, dict) and "warn_count" in r else r[1])
-        
-        if cnt >= 6:
-            risk = f"⛔ **{cnt} Strikes** `(Permanent Ban Applied)`"
-        elif cnt >= 3:
-            remaining = 6 - cnt
-            risk = f"🛑 **{cnt} Strikes** `(7-Day Mute / {remaining} from Ban)`"
+    except Exception as e:
+        logger.error(f"Error in /warnleaderboard: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to fetch warning leaderboard: {e}", ephemeral=True)
         else:
-            remaining = 3 - cnt
-            risk = f"🟡 **{cnt} Strike{'s' if cnt != 1 else ''}** `({remaining} from 7-Day Mute)`"
-
-        medal = rank_emojis[idx-1] if idx <= len(rank_emojis) else f"`#{idx}`"
-        lines.append(f"{medal} <@{uid}> — {risk}")
-
-    embed.description = "\n\n".join(lines)
-    embed.set_footer(text="Sweety Moderation Shield • Use /warnings <user> or /clearwarns to manage")
-    await interaction.followup.send(embed=embed)
+            await interaction.response.send_message(f"❌ Failed to fetch warning leaderboard: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="warnlb", description="Alias for /warnleaderboard — Display the server warnings leaderboard")
@@ -13845,7 +14420,14 @@ async def warnleaderboard_command(interaction: discord.Interaction, limit: Optio
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def warnlb_command(interaction: discord.Interaction, limit: Optional[int] = 10):
-    await warnleaderboard_command(interaction, limit=limit)
+    try:
+        await warnleaderboard_command(interaction, limit=limit)
+    except Exception as e:
+        logger.error(f"Error in /warnlb: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 
@@ -13858,27 +14440,31 @@ async def warnlb_command(interaction: discord.Interaction, limit: Optional[int] 
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def warn_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided"):
     """Issue a warning or strike to a member: !warn @member [reason] or !strike @member [reason]"""
-    if is_protected(member):
-        await ctx.send("❌ This member is staff/immune and cannot be warned.")
-        return
-    if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-        await ctx.send("❌ You cannot warn this member because they have a higher or equal role than you.")
-        return
-    if member.id == ctx.guild.owner_id:
-        await ctx.send("❌ You cannot warn the Server Owner!")
-        return
+    try:
+        if is_protected(member):
+            await ctx.send("❌ This member is staff/immune and cannot be warned.")
+            return
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            await ctx.send("❌ You cannot warn this member because they have a higher or equal role than you.")
+            return
+        if member.id == ctx.guild.owner_id:
+            await ctx.send("❌ You cannot warn the Server Owner!")
+            return
 
-    total_warns, escalation = await issue_warning_logic(ctx.guild, member, ctx.author, reason)
-    embed = discord.Embed(
-        title="⚠️ Member Formally Warned",
-        description=f"**{member.mention}** has been issued a warning.{escalation}",
-        color=discord.Color.gold()
-    )
-    embed.add_field(name="User", value=f"{member.name} (`{member.id}`)", inline=True)
-    embed.add_field(name="Moderator", value=ctx.author.mention, inline=True)
-    embed.add_field(name="Total Warnings", value=f"`{total_warns}`", inline=True)
-    embed.add_field(name="Reason", value=reason, inline=False)
-    await ctx.send(embed=embed)
+        total_warns, escalation = await issue_warning_logic(ctx.guild, member, ctx.author, reason)
+        embed = discord.Embed(
+            title="⚠️ Member Formally Warned",
+            description=f"**{member.mention}** has been issued a warning.{escalation}",
+            color=discord.Color.gold()
+        )
+        embed.add_field(name="User", value=f"{member.name} (`{member.id}`)", inline=True)
+        embed.add_field(name="Moderator", value=ctx.author.mention, inline=True)
+        embed.add_field(name="Total Warnings", value=f"`{total_warns}`", inline=True)
+        embed.add_field(name="Reason", value=reason, inline=False)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !warn: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to warn member: {e}")
 
 
 @bot.command(name="warnings", aliases=["warns"])
@@ -13886,28 +14472,32 @@ async def warn_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reas
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def warnings_prefix_cmd(ctx: commands.Context, member: discord.Member = None):
     """Check active warnings for a member: !warnings [@member]"""
-    target = member or ctx.author
-    warns = await db.get_warnings(ctx.guild.id, target.id)
-    if not warns:
-        await ctx.send(f"✅ **{target.mention} has a clean record with 0 warnings!**")
-        return
+    try:
+        target = member or ctx.author
+        warns = await db.get_warnings(ctx.guild.id, target.id)
+        if not warns:
+            await ctx.send(f"✅ **{target.mention} has a clean record with 0 warnings!**")
+            return
 
-    embed = discord.Embed(
-        title=f"⚠️ Infraction Record — {target.display_name}",
-        description=f"Total Warnings on file: **`{len(warns)}`**",
-        color=discord.Color.orange()
-    )
-    for idx, w in enumerate(warns[:10], 1):
-        warn_id = w.get("id") if isinstance(w, dict) else w[0]
-        mod_id = w.get("moderator_id") if isinstance(w, dict) else w[1]
-        reason = w.get("reason") if isinstance(w, dict) else w[2]
-        ts = w.get("timestamp") if isinstance(w, dict) else w[3]
-        embed.add_field(
-            name=f"Warning #{idx} (ID: `{warn_id}`) • {ts or 'Recently'}",
-            value=f"• **Reason:** {reason}\n• **Moderator:** <@{mod_id}>",
-            inline=False
+        embed = discord.Embed(
+            title=f"⚠️ Infraction Record — {target.display_name}",
+            description=f"Total Warnings on file: **`{len(warns)}`**",
+            color=discord.Color.orange()
         )
-    await ctx.send(embed=embed)
+        for idx, w in enumerate(warns[:10], 1):
+            warn_id = w.get("id") if isinstance(w, dict) else w[0]
+            mod_id = w.get("moderator_id") if isinstance(w, dict) else w[1]
+            reason = w.get("reason") if isinstance(w, dict) else w[2]
+            ts = w.get("timestamp") if isinstance(w, dict) else w[3]
+            embed.add_field(
+                name=f"Warning #{idx} (ID: `{warn_id}`) • {ts or 'Recently'}",
+                value=f"• **Reason:** {reason}\n• **Moderator:** <@{mod_id}>",
+                inline=False
+            )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !warnings: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to fetch warnings: {e}")
 
 
 @bot.command(name="clearwarns", aliases=["clearwarnings", "removewarn"])
@@ -13915,29 +14505,33 @@ async def warnings_prefix_cmd(ctx: commands.Context, member: discord.Member = No
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def clearwarns_prefix_cmd(ctx: commands.Context, member: discord.Member, amount: Optional[int] = None):
     """Clear warnings for a member: !clearwarns @member [amount]"""
-    if not is_protected(ctx.author):
-        await ctx.send("❌ You do not have permission to clear warnings.")
-        return
+    try:
+        if not is_protected(ctx.author):
+            await ctx.send("❌ You do not have permission to clear warnings.")
+            return
 
-    is_admin = ctx.author.guild_permissions.administrator or ctx.author.id == ctx.guild.owner_id or ctx.author.id == 719932313919684670
-    if not is_admin and is_protected(member) and member.top_role >= ctx.author.top_role:
-        await ctx.send("❌ You cannot modify warnings for another staff member with a higher or equal role.")
-        return
+        is_admin = ctx.author.guild_permissions.administrator or ctx.author.id == ctx.guild.owner_id or ctx.author.id == 719932313919684670
+        if not is_admin and is_protected(member) and member.top_role >= ctx.author.top_role:
+            await ctx.send("❌ You cannot modify warnings for another staff member with a higher or equal role.")
+            return
 
-    if amount is not None and amount <= 0:
-        await ctx.send("❌ Amount must be at least 1.")
-        return
+        if amount is not None and amount <= 0:
+            await ctx.send("❌ Amount must be at least 1.")
+            return
 
-    count = await db.clear_warnings(ctx.guild.id, member.id, amount=amount)
-    if count == 0:
-        await ctx.send(f"ℹ️ **{member.mention}** has no warnings on record.")
-        return
+        count = await db.clear_warnings(ctx.guild.id, member.id, amount=amount)
+        if count == 0:
+            await ctx.send(f"ℹ️ **{member.mention}** has no warnings on record.")
+            return
 
-    if amount is not None:
-        await ctx.send(f"🧹 Successfully removed **`{count}`** recent warning(s) for **{member.mention}**!")
-    else:
-        await ctx.send(f"🧹 Successfully cleared all **`{count}`** warnings for **{member.mention}**!")
-    await log_mod_action(ctx.guild, ctx.author, member, "Warnings Cleared", f"Cleared {count} warnings")
+        if amount is not None:
+            await ctx.send(f"🧹 Successfully removed **`{count}`** recent warning(s) for **{member.mention}**!")
+        else:
+            await ctx.send(f"🧹 Successfully cleared all **`{count}`** warnings for **{member.mention}**!")
+        await log_mod_action(ctx.guild, ctx.author, member, "Warnings Cleared", f"Cleared {count} warnings")
+    except Exception as e:
+        logger.error(f"Error in !clearwarns: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to clear warnings: {e}")
 
 
 @bot.command(name="delwarn")
@@ -13945,16 +14539,20 @@ async def clearwarns_prefix_cmd(ctx: commands.Context, member: discord.Member, a
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def delwarn_prefix_cmd(ctx: commands.Context, warn_id: int):
     """Delete a specific warning by ID: !delwarn <id>"""
-    if not is_protected(ctx.author):
-        await ctx.send("❌ You do not have permission to delete warnings.")
-        return
+    try:
+        if not is_protected(ctx.author):
+            await ctx.send("❌ You do not have permission to delete warnings.")
+            return
 
-    success = await db.delete_warning_by_id(ctx.guild.id, warn_id)
-    if success:
-        await ctx.send(f"🗑️ Successfully deleted warning with ID **`{warn_id}`**!")
-        await log_mod_action(ctx.guild, ctx.author, None, "Warning Deleted", f"Deleted warning ID {warn_id}")
-    else:
-        await ctx.send(f"❌ Warning with ID **`{warn_id}`** was not found in this server.")
+        success = await db.delete_warning_by_id(ctx.guild.id, warn_id)
+        if success:
+            await ctx.send(f"🗑️ Successfully deleted warning with ID **`{warn_id}`**!")
+            await log_mod_action(ctx.guild, ctx.author, None, "Warning Deleted", f"Deleted warning ID {warn_id}")
+        else:
+            await ctx.send(f"❌ Warning with ID **`{warn_id}`** was not found in this server.")
+    except Exception as e:
+        logger.error(f"Error in !delwarn: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to delete warning: {e}")
 
 
 @bot.command(name="warnleaderboard", aliases=["warnlb", "warnslb", "warningslb", "warningsleaderboard"])
@@ -13962,48 +14560,52 @@ async def delwarn_prefix_cmd(ctx: commands.Context, warn_id: int):
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def warnleaderboard_prefix_cmd(ctx: commands.Context, limit: Optional[int] = 10):
     """View the server warnings leaderboard: !warnlb [limit]"""
-    limit = max(1, min(limit or 10, 25))
-    rows = await db.get_warnings_leaderboard(ctx.guild.id, limit=limit)
-    if not rows:
+    try:
+        limit = max(1, min(limit or 10, 25))
+        rows = await db.get_warnings_leaderboard(ctx.guild.id, limit=limit)
+        if not rows:
+            embed = discord.Embed(
+                title=f"🏆 Warnings Leaderboard — {ctx.guild.name}",
+                description="✅ **No warnings recorded in this server! The record is completely clean.**",
+                color=discord.Color.green()
+            )
+            if ctx.guild.icon:
+                embed.set_thumbnail(url=ctx.guild.icon.url)
+            await ctx.send(embed=embed)
+            return
+
         embed = discord.Embed(
-            title=f"🏆 Warnings Leaderboard — {ctx.guild.name}",
-            description="✅ **No warnings recorded in this server! The record is completely clean.**",
-            color=discord.Color.green()
+            title=f"⚠️ Warnings Leaderboard — {ctx.guild.name}",
+            description=f"Showing top **{len(rows)}** members with active infractions on file.\n",
+            color=discord.Color.orange()
         )
         if ctx.guild.icon:
             embed.set_thumbnail(url=ctx.guild.icon.url)
+
+        rank_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        lines = []
+        for idx, r in enumerate(rows, 1):
+            uid = r["user_id"] if isinstance(r, dict) and "user_id" in r else r[0]
+            cnt = int(r["warn_count"] if isinstance(r, dict) and "warn_count" in r else r[1])
+            
+            if cnt >= 6:
+                risk = f"⛔ **{cnt} Strikes** `(Permanent Ban Applied)`"
+            elif cnt >= 3:
+                remaining = 6 - cnt
+                risk = f"🛑 **{cnt} Strikes** `(7-Day Mute / {remaining} from Ban)`"
+            else:
+                remaining = 3 - cnt
+                risk = f"🟡 **{cnt} Strike{'s' if cnt != 1 else ''}** `({remaining} from 7-Day Mute)`"
+
+            medal = rank_emojis[idx-1] if idx <= len(rank_emojis) else f"`#{idx}`"
+            lines.append(f"{medal} <@{uid}> — {risk}")
+
+        embed.description = "\n\n".join(lines)
+        embed.set_footer(text="Sweety Moderation Shield • Use !warnings <user> or !clearwarns to manage")
         await ctx.send(embed=embed)
-        return
-
-    embed = discord.Embed(
-        title=f"⚠️ Warnings Leaderboard — {ctx.guild.name}",
-        description=f"Showing top **{len(rows)}** members with active infractions on file.\n",
-        color=discord.Color.orange()
-    )
-    if ctx.guild.icon:
-        embed.set_thumbnail(url=ctx.guild.icon.url)
-
-    rank_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-    lines = []
-    for idx, r in enumerate(rows, 1):
-        uid = r["user_id"] if isinstance(r, dict) and "user_id" in r else r[0]
-        cnt = int(r["warn_count"] if isinstance(r, dict) and "warn_count" in r else r[1])
-        
-        if cnt >= 6:
-            risk = f"⛔ **{cnt} Strikes** `(Permanent Ban Applied)`"
-        elif cnt >= 3:
-            remaining = 6 - cnt
-            risk = f"🛑 **{cnt} Strikes** `(7-Day Mute / {remaining} from Ban)`"
-        else:
-            remaining = 3 - cnt
-            risk = f"🟡 **{cnt} Strike{'s' if cnt != 1 else ''}** `({remaining} from 7-Day Mute)`"
-
-        medal = rank_emojis[idx-1] if idx <= len(rank_emojis) else f"`#{idx}`"
-        lines.append(f"{medal} <@{uid}> — {risk}")
-
-    embed.description = "\n\n".join(lines)
-    embed.set_footer(text="Sweety Moderation Shield • Use !warnings <user> or !clearwarns to manage")
-    await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !warnleaderboard: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to fetch warning leaderboard: {e}")
 
 
 @bot.tree.command(name="sync", description="Purge duplicate slash commands and re-sync all commands cleanly")
@@ -14073,12 +14675,16 @@ async def sync_prefix_cmd(ctx: commands.Context):
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def snipe_prefix_cmd(ctx: commands.Context, *args):
     """View recently deleted messages: !snipe [channel] [index]"""
-    channel, index = parse_snipe_args(ctx, args)
-    embed, err_msg = create_snipe_embed(channel, index=index)
-    if err_msg:
-        await ctx.send(err_msg)
-    else:
-        await ctx.send(embed=embed)
+    try:
+        channel, index = parse_snipe_args(ctx, args)
+        embed, err_msg = create_snipe_embed(channel, index=index)
+        if err_msg:
+            await ctx.send(err_msg)
+        else:
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !snipe: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to retrieve sniped message: {e}")
 
 
 @bot.command(name="editsnipe", aliases=["esnipe"])
@@ -14086,12 +14692,16 @@ async def snipe_prefix_cmd(ctx: commands.Context, *args):
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def editsnipe_prefix_cmd(ctx: commands.Context, *args):
     """View recently edited messages: !editsnipe [channel] [index] (or !esnipe)"""
-    channel, index = parse_snipe_args(ctx, args)
-    embed, err_msg = create_editsnipe_embed(channel, index=index)
-    if err_msg:
-        await ctx.send(err_msg)
-    else:
-        await ctx.send(embed=embed)
+    try:
+        channel, index = parse_snipe_args(ctx, args)
+        embed, err_msg = create_editsnipe_embed(channel, index=index)
+        if err_msg:
+            await ctx.send(err_msg)
+        else:
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !editsnipe: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to retrieve edited snipe: {e}")
 
 
 @bot.command(name="clearsnipe", aliases=["csnipe", "clearsnipes"])
@@ -14099,23 +14709,27 @@ async def editsnipe_prefix_cmd(ctx: commands.Context, *args):
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def clearsnipe_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None, user: Optional[discord.Member] = None):
     """Clear deleted & edited snipe history: !clearsnipe [#channel] [@user] (or !csnipe)"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_messages:
-        await ctx.send("❌ You need `Manage Messages` permission to clear snipe cache.")
-        return
-    
-    target_channel = channel or ctx.channel
-    del_cnt, edit_cnt = clear_snipe_history(target_channel.id)
-    
-    user_purged = 0
-    if user:
-        user_purged = await db.clear_user_snipe_history(ctx.guild.id, user.id)
+    try:
+        if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_messages:
+            await ctx.send("❌ You need `Manage Messages` permission to clear snipe cache.")
+            return
+        
+        target_channel = channel or ctx.channel
+        del_cnt, edit_cnt = clear_snipe_history(target_channel.id)
+        
+        user_purged = 0
+        if user:
+            user_purged = await db.clear_user_snipe_history(ctx.guild.id, user.id)
 
-    embed = discord.Embed(
-        title="🧹 Snipe History Cleared",
-        description=f"Cleared **`{del_cnt}`** deleted messages and **`{edit_cnt}`** edited messages from {target_channel.mention}." + (f"\nAlso purged **`{user_purged}`** persistent 30-day records for {user.mention}." if user else ""),
-        color=discord.Color.green()
-    )
-    await ctx.send(embed=embed)
+        embed = discord.Embed(
+            title="🧹 Snipe History Cleared",
+            description=f"Cleared **`{del_cnt}`** deleted messages and **`{edit_cnt}`** edited messages from {target_channel.mention}." + (f"\nAlso purged **`{user_purged}`** persistent 30-day records for {user.mention}." if user else ""),
+            color=discord.Color.green()
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !clearsnipe: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to clear snipes: {e}")
 
 
 @bot.command(name="usersnipe", aliases=["snipeuser", "usnipe", "userhistory", "usersnipes"])
@@ -14123,24 +14737,28 @@ async def clearsnipe_prefix_cmd(ctx: commands.Context, channel: Optional[discord
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def usersnipe_prefix_cmd(ctx: commands.Context, user: Optional[discord.Member] = None, days: Optional[int] = 30):
     """View up to 30 days of deleted & edited message history for a specific user: !usersnipe @user [days=30]"""
-    target_user = user or ctx.author
-    days_val = min(30, max(1, days or 30))
-    
-    records = await db.get_user_snipe_history(ctx.guild.id, target_user.id, days=days_val)
-    stats = await db.get_user_snipe_stats(ctx.guild.id, target_user.id, days=days_val)
-    
-    view = UserSnipePaginationView(
-        author=ctx.author,
-        target_user=target_user,
-        guild_id=ctx.guild.id,
-        records=records,
-        stats=stats,
-        days=days_val,
-        filter_type="all",
-        page=0
-    )
-    embed = view.make_embed()
-    await ctx.send(embed=embed, view=view)
+    try:
+        target_user = user or ctx.author
+        days_val = min(30, max(1, days or 30))
+        
+        records = await db.get_user_snipe_history(ctx.guild.id, target_user.id, days=days_val)
+        stats = await db.get_user_snipe_stats(ctx.guild.id, target_user.id, days=days_val)
+        
+        view = UserSnipePaginationView(
+            author=ctx.author,
+            target_user=target_user,
+            guild_id=ctx.guild.id,
+            records=records,
+            stats=stats,
+            days=days_val,
+            filter_type="all",
+            page=0
+        )
+        embed = view.make_embed()
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !usersnipe: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to retrieve user snipe history: {e}")
 
 
 @bot.command(name="antighostping", aliases=["agp", "ghostping"])
@@ -14148,37 +14766,41 @@ async def usersnipe_prefix_cmd(ctx: commands.Context, user: Optional[discord.Mem
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def antighostping_prefix_cmd(ctx: commands.Context, status: Optional[str] = "status"):
     """Configure or check Anti-Ghost-Ping shield: !antighostping [enable/disable/status]"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ Only server administrators or staff can configure the Anti-Ghost-Ping shield.")
-        return
+    try:
+        if not is_protected(ctx.author) and not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Only server administrators or staff can configure the Anti-Ghost-Ping shield.")
+            return
 
-    status = (status or "status").lower().strip()
-    if status in ["on", "enable", "enabled", "1", "true"]:
-        await db.set_config(ctx.guild.id, "ghost_ping_detector", True)
-        embed = discord.Embed(
-            title="👻 Anti-Ghost-Ping Shield ENABLED",
-            description="Sweety will now catch and expose anyone who pings members and quickly deletes their message!",
-            color=discord.Color.green()
-        )
-        await ctx.send(embed=embed)
-    elif status in ["off", "disable", "disabled", "0", "false"]:
-        await db.set_config(ctx.guild.id, "ghost_ping_detector", False)
-        embed = discord.Embed(
-            title="👻 Anti-Ghost-Ping Shield DISABLED",
-            description="Automated ghost-ping detection is now turned off for this server.",
-            color=discord.Color.red()
-        )
-        await ctx.send(embed=embed)
-    else:
-        is_enabled = await db.get_config(ctx.guild.id, "ghost_ping_detector", True)
-        embed = discord.Embed(
-            title=f"👻 Anti-Ghost-Ping Shield Status — {ctx.guild.name}",
-            color=discord.Color.from_rgb(155, 89, 182) if is_enabled else discord.Color.greyple()
-        )
-        embed.add_field(name="Detector Status", value="🟢 **ENABLED (Active)**" if is_enabled else "🔴 **DISABLED (Inactive)**", inline=False)
-        embed.add_field(name="How it Works", value="If someone mentions a member or role and deletes their message within 60 seconds, Sweety immediately catches and exposes the author, pinged targets, and original message content in chat.", inline=False)
-        embed.set_footer(text="Use !antighostping enable/disable to toggle.")
-        await ctx.send(embed=embed)
+        status = (status or "status").lower().strip()
+        if status in ["on", "enable", "enabled", "1", "true"]:
+            await db.set_config(ctx.guild.id, "ghost_ping_detector", True)
+            embed = discord.Embed(
+                title="👻 Anti-Ghost-Ping Shield ENABLED",
+                description="Sweety will now catch and expose anyone who pings members and quickly deletes their message!",
+                color=discord.Color.green()
+            )
+            await ctx.send(embed=embed)
+        elif status in ["off", "disable", "disabled", "0", "false"]:
+            await db.set_config(ctx.guild.id, "ghost_ping_detector", False)
+            embed = discord.Embed(
+                title="👻 Anti-Ghost-Ping Shield DISABLED",
+                description="Automated ghost-ping detection is now turned off for this server.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+        else:
+            is_enabled = await db.get_config(ctx.guild.id, "ghost_ping_detector", True)
+            embed = discord.Embed(
+                title=f"👻 Anti-Ghost-Ping Shield Status — {ctx.guild.name}",
+                color=discord.Color.from_rgb(155, 89, 182) if is_enabled else discord.Color.greyple()
+            )
+            embed.add_field(name="Detector Status", value="🟢 **ENABLED (Active)**" if is_enabled else "🔴 **DISABLED (Inactive)**", inline=False)
+            embed.add_field(name="How it Works", value="If someone mentions a member or role and deletes their message within 60 seconds, Sweety immediately catches and exposes the author, pinged targets, and original message content in chat.", inline=False)
+            embed.set_footer(text="Use !antighostping enable/disable to toggle.")
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !antighostping: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to update anti-ghost-ping: {e}")
 
 
 @bot.command(name="remindme", aliases=["remind", "timer"])
@@ -14187,88 +14809,95 @@ async def antighostping_prefix_cmd(ctx: commands.Context, status: Optional[str] 
 async def remindme_prefix_cmd(ctx: commands.Context, time_arg: str, *, note: str = "Reminder"):
     """Set a private reminder: !remindme <time> <note> (e.g. !remindme 30m check oven)"""
     try:
-        await ctx.message.delete()
-    except Exception:
-        pass
-
-    seconds = parse_duration_string(time_arg)
-    if not seconds:
         try:
-            await ctx.author.send("❌ **Invalid time format!**\nExamples: `!remindme 10m check email`, `!remindme 2h study`, `!remindme 1d call mom`")
-        except Exception:
-            await ctx.send(f"❌ {ctx.author.mention} **Invalid time format!** Examples: `!remindme 10m check email`", delete_after=6)
-        return
-
-    if seconds < MIN_REMINDER_SECONDS:
-        try:
-            await ctx.author.send(f"❌ **Reminder duration too short!** Minimum duration is `{MIN_REMINDER_SECONDS}s`.")
-        except Exception:
-            await ctx.send(f"❌ {ctx.author.mention} **Reminder duration too short!** Minimum duration is `{MIN_REMINDER_SECONDS}s`.", delete_after=6)
-        return
-
-    if seconds > MAX_REMINDER_SECONDS:
-        try:
-            await ctx.author.send("❌ **Reminder duration too long!** Maximum duration cannot exceed 365 days (1 year).")
-        except Exception:
-            await ctx.send(f"❌ {ctx.author.mention} **Reminder duration too long!** Maximum duration cannot exceed 365 days (1 year).", delete_after=6)
-        return
-
-    clean_note = sanitize_reminder_text(note)
-    if not clean_note:
-        try:
-            await ctx.author.send("❌ **Reminder text cannot be empty or contain only invisible characters!**")
-        except Exception:
-            await ctx.send(f"❌ {ctx.author.mention} **Reminder text cannot be empty or contain only invisible characters!**", delete_after=6)
-        return
-
-    active_reminders = await db.get_user_reminders(ctx.author.id)
-    if active_reminders and len(active_reminders) >= 10:
-        try:
-            await ctx.author.send("❌ **Reminder limit reached!** You can have a maximum of **10** active reminders at once. Use `!reminders` or `!reminders clear`.")
-        except Exception:
-            await ctx.send(f"❌ {ctx.author.mention} **Reminder limit reached!** You can have a maximum of **10** active reminders at once. Use `!reminders clear`.", delete_after=6)
-        return
-
-    now = time.time()
-    remind_at = now + seconds
-    rem_id = f"rem_{ctx.author.id}_{int(remind_at)}_{int(now)}"
-
-    await db.add_reminder(
-        reminder_id=rem_id,
-        user_id=ctx.author.id,
-        guild_id=ctx.guild.id,
-        channel_id=ctx.channel.id,
-        reminder_text=clean_note,
-        remind_at=remind_at,
-        created_at=now,
-        delivery_method="dm"
-    )
-
-    embed = discord.Embed(
-        title="🔒 Reminder Scheduled (Private)!",
-        description=f"I will remind you <t:{int(remind_at)}:R> (<t:{int(remind_at)}:f>) via **Direct Message**.",
-        color=discord.Color.blue()
-    )
-    embed.add_field(name="📝 Note", value=f">>> {clean_note[:1000]}", inline=False)
-    embed.set_footer(text=f"ID: {rem_id[:16]} • Sweety Productivity Suite (Private)")
-    embed.timestamp = discord.utils.utcnow()
-
-    dm_sent = False
-    try:
-        await ctx.author.send(embed=embed)
-        dm_sent = True
-    except Exception:
-        pass
-
-    if dm_sent:
-        try:
-            await ctx.send(f"🔒 {ctx.author.mention} Your reminder has been set privately! I will DM you when it's time.", delete_after=6)
+            await ctx.message.delete()
         except Exception:
             pass
-    else:
+
+        seconds = parse_duration_string(time_arg)
+        if not seconds:
+            try:
+                await ctx.author.send("❌ **Invalid time format!**\nExamples: `!remindme 10m check email`, `!remindme 2h study`, `!remindme 1d call mom`")
+            except Exception:
+                await ctx.send(f"❌ {ctx.author.mention} **Invalid time format!** Examples: `!remindme 10m check email`", delete_after=6)
+            return
+
+        if seconds < MIN_REMINDER_SECONDS:
+            try:
+                await ctx.author.send(f"❌ **Reminder duration too short!** Minimum duration is `{MIN_REMINDER_SECONDS}s`.")
+            except Exception:
+                await ctx.send(f"❌ {ctx.author.mention} **Reminder duration too short!** Minimum duration is `{MIN_REMINDER_SECONDS}s`.", delete_after=6)
+            return
+
+        if seconds > MAX_REMINDER_SECONDS:
+            try:
+                await ctx.author.send("❌ **Reminder duration too long!** Maximum duration cannot exceed 365 days (1 year).")
+            except Exception:
+                await ctx.send(f"❌ {ctx.author.mention} **Reminder duration too long!** Maximum duration cannot exceed 365 days (1 year).", delete_after=6)
+            return
+
+        clean_note = sanitize_reminder_text(note)
+        if not clean_note:
+            try:
+                await ctx.author.send("❌ **Reminder text cannot be empty or contain only invisible characters!**")
+            except Exception:
+                await ctx.send(f"❌ {ctx.author.mention} **Reminder text cannot be empty or contain only invisible characters!**", delete_after=6)
+            return
+
+        active_reminders = await db.get_user_reminders(ctx.author.id)
+        if active_reminders and len(active_reminders) >= 10:
+            try:
+                await ctx.author.send("❌ **Reminder limit reached!** You can have a maximum of **10** active reminders at once. Use `!reminders` or `!reminders clear`.")
+            except Exception:
+                await ctx.send(f"❌ {ctx.author.mention} **Reminder limit reached!** You can have a maximum of **10** active reminders at once. Use `!reminders clear`.", delete_after=6)
+            return
+
+        now = time.time()
+        remind_at = now + seconds
+        rem_id = f"rem_{ctx.author.id}_{int(remind_at)}_{int(now)}"
+
+        await db.add_reminder(
+            reminder_id=rem_id,
+            user_id=ctx.author.id,
+            guild_id=ctx.guild.id,
+            channel_id=ctx.channel.id,
+            reminder_text=clean_note,
+            remind_at=remind_at,
+            created_at=now,
+            delivery_method="dm"
+        )
+
+        embed = discord.Embed(
+            title="🔒 Reminder Scheduled (Private)!",
+            description=f"I will remind you <t:{int(remind_at)}:R> (<t:{int(remind_at)}:f>) via **Direct Message**.",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="📝 Note", value=f">>> {clean_note[:1000]}", inline=False)
+        embed.set_footer(text=f"ID: {rem_id[:16]} • Sweety Productivity Suite (Private)")
+        embed.timestamp = discord.utils.utcnow()
+
+        dm_sent = False
         try:
-            await ctx.send(f"⚠️ {ctx.author.mention} Your DMs are closed! I scheduled your reminder, but will alert you in this channel.", delete_after=8)
-            await db.update_reminder_delivery(rem_id, "channel")
+            await ctx.author.send(embed=embed)
+            dm_sent = True
+        except Exception:
+            pass
+
+        if dm_sent:
+            try:
+                await ctx.send(f"🔒 {ctx.author.mention} Your reminder has been set privately! I will DM you when it's time.", delete_after=6)
+            except Exception:
+                pass
+        else:
+            try:
+                await ctx.send(f"⚠️ {ctx.author.mention} Your DMs are closed! I scheduled your reminder, but will alert you in this channel.", delete_after=8)
+                await db.update_reminder_delivery(rem_id, "channel")
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error(f"Error in !remindme: {e}", exc_info=True)
+        try:
+            await ctx.send(f"❌ Error scheduling reminder: {e}")
         except Exception:
             pass
 
@@ -14279,70 +14908,77 @@ async def remindme_prefix_cmd(ctx: commands.Context, time_arg: str, *, note: str
 async def reminders_prefix_cmd(ctx: commands.Context, action: Optional[str] = "list"):
     """View active reminders privately: !reminders [list/clear]"""
     try:
-        await ctx.message.delete()
-    except Exception:
-        pass
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
 
-    if action and action.lower() == "clear":
-        rows = await db.get_user_reminders(ctx.author.id)
-        if not rows:
+        if action and action.lower() == "clear":
+            rows = await db.get_user_reminders(ctx.author.id)
+            if not rows:
+                try:
+                    await ctx.author.send("ℹ️ You have no active reminders to clear.")
+                except Exception:
+                    pass
+                try:
+                    await ctx.send(f"ℹ️ {ctx.author.mention} You have no active reminders to clear.", delete_after=6)
+                except Exception:
+                    pass
+                return
+            for r in rows:
+                rid = r["id"] if isinstance(r, dict) and "id" in r else r[0]
+                await db.delete_reminder(rid)
             try:
-                await ctx.author.send("ℹ️ You have no active reminders to clear.")
+                await ctx.author.send(f"🧹 Cleared all **`{len(rows)}`** active reminder(s)!")
             except Exception:
                 pass
             try:
-                await ctx.send(f"ℹ️ {ctx.author.mention} You have no active reminders to clear.", delete_after=6)
+                await ctx.send(f"🧹 {ctx.author.mention} Cleared all **`{len(rows)}`** active reminder(s)!", delete_after=6)
             except Exception:
                 pass
             return
-        for r in rows:
-            rid = r["id"] if isinstance(r, dict) and "id" in r else r[0]
-            await db.delete_reminder(rid)
-        try:
-            await ctx.author.send(f"🧹 Cleared all **`{len(rows)}`** active reminder(s)!")
-        except Exception:
-            pass
-        try:
-            await ctx.send(f"🧹 {ctx.author.mention} Cleared all **`{len(rows)}`** active reminder(s)!", delete_after=6)
-        except Exception:
-            pass
-        return
 
-    rows = await db.get_user_reminders(ctx.author.id)
-    if not rows:
+        rows = await db.get_user_reminders(ctx.author.id)
+        if not rows:
+            embed = discord.Embed(
+                title="🔒 Your Active Reminders",
+                description="You have **0** pending reminders. Set one using `!remindme 30m note` or `/remindme`!",
+                color=discord.Color.blue()
+            )
+            try:
+                await ctx.author.send(embed=embed)
+                await ctx.send(f"🔒 {ctx.author.mention} Sent your reminders status to your DMs!", delete_after=6)
+            except Exception:
+                await ctx.send(embed=embed, delete_after=12)
+            return
+
         embed = discord.Embed(
-            title="🔒 Your Active Reminders",
-            description="You have **0** pending reminders. Set one using `!remindme 30m note` or `/remindme`!",
+            title="🔒 Your Active Reminders (Private)",
+            description=f"You have **`{len(rows)}`** active scheduled reminder(s):\n",
             color=discord.Color.blue()
         )
+        for idx, r in enumerate(rows[:10], 1):
+            note = r["reminder_text"] if isinstance(r, dict) and "reminder_text" in r else r[3]
+            rem_at = float(r["remind_at"] if isinstance(r, dict) and "remind_at" in r else r[4])
+            dest = r.get("delivery_method", "dm") if isinstance(r, dict) else (r[6] if len(r) > 6 else "dm")
+            loc_str = "DM (Private)" if dest == "dm" else f"<#{r['channel_id'] if isinstance(r, dict) else r[2]}>"
+            embed.add_field(
+                name=f"#{idx} • Due <t:{int(rem_at)}:R>",
+                value=f"• **Note:** {note[:150]}\n• **Location:** {loc_str}",
+                inline=False
+            )
+        embed.set_footer(text="Use !reminders clear to cancel all reminders")
         try:
             await ctx.author.send(embed=embed)
-            await ctx.send(f"🔒 {ctx.author.mention} Sent your reminders status to your DMs!", delete_after=6)
+            await ctx.send(f"🔒 {ctx.author.mention} I've sent your active reminders to your DMs!", delete_after=6)
         except Exception:
-            await ctx.send(embed=embed, delete_after=12)
-        return
-
-    embed = discord.Embed(
-        title="🔒 Your Active Reminders (Private)",
-        description=f"You have **`{len(rows)}`** active scheduled reminder(s):\n",
-        color=discord.Color.blue()
-    )
-    for idx, r in enumerate(rows[:10], 1):
-        note = r["reminder_text"] if isinstance(r, dict) and "reminder_text" in r else r[3]
-        rem_at = float(r["remind_at"] if isinstance(r, dict) and "remind_at" in r else r[4])
-        dest = r.get("delivery_method", "dm") if isinstance(r, dict) else (r[6] if len(r) > 6 else "dm")
-        loc_str = "DM (Private)" if dest == "dm" else f"<#{r['channel_id'] if isinstance(r, dict) else r[2]}>"
-        embed.add_field(
-            name=f"#{idx} • Due <t:{int(rem_at)}:R>",
-            value=f"• **Note:** {note[:150]}\n• **Location:** {loc_str}",
-            inline=False
-        )
-    embed.set_footer(text="Use !reminders clear to cancel all reminders")
-    try:
-        await ctx.author.send(embed=embed)
-        await ctx.send(f"🔒 {ctx.author.mention} I've sent your active reminders to your DMs!", delete_after=6)
-    except Exception:
-        await ctx.send(embed=embed, delete_after=15)
+            await ctx.send(embed=embed, delete_after=15)
+    except Exception as e:
+        logger.error(f"Error in !reminders: {e}", exc_info=True)
+        try:
+            await ctx.send(f"❌ Error fetching reminders: {e}")
+        except Exception:
+            pass
 
 
 @bot.command(name="afk")
@@ -14350,21 +14986,25 @@ async def reminders_prefix_cmd(ctx: commands.Context, action: Optional[str] = "l
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def afk_prefix_cmd(ctx: commands.Context, *, reason: str = "AFK (Away From Keyboard)"):
     """Set your AFK status: !afk [reason]"""
-    reason = reason.strip()[:200]
-    now = time.time()
-    _afk_cache[(ctx.guild.id, ctx.author.id)] = {
-        "reason": reason,
-        "since": now
-    }
-    await db.set_afk(ctx.author.id, ctx.guild.id, reason, now)
+    try:
+        reason = reason.strip()[:200]
+        now = time.time()
+        _afk_cache[(ctx.guild.id, ctx.author.id)] = {
+            "reason": reason,
+            "since": now
+        }
+        await db.set_afk(ctx.author.id, ctx.guild.id, reason, now)
 
-    embed = discord.Embed(
-        title="💤 AFK Status Enabled",
-        description=f"{ctx.author.mention} is now **AFK**: {reason}\n\n*I will notify anyone who mentions you and automatically remove your AFK status when you chat again.*",
-        color=discord.Color.from_rgb(120, 140, 180)
-    )
-    embed.timestamp = discord.utils.utcnow()
-    await ctx.send(embed=embed)
+        embed = discord.Embed(
+            title="💤 AFK Status Enabled",
+            description=f"{ctx.author.mention} is now **AFK**: {reason}\n\n*I will notify anyone who mentions you and automatically remove your AFK status when you chat again.*",
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !afk: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to set AFK status: {e}")
 
 
 # ── Social & Wholesome Anime Action Prefix Commands ────────────────────────
@@ -14374,9 +15014,13 @@ async def afk_prefix_cmd(ctx: commands.Context, *, reason: str = "AFK (Away From
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def hug_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Give a warm hug to someone: !hug [@user]"""
-    target = member or ctx.author
-    embed = create_action_embed("hug", ctx.author, target, bot.user)
-    await ctx.send(embed=embed)
+    try:
+        target = member or ctx.author
+        embed = create_action_embed("hug", ctx.author, target, bot.user)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !hug: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="pat", aliases=["headpat", "pats"])
@@ -14384,9 +15028,13 @@ async def hug_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member]
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def pat_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Give gentle headpats: !pat [@user]"""
-    target = member or ctx.author
-    embed = create_action_embed("pat", ctx.author, target, bot.user)
-    await ctx.send(embed=embed)
+    try:
+        target = member or ctx.author
+        embed = create_action_embed("pat", ctx.author, target, bot.user)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !pat: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="highfive", aliases=["h5", "high-five"])
@@ -14394,9 +15042,13 @@ async def pat_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member]
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def highfive_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Share an epic high five: !highfive [@user] or !h5 [@user]"""
-    target = member or ctx.author
-    embed = create_action_embed("highfive", ctx.author, target, bot.user)
-    await ctx.send(embed=embed)
+    try:
+        target = member or ctx.author
+        embed = create_action_embed("highfive", ctx.author, target, bot.user)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !highfive: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="wave", aliases=["hi", "hello", "bye"])
@@ -14404,9 +15056,13 @@ async def highfive_prefix_cmd(ctx: commands.Context, member: Optional[discord.Me
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def wave_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Wave hello or goodbye: !wave [@user]"""
-    target = member or ctx.author
-    embed = create_action_embed("wave", ctx.author, target, bot.user)
-    await ctx.send(embed=embed)
+    try:
+        target = member or ctx.author
+        embed = create_action_embed("wave", ctx.author, target, bot.user)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !wave: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="slap")
@@ -14414,9 +15070,13 @@ async def wave_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def slap_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Slap someone with comedic anime slapstick: !slap [@user]"""
-    target = member or ctx.author
-    embed = create_action_embed("slap", ctx.author, target, bot.user)
-    await ctx.send(embed=embed)
+    try:
+        target = member or ctx.author
+        embed = create_action_embed("slap", ctx.author, target, bot.user)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !slap: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="punch")
@@ -14424,9 +15084,13 @@ async def slap_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def punch_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Deliver a superhero punch: !punch [@user]"""
-    target = member or ctx.author
-    embed = create_action_embed("punch", ctx.author, target, bot.user)
-    await ctx.send(embed=embed)
+    try:
+        target = member or ctx.author
+        embed = create_action_embed("punch", ctx.author, target, bot.user)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !punch: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="kiss", aliases=["smooch", "kisses"])
@@ -14434,18 +15098,22 @@ async def punch_prefix_cmd(ctx: commands.Context, member: Optional[discord.Membe
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def kiss_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Give a sweet anime kiss: !kiss [@user] (Admins, Owner, or configured role only)"""
-    is_allowed, allowed_role_id = await can_use_kiss_command(ctx.guild, ctx.author)
-    if not is_allowed:
-        if allowed_role_id:
-            msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the <@&{allowed_role_id}> role can use `!kiss`."
-        else:
-            msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `!kiss`.\n*Administrators can configure role access with `!kissrole set @Role`.*"
-        await ctx.send(msg)
-        return
-        
-    target = member or ctx.author
-    embed = create_action_embed("kiss", ctx.author, target, bot.user)
-    await ctx.send(embed=embed)
+    try:
+        is_allowed, allowed_role_id = await can_use_kiss_command(ctx.guild, ctx.author)
+        if not is_allowed:
+            if allowed_role_id:
+                msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the <@&{allowed_role_id}> role can use `!kiss`."
+            else:
+                msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `!kiss`.\n*Administrators can configure role access with `!kissrole set @Role`.*"
+            await ctx.send(msg)
+            return
+            
+        target = member or ctx.author
+        embed = create_action_embed("kiss", ctx.author, target, bot.user)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !kiss: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="kissrole", aliases=["setkissrole", "kissroles", "kisspermission"])
@@ -14453,62 +15121,66 @@ async def kiss_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def kissrole_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, role: Optional[discord.Role] = None):
     """Configure permissions for the kiss command: !kissrole set @Role | !kissrole remove | !kissrole view"""
-    if not can_manage_kiss_role(ctx.guild, ctx.author):
-        await ctx.send("❌ Only Server Administrators and the Server Owner can manage kiss command permissions.")
-        return
-        
-    act = (action or "view").lower()
-    if act in ("set", "add", "enable"):
-        target_role = role
-        if not target_role and ctx.message.role_mentions:
-            target_role = ctx.message.role_mentions[0]
-            
-        if not target_role:
-            await ctx.send("❌ Please specify or mention a role: `!kissrole set @Role`")
+    try:
+        if not can_manage_kiss_role(ctx.guild, ctx.author):
+            await ctx.send("❌ Only Server Administrators and the Server Owner can manage kiss command permissions.")
             return
             
-        await db.set_config(ctx.guild.id, "kiss_allowed_role_id", target_role.id)
-        embed = discord.Embed(
-            title="💋 Kiss Command Role Updated",
-            description=f"Members with the {target_role.mention} role can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
-            color=discord.Color.from_rgb(255, 105, 180)
-        )
-        embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
-        await ctx.send(embed=embed)
-        
-    elif act in ("remove", "reset", "clear", "delete", "disable"):
-        await db.set_config(ctx.guild.id, "kiss_allowed_role_id", "None")
-        embed = discord.Embed(
-            title="🔄 Kiss Command Role Reset",
-            description="The custom kiss role has been removed.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
-        await ctx.send(embed=embed)
-        
-    else:  # view
-        allowed_role_id_raw = await db.get_config(ctx.guild.id, "kiss_allowed_role_id", None)
-        allowed_role_id = None
-        if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
-            try:
-                allowed_role_id = int(allowed_role_id_raw)
-            except (ValueError, TypeError):
-                allowed_role_id = None
+        act = (action or "view").lower()
+        if act in ("set", "add", "enable"):
+            target_role = role
+            if not target_role and ctx.message.role_mentions:
+                target_role = ctx.message.role_mentions[0]
                 
-        embed = discord.Embed(
-            title=f"💋 Kiss Command Permissions — {ctx.guild.name}",
-            color=discord.Color.from_rgb(255, 105, 180)
-        )
-        embed.add_field(name="👑 Default Access", value="• Server Owner\n• Server Administrators\n• Bot Creator", inline=False)
-        if allowed_role_id:
-            role_obj = ctx.guild.get_role(allowed_role_id)
-            role_str = role_obj.mention if role_obj else f"`Role ID: {allowed_role_id}` *(Deleted Role)*"
-            embed.add_field(name="🎭 Configured Role", value=f"✅ {role_str}", inline=False)
-        else:
-            embed.add_field(name="🎭 Configured Role", value="*No custom role set (Admins & Owner only)*", inline=False)
+            if not target_role:
+                await ctx.send("❌ Please specify or mention a role: `!kissrole set @Role`")
+                return
+                
+            await db.set_config(ctx.guild.id, "kiss_allowed_role_id", target_role.id)
+            embed = discord.Embed(
+                title="💋 Kiss Command Role Updated",
+                description=f"Members with the {target_role.mention} role can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+            await ctx.send(embed=embed)
             
-        embed.set_footer(text="Use !kissrole set @Role to change, or !kissrole remove to reset.")
-        await ctx.send(embed=embed)
+        elif act in ("remove", "reset", "clear", "delete", "disable"):
+            await db.set_config(ctx.guild.id, "kiss_allowed_role_id", "None")
+            embed = discord.Embed(
+                title="🔄 Kiss Command Role Reset",
+                description="The custom kiss role has been removed.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+            await ctx.send(embed=embed)
+            
+        else:  # view
+            allowed_role_id_raw = await db.get_config(ctx.guild.id, "kiss_allowed_role_id", None)
+            allowed_role_id = None
+            if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
+                try:
+                    allowed_role_id = int(allowed_role_id_raw)
+                except (ValueError, TypeError):
+                    allowed_role_id = None
+                    
+            embed = discord.Embed(
+                title=f"💋 Kiss Command Permissions — {ctx.guild.name}",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.add_field(name="👑 Default Access", value="• Server Owner\n• Server Administrators\n• Bot Creator", inline=False)
+            if allowed_role_id:
+                role_obj = ctx.guild.get_role(allowed_role_id)
+                role_str = role_obj.mention if role_obj else f"`Role ID: {allowed_role_id}` *(Deleted Role)*"
+                embed.add_field(name="🎭 Configured Role", value=f"✅ {role_str}", inline=False)
+            else:
+                embed.add_field(name="🎭 Configured Role", value="*No custom role set (Admins & Owner only)*", inline=False)
+                
+            embed.set_footer(text="Use !kissrole set @Role to change, or !kissrole remove to reset.")
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !kissrole: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to manage kiss permissions: {e}")
 
 
 
@@ -14520,9 +15192,13 @@ async def kissrole_prefix_cmd(ctx: commands.Context, action: Optional[str] = Non
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def buildteam_prefix_cmd(ctx: commands.Context):
     """Open the interactive GM Draft Room to build your $15 All-Time NBA Starting 5: !buildteam"""
-    view = BuildTeamView(author_id=ctx.author.id)
-    embed = view.make_draft_embed()
-    await ctx.send(embed=embed, view=view)
+    try:
+        view = BuildTeamView(author_id=ctx.author.id)
+        embed = view.make_draft_embed()
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !buildteam: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to open draft room: {e}")
 
 
 @bot.command(name="myteam", aliases=["squad", "dreamteam"])
@@ -14530,29 +15206,33 @@ async def buildteam_prefix_cmd(ctx: commands.Context):
 @commands.guild_only()
 async def myteam_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """View your (or another member's) active $15 Dream Team squad, career record & GM badges: !myteam [@user]"""
-    if not check_image_render_limit(ctx.guild.id if ctx.guild else 0):
-        return await ctx.send("⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.")
+    try:
+        if not check_image_render_limit(ctx.guild.id if ctx.guild else 0):
+            return await ctx.send("⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.")
 
-    target = member or ctx.author
-    if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
-        row = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=target.id)
-    else:
-        row = await db.get_dream_team(target.id)
-    
-    if not row:
-        if target.id == ctx.author.id:
-            await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` or `/buildteam` to draft your 5-man championship squad.")
+        target = member or ctx.author
+        if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
+            row = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=target.id)
         else:
-            await ctx.send(f"❌ **{target.display_name}** hasn't drafted a $15 Dream Team yet. Tell them to run `!buildteam`!")
-        return
+            row = await db.get_dream_team(target.id)
+        
+        if not row:
+            if target.id == ctx.author.id:
+                await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` or `/buildteam` to draft your 5-man championship squad.")
+            else:
+                await ctx.send(f"❌ **{target.display_name}** hasn't drafted a $15 Dream Team yet. Tell them to run `!buildteam`!")
+            return
 
-    card_embed, card_file = await build_myteam_embed(target, row)
-    if card_embed and card_file:
-        await ctx.send(embed=card_embed, file=card_file)
-    elif card_file:
-        await ctx.send(file=card_file)
-    elif card_embed:
-        await ctx.send(embed=card_embed)
+        card_embed, card_file = await build_myteam_embed(target, row)
+        if card_embed and card_file:
+            await ctx.send(embed=card_embed, file=card_file)
+        elif card_file:
+            await ctx.send(file=card_file)
+        elif card_embed:
+            await ctx.send(embed=card_embed)
+    except Exception as e:
+        logger.error(f"Error in !myteam: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to display squad: {e}")
 
 
 @bot.command(name="teamqueue", aliases=["matchmaking", "queue", "findmatch"])
@@ -14560,7 +15240,11 @@ async def myteam_prefix_cmd(ctx: commands.Context, member: Optional[discord.Memb
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamqueue_prefix_cmd(ctx: commands.Context):
     """Join the live matchmaking queue to battle another member's $15 Dream Team: !teamqueue"""
-    await handle_team_queue(ctx=ctx)
+    try:
+        await handle_team_queue(ctx=ctx)
+    except Exception as e:
+        logger.error(f"Error in !teamqueue: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to join queue: {e}")
 
 
 @bot.command(name="battlecard", aliases=["versus", "matchup", "faceoff", "scout"])
@@ -14568,36 +15252,40 @@ async def teamqueue_prefix_cmd(ctx: commands.Context):
 @commands.guild_only()
 async def battlecard_prefix_cmd(ctx: commands.Context, opponent: discord.Member):
     """Generate a high-definition 2K Head-to-Head Versus Matchup card against another member: !battlecard @user"""
-    if not check_image_render_limit(ctx.guild.id if ctx.guild else 0):
-        return await ctx.send("⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.")
+    try:
+        if not check_image_render_limit(ctx.guild.id if ctx.guild else 0):
+            return await ctx.send("⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.")
 
-    target_a = ctx.author
-    target_b = opponent
-    if target_a.id == target_b.id:
-        await ctx.send("❌ You cannot generate a versus card against yourself! Pick another member or `@Sweety`.")
-        return
+        target_a = ctx.author
+        target_b = opponent
+        if target_a.id == target_b.id:
+            await ctx.send("❌ You cannot generate a versus card against yourself! Pick another member or `@Sweety`.")
+            return
 
-    row_a = await db.get_dream_team(target_a.id)
-    if not row_a:
-        await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` to draft your squad first.")
-        return
+        row_a = await db.get_dream_team(target_a.id)
+        if not row_a:
+            await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` to draft your squad first.")
+            return
 
-    if getattr(target_b, "bot", False) or (bot.user and target_b.id == bot.user.id):
-        row_b = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=target_b.id)
-    else:
-        row_b = await db.get_dream_team(target_b.id)
+        if getattr(target_b, "bot", False) or (bot.user and target_b.id == bot.user.id):
+            row_b = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=target_b.id)
+        else:
+            row_b = await db.get_dream_team(target_b.id)
 
-    if not row_b:
-        await ctx.send(f"❌ **{target_b.display_name}** hasn't built a $15 Dream Team yet! Tell them to run `!buildteam`.")
-        return
+        if not row_b:
+            await ctx.send(f"❌ **{target_b.display_name}** hasn't built a $15 Dream Team yet! Tell them to run `!buildteam`.")
+            return
 
-    card_embed, card_file = await build_battlecard_embed(target_a, target_b, row_a, row_b)
-    if card_embed and card_file:
-        await ctx.send(embed=card_embed, file=card_file)
-    elif card_file:
-        await ctx.send(file=card_file)
-    elif card_embed:
-        await ctx.send(embed=card_embed)
+        card_embed, card_file = await build_battlecard_embed(target_a, target_b, row_a, row_b)
+        if card_embed and card_file:
+            await ctx.send(embed=card_embed, file=card_file)
+        elif card_file:
+            await ctx.send(file=card_file)
+        elif card_embed:
+            await ctx.send(embed=card_embed)
+    except Exception as e:
+        logger.error(f"Error in !battlecard: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to generate matchup card: {e}")
 
 
 @bot.command(name="teambattle", aliases=["finals", "nbabattle", "squadbattle"])
@@ -14605,89 +15293,93 @@ async def battlecard_prefix_cmd(ctx: commands.Context, opponent: discord.Member)
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member):
     """Challenge another member's $15 Dream Team to a tactical live NBA card battle: !teambattle @user"""
-    if opponent.id == ctx.author.id:
-        await ctx.send(f"❌ {ctx.author.mention} You cannot battle your own team! Challenge another server member or `@Sweety`: `!teambattle @Sweety`")
-        return
+    try:
+        if opponent.id == ctx.author.id:
+            await ctx.send(f"❌ {ctx.author.mention} You cannot battle your own team! Challenge another server member or `@Sweety`: `!teambattle @Sweety`")
+            return
 
-    row_a = await db.get_dream_team(ctx.author.id)
-    if not row_a:
-        await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` to draft your squad before challenging others.")
-        return
+        row_a = await db.get_dream_team(ctx.author.id)
+        if not row_a:
+            await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` to draft your squad before challenging others.")
+            return
 
-    if getattr(opponent, "bot", False) or (bot.user and opponent.id == bot.user.id):
-        row_b = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=opponent.id)
+        if getattr(opponent, "bot", False) or (bot.user and opponent.id == bot.user.id):
+            row_b = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=opponent.id)
+            picks_a = extract_picks_from_row(row_a)
+            picks_b = extract_picks_from_row(row_b)
+            eval_a = evaluate_dream_team(picks_a)
+            eval_b = evaluate_dream_team(picks_b)
+            
+            live_view = InteractiveTeamBattleView(ctx.author, opponent, picks_a, picks_b, eval_a, eval_b, row_a, row_b)
+            embed = live_view.make_battle_embed()
+
+            # Attach 2K pre-game faceoff versus graphic
+            versus_file = None
+            try:
+                stats_a = await db.get_team_battle_stats(ctx.author.id)
+                stats_b = await db.get_team_battle_stats(opponent.id)
+                versus_buf = generate_versus_matchup_image(ctx.author.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
+                versus_file = discord.File(versus_buf, filename="versus_matchup.png")
+                embed.set_image(url="attachment://versus_matchup.png")
+            except Exception as e:
+                logger.debug(f"Could not attach versus image in prefix battle: {e}")
+
+            if versus_file:
+                await ctx.send(
+                    content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
+                    embed=embed,
+                    file=versus_file,
+                    view=live_view
+                )
+            else:
+                await ctx.send(
+                    content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
+                    embed=embed,
+                    view=live_view
+                )
+            return
+
+        row_b = await db.get_dream_team(opponent.id)
+        if not row_b:
+            await ctx.send(f"❌ **{opponent.display_name}** hasn't built a $15 Dream Team yet! Ask them to draft one with `!buildteam`.")
+            return
+
         picks_a = extract_picks_from_row(row_a)
         picks_b = extract_picks_from_row(row_b)
         eval_a = evaluate_dream_team(picks_a)
         eval_b = evaluate_dream_team(picks_b)
-        
-        live_view = InteractiveTeamBattleView(ctx.author, opponent, picks_a, picks_b, eval_a, eval_b, row_a, row_b)
-        embed = live_view.make_battle_embed()
 
-        # Attach 2K pre-game faceoff versus graphic
+        challenge_view = TeamBattleChallengeView(ctx.author, opponent, row_a, row_b, eval_a, eval_b)
+        challenge_embed = challenge_view.make_challenge_embed()
+        
+        # Attach 2K versus faceoff graphic to challenge embed
         versus_file = None
         try:
             stats_a = await db.get_team_battle_stats(ctx.author.id)
             stats_b = await db.get_team_battle_stats(opponent.id)
             versus_buf = generate_versus_matchup_image(ctx.author.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
             versus_file = discord.File(versus_buf, filename="versus_matchup.png")
-            embed.set_image(url="attachment://versus_matchup.png")
+            challenge_embed.set_image(url="attachment://versus_matchup.png")
         except Exception as e:
-            logger.debug(f"Could not attach versus image in prefix battle: {e}")
+            logger.debug(f"Could not attach versus image to challenge embed: {e}")
 
         if versus_file:
-            await ctx.send(
-                content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
-                embed=embed,
+            msg = await ctx.send(
+                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {ctx.author.mention}!",
+                embed=challenge_embed,
                 file=versus_file,
-                view=live_view
+                view=challenge_view
             )
         else:
-            await ctx.send(
-                content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
-                embed=embed,
-                view=live_view
+            msg = await ctx.send(
+                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {ctx.author.mention}!",
+                embed=challenge_embed,
+                view=challenge_view
             )
-        return
-
-    row_b = await db.get_dream_team(opponent.id)
-    if not row_b:
-        await ctx.send(f"❌ **{opponent.display_name}** hasn't built a $15 Dream Team yet! Ask them to draft one with `!buildteam`.")
-        return
-
-    picks_a = extract_picks_from_row(row_a)
-    picks_b = extract_picks_from_row(row_b)
-    eval_a = evaluate_dream_team(picks_a)
-    eval_b = evaluate_dream_team(picks_b)
-
-    challenge_view = TeamBattleChallengeView(ctx.author, opponent, row_a, row_b, eval_a, eval_b)
-    challenge_embed = challenge_view.make_challenge_embed()
-    
-    # Attach 2K versus faceoff graphic to challenge embed
-    versus_file = None
-    try:
-        stats_a = await db.get_team_battle_stats(ctx.author.id)
-        stats_b = await db.get_team_battle_stats(opponent.id)
-        versus_buf = generate_versus_matchup_image(ctx.author.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
-        versus_file = discord.File(versus_buf, filename="versus_matchup.png")
-        challenge_embed.set_image(url="attachment://versus_matchup.png")
+        challenge_view.message = msg
     except Exception as e:
-        logger.debug(f"Could not attach versus image to challenge embed: {e}")
-
-    if versus_file:
-        msg = await ctx.send(
-            content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {ctx.author.mention}!",
-            embed=challenge_embed,
-            file=versus_file,
-            view=challenge_view
-        )
-    else:
-        msg = await ctx.send(
-            content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {ctx.author.mention}!",
-            embed=challenge_embed,
-            view=challenge_view
-        )
-    challenge_view.message = msg
+        logger.error(f"Error in !teambattle: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to start battle challenge: {e}")
 
 
 @bot.command(name="teamleaderboard", aliases=["teamlb", "nbaleaderboard", "nbalb"])
@@ -14695,9 +15387,13 @@ async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member)
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamleaderboard_prefix_cmd(ctx: commands.Context):
     """View the server leaderboard of highest-rated $15 Dream Teams: !teamleaderboard or !teamlb"""
-    rows = await db.get_top_dream_teams(10)
-    lb_embed = build_teamleaderboard_embed(rows)
-    await ctx.send(embed=lb_embed)
+    try:
+        rows = await db.get_top_dream_teams(10)
+        lb_embed = build_teamleaderboard_embed(rows)
+        await ctx.send(embed=lb_embed)
+    except Exception as e:
+        logger.error(f"Error in !teamleaderboard: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="setupnbachannel", aliases=["setupdreamteam", "nbachannel"])
@@ -14705,11 +15401,11 @@ async def teamleaderboard_prefix_cmd(ctx: commands.Context):
 @commands.cooldown(1, 10.0, commands.BucketType.user)
 async def setupnbachannel_prefix_cmd(ctx: commands.Context, *, category_name: Optional[str] = "2K Mobile Hub"):
     """Create a dedicated NBA Dream Team channel in the 2K Mobile Hub category: !setupnbachannel [category_name]"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
-        await ctx.send("❌ You need `Manage Channels` permission to run this command.")
-        return
-
     try:
+        if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
+            await ctx.send("❌ You need `Manage Channels` permission to run this command.")
+            return
+
         channel, cat_name = await setup_nba_dreamteam_channel(ctx.guild, category_name)
         embed = discord.Embed(
             title="🏀 NBA Dream Team Channel Created!",
@@ -14732,14 +15428,18 @@ async def setupnbachannel_prefix_cmd(ctx: commands.Context, *, category_name: Op
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamstats_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """View a member's NBA GM profile, rank ladder, career record, and badges: !teamstats [@user]"""
-    target = member or ctx.author
-    if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
-        row = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=target.id)
-    else:
-        row = await db.get_dream_team(target.id)
-    stats = await db.get_team_battle_stats(target.id)
-    embed = await build_gm_stats_embed(target, row, stats)
-    await ctx.send(embed=embed)
+    try:
+        target = member or ctx.author
+        if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
+            row = await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None, target_id=target.id)
+        else:
+            row = await db.get_dream_team(target.id)
+        stats = await db.get_team_battle_stats(target.id)
+        embed = await build_gm_stats_embed(target, row, stats)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !teamstats: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="teamtop", aliases=["gmtop", "topgms", "gmlb"])
@@ -14747,10 +15447,14 @@ async def teamstats_prefix_cmd(ctx: commands.Context, member: Optional[discord.M
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamtop_prefix_cmd(ctx: commands.Context, limit: Optional[int] = 10):
     """View the top General Manager leaderboard ranked by career wins and rank tiers: !teamtop [limit]"""
-    lim = max(1, min(limit or 10, 25))
-    rows = await db.get_top_battle_records(lim)
-    embed = build_gm_leaderboard_embed(rows)
-    await ctx.send(embed=embed)
+    try:
+        lim = max(1, min(limit or 10, 25))
+        rows = await db.get_top_battle_records(lim)
+        embed = build_gm_leaderboard_embed(rows)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !teamtop: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="dailynba", aliases=["dailyboss", "nbadaily", "dailygame"])
@@ -14758,14 +15462,18 @@ async def teamtop_prefix_cmd(ctx: commands.Context, limit: Optional[int] = 10):
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def dailynba_prefix_cmd(ctx: commands.Context):
     """Face today's $15 Daily Boss team to earn daily GM wins: !dailynba"""
-    boss_data = get_daily_challenge_lineup()
-    row = await db.get_dream_team(ctx.author.id)
-    stats = await db.get_team_battle_stats(ctx.author.id)
-    last_win_date = stats.get("last_daily_win_date", "")
-    has_won = (last_win_date == boss_data["date"])
-    embed = build_dailynba_embed(ctx.author, boss_data, stats)
-    view = DailyNbaBossView(ctx.author, boss_data, row, has_won)
-    await ctx.send(embed=embed, view=view)
+    try:
+        boss_data = get_daily_challenge_lineup()
+        row = await db.get_dream_team(ctx.author.id)
+        stats = await db.get_team_battle_stats(ctx.author.id)
+        last_win_date = stats.get("last_daily_win_date", "")
+        has_won = (last_win_date == boss_data["date"])
+        embed = build_dailynba_embed(ctx.author, boss_data, stats)
+        view = DailyNbaBossView(ctx.author, boss_data, row, has_won)
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !dailynba: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="createchannel", aliases=["addchannel", "makechannel"])
@@ -14773,27 +15481,27 @@ async def dailynba_prefix_cmd(ctx: commands.Context):
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def createchannel_prefix_cmd(ctx: commands.Context, name: str, category_name: Optional[str] = None):
     """Create a new channel inside a category: !createchannel <channel_name> [category_name]"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
-        await ctx.send("❌ You need `Manage Channels` permission to run this command.")
-        return
-
-    guild = ctx.guild
-    target_category = None
-    
-    if category_name:
-        for cat in guild.categories:
-            if category_name.lower() in cat.name.lower():
-                target_category = cat
-                break
-        if not target_category:
-            target_category = await guild.create_category(name=category_name, reason=f"Created via !createchannel by {ctx.author}")
-            try:
-                await db.add_resource(guild.id, "categories", target_category.id)
-            except Exception:
-                pass
-
-    clean_name = name.strip().lower().replace(" ", "-")
     try:
+        if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
+            await ctx.send("❌ You need `Manage Channels` permission to run this command.")
+            return
+
+        guild = ctx.guild
+        target_category = None
+        
+        if category_name:
+            for cat in guild.categories:
+                if category_name.lower() in cat.name.lower():
+                    target_category = cat
+                    break
+            if not target_category:
+                target_category = await guild.create_category(name=category_name, reason=f"Created via !createchannel by {ctx.author}")
+                try:
+                    await db.add_resource(guild.id, "categories", target_category.id)
+                except Exception:
+                    pass
+
+        clean_name = name.strip().lower().replace(" ", "-")
         new_chan = await guild.create_text_channel(
             name=clean_name,
             category=target_category,
@@ -15003,24 +15711,31 @@ async def undeafen_command(interaction: discord.Interaction, member: discord.Mem
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def autorole_command(interaction: discord.Interaction, status: str, role: discord.Role = None):
-    if status == "on":
-        if not role:
-            await interaction.response.send_message("❌ Please specify the `role` you want to assign automatically.", ephemeral=True)
-            return
-            
-        if role.position >= interaction.user.top_role.position and interaction.user.id != interaction.guild.owner_id:
-            await interaction.response.send_message("❌ You cannot configure an auto-role that is higher than or equal to your own top role.", ephemeral=True)
-            return
-            
-        if role.position >= interaction.guild.me.top_role.position:
-            await interaction.response.send_message("❌ I cannot assign this role because it is higher than my bot role. Please drag my bot role higher in server settings.", ephemeral=True)
-            return
-            
-        await db.set_config(interaction.guild_id, "auto_role_id", role.id)
-        await interaction.response.send_message(f"✅ **Auto-Role enabled!** New members will automatically be assigned the **{role.name}** role.")
-    else:
-        await db.set_config(interaction.guild_id, "auto_role_id", None)
-        await interaction.response.send_message("⚙️ **Auto-Role disabled.**")
+    try:
+        if status == "on":
+            if not role:
+                await interaction.response.send_message("❌ Please specify the `role` you want to assign automatically.", ephemeral=True)
+                return
+                
+            if role.position >= interaction.user.top_role.position and interaction.user.id != interaction.guild.owner_id:
+                await interaction.response.send_message("❌ You cannot configure an auto-role that is higher than or equal to your own top role.", ephemeral=True)
+                return
+                
+            if role.position >= interaction.guild.me.top_role.position:
+                await interaction.response.send_message("❌ I cannot assign this role because it is higher than my bot role. Please drag my bot role higher in server settings.", ephemeral=True)
+                return
+                
+            await db.set_config(interaction.guild_id, "auto_role_id", role.id)
+            await interaction.response.send_message(f"✅ **Auto-Role enabled!** New members will automatically be assigned the **{role.name}** role.")
+        else:
+            await db.set_config(interaction.guild_id, "auto_role_id", None)
+            await interaction.response.send_message("⚙️ **Auto-Role disabled.**")
+    except Exception as e:
+        logger.error(f"Error in autorole command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Failed to configure auto-role due to an internal error.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to configure auto-role due to an internal error.", ephemeral=True)
 
 
 @bot.tree.command(name="addrole", description="Assign a role to a member")
@@ -15228,184 +15943,18 @@ class UserProfileView(discord.ui.View):
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def whois_command(interaction: discord.Interaction, member: discord.Member = None):
-    target = member or interaction.user
-    await interaction.response.defer(thinking=True)
-    
-    # 1. Fetch full Discord user profile (gets bio, banner, accent color)
     try:
-        user_profile = await bot.fetch_user(target.id)
-    except Exception:
-        user_profile = target
-
-    # 2. Roles Overview
-    roles = [r for r in target.roles if r != interaction.guild.default_role]
-    roles.reverse()
-    roles_count = len(roles)
-    if roles_count > 0:
-        roles_str = ", ".join([r.mention for r in roles[:15]])
-        if roles_count > 15:
-            roles_str += f" ...and `{roles_count - 15}` more"
-    else:
-        roles_str = "`No custom roles`"
-
-    # 3. Key Permissions ("What he can do / permissions")
-    perms = target.guild_permissions
-    key_perms = []
-    if perms.administrator:
-        key_perms.append("👑 Administrator (Full Control)")
-    else:
-        if perms.manage_guild: key_perms.append("⚙️ Manage Server")
-        if perms.manage_roles: key_perms.append("🛡️ Manage Roles")
-        if perms.manage_channels: key_perms.append("📁 Manage Channels")
-        if perms.ban_members: key_perms.append("🔨 Ban Members")
-        if perms.kick_members: key_perms.append("👢 Kick Members")
-        if perms.moderate_members: key_perms.append("⏳ Timeout Members")
-        if perms.manage_messages: key_perms.append("🗑️ Manage Messages")
-        if perms.mention_everyone: key_perms.append("📢 Mention Everyone")
-        if perms.view_audit_log: key_perms.append("📜 View Audit Log")
-        if perms.manage_webhooks: key_perms.append("🔗 Manage Webhooks")
-        if perms.mute_members: key_perms.append("🔇 Voice Mute")
-        if perms.deafen_members: key_perms.append("🙉 Voice Deafen")
-        if perms.move_members: key_perms.append("🔀 Move Members")
-
-    if not key_perms:
-        perms_str = "👤 `Standard Member (No elevated permissions)`"
-    else:
-        perms_str = "\n".join([f"• {p}" for p in key_perms[:10]])
-        if len(key_perms) > 10:
-            perms_str += f"\n• ...and `{len(key_perms) - 10}` more permissions"
-
-    # 4. Moderation & Server Activity Record ("What he did")
-    warn_count = 0
-    timeout_count = 0
-    cmd_count = 0
-    try:
-        stats = await db.get_member_moderation_stats(interaction.guild.id, target.id)
-        warn_count = stats.get("warnings", 0)
-        timeout_count = stats.get("timeouts", 0)
-        cmd_count = stats.get("commands", 0)
-    except Exception as db_err:
-        logger.warning(f"Error fetching DB stats for whois: {db_err}")
-
-    # Immunity tier
-    if target.id == interaction.guild.owner_id:
-        immunity_status = "👑 **Server Owner (Absolute Immunity)**"
-    elif perms.administrator:
-        immunity_status = "🛡️ **Server Administrator (Immune)**"
-    elif perms.manage_guild or perms.manage_messages or perms.kick_members:
-        immunity_status = "⚔️ **Server Moderator (Immune)**"
-    else:
-        immunity_status = "👤 **Standard Member**"
-
-    # Join Position calculation
-    sorted_members = sorted([m for m in interaction.guild.members if m.joined_at is not None], key=lambda m: m.joined_at)
-    join_pos = next((idx + 1 for idx, m in enumerate(sorted_members) if m.id == target.id), None)
-    join_pos_str = f" (#{join_pos} of {interaction.guild.member_count})" if join_pos else ""
-
-    # Booster status
-    booster_str = f"🚀 Boosting since <t:{int(target.premium_since.timestamp())}:R>" if target.premium_since else "❌ Not boosting"
-
-    # Badges / Flags
-    flags = [flag.name.replace("_", " ").title() for flag, value in target.public_flags if value]
-    flags_str = ", ".join(flags) if flags else "`None`"
-
-    # User Bio (About Me)
-    bio_str = user_profile.bio if (hasattr(user_profile, 'bio') and user_profile.bio) else None
-
-    # Build Embed
-    embed = discord.Embed(
-        title=f"🔍 Member Dossier & Audit — {target.display_name}",
-        color=target.color if target.color.value != 0 else discord.Color.blurple()
-    )
-    if bio_str:
-        embed.description = f"💬 **About Me:**\n> {bio_str}\n"
-
-    embed.set_thumbnail(url=target.display_avatar.url)
-    if hasattr(user_profile, 'banner') and user_profile.banner:
-        embed.set_image(url=user_profile.banner.url)
-
-    # General Identity
-    embed.add_field(
-        name="👤 **User Identity**",
-        value=(
-            f"• **Username:** {target.name} (`{target.id}`)\n"
-            f"• **Mention:** {target.mention}\n"
-            f"• **Account Type:** `{'🤖 Bot' if target.bot else '🧑 Human'}`\n"
-            f"• **Badges:** {flags_str}\n"
-            f"• **Immunity Tier:** {immunity_status}"
-        ),
-        inline=False
-    )
-
-    # Server Timeline
-    created_ts = int(target.created_at.timestamp())
-    joined_ts = int(target.joined_at.timestamp()) if target.joined_at else created_ts
-    embed.add_field(
-        name="📅 **Server Timeline & History**",
-        value=(
-            f"• **Account Created:** <t:{created_ts}:F> (<t:{created_ts}:R>)\n"
-            f"• **Joined Server:** <t:{joined_ts}:F> (<t:{joined_ts}:R>){join_pos_str}\n"
-            f"• **Server Booster:** {booster_str}"
-        ),
-        inline=False
-    )
-
-    # Roles
-    embed.add_field(
-        name=f"🎭 **Roles ({roles_count})**",
-        value=f"• **Highest Role:** {target.top_role.mention}\n• **Assigned Roles:** {roles_str}",
-        inline=False
-    )
-
-    # Permissions
-    embed.add_field(
-        name="🛡️ **Key Permissions & Abilities**",
-        value=perms_str,
-        inline=False
-    )
-
-    # Moderation & Bot Usage Record
-    mod_status_str = (
-        f"• **Bot Commands Used:** `{cmd_count}` commands\n"
-        f"• **Warnings Received:** `{warn_count}`\n"
-        f"• **Timeouts Received:** `{timeout_count}`\n"
-        f"• **Record Status:** `{'✅ Clean Record' if (warn_count == 0 and timeout_count == 0) else '⚠️ Infractions on file'}`"
-    )
-    embed.add_field(
-        name="📊 **Server Activity & Mod Record**",
-        value=mod_status_str,
-        inline=False
-    )
-
-    embed.set_footer(text=f"Requested by {interaction.user.display_name} • Sweety Deep Audit", icon_url=interaction.user.display_avatar.url)
-    
-    view = UserProfileView(user_profile, target)
-    await interaction.followup.send(embed=embed, view=view)
-
-
-@bot.tree.command(name="userinfo", description="🔍 Comprehensive member profile, roles, permissions & server audit")
-@app_commands.describe(member="The member to inspect (defaults to yourself)")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def userinfo_command(interaction: discord.Interaction, member: discord.Member = None):
-    await whois_command(interaction, member)
-
-
-@bot.command(name="whois", aliases=["userinfo", "profile", "user"])
-@commands.guild_only()
-@commands.cooldown(1, 5.0, commands.BucketType.user)
-async def whois_prefix_cmd(ctx: commands.Context, member: discord.Member = None):
-    """Deep audit and profile information for a member: !whois [@member]"""
-    target = member or ctx.author
-    async with ctx.typing():
-        # 1. Fetch full Discord user profile
+        target = member or interaction.user
+        await interaction.response.defer(thinking=True)
+        
+        # 1. Fetch full Discord user profile (gets bio, banner, accent color)
         try:
             user_profile = await bot.fetch_user(target.id)
         except Exception:
             user_profile = target
 
         # 2. Roles Overview
-        roles = [r for r in target.roles if r != ctx.guild.default_role]
+        roles = [r for r in target.roles if r != interaction.guild.default_role]
         roles.reverse()
         roles_count = len(roles)
         if roles_count > 0:
@@ -15415,7 +15964,7 @@ async def whois_prefix_cmd(ctx: commands.Context, member: discord.Member = None)
         else:
             roles_str = "`No custom roles`"
 
-        # 3. Key Permissions
+        # 3. Key Permissions ("What he can do / permissions")
         perms = target.guild_permissions
         key_perms = []
         if perms.administrator:
@@ -15430,23 +15979,32 @@ async def whois_prefix_cmd(ctx: commands.Context, member: discord.Member = None)
             if perms.manage_messages: key_perms.append("🗑️ Manage Messages")
             if perms.mention_everyone: key_perms.append("📢 Mention Everyone")
             if perms.view_audit_log: key_perms.append("📜 View Audit Log")
+            if perms.manage_webhooks: key_perms.append("🔗 Manage Webhooks")
+            if perms.mute_members: key_perms.append("🔇 Voice Mute")
+            if perms.deafen_members: key_perms.append("🙉 Voice Deafen")
+            if perms.move_members: key_perms.append("🔀 Move Members")
 
-        perms_str = "\n".join([f"• {p}" for p in key_perms[:10]]) if key_perms else "👤 `Standard Member (No elevated permissions)`"
+        if not key_perms:
+            perms_str = "👤 `Standard Member (No elevated permissions)`"
+        else:
+            perms_str = "\n".join([f"• {p}" for p in key_perms[:10]])
+            if len(key_perms) > 10:
+                perms_str += f"\n• ...and `{len(key_perms) - 10}` more permissions"
 
-        # 4. Moderation & Server Activity Record
+        # 4. Moderation & Server Activity Record ("What he did")
         warn_count = 0
         timeout_count = 0
         cmd_count = 0
         try:
-            stats = await db.get_member_moderation_stats(ctx.guild.id, target.id)
+            stats = await db.get_member_moderation_stats(interaction.guild.id, target.id)
             warn_count = stats.get("warnings", 0)
             timeout_count = stats.get("timeouts", 0)
             cmd_count = stats.get("commands", 0)
-        except Exception:
-            pass
+        except Exception as db_err:
+            logger.warning(f"Error fetching DB stats for whois: {db_err}")
 
-        # Immunity
-        if target.id == ctx.guild.owner_id:
+        # Immunity tier
+        if target.id == interaction.guild.owner_id:
             immunity_status = "👑 **Server Owner (Absolute Immunity)**"
         elif perms.administrator:
             immunity_status = "🛡️ **Server Administrator (Immune)**"
@@ -15455,14 +16013,22 @@ async def whois_prefix_cmd(ctx: commands.Context, member: discord.Member = None)
         else:
             immunity_status = "👤 **Standard Member**"
 
-        sorted_members = sorted([m for m in ctx.guild.members if m.joined_at is not None], key=lambda m: m.joined_at)
+        # Join Position calculation
+        sorted_members = sorted([m for m in interaction.guild.members if m.joined_at is not None], key=lambda m: m.joined_at)
         join_pos = next((idx + 1 for idx, m in enumerate(sorted_members) if m.id == target.id), None)
-        join_pos_str = f" (#{join_pos} of {ctx.guild.member_count})" if join_pos else ""
+        join_pos_str = f" (#{join_pos} of {interaction.guild.member_count})" if join_pos else ""
+
+        # Booster status
         booster_str = f"🚀 Boosting since <t:{int(target.premium_since.timestamp())}:R>" if target.premium_since else "❌ Not boosting"
+
+        # Badges / Flags
         flags = [flag.name.replace("_", " ").title() for flag, value in target.public_flags if value]
         flags_str = ", ".join(flags) if flags else "`None`"
+
+        # User Bio (About Me)
         bio_str = user_profile.bio if (hasattr(user_profile, 'bio') and user_profile.bio) else None
 
+        # Build Embed
         embed = discord.Embed(
             title=f"🔍 Member Dossier & Audit — {target.display_name}",
             color=target.color if target.color.value != 0 else discord.Color.blurple()
@@ -15471,39 +16037,206 @@ async def whois_prefix_cmd(ctx: commands.Context, member: discord.Member = None)
             embed.description = f"💬 **About Me:**\n> {bio_str}\n"
 
         embed.set_thumbnail(url=target.display_avatar.url)
-        if getattr(user_profile, 'banner', None):
+        if hasattr(user_profile, 'banner') and user_profile.banner:
             embed.set_image(url=user_profile.banner.url)
 
+        # General Identity
         embed.add_field(
             name="👤 **User Identity**",
-            value=f"• **Username:** {target.name} (`{target.id}`)\n• **Mention:** {target.mention}\n• **Account Type:** `{'🤖 Bot' if target.bot else '🧑 Human'}`\n• **Badges:** {flags_str}\n• **Immunity Tier:** {immunity_status}",
+            value=(
+                f"• **Username:** {target.name} (`{target.id}`)\n"
+                f"• **Mention:** {target.mention}\n"
+                f"• **Account Type:** `{'🤖 Bot' if target.bot else '🧑 Human'}`\n"
+                f"• **Badges:** {flags_str}\n"
+                f"• **Immunity Tier:** {immunity_status}"
+            ),
             inline=False
         )
+
+        # Server Timeline
         created_ts = int(target.created_at.timestamp())
         joined_ts = int(target.joined_at.timestamp()) if target.joined_at else created_ts
         embed.add_field(
             name="📅 **Server Timeline & History**",
-            value=f"• **Account Created:** <t:{created_ts}:F> (<t:{created_ts}:R>)\n• **Joined Server:** <t:{joined_ts}:F> (<t:{joined_ts}:R>){join_pos_str}\n• **Server Booster:** {booster_str}",
+            value=(
+                f"• **Account Created:** <t:{created_ts}:F> (<t:{created_ts}:R>)\n"
+                f"• **Joined Server:** <t:{joined_ts}:F> (<t:{joined_ts}:R>){join_pos_str}\n"
+                f"• **Server Booster:** {booster_str}"
+            ),
             inline=False
         )
+
+        # Roles
         embed.add_field(
             name=f"🎭 **Roles ({roles_count})**",
             value=f"• **Highest Role:** {target.top_role.mention}\n• **Assigned Roles:** {roles_str}",
             inline=False
         )
+
+        # Permissions
         embed.add_field(
             name="🛡️ **Key Permissions & Abilities**",
             value=perms_str,
             inline=False
         )
+
+        # Moderation & Bot Usage Record
+        mod_status_str = (
+            f"• **Bot Commands Used:** `{cmd_count}` commands\n"
+            f"• **Warnings Received:** `{warn_count}`\n"
+            f"• **Timeouts Received:** `{timeout_count}`\n"
+            f"• **Record Status:** `{'✅ Clean Record' if (warn_count == 0 and timeout_count == 0) else '⚠️ Infractions on file'}`"
+        )
         embed.add_field(
             name="📊 **Server Activity & Mod Record**",
-            value=f"• **Bot Commands Used:** `{cmd_count}` commands\n• **Warnings Received:** `{warn_count}`\n• **Timeouts Received:** `{timeout_count}`\n• **Record Status:** `{'✅ Clean Record' if (warn_count == 0 and timeout_count == 0) else '⚠️ Infractions on file'}`",
+            value=mod_status_str,
             inline=False
         )
-        embed.set_footer(text=f"Requested by {ctx.author.display_name} • Sweety Deep Audit", icon_url=ctx.author.display_avatar.url)
+
+        embed.set_footer(text=f"Requested by {interaction.user.display_name} • Sweety Deep Audit", icon_url=interaction.user.display_avatar.url)
+        
         view = UserProfileView(user_profile, target)
-        await ctx.send(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in /whois command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
+
+
+@bot.tree.command(name="userinfo", description="🔍 Comprehensive member profile, roles, permissions & server audit")
+@app_commands.describe(member="The member to inspect (defaults to yourself)")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def userinfo_command(interaction: discord.Interaction, member: discord.Member = None):
+    try:
+        await whois_command(interaction, member)
+    except Exception as e:
+        logger.error(f"Error in /userinfo command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
+
+
+@bot.command(name="whois", aliases=["userinfo", "profile", "user"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def whois_prefix_cmd(ctx: commands.Context, member: discord.Member = None):
+    """Deep audit and profile information for a member: !whois [@member]"""
+    try:
+        target = member or ctx.author
+        async with ctx.typing():
+            # 1. Fetch full Discord user profile
+            try:
+                user_profile = await bot.fetch_user(target.id)
+            except Exception:
+                user_profile = target
+
+            # 2. Roles Overview
+            roles = [r for r in target.roles if r != ctx.guild.default_role]
+            roles.reverse()
+            roles_count = len(roles)
+            if roles_count > 0:
+                roles_str = ", ".join([r.mention for r in roles[:15]])
+                if roles_count > 15:
+                    roles_str += f" ...and `{roles_count - 15}` more"
+            else:
+                roles_str = "`No custom roles`"
+
+            # 3. Key Permissions
+            perms = target.guild_permissions
+            key_perms = []
+            if perms.administrator:
+                key_perms.append("👑 Administrator (Full Control)")
+            else:
+                if perms.manage_guild: key_perms.append("⚙️ Manage Server")
+                if perms.manage_roles: key_perms.append("🛡️ Manage Roles")
+                if perms.manage_channels: key_perms.append("📁 Manage Channels")
+                if perms.ban_members: key_perms.append("🔨 Ban Members")
+                if perms.kick_members: key_perms.append("👢 Kick Members")
+                if perms.moderate_members: key_perms.append("⏳ Timeout Members")
+                if perms.manage_messages: key_perms.append("🗑️ Manage Messages")
+                if perms.mention_everyone: key_perms.append("📢 Mention Everyone")
+                if perms.view_audit_log: key_perms.append("📜 View Audit Log")
+
+            perms_str = "\n".join([f"• {p}" for p in key_perms[:10]]) if key_perms else "👤 `Standard Member (No elevated permissions)`"
+
+            # 4. Moderation & Server Activity Record
+            warn_count = 0
+            timeout_count = 0
+            cmd_count = 0
+            try:
+                stats = await db.get_member_moderation_stats(ctx.guild.id, target.id)
+                warn_count = stats.get("warnings", 0)
+                timeout_count = stats.get("timeouts", 0)
+                cmd_count = stats.get("commands", 0)
+            except Exception:
+                pass
+
+            # Immunity
+            if target.id == ctx.guild.owner_id:
+                immunity_status = "👑 **Server Owner (Absolute Immunity)**"
+            elif perms.administrator:
+                immunity_status = "🛡️ **Server Administrator (Immune)**"
+            elif perms.manage_guild or perms.manage_messages or perms.kick_members:
+                immunity_status = "⚔️ **Server Moderator (Immune)**"
+            else:
+                immunity_status = "👤 **Standard Member**"
+
+            sorted_members = sorted([m for m in ctx.guild.members if m.joined_at is not None], key=lambda m: m.joined_at)
+            join_pos = next((idx + 1 for idx, m in enumerate(sorted_members) if m.id == target.id), None)
+            join_pos_str = f" (#{join_pos} of {ctx.guild.member_count})" if join_pos else ""
+            booster_str = f"🚀 Boosting since <t:{int(target.premium_since.timestamp())}:R>" if target.premium_since else "❌ Not boosting"
+            flags = [flag.name.replace("_", " ").title() for flag, value in target.public_flags if value]
+            flags_str = ", ".join(flags) if flags else "`None`"
+            bio_str = user_profile.bio if (hasattr(user_profile, 'bio') and user_profile.bio) else None
+
+            embed = discord.Embed(
+                title=f"🔍 Member Dossier & Audit — {target.display_name}",
+                color=target.color if target.color.value != 0 else discord.Color.blurple()
+            )
+            if bio_str:
+                embed.description = f"💬 **About Me:**\n> {bio_str}\n"
+
+            embed.set_thumbnail(url=target.display_avatar.url)
+            if getattr(user_profile, 'banner', None):
+                embed.set_image(url=user_profile.banner.url)
+
+            embed.add_field(
+                name="👤 **User Identity**",
+                value=f"• **Username:** {target.name} (`{target.id}`)\n• **Mention:** {target.mention}\n• **Account Type:** `{'🤖 Bot' if target.bot else '🧑 Human'}`\n• **Badges:** {flags_str}\n• **Immunity Tier:** {immunity_status}",
+                inline=False
+            )
+            created_ts = int(target.created_at.timestamp())
+            joined_ts = int(target.joined_at.timestamp()) if target.joined_at else created_ts
+            embed.add_field(
+                name="📅 **Server Timeline & History**",
+                value=f"• **Account Created:** <t:{created_ts}:F> (<t:{created_ts}:R>)\n• **Joined Server:** <t:{joined_ts}:F> (<t:{joined_ts}:R>){join_pos_str}\n• **Server Booster:** {booster_str}",
+                inline=False
+            )
+            embed.add_field(
+                name=f"🎭 **Roles ({roles_count})**",
+                value=f"• **Highest Role:** {target.top_role.mention}\n• **Assigned Roles:** {roles_str}",
+                inline=False
+            )
+            embed.add_field(
+                name="🛡️ **Key Permissions & Abilities**",
+                value=perms_str,
+                inline=False
+            )
+            embed.add_field(
+                name="📊 **Server Activity & Mod Record**",
+                value=f"• **Bot Commands Used:** `{cmd_count}` commands\n• **Warnings Received:** `{warn_count}`\n• **Timeouts Received:** `{timeout_count}`\n• **Record Status:** `{'✅ Clean Record' if (warn_count == 0 and timeout_count == 0) else '⚠️ Infractions on file'}`",
+                inline=False
+            )
+            embed.set_footer(text=f"Requested by {ctx.author.display_name} • Sweety Deep Audit", icon_url=ctx.author.display_avatar.url)
+            view = UserProfileView(user_profile, target)
+            await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !whois command: {e}", exc_info=True)
+        await ctx.send("❌ Failed to retrieve user information due to an internal error.")
 
 
 # ── Premium Feature Commands ────────────────────────────────────────────────
@@ -15751,65 +16484,79 @@ async def set_ai_reply_command(
     require_question_mark: bool = None,
     reset_channel: bool = False
 ):
-    guild_id = interaction.guild.id
-    
-    if enabled is not None:
-        await db.set_config(guild_id, "ai_auto_reply", enabled)
+    try:
+        guild_id = interaction.guild.id
         
-    if reset_channel:
-        await db.set_config(guild_id, "ai_reply_channel_id", None)
-    elif channel is not None:
-        await db.set_config(guild_id, "ai_reply_channel_id", channel.id)
+        if enabled is not None:
+            await db.set_config(guild_id, "ai_auto_reply", enabled)
+            
+        if reset_channel:
+            await db.set_config(guild_id, "ai_reply_channel_id", None)
+        elif channel is not None:
+            await db.set_config(guild_id, "ai_reply_channel_id", channel.id)
+            
+        if require_question_mark is not None:
+            await db.set_config(guild_id, "ai_reply_require_qmark", require_question_mark)
+
+        # Fetch current state
+        is_enabled = await db.get_config(guild_id, "ai_auto_reply", False)
+        chan_id = await db.get_config(guild_id, "ai_reply_channel_id", None)
+        need_q = await db.get_config(guild_id, "ai_reply_require_qmark", False)
         
-    if require_question_mark is not None:
-        await db.set_config(guild_id, "ai_reply_require_qmark", require_question_mark)
+        chan_str = f"<#{chan_id}>" if chan_id else "🌐 **All Channels**"
+        q_str = "❓ **Required** (Only answers messages with `?`)" if need_q else "💬 **Optional** (Answers `?` and phrases like *how to*, *what is*, etc.)"
+        status_str = "🟢 **Enabled**" if is_enabled else "🔴 **Disabled**"
 
-    # Fetch current state
-    is_enabled = await db.get_config(guild_id, "ai_auto_reply", False)
-    chan_id = await db.get_config(guild_id, "ai_reply_channel_id", None)
-    need_q = await db.get_config(guild_id, "ai_reply_require_qmark", False)
-    
-    chan_str = f"<#{chan_id}>" if chan_id else "🌐 **All Channels**"
-    q_str = "❓ **Required** (Only answers messages with `?`)" if need_q else "💬 **Optional** (Answers `?` and phrases like *how to*, *what is*, etc.)"
-    status_str = "🟢 **Enabled**" if is_enabled else "🔴 **Disabled**"
+        embed = discord.Embed(
+            title="⚙️ AI Auto-Reply Configuration Updated",
+            color=discord.Color.green() if is_enabled else discord.Color.red()
+        )
+        embed.add_field(name="Auto-Reply Status", value=status_str, inline=False)
+        embed.add_field(name="Active Channel", value=chan_str, inline=True)
+        embed.add_field(name="Question Mark Mode", value=q_str, inline=True)
+        embed.set_footer(text="Tip: Tagging @Sweety will always work in any channel!")
+        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
 
-    embed = discord.Embed(
-        title="⚙️ AI Auto-Reply Configuration Updated",
-        color=discord.Color.green() if is_enabled else discord.Color.red()
-    )
-    embed.add_field(name="Auto-Reply Status", value=status_str, inline=False)
-    embed.add_field(name="Active Channel", value=chan_str, inline=True)
-    embed.add_field(name="Question Mark Mode", value=q_str, inline=True)
-    embed.set_footer(text="Tip: Tagging @Sweety will always work in any channel!")
-    embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-
-    await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /setaireply command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Failed to update AI Auto-Reply configuration.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to update AI Auto-Reply configuration.", ephemeral=True)
 
 
 @bot.tree.command(name="showaireply", description="View current AI Auto-Reply channel & question mark settings")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def show_ai_reply_command(interaction: discord.Interaction):
-    guild_id = interaction.guild.id
-    is_enabled = await db.get_config(guild_id, "ai_auto_reply", False)
-    chan_id = await db.get_config(guild_id, "ai_reply_channel_id", None)
-    need_q = await db.get_config(guild_id, "ai_reply_require_qmark", False)
-    
-    chan_str = f"<#{chan_id}>" if chan_id else "🌐 **All Channels**"
-    q_str = "❓ **Required** (Must contain `?`)" if need_q else "💬 **Optional** (Answers `?` or phrases like *explain*, *what is*)"
-    status_str = "🟢 **Enabled**" if is_enabled else "🔴 **Disabled**"
+    try:
+        guild_id = interaction.guild.id
+        is_enabled = await db.get_config(guild_id, "ai_auto_reply", False)
+        chan_id = await db.get_config(guild_id, "ai_reply_channel_id", None)
+        need_q = await db.get_config(guild_id, "ai_reply_require_qmark", False)
+        
+        chan_str = f"<#{chan_id}>" if chan_id else "🌐 **All Channels**"
+        q_str = "❓ **Required** (Must contain `?`)" if need_q else "💬 **Optional** (Answers `?` or phrases like *explain*, *what is*)"
+        status_str = "🟢 **Enabled**" if is_enabled else "🔴 **Disabled**"
 
-    embed = discord.Embed(
-        title="🤖 AI Auto-Reply Settings",
-        color=discord.Color.blue()
-    )
-    embed.add_field(name="Status", value=status_str, inline=False)
-    embed.add_field(name="Channel Filter", value=chan_str, inline=True)
-    embed.add_field(name="Question Mark Mode", value=q_str, inline=True)
-    embed.set_footer(text="Use /setaireply to customize active channel & '?' requirement")
-    embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        embed = discord.Embed(
+            title="🤖 AI Auto-Reply Settings",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Status", value=status_str, inline=False)
+        embed.add_field(name="Channel Filter", value=chan_str, inline=True)
+        embed.add_field(name="Question Mark Mode", value=q_str, inline=True)
+        embed.set_footer(text="Use /setaireply to customize active channel & '?' requirement")
+        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
 
-    await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /showaireply command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Failed to retrieve AI Auto-Reply settings.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to retrieve AI Auto-Reply settings.", ephemeral=True)
 
 
 @bot.tree.command(name="toggleaireply", description="Quick toggle automatic AI answers in server chat")
@@ -15817,65 +16564,107 @@ async def show_ai_reply_command(interaction: discord.Interaction):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def toggle_ai_reply_command(interaction: discord.Interaction):
-    current = await db.get_config(interaction.guild.id, "ai_auto_reply", False)
-    new_state = not current
-    await db.set_config(interaction.guild.id, "ai_auto_reply", new_state)
-    state_str = "🟢 **ENABLED** (The bot will automatically reply to questions in chat)" if new_state else "🔴 **DISABLED** (The bot will only reply when /ask is used or when tagged)"
-    await interaction.response.send_message(f"AI Auto-Reply has been set to: {state_str}")
+    try:
+        current = await db.get_config(interaction.guild.id, "ai_auto_reply", False)
+        new_state = not current
+        await db.set_config(interaction.guild.id, "ai_auto_reply", new_state)
+        state_str = "🟢 **ENABLED** (The bot will automatically reply to questions in chat)" if new_state else "🔴 **DISABLED** (The bot will only reply when /ask is used or when tagged)"
+        await interaction.response.send_message(f"AI Auto-Reply has been set to: {state_str}")
+    except Exception as e:
+        logger.error(f"Error in /toggleaireply command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Failed to toggle AI Auto-Reply.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to toggle AI Auto-Reply.", ephemeral=True)
 
 
 @bot.tree.command(name="creator", description="Discover who created and engineered this bot")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def creator_command(interaction: discord.Interaction):
-    embed = check_creator_query("who made you")
-    if embed:
-        await interaction.response.send_message(embed=embed)
-    else:
-        await interaction.response.send_message("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥")
+    try:
+        embed = check_creator_query("who made you")
+        if embed:
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥")
+    except Exception as e:
+        logger.error(f"Error in /creator command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥", ephemeral=True)
+        else:
+            await interaction.followup.send("⚡ I was engineered and developed by the visionary **Naraito**! 🚀🔥", ephemeral=True)
 
 
 @bot.tree.command(name="staff", description="Display the complete server staff team (Owner, Admins, Mods)")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def staff_command(interaction: discord.Interaction):
-    embed = check_staff_query("who is staff", interaction.guild)
-    if embed:
-        await interaction.response.send_message(embed=embed)
-    else:
-        await interaction.response.send_message("❌ Could not retrieve staff information.")
+    try:
+        embed = check_staff_query("who is staff", interaction.guild)
+        if embed:
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Could not retrieve staff information.")
+    except Exception as e:
+        logger.error(f"Error in /staff command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Could not retrieve staff information.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Could not retrieve staff information.", ephemeral=True)
 
 
 @bot.tree.command(name="owner", description="Show the server owner and founder")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def owner_command(interaction: discord.Interaction):
-    embed = check_staff_query("who is owner", interaction.guild)
-    if embed:
-        await interaction.response.send_message(embed=embed)
-    else:
-        await interaction.response.send_message("❌ Could not retrieve owner information.")
+    try:
+        embed = check_staff_query("who is owner", interaction.guild)
+        if embed:
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Could not retrieve owner information.")
+    except Exception as e:
+        logger.error(f"Error in /owner command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Could not retrieve owner information.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Could not retrieve owner information.", ephemeral=True)
 
 
 @bot.tree.command(name="admins", description="List all server administrators")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def admins_command(interaction: discord.Interaction):
-    embed = check_staff_query("who is admin", interaction.guild)
-    if embed:
-        await interaction.response.send_message(embed=embed)
-    else:
-        await interaction.response.send_message("❌ Could not retrieve admin information.")
+    try:
+        embed = check_staff_query("who is admin", interaction.guild)
+        if embed:
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Could not retrieve admin information.")
+    except Exception as e:
+        logger.error(f"Error in /admins command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Could not retrieve admin information.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Could not retrieve admin information.", ephemeral=True)
 
 
 @bot.tree.command(name="mods", description="List all server moderators and staff")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def mods_command(interaction: discord.Interaction):
-    embed = check_staff_query("who is moderator", interaction.guild)
-    if embed:
-        await interaction.response.send_message(embed=embed)
-    else:
-        await interaction.response.send_message("❌ Could not retrieve moderator information.")
+    try:
+        embed = check_staff_query("who is moderator", interaction.guild)
+        if embed:
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Could not retrieve moderator information.")
+    except Exception as e:
+        logger.error(f"Error in /mods command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Could not retrieve moderator information.", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Could not retrieve moderator information.", ephemeral=True)
 
 
 
@@ -15885,85 +16674,88 @@ async def mods_command(interaction: discord.Interaction):
 @bot.event
 async def on_member_join(member):
     """Event listener to handle Anti-Raid protection and auto-role assignment."""
-    if is_protected(member):
-        return
-        
-    guild = member.guild
-    now = time.time()
-    
-    # ── 1. Anti-Raid Join Flood & Alt Gate ─────────────────────────────────
-    antiraid_mode = await db.get_config(guild.id, "antiraid_mode", "enable")
-    
-    if antiraid_mode != "disable":
-        window = 10.0
-        limit = 3 if antiraid_mode == "strict" else 5
-        
-        if guild.id not in _guild_join_history:
-            _guild_join_history[guild.id] = []
+    try:
+        if is_protected(member):
+            return
             
-        _guild_join_history[guild.id] = [j for j in _guild_join_history[guild.id] if now - j[0] <= window]
-        _guild_join_history[guild.id].append((now, member.id, member.created_at))
+        guild = member.guild
+        now = time.time()
         
-        account_age_hours = (datetime.datetime.now(datetime.timezone.utc) - member.created_at).total_seconds() / 3600
-        is_fresh_alt = account_age_hours < (72 if antiraid_mode == "strict" else 24)
+        # ── 1. Anti-Raid Join Flood & Alt Gate ─────────────────────────────────
+        antiraid_mode = await db.get_config(guild.id, "antiraid_mode", "enable")
         
-        # Check if Join-Raid threshold is triggered
-        if len(_guild_join_history[guild.id]) >= limit:
-            _guild_raid_mode_active[guild.id] = now + 300.0  # Activate raid mode for 5 minutes
+        if antiraid_mode != "disable":
+            window = 10.0
+            limit = 3 if antiraid_mode == "strict" else 5
             
-            # Send Emergency Red Alert to mod log
-            mod_log = await get_mod_log_channel(guild)
-            if mod_log:
-                alert_embed = discord.Embed(
-                    title="🚨 JOIN RAID DETECTED! Anti-Raid Shield Activated!",
-                    description=f"⚠️ **{len(_guild_join_history[guild.id])} members** joined within {window} seconds!\nAuto-mitigation protocols have been engaged.",
-                    color=discord.Color.dark_red()
-                )
-                alert_embed.add_field(name="Trigger Member", value=f"{member.mention} (`{member.id}`)", inline=True)
-                alert_embed.add_field(name="Account Age", value=f"{account_age_hours:.1f} hours old", inline=True)
-                alert_embed.add_field(name="Protocol Action", value="🛡️ Auto-Slowmode applied & Fresh alt accounts quarantined/kicked", inline=False)
-                alert_embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-                try:
-                    await mod_log.send(content="@here 🚨 **SERVER RAID DETECTED!**", embed=alert_embed)
-                except Exception:
-                    pass
-                    
-            # Auto-enable 10s slowmode on public channels
-            for ch in guild.text_channels[:5]:
-                try:
-                    if ch.permissions_for(guild.default_role).send_messages:
-                        await ch.edit(slowmode_delay=10, reason="Anti-Raid: Join flood throttle")
-                except Exception:
-                    pass
-
-        # If server is currently in active raid mode, or this is a fresh alt joining during rapid joins
-        in_raid_mode = _guild_raid_mode_active.get(guild.id, 0) > now
-        if (in_raid_mode or len(_guild_join_history[guild.id]) >= limit) and is_fresh_alt:
-            if is_protected(member): return
-            try:
-                await member.kick(reason="Anti-Raid: Fresh Alt Account during Join Flood")
+            if guild.id not in _guild_join_history:
+                _guild_join_history[guild.id] = []
+                
+            _guild_join_history[guild.id] = [j for j in _guild_join_history[guild.id] if now - j[0] <= window]
+            _guild_join_history[guild.id].append((now, member.id, member.created_at))
+            
+            account_age_hours = (datetime.datetime.now(datetime.timezone.utc) - member.created_at).total_seconds() / 3600
+            is_fresh_alt = account_age_hours < (72 if antiraid_mode == "strict" else 24)
+            
+            # Check if Join-Raid threshold is triggered
+            if len(_guild_join_history[guild.id]) >= limit:
+                _guild_raid_mode_active[guild.id] = now + 300.0  # Activate raid mode for 5 minutes
+                
+                # Send Emergency Red Alert to mod log
                 mod_log = await get_mod_log_channel(guild)
                 if mod_log:
-                    kick_embed = discord.Embed(
-                        title="🛡️ Anti-Raid: Suspicious Account Auto-Kicked",
-                        description=f"Kicked {member.mention} (`{member.name}` / `{member.id}`)\nAccount was created **{account_age_hours:.1f} hours ago** during an active join raid.",
-                        color=discord.Color.orange()
+                    alert_embed = discord.Embed(
+                        title="🚨 JOIN RAID DETECTED! Anti-Raid Shield Activated!",
+                        description=f"⚠️ **{len(_guild_join_history[guild.id])} members** joined within {window} seconds!\nAuto-mitigation protocols have been engaged.",
+                        color=discord.Color.dark_red()
                     )
-                    await mod_log.send(embed=kick_embed)
-                return
-            except Exception as k_err:
-                logger.warning(f"Could not auto-kick raider {member.name}: {k_err}")
+                    alert_embed.add_field(name="Trigger Member", value=f"{member.mention} (`{member.id}`)", inline=True)
+                    alert_embed.add_field(name="Account Age", value=f"{account_age_hours:.1f} hours old", inline=True)
+                    alert_embed.add_field(name="Protocol Action", value="🛡️ Auto-Slowmode applied & Fresh alt accounts quarantined/kicked", inline=False)
+                    alert_embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+                    try:
+                        await mod_log.send(content="@here 🚨 **SERVER RAID DETECTED!**", embed=alert_embed)
+                    except Exception:
+                        pass
+                        
+                # Auto-enable 10s slowmode on public channels
+                for ch in guild.text_channels[:5]:
+                    try:
+                        if ch.permissions_for(guild.default_role).send_messages:
+                            await ch.edit(slowmode_delay=10, reason="Anti-Raid: Join flood throttle")
+                    except Exception:
+                        pass
 
-    # ── 2. Auto-Role on Join ───────────────────────────────────────────────
-    role_id = await db.get_config(guild.id, "auto_role_id")
-    if role_id:
-        role = guild.get_role(role_id)
-        if role:
-            try:
-                await member.add_roles(role, reason="Auto-Role on Join")
-                logger.info(f"Assigned auto-role '{role.name}' to '{member.name}' in guild '{guild.name}'")
-            except Exception as e:
-                logger.error(f"Failed to assign auto-role to {member.name}: {e}")
+            # If server is currently in active raid mode, or this is a fresh alt joining during rapid joins
+            in_raid_mode = _guild_raid_mode_active.get(guild.id, 0) > now
+            if (in_raid_mode or len(_guild_join_history[guild.id]) >= limit) and is_fresh_alt:
+                if is_protected(member): return
+                try:
+                    await member.kick(reason="Anti-Raid: Fresh Alt Account during Join Flood")
+                    mod_log = await get_mod_log_channel(guild)
+                    if mod_log:
+                        kick_embed = discord.Embed(
+                            title="🛡️ Anti-Raid: Suspicious Account Auto-Kicked",
+                            description=f"Kicked {member.mention} (`{member.name}` / `{member.id}`)\nAccount was created **{account_age_hours:.1f} hours ago** during an active join raid.",
+                            color=discord.Color.orange()
+                        )
+                        await mod_log.send(embed=kick_embed)
+                    return
+                except Exception as k_err:
+                    logger.warning(f"Could not auto-kick raider {member.name}: {k_err}")
+
+        # ── 2. Auto-Role on Join ───────────────────────────────────────────────
+        role_id = await db.get_config(guild.id, "auto_role_id")
+        if role_id:
+            role = guild.get_role(role_id)
+            if role:
+                try:
+                    await member.add_roles(role, reason="Auto-Role on Join")
+                    logger.info(f"Assigned auto-role '{role.name}' to '{member.name}' in guild '{guild.name}'")
+                except Exception as e:
+                    logger.error(f"Failed to assign auto-role to {member.name}: {e}")
+    except Exception as e:
+        logger.error(f"Error in on_member_join listener for {member.id}: {e}", exc_info=True)
 
 
 @bot.event
@@ -16012,21 +16804,24 @@ async def on_guild_join(guild: discord.Guild):
 @bot.event
 async def on_guild_remove(guild: discord.Guild):
     """Clean up memory caches, rate limit counters, and temporary locks when removed from a guild."""
-    logger.info(f"Bot removed from guild: {guild.name} ({guild.id})")
-    
-    # 1. Clean up in-memory snipe caches for channels in this guild
-    for channel in getattr(guild, "channels", []):
-        _snipe_cache.pop(channel.id, None)
-        _editsnipe_cache.pop(channel.id, None)
+    try:
+        logger.info(f"Bot removed from guild: {guild.name} ({guild.id})")
+        
+        # 1. Clean up in-memory snipe caches for channels in this guild
+        for channel in getattr(guild, "channels", []):
+            _snipe_cache.pop(channel.id, None)
+            _editsnipe_cache.pop(channel.id, None)
 
-    # 2. Clean up anti-raid, locks, cooldowns, and server trackers
-    _guild_join_history.pop(guild.id, None)
-    _guild_raid_mode_active.pop(guild.id, None)
-    _server_ai_call_count.pop(guild.id, None)
-    _server_ai_call_reset.pop(guild.id, None)
-    _image_render_timestamps.pop(guild.id, None)
-    _roleall_cooldowns.pop(guild.id, None)
-    _roleall_active_locks.discard(guild.id)
+        # 2. Clean up anti-raid, locks, cooldowns, and server trackers
+        _guild_join_history.pop(guild.id, None)
+        _guild_raid_mode_active.pop(guild.id, None)
+        _server_ai_call_count.pop(guild.id, None)
+        _server_ai_call_reset.pop(guild.id, None)
+        _image_render_timestamps.pop(guild.id, None)
+        _roleall_cooldowns.pop(guild.id, None)
+        _roleall_active_locks.discard(guild.id)
+    except Exception as e:
+        logger.error(f"Error in on_guild_remove for {guild.id}: {e}", exc_info=True)
 
 
 
