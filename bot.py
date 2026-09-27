@@ -13846,6 +13846,12 @@ class GeminiBot(commands.Bot):
                 await db.execute("DELETE FROM user_nba_cards WHERE source = 'starter_pack'")
             except Exception as clean_err:
                 logger.debug(f"Starter pack cleanup notice: {clean_err}")
+            # Reset everyone's Starting 5 lineups so all users build fresh from their genuine card binder
+            try:
+                await db.reset_all_dream_teams()
+                logger.info("🏀 Cleaned and reset all users' Starting 5 lineups from database")
+            except Exception as reset_team_err:
+                logger.debug(f"Starting 5 reset notice: {reset_team_err}")
         except Exception as db_err:
             logger.error(f"Database initialization error: {db_err}")
 
@@ -16764,6 +16770,26 @@ async def setnbachannel_slash_cmd(interaction: discord.Interaction, channel: Opt
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+@bot.tree.command(name="resetalllineups", description="🏀 Admin: Reset everyone's Starting 5 lineups so all users build fresh from their Card Binder")
+@app_commands.default_permissions(administrator=True)
+@app_commands.guild_only()
+async def resetalllineups_slash_cmd(interaction: discord.Interaction):
+    try:
+        if not is_protected(interaction.user) and not interaction.permissions.administrator:
+            await interaction.response.send_message("❌ You need `Administrator` permission.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        await db.reset_all_dream_teams()
+        await ensure_sweety_ai_team(guild_id=interaction.guild_id)
+        await interaction.followup.send("✅ **All Starting 5 lineups have been reset across all users!**\nMembers will now equip their lineups from cards they actually own using `/buildteam`.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /resetalllineups: {e}")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error resetting lineups: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error resetting lineups: {e}", ephemeral=True)
+
+
 @bot.tree.command(name="teamstats", description="🏀 View a member's NBA GM profile, rank ladder, career record, and badges")
 @app_commands.describe(user="The member whose GM profile you want to view (defaults to yourself)")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
@@ -19554,6 +19580,23 @@ async def setnbachannel_prefix_cmd(ctx: commands.Context, channel: Optional[disc
     else:
         await db.set_config(ctx.guild.id, "nba_drop_channel", "")
         await ctx.send("✅ Drop channel reset — drops will spawn in whichever channel is most active.")
+
+
+@bot.command(name="resetalllineups", aliases=["resetlineups", "resetbuildteams", "resetallteams"])
+@commands.guild_only()
+@commands.has_permissions(administrator=True)
+async def resetalllineups_prefix_cmd(ctx: commands.Context):
+    """Admin: Reset everyone's Starting 5 lineups: !resetalllineups"""
+    try:
+        if not is_protected(ctx.author) and not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ You need `Administrator` permission to run this command.")
+            return
+        await db.reset_all_dream_teams()
+        await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None)
+        await ctx.send("✅ **All Starting 5 lineups have been reset across all users!**\nMembers will now equip their lineups from cards they actually own using `!buildteam` or `/buildteam`.")
+    except Exception as e:
+        logger.error(f"Error in !resetalllineups: {e}", exc_info=True)
+        await ctx.send(f"❌ Error resetting lineups: {e}")
 
 
 @bot.command(name="teamstats", aliases=["gmstats", "mycareer", "nba_stats"])
