@@ -169,8 +169,8 @@ Sweety features a card collection game inspired by **NBA 2K Mobile MyTEAM**:
 ### Setup Steps
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Naraito-ai/discord-sweety-bot.git
-cd discord-sweety-bot
+git clone https://github.com/Naraito-ai/Naraito-s-Disc-Swty.git
+cd Naraito-s-Disc-Swty
 
 # 2. Create virtual environment
 python -m venv venv
@@ -203,7 +203,7 @@ python bot.py
 ## 🚀 24/7 Deployment Guide (Render)
 
 1. Create a **Web Service** or **Background Worker** on [Render.com](https://render.com).
-2. Connect your GitHub repository (`discord-sweety-bot`).
+2. Connect your GitHub repository (`Naraito-s-Disc-Swty`).
 3. Configure settings:
    * **Runtime**: `Python`
    * **Build Command**: `pip install -r requirements.txt`
