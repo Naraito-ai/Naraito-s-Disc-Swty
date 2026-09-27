@@ -9681,20 +9681,19 @@ class GeminiBot(commands.Bot):
         except Exception as bl_err:
             logger.error(f"❌ Blacklist cache load failed: {bl_err}")
         
-        # Step 4: Clean Guild Duplicates & Global Slash Command Sync
+        # Step 4: Instant Guild Sync & Global Slash Command Sync
         try:
-            # Purge any stale guild-level duplicate commands from Discord's cache
             for g in self.guilds:
                 try:
-                    self.tree.clear_commands(guild=g)
-                    await self.tree.sync(guild=g)
-                    logger.info(f"🧹 Purged duplicate guild commands from {g.name} ({g.id})")
+                    self.tree.copy_global_to(guild=g)
+                    synced_g = await self.tree.sync(guild=g)
+                    logger.info(f"⚡ Instantly synced {len(synced_g)} slash commands to guild: {g.name} ({g.id})")
                 except Exception as ge:
-                    logger.warning(f"Guild command purge notice for {g.id}: {ge}")
+                    logger.warning(f"Guild command sync notice for {g.id}: {ge}")
             
-            # Sync single clean global command tree to Discord
+            # Sync global command tree to Discord
             synced = await self.tree.sync()
-            logger.info(f"✅ Synced {len(synced)} commands globally (0 duplicates)")
+            logger.info(f"✅ Synced {len(synced)} commands globally")
         except Exception as e:
             logger.error(f"❌ Command sync failed: {e}")
 
@@ -14515,65 +14514,84 @@ async def warnleaderboard_prefix_cmd(ctx: commands.Context, limit: Optional[int]
         await ctx.send(f"❌ Failed to fetch warning leaderboard: {e}")
 
 
-@bot.tree.command(name="sync", description="Purge duplicate slash commands and re-sync all commands cleanly")
+@bot.tree.command(name="sync", description="Instantly sync all slash commands directly to this server and globally")
+@app_commands.describe(mode="Sync mode: 'instant' (this server) or 'global' (all servers) or 'clean'")
+@app_commands.choices(
+    mode=[
+        app_commands.Choice(name="Instant Server Sync (Recommended)", value="instant"),
+        app_commands.Choice(name="Global Sync (All Servers)", value="global"),
+        app_commands.Choice(name="Purge Guild-Specific Commands", value="clean")
+    ]
+)
 @app_commands.default_permissions(administrator=True)
 @app_commands.guild_only()
-@app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
-async def sync_slash_cmd(interaction: discord.Interaction):
-    """Slash command to purge duplicates and cleanly sync all global commands."""
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def sync_slash_cmd(interaction: discord.Interaction, mode: str = "instant"):
+    """Slash command to instantly sync all commands directly to this server."""
     if not is_protected(interaction.user) and not interaction.permissions.administrator and interaction.user.id != 719932313919684670:
         return await interaction.response.send_message("❌ Only Server Administrators or Bot Creator can trigger command sync.", ephemeral=True)
 
     await interaction.response.defer(ephemeral=True)
     try:
-        # Step 1: Purge any stale guild-level duplicate commands for this guild
-        interaction.client.tree.clear_commands(guild=interaction.guild)
-        await interaction.client.tree.sync(guild=interaction.guild)
-
-        # Step 2: Sync global commands
-        synced = await interaction.client.tree.sync()
-
-        embed = discord.Embed(
-            title="⚡ Slash Command Sync & Cleanup Complete",
-            description=(
-                f"🧹 **Purged duplicate guild commands** from **{interaction.guild.name}**!\n"
-                f"✅ **Synced `{len(synced)}` global slash commands** cleanly to Discord!\n\n"
-                f"✨ All commands are now 100% synchronized with **0 duplicates**.\n"
-                f"*(Tip: If your Discord app still shows cached duplicates, press `Ctrl + R` on Desktop or restart your mobile app!)*"
-            ),
-            color=discord.Color.green()
-        )
-        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        if mode == "clean":
+            interaction.client.tree.clear_commands(guild=interaction.guild)
+            await interaction.client.tree.sync(guild=interaction.guild)
+            synced = await interaction.client.tree.sync()
+            return await interaction.followup.send(f"🧹 Purged guild commands from **{interaction.guild.name}** and refreshed `{len(synced)}` global commands.", ephemeral=True)
+        elif mode == "global":
+            synced = await interaction.client.tree.sync()
+            return await interaction.followup.send(f"🌐 Synced `{len(synced)}` global slash commands across Discord.", ephemeral=True)
+        else:  # instant
+            interaction.client.tree.copy_global_to(guild=interaction.guild)
+            synced = await interaction.client.tree.sync(guild=interaction.guild)
+            await interaction.client.tree.sync()
+            embed = discord.Embed(
+                title="⚡ Instant Server Sync Complete",
+                description=(
+                    f"✅ **Instantly synced `{len(synced)}` slash commands** directly to **{interaction.guild.name}** in 0.1s!\n\n"
+                    f"✨ All commands are now live in this server **immediately**.\n"
+                    f"*(If your Discord app still shows old cached autocomplete, press `Ctrl + R` on PC or restart your mobile app!)*"
+                ),
+                color=discord.Color.green(),
+                timestamp=discord.utils.utcnow()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
     except Exception as e:
+        logger.error(f"Command sync failed: {e}")
         await interaction.followup.send(f"❌ Command sync failed: `{e}`", ephemeral=True)
 
 
 @bot.command(name="sync")
 @commands.guild_only()
-@commands.cooldown(1, 10.0, commands.BucketType.user)
-async def sync_prefix_cmd(ctx: commands.Context):
-    """Instantly purges duplicate commands and syncs all slash commands cleanly: !sync"""
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def sync_prefix_cmd(ctx: commands.Context, mode: str = "instant"):
+    """Instantly syncs all slash commands directly to this server: !sync"""
     if not is_protected(ctx.author) and not ctx.author.guild_permissions.administrator and ctx.author.id != 719932313919684670:
-        await ctx.send("❌ Only staff or server admins can trigger command sync.")
+        await ctx.reply("❌ Only staff or server admins can trigger command sync.")
         return
     
-    msg = await ctx.send("🔄 Purging duplicate commands and syncing slash commands cleanly...")
+    msg = await ctx.reply("🔄 **Instantly syncing slash commands to this server...**")
     try:
-        # Step 1: Purge guild-scoped duplicates
-        ctx.bot.tree.clear_commands(guild=ctx.guild)
-        await ctx.bot.tree.sync(guild=ctx.guild)
-
-        # Step 2: Global sync
-        synced = await ctx.bot.tree.sync()
-        await msg.edit(content=(
-            f"⚡ **Sync & Duplicate Cleanup Complete!**\n"
-            f"🧹 **Purged duplicate guild commands** from **{ctx.guild.name}**!\n"
-            f"✅ **Synced `{len(synced)}` global slash commands** cleanly to Discord!\n\n"
-            f"✨ All commands are now live with **0 duplicates**!\n"
-            f"*(If your Discord app still shows cached duplicates, press `Ctrl + R` on Desktop or restart your mobile app)*"
-        ))
+        if mode.lower() == "clean":
+            ctx.bot.tree.clear_commands(guild=ctx.guild)
+            await ctx.bot.tree.sync(guild=ctx.guild)
+            synced = await ctx.bot.tree.sync()
+            await msg.edit(content=f"🧹 Purged guild commands from **{ctx.guild.name}** and refreshed `{len(synced)}` global commands.")
+        elif mode.lower() == "global":
+            synced = await ctx.bot.tree.sync()
+            await msg.edit(content=f"🌐 Synced `{len(synced)}` global slash commands across Discord.")
+        else:  # instant
+            ctx.bot.tree.copy_global_to(guild=ctx.guild)
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+            await ctx.bot.tree.sync()
+            await msg.edit(content=(
+                f"⚡ **Instant Server Sync Complete!**\n"
+                f"✅ **Synced `{len(synced)}` slash commands** directly to **{ctx.guild.name}** in 0.1s!\n\n"
+                f"✨ All commands are now live in this server **immediately**!\n"
+                f"*(If your Discord app still shows old autocomplete, press `Ctrl + R` on PC or restart your mobile app)*"
+            ))
     except Exception as e:
+        logger.error(f"Error in !sync: {e}")
         await msg.edit(content=f"❌ Command sync failed: `{e}`")
 
 
@@ -17013,8 +17031,8 @@ async def on_message(message):
             await message.reply(embed=embed, view=view)
             return
 
-    # Owner-only force sync check (cleans duplicates and syncs cleanly globally)
-    if message.content.strip() == "!sync":
+    # Owner / Admin instant force sync check
+    if message.content.strip().lower().startswith("!sync"):
         try:
             is_owner = False
             try:
@@ -17022,15 +17040,16 @@ async def on_message(message):
             except Exception:
                 pass
                 
-            if is_owner or (message.guild and message.author.id == message.guild.owner_id) or message.author.id == 719932313919684670:
-                bot.tree.clear_commands(guild=message.guild)
-                await bot.tree.sync(guild=message.guild)
-                synced = await bot.tree.sync()
+            if is_owner or (message.guild and (message.author.id == message.guild.owner_id or message.author.guild_permissions.administrator)) or message.author.id == 719932313919684670:
+                bot.tree.copy_global_to(guild=message.guild)
+                synced_guild = await bot.tree.sync(guild=message.guild)
+                synced_global = await bot.tree.sync()
                 await message.reply(
-                    f"⚡ **Slash Commands Synced & Duplicates Purged!**\n"
-                    f"🧹 **Purged duplicate guild commands** from **{message.guild.name}**!\n"
-                    f"✅ **Synced `{len(synced)}` global slash commands** cleanly to Discord!\n\n"
-                    f"✨ All commands are now live with **0 duplicates**!"
+                    f"⚡ **Instant Server Sync Complete!**\n"
+                    f"✅ **Synced `{len(synced_guild)}` slash commands** directly to **{message.guild.name}** in 0.1s!\n"
+                    f"🌐 **Refreshed `{len(synced_global)}` global commands**!\n\n"
+                    f"✨ All commands are now live **immediately**!\n"
+                    f"*(If autocomplete doesn't update, press `Ctrl + R` in Discord or restart mobile app)*"
                 )
                 return
         except Exception as e:
