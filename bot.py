@@ -6356,9 +6356,10 @@ class BuildTeamView(discord.ui.View):
         self._build_components()
 
     def auto_equip_best_lineup(self):
-        """Auto-equips the highest OVR card owned for each starting position without duplicate cards."""
+        """Auto-equips the highest OVR card owned for each starting position without duplicate cards or duplicate players."""
         positions = ["PG", "SG", "SF", "PF", "C"]
         used_card_ids = set()
+        used_player_names = set()
         new_picks = {}
         
         for pos in positions:
@@ -6368,6 +6369,9 @@ class BuildTeamView(discord.ui.View):
                 cobj = NBA_CARDS_BY_ID.get(cid)
                 if not cobj or cid in used_card_ids:
                     continue
+                pname = cobj.get("name", "").strip().lower()
+                if pname in used_player_names:
+                    continue
                 if cobj.get("pos") == pos or cobj.get("sec_pos") == pos:
                     eligible.append(cobj)
             
@@ -6376,10 +6380,14 @@ class BuildTeamView(discord.ui.View):
                 best = eligible[0]
                 new_picks[pos] = card_to_player_dict(best)
                 used_card_ids.add(best["id"].lower())
+                used_player_names.add(best.get("name", "").strip().lower())
             else:
-                fallback = NBA_DREAM_PLAYERS.get(pos, [{}])[0]
-                if fallback:
-                    new_picks[pos] = fallback
+                for fallback in NBA_DREAM_PLAYERS.get(pos, []):
+                    fb_name = fallback.get("name", "").strip().lower()
+                    if fb_name not in used_player_names:
+                        new_picks[pos] = fallback
+                        used_player_names.add(fb_name)
+                        break
 
         self.picks = new_picks
 
@@ -6425,10 +6433,22 @@ class BuildTeamView(discord.ui.View):
                 seen_cids.add(cid)
                 is_cur = self.picks.get(self.current_pos, {}).get("card_id") == cobj["id"]
                 tier_info = NBA_2K_TIERS.get(cobj["tier"], NBA_2K_TIERS["gold"])
+                
+                # Check if this player is currently equipped elsewhere
+                equipped_other_pos = None
+                pname_lower = cobj.get("name", "").strip().lower()
+                for op, op_p in self.picks.items():
+                    if op != self.current_pos and op_p.get("name", "").strip().lower() == pname_lower:
+                        equipped_other_pos = op
+                        break
+
+                desc_suffix = f" • [Equipped at {equipped_other_pos}]" if equipped_other_pos else ""
+                card_desc = f"{cobj.get('theme', '2K Series')} • {cobj['tier'].title()} ({cobj['team']}){desc_suffix}"[:50]
+
                 card_options.append(discord.SelectOption(
                     label=f"[{cobj['ovr']} OVR] {cobj['name']}",
                     value=cobj["id"],
-                    description=f"{cobj.get('theme', '2K Series')} • {cobj['tier'].title()} ({cobj['team']})"[:50],
+                    description=card_desc,
                     default=is_cur,
                     emoji=tier_info["emoji"]
                 ))
@@ -6476,6 +6496,7 @@ class BuildTeamView(discord.ui.View):
             description=(
                 "Construct your ultimate 5-man starting lineup directly from your **NBA 2K Card Binder**!\n"
                 "Select each position using the dropdowns or click **⚡ Auto-Equip Best**.\n"
+                "*(Note: Each player can only be equipped in 1 position at a time)*\n"
             ),
             color=evaluation["color"] if evaluation else discord.Color.blue()
         )
@@ -6530,16 +6551,24 @@ class BuildTeamView(discord.ui.View):
             await interaction.response.send_message("❌ This is not your lineup builder!", ephemeral=True)
             return
         chosen_val = interaction.data["values"][0]
+        chosen_player = None
         if chosen_val.startswith("legacy_"):
             p_name = chosen_val.replace("legacy_", "")
             chosen_player = find_nba_player(self.current_pos, p_name)
-            if chosen_player:
-                self.picks[self.current_pos] = chosen_player
         else:
             cobj = NBA_CARDS_BY_ID.get(chosen_val.lower())
             if cobj:
-                self.picks[self.current_pos] = card_to_player_dict(cobj)
+                chosen_player = card_to_player_dict(cobj)
             
+        if chosen_player:
+            new_pname = chosen_player.get("name", "").strip().lower()
+            # If this player is already in another position slot, auto unequip/move them from that slot!
+            for other_pos in ["PG", "SG", "SF", "PF", "C"]:
+                if other_pos != self.current_pos and other_pos in self.picks:
+                    if self.picks[other_pos].get("name", "").strip().lower() == new_pname:
+                        del self.picks[other_pos]
+            self.picks[self.current_pos] = chosen_player
+
         positions = ["PG", "SG", "SF", "PF", "C"]
         for p in positions:
             if p not in self.picks:
@@ -6575,6 +6604,24 @@ class BuildTeamView(discord.ui.View):
             missing = [pos for pos in ["PG", "SG", "SF", "PF", "C"] if pos not in self.picks]
             await interaction.response.send_message(f"⚠️ **Incomplete Lineup!** You still need to equip: `{', '.join(missing)}`.", ephemeral=True)
             return
+
+        # Strict validation: prevent duplicate player across different positions
+        seen_names = {}
+        for pos in ["PG", "SG", "SF", "PF", "C"]:
+            p_data = self.picks.get(pos, {})
+            p_name = p_data.get("name", "").strip()
+            if not p_name:
+                continue
+            if p_name.lower() in seen_names:
+                prev_pos = seen_names[p_name.lower()]
+                await interaction.response.send_message(
+                    f"❌ **Duplicate Player Detected!**\n"
+                    f"**{p_name}** is equipped in both **{prev_pos}** and **{pos}**.\n"
+                    f"Each position in your Starting 5 must feature a different player!",
+                    ephemeral=True
+                )
+                return
+            seen_names[p_name.lower()] = pos
 
         evaluation = evaluate_dream_team(self.picks)
         total_cost = evaluation["total_cost"]
@@ -6659,7 +6706,7 @@ async def handle_buildteam(interaction_or_ctx: Any):
 
 
 def extract_picks_from_row(row: Any) -> Dict[str, Dict[str, Any]]:
-    """Extracts 5-man roster dictionary from a database row with robust fallbacks."""
+    """Extracts 5-man roster dictionary from a database row with robust fallbacks and duplicate player sanitization."""
     team_data_raw = row.get("team_data") if isinstance(row, dict) else row[9]
     picks = {}
     if team_data_raw:
@@ -6680,6 +6727,23 @@ def extract_picks_from_row(row: Any) -> Dict[str, Dict[str, Any]]:
             "PF": find_nba_player("PF", str(pf_name)) or NBA_DREAM_PLAYERS["PF"][0],
             "C": find_nba_player("C", str(c_name)) or NBA_DREAM_PLAYERS["C"][0],
         }
+
+    # Deduplication and unique player sanitization across all 5 positions
+    seen_names: Set[str] = set()
+    for pos in ["PG", "SG", "SF", "PF", "C"]:
+        p = picks.get(pos)
+        pname = p.get("name", "").strip().lower() if isinstance(p, dict) else ""
+        if not p or not pname or pname in seen_names:
+            # Duplicate or invalid found! Replace with valid unique fallback player for this position
+            for cand in NBA_DREAM_PLAYERS.get(pos, []):
+                cand_name = cand.get("name", "").strip().lower()
+                if cand_name not in seen_names:
+                    picks[pos] = cand
+                    pname = cand_name
+                    break
+        if pname:
+            seen_names.add(pname)
+
     return picks
 
 
