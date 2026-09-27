@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import re
 import json
@@ -5,7 +7,7 @@ import logging
 import asyncio
 import time
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple, Union, Set
 
 logger = logging.getLogger("GeminiBot.Database")
 

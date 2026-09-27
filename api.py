@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import json
 import time
@@ -5,7 +7,7 @@ import math
 import logging
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, Union, Tuple, Set
 
 import jwt
 import aiohttp
