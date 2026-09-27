@@ -1441,34 +1441,75 @@ class DatabaseManager:
             logger.error(f"Error transferring NBA card in DB: {e}")
             return False
 
-    async def execute_card_trade(self, user_a_id: Any, user_b_id: Any, card_a_id: str, card_b_id: str) -> Tuple[bool, str]:
-        """Safely and atomically swaps card_a from user_a and card_b from user_b."""
-        u_a = str(user_a_id)
-        u_b = str(user_b_id)
-        c_a = str(card_a_id).strip()
-        c_b = str(card_b_id).strip()
+    async def gift_user_nba_card(self, from_user_id: Any, to_user_id: Any, card_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """Transfers an NBA card from from_user_id to to_user_id cleanly."""
+        u_from = str(from_user_id)
+        u_to = str(to_user_id)
+        cid = str(card_id).strip()
 
         try:
-            # Check ownership of user_a
-            row_a = await self.fetchrow("SELECT id FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = LOWER(?) LIMIT 1", u_a, c_a)
-            if not row_a:
-                return False, f"<@{u_a}> no longer owns card `{c_a}` in their collection."
+            row = await self.fetchrow("SELECT id, card_id FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = LOWER(?) LIMIT 1", u_from, cid)
+            if not row:
+                return False, f"You do not own card `{cid}` in your collection binder.", None
             
-            # Check ownership of user_b
-            row_b = await self.fetchrow("SELECT id FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = LOWER(?) LIMIT 1", u_b, c_b)
-            if not row_b:
-                return False, f"<@{u_b}> no longer owns card `{c_b}` in their collection."
-
-            id_a = row_a["id"] if isinstance(row_a, dict) and "id" in row_a else row_a[0]
-            id_b = row_b["id"] if isinstance(row_b, dict) and "id" in row_b else row_b[0]
-
-            # Execute atomic two-way transfer
-            await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_b, id_a)
-            await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_a, id_b)
-            return True, "Trade executed successfully."
+            db_id = row["id"] if isinstance(row, dict) and "id" in row else row[0]
+            await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_to, db_id)
+            return True, "Card gifted successfully.", dict(row) if isinstance(row, dict) else {"id": db_id, "card_id": cid}
         except Exception as e:
-            logger.error(f"Error executing card trade in DB between {u_a} and {u_b}: {e}")
-            return False, f"Database trade error: {e}"
+            logger.error(f"Error gifting NBA card from {u_from} to {u_to}: {e}")
+            return False, f"Database error during gift transfer: {e}", None
+
+    async def execute_multi_card_trade(self, user_a_id: Any, user_b_id: Any, card_a_ids: List[str], card_b_ids: List[str]) -> Tuple[bool, str]:
+        """Atomically swaps multiple cards between user_a and user_b."""
+        u_a = str(user_a_id)
+        u_b = str(user_b_id)
+
+        if not card_a_ids and not card_b_ids:
+            return False, "Cannot execute an empty trade."
+
+        try:
+            # Get all owned cards for user_a
+            owned_a = await self.fetch("SELECT id, card_id FROM user_nba_cards WHERE user_id = ?", u_a)
+            a_pool: Dict[str, List[int]] = {}
+            for r in owned_a:
+                cid = str(r.get("card_id", "")).lower()
+                a_pool.setdefault(cid, []).append(r.get("id"))
+
+            ids_to_transfer_to_b = []
+            for requested in card_a_ids:
+                req_lower = requested.lower()
+                if not a_pool.get(req_lower):
+                    return False, f"<@{u_a}> no longer owns card `{requested}` in their binder."
+                ids_to_transfer_to_b.append(a_pool[req_lower].pop(0))
+
+            # Get all owned cards for user_b
+            owned_b = await self.fetch("SELECT id, card_id FROM user_nba_cards WHERE user_id = ?", u_b)
+            b_pool: Dict[str, List[int]] = {}
+            for r in owned_b:
+                cid = str(r.get("card_id", "")).lower()
+                b_pool.setdefault(cid, []).append(r.get("id"))
+
+            ids_to_transfer_to_a = []
+            for requested in card_b_ids:
+                req_lower = requested.lower()
+                if not b_pool.get(req_lower):
+                    return False, f"<@{u_b}> no longer owns card `{requested}` in their binder."
+                ids_to_transfer_to_a.append(b_pool[req_lower].pop(0))
+
+            for db_id in ids_to_transfer_to_b:
+                await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_b, db_id)
+
+            for db_id in ids_to_transfer_to_a:
+                await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_a, db_id)
+
+            return True, "Multi-card trade completed successfully."
+        except Exception as e:
+            logger.error(f"Error executing multi-card trade between {u_a} and {u_b}: {e}")
+            return False, f"Database error during multi-card trade: {e}"
+
+    async def execute_card_trade(self, user_a_id: Any, user_b_id: Any, card_a_id: str, card_b_id: str) -> Tuple[bool, str]:
+        """Safely and atomically swaps card_a from user_a and card_b from user_b."""
+        return await self.execute_multi_card_trade(user_a_id, user_b_id, [card_a_id], [card_b_id])
 
     async def get_user_vc(self, user_id: Any) -> int:
         """Gets user's current VC (Virtual Currency) balance."""
