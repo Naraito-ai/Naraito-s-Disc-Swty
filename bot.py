@@ -11873,21 +11873,12 @@ class GeminiBot(commands.Bot):
         except Exception as bl_err:
             logger.error(f"❌ Blacklist cache load failed: {bl_err}")
         
-        # Step 4: Instant Guild Sync & Global Slash Command Sync
+        # Step 4: Global Slash Command Sync
         try:
-            for g in self.guilds:
-                try:
-                    self.tree.copy_global_to(guild=g)
-                    synced_g = await self.tree.sync(guild=g)
-                    logger.info(f"⚡ Instantly synced {len(synced_g)} slash commands to guild: {g.name} ({g.id})")
-                except Exception as ge:
-                    logger.warning(f"Guild command sync notice for {g.id}: {ge}")
-            
-            # Sync global command tree to Discord
             synced = await self.tree.sync()
-            logger.info(f"✅ Synced {len(synced)} commands globally")
+            logger.info(f"✅ Synced {len(synced)} global slash commands to Discord")
         except Exception as e:
-            logger.error(f"❌ Command sync failed: {e}")
+            logger.warning(f"Global command sync notice on ready: {e}")
 
 
 
