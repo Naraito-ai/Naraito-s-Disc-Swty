@@ -2513,7 +2513,7 @@ async def reminder_delivery_loop():
     except Exception as e:
         logger.error(f"Error in reminder_delivery_loop: {e}", exc_info=True)
 
-# ── $15 All-Time NBA Dream Team Builder & Battle Engine ──────────────────────
+# ── NBA 2K Starting 5 Builder & Battle Engine ──────────────────────
 
 NBA_DREAM_PLAYERS = {
     "PG": [
@@ -2696,10 +2696,9 @@ def evaluate_dream_team(picks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     elif dm_count + go_count >= 4:
         synergy_bonuses += 1.5
         strengths.append(f"💎 **All-Star Synergy** ({dm_count + go_count}x Elite Cards, +1.5 OVR)")
-
-    if total_cost == 15 and not dm_count:
-        synergy_bonuses += 1.5
-        strengths.append("💎 **Max Budget Efficiency** ($15/15 spent)")
+    else:
+        synergy_bonuses += 1.0
+        strengths.append("⚡ **Balanced Starting 5 Chemistry** (+1.0 OVR)")
 
     if not strengths:
         strengths.append("⚡ **Solid Fundamental All-Around Play**")
@@ -2789,7 +2788,7 @@ def simulate_footdex_nba_battle(
     author_id: Optional[int] = None,
     opponent_id: Optional[int] = None
 ) -> Dict[str, Any]:
-    """Simulates a round-by-round positional head-to-head card battle (Footdex style) between two $15 NBA lineups."""
+    """Simulates a round-by-round positional head-to-head card battle (Footdex style) between two NBA Starting 5 lineups."""
     picks_a = eval_a["picks"]
     picks_b = eval_b["picks"]
 
@@ -3058,7 +3057,7 @@ DAILY_BOSS_PRESETS = [
 ]
 
 def get_daily_challenge_lineup(target_date: Optional[str] = None) -> Dict[str, Any]:
-    """Returns today's deterministic $15 Daily Challenge Boss lineup."""
+    """Returns today's deterministic Daily Challenge Boss Starting 5 lineup."""
     if not target_date:
         target_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
     
@@ -3337,7 +3336,7 @@ SWEETY_TRASH_TALK = {
     "player_down_big": [
         "You want me to call a 20-second timeout so you can catch your breath?",
         "Check the scoreboard, Coach. Might want to start clearing the bench.",
-        "Is this a $15 Dream Team or a middle school scrimmage?",
+        "Is this a Starting 5 or a middle school scrimmage?",
         "My GM rating is going through the roof off this blowout.",
         "You can wave the white flag anytime, Coach. No shame in losing to the best.",
         "I'm running out of fingers to count this lead.",
@@ -3380,7 +3379,7 @@ SWEETY_TRASH_TALK = {
         "GG, Coach. Watch the tape, hit the gym, and maybe one day you'll challenge the throne.",
         "Sweety AI remains undefeated on the hardwood. Another banner in the rafters! 🏆",
         "That was a masterclass in coaching. Take notes for next time.",
-        "You brought a $15 squad, but I brought a dynasty.",
+        "You brought a starting squad, but I brought a dynasty.",
         "Film study starts tomorrow at 6 AM sharp. Good game though!",
         "Back to the draft board, GM. My aggressive blitz was just too much."
     ],
@@ -6270,11 +6269,11 @@ class TeamBattleChallengeView(discord.ui.View):
         matchup_line = get_matchup_synergy_analysis(picks_a, picks_b, self.author.display_name, self.opponent.display_name)
 
         embed = discord.Embed(
-            title="⚔️ NBA DREAM TEAM BATTLE CHALLENGE",
+            title="⚔️ NBA STARTING 5 BATTLE CHALLENGE",
             description=(
-                f"🏀 {self.opponent.mention}, **{self.author.display_name}** has challenged your $15 Starting 5 to a head-to-head NBA battle!\n\n"
-                f"• 🟢 **{self.author.display_name}'s Squad**: `{self.eval_a.get('ovr', 90)} OVR` • {syn_a['icon']} **{syn_a['name']}** (`${self.eval_a.get('total_cost', 15)}/$15`)\n"
-                f"• 🔴 **{self.opponent.display_name}'s Squad**: `{self.eval_b.get('ovr', 90)} OVR` • {syn_b['icon']} **{syn_b['name']}** (`${self.eval_b.get('total_cost', 15)}/$15`)\n"
+                f"🏀 {self.opponent.mention}, **{self.author.display_name}** has challenged your Starting 5 to a head-to-head NBA battle!\n\n"
+                f"• 🟢 **{self.author.display_name}'s Squad**: `{self.eval_a.get('ovr', 90)} OVR` • {syn_a['icon']} **{syn_a['name']}**\n"
+                f"• 🔴 **{self.opponent.display_name}'s Squad**: `{self.eval_b.get('ovr', 90)} OVR` • {syn_b['icon']} **{syn_b['name']}**\n"
                 f"• {matchup_line}\n\n"
                 f"🏆 **Format**: 5 Positional Quarters (PG ➔ SG ➔ SF ➔ PF ➔ C) • **First to 7 PTS Wins Each Quarter!**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -6861,7 +6860,7 @@ def extract_picks_from_row(row: Any) -> Dict[str, Dict[str, Any]]:
 
 
 async def ensure_sweety_ai_team(guild_id: Optional[int] = None, target_id: Optional[int] = None) -> Dict[str, Any]:
-    """Ensures Sweety AI Bot has an official 99.3+ OVR Dark Matter $15 All-Time Championship Dream Team saved in database."""
+    """Ensures Sweety AI Bot has an official 99.3+ OVR Dark Matter Starting 5 lineup saved in database."""
     bot_id = target_id or (bot.user.id if bot.user else 719932313919684670)
     is_bot = (bot.user and bot_id == bot.user.id) or bot_id == 719932313919684670 or (target_id is None)
     row = await db.get_dream_team(bot_id)
@@ -6893,8 +6892,8 @@ async def ensure_sweety_ai_team(guild_id: Optional[int] = None, target_id: Optio
 
 
 NBA_ACHIEVEMENTS: Dict[str, Dict[str, str]] = {
-    "first_champ": {"emoji": "🏆", "title": "First Championship", "desc": "Won first NBA Dream Team battle"},
-    "budget_maestro": {"emoji": "💎", "title": "Budget Maestro", "desc": "Defeated a higher-OVR squad in a battle"},
+    "first_champ": {"emoji": "🏆", "title": "First Championship", "desc": "Won first NBA Starting 5 battle"},
+    "budget_maestro": {"emoji": "💎", "title": "Underdog Master", "desc": "Defeated a higher-OVR squad in a battle"},
     "the_clamps": {"emoji": "🔒", "title": "The Clamps", "desc": "5-0 shutout sweep in all positional duels"},
     "splash_dynasty": {"emoji": "🎯", "title": "Splash Dynasty", "desc": "Swept both backcourt duels (PG & SG)"},
     "hof_gm": {"emoji": "👑", "title": "Hall of Fame GM", "desc": "Won 10 or more career team battles"},
@@ -7080,7 +7079,7 @@ def generate_dream_team_card(
     evaluation: Dict[str, Any],
     stats: Optional[Dict[str, Any]] = None
 ) -> io.BytesIO:
-    """Generates a high-definition 1600x960 NBA 2K MyTEAM lineup graphic showcasing the 5 starting player photo headshots, ratings, salary cap, and team telemetry."""
+    """Generates a high-definition 1600x960 NBA 2K MyTEAM lineup graphic showcasing the 5 starting player photo headshots, ratings, tier badge, and team telemetry."""
     W, H = 1600, 960
     # Create base dark stadium canvas
     canvas = Image.new("RGBA", (W, H), (8, 12, 22, 255))
@@ -7128,7 +7127,7 @@ def generate_dream_team_card(
         rec_text = f"CAREER RECORD: {w}W - {l}L  •  {st_label}  •  BEST: {stats.get('best_streak', 0)}W"
     draw.text((65, 98), rec_text, fill=(148, 163, 184, 255), font=f_meta)
 
-    # Right: OVR Badge & Salary Gauge
+    # Right: OVR Badge & Tier Indicator
     ovr_val = evaluation.get("ovr", 90.0)
     tier_raw = evaluation.get("tier", "S Tier").split("•")[0].strip()
     total_cost = evaluation.get("total_cost", 15)
@@ -7145,14 +7144,14 @@ def generate_dream_team_card(
     draw.text((ovr_box_x + 130, 49), tier_raw.upper(), fill=(255, 184, 0, 255), font=f_tier_lbl)
 
     f_sal_txt = _get_nba_card_font(13, bold=True)
-    draw.text((ovr_box_x, 98), f"SALARY: ${total_cost} / $15", fill=(203, 213, 225, 255), font=f_sal_txt)
+    draw.text((ovr_box_x, 98), f"STARTING 5 • {tier_raw.upper()}", fill=(203, 213, 225, 255), font=f_sal_txt)
 
     bar_sal_x = ovr_box_x + 130
     bar_sal_w = (W - 55) - bar_sal_x
     draw.rounded_rectangle([(bar_sal_x, 101), (W - 55, 113)], radius=4, fill=(24, 34, 52, 255))
-    sal_fill = int(min(1.0, total_cost / 15.0) * bar_sal_w)
-    sal_col = (34, 197, 94, 255) if total_cost == 15 else (255, 184, 0, 255)
-    draw.rounded_rectangle([(bar_sal_x, 101), (bar_sal_x + sal_fill, 113)], radius=4, fill=sal_col)
+    ovr_pct = min(1.0, max(0.0, (ovr_val - 70.0) / 30.0))
+    bar_fill = int(ovr_pct * bar_sal_w)
+    draw.rounded_rectangle([(bar_sal_x, 101), (bar_sal_x + bar_fill, 113)], radius=4, fill=(255, 184, 0, 255))
 
     # 3. 5 Large Realistic Player Cards (PG | SG | SF | PF | C)
     positions = ["PG", "SG", "SF", "PF", "C"]
@@ -7459,10 +7458,9 @@ async def build_myteam_embed(target: Union[discord.Member, discord.User], row: A
         streak_fmt = f"🔥 {streak}W Streak" if streak > 0 else (f"❄️ {abs(streak)}L Cold" if streak < 0 else "⚪ Even")
 
         fallback_embed = discord.Embed(
-            title=f"🏆 {target.display_name}'s $15 All-Time Dream Team",
+            title=f"🏆 {target.display_name}'s NBA 2K Starting 5",
             description=(
                 f"**Rating**: `{evaluation['ovr']} OVR` • **{evaluation['tier']}**\n"
-                f"**Salary Cap**: `${total_cost} / $15`\n"
                 f"**Career Record**: 📊 **`{wins}W — {losses}L`** (`{win_rate:.1f}% WR`) • **{streak_fmt}** *(Best: 🔥 {stats.get('best_streak', 0)}W)*"
             ),
             color=evaluation.get("color", discord.Color.gold())
@@ -8045,7 +8043,7 @@ async def build_battlecard_embed(
     row_a: Any,
     row_b: Any
 ) -> tuple[Optional[discord.Embed], Optional[discord.File]]:
-    """Builds the 2K Head-to-Head Versus Matchup image comparison for two $15 Dream Teams."""
+    """Builds the 2K Head-to-Head Versus Matchup image comparison for two Starting 5 lineups."""
     picks_a = extract_picks_from_row(row_a)
     picks_b = extract_picks_from_row(row_b)
     eval_a = evaluate_dream_team(picks_a)
@@ -8277,15 +8275,15 @@ def build_teamleaderboard_embed(rows: List[Any]) -> discord.Embed:
     """Builds the server leaderboard embed for highest-rated dream teams."""
     if not rows:
         embed = discord.Embed(
-            title="🏀 $15 Dream Team Server Leaderboard",
-            description="No dream teams have been built yet! Be the first to build a squad with `/buildteam` or `!buildteam`.",
+            title="🏀 NBA 2K Starting 5 Server Leaderboard",
+            description="No lineups have been saved yet! Be the first to build a squad with `/buildteam` or `!buildteam`.",
             color=discord.Color.blue()
         )
         embed.timestamp = discord.utils.utcnow()
         return embed
 
     embed = discord.Embed(
-        title="🏀 $15 Dream Team Server Leaderboard",
+        title="🏀 NBA 2K Starting 5 Server Leaderboard",
         description="Top 10 highest-rated General Manager rosters in the server:\n",
         color=discord.Color.gold()
     )
@@ -8294,7 +8292,6 @@ def build_teamleaderboard_embed(rows: List[Any]) -> discord.Embed:
     for idx, r in enumerate(rows):
         uid = r["user_id"] if isinstance(r, dict) else r[0]
         ovr = float(r["ovr_rating"] if isinstance(r, dict) else r[8])
-        cost = r["total_cost"] if isinstance(r, dict) else r[7]
         pg = r["pg"] if isinstance(r, dict) else r[2]
         sg = r["sg"] if isinstance(r, dict) else r[3]
         sf = r["sf"] if isinstance(r, dict) else r[4]
@@ -8303,12 +8300,12 @@ def build_teamleaderboard_embed(rows: List[Any]) -> discord.Embed:
 
         medal = medals[idx] if idx < len(medals) else f"#{idx+1}"
         embed.add_field(
-            name=f"{medal} <@{uid}> — `{ovr} OVR` (${cost}/$15)",
-            value=f"• **5**: `{pg}` • `{sg}` • `{sf}` • `{pf}` • `{c}`",
+            name=f"{medal} <@{uid}> — `{ovr} OVR`",
+            value=f"• **Starting 5**: `{pg}` • `{sg}` • `{sf}` • `{pf}` • `{c}`",
             inline=False
         )
 
-    embed.set_footer(text="Build or update your $15 squad with /buildteam or !buildteam!")
+    embed.set_footer(text="Equip and save your Starting 5 with /buildteam or !buildteam!")
     embed.timestamp = discord.utils.utcnow()
     return embed
 
@@ -8378,16 +8375,16 @@ async def build_gm_stats_embed(user: Union[discord.Member, discord.User], row: O
         squad_lines = []
         for pos in ["PG", "SG", "SF", "PF", "C"]:
             p = picks.get(pos, {})
-            squad_lines.append(f"• **{pos}**: {p.get('emoji', '🏀')} **{p.get('name', 'Player')}** (`${p.get('cost', 1)}`) — *{p.get('archetype', 'Star')}*")
+            squad_lines.append(f"• **{pos}**: {p.get('emoji', '🏀')} **{p.get('name', 'Player')}** — *{p.get('archetype', 'Star')}*")
         embed.add_field(
-            name=f"🏀 Active $15 Roster • `{evaluation['ovr']} OVR` ({evaluation['tier'].split('•')[0].strip()})",
+            name=f"🏀 Active Starting 5 • `{evaluation['ovr']} OVR` ({evaluation['tier'].split('•')[0].strip()})",
             value="\n".join(squad_lines),
             inline=False
         )
     else:
         embed.add_field(
-            name="🏀 Active $15 Roster",
-            value="*No squad drafted yet. Draft your starting 5 with `/buildteam`!*",
+            name="🏀 Active Starting 5",
+            value="*No squad set yet. Set your starting 5 with `/buildteam`!*",
             inline=False
         )
         
@@ -8478,9 +8475,9 @@ def build_dailynba_embed(user: Union[discord.Member, discord.User], boss_data: D
     lineup_lines = []
     for pos in ["PG", "SG", "SF", "PF", "C"]:
         p = picks.get(pos, {})
-        lineup_lines.append(f"• **{pos}**: {p.get('emoji', '🏀')} **{p.get('name', 'Player')}** (`${p.get('cost', 1)}`) — *{p.get('archetype', 'Star')}*")
+        lineup_lines.append(f"• **{pos}**: {p.get('emoji', '🏀')} **{p.get('name', 'Player')}** — *{p.get('archetype', 'Star')}*")
         
-    embed.add_field(name="📋 Today's Boss 5-Man Lineup ($15 Cap)", value="\n".join(lineup_lines), inline=False)
+    embed.add_field(name="📋 Today's Boss 5-Man Lineup", value="\n".join(lineup_lines), inline=False)
     embed.add_field(name="🔥 Boss Strengths", value="\n".join(eval_boss.get("strengths", ["Balanced"])), inline=False)
     
     embed.set_footer(text="New daily boss arrives every night at 00:00 UTC! Click Challenge Daily Boss below.")
@@ -8509,7 +8506,7 @@ class DailyNbaBossView(discord.ui.View):
             return
 
         if not self.user_row:
-            await interaction.response.send_message("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your squad first.", ephemeral=True)
+            await interaction.response.send_message("❌ **You haven't set your Starting 5 yet!**\nUse `/buildteam` to set your Starting 5 first.", ephemeral=True)
             return
 
         picks_user = extract_picks_from_row(self.user_row)
@@ -8589,7 +8586,7 @@ async def handle_team_queue(interaction: Optional[discord.Interaction] = None, c
 
     row_user = await db.get_dream_team(user.id)
     if not row_user:
-        msg = "❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` or `!buildteam` to draft your squad before queuing."
+        msg = "❌ **You haven't set your Starting 5 yet!**\nUse `/buildteam` or `!buildteam` to set your Starting 5 before queuing."
         if interaction:
             await interaction.response.send_message(msg, ephemeral=True)
         else:
@@ -8734,7 +8731,7 @@ class HubDraftButtonView(discord.ui.View):
         row = await db.get_dream_team(interaction.user.id)
         if not row:
             await interaction.followup.send(
-                "❌ **You haven't built a $15 Dream Team yet!**\nClick **Draft $15 Squad** above to build your roster.",
+                "❌ **You haven't set an NBA Starting 5 yet!**\nClick **Draft / Set Lineup** above to equip your squad from your cards.",
                 ephemeral=True
             )
             return
@@ -8826,7 +8823,7 @@ async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name
             break
 
     if not existing_channel:
-        topic_str = "🏀 Build your $15 All-Time NBA Starting 5, challenge friends to 5-round tactical card duels, and climb the GM leaderboard! Use /buildteam or click below."
+        topic_str = "🏀 Build your NBA Starting 5 from your card collection, challenge friends to 5-round tactical card duels, and climb the GM leaderboard! Use /buildteam or click below."
         existing_channel = await guild.create_text_channel(
             name=channel_name,
             category=target_category,
@@ -8840,10 +8837,10 @@ async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name
 
     # 4. Post interactive Welcome & Quick-Draft Board embed into the channel
     hub_embed = discord.Embed(
-        title="🏀 2K Mobile Hub • $15 All-Time NBA Dream Team Arena",
+        title="🏀 2K Mobile Hub • NBA 2K Starting 5 Arena",
         description=(
             "# 🏆 WELCOME TO THE NBA GENERAL MANAGER ARENA!\n\n"
-            "Build your ultimate 5-man dream team under a **strict $15 salary cap**, read and counter opponent defensive schemes in **live turn-based tactical card battles**, and climb the **GM Rank Ladder** from Rookie to Hall of Famer!\n"
+            "Build your ultimate 5-man starting lineup from your collected cards, read and counter opponent defensive schemes in **live turn-based tactical card battles**, and climb the **GM Rank Ladder** from Rookie to Hall of Famer!\n"
         ),
         color=discord.Color.gold()
     )
@@ -8851,12 +8848,12 @@ async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name
     hub_embed.add_field(
         name="🎮 GM Commands",
         value=(
-            "• `/buildteam` or `!buildteam` — Open interactive draft room\n"
+            "• `/buildteam` or `!buildteam` — Open interactive lineup builder\n"
             "• `/myteam [@user]` or `!myteam` — View squad card & player photos\n"
             "• `/teamstats [@user]` or `!teamstats` — View GM career record, rank bar & badges\n"
             "• `/teamqueue` or `!teamqueue` — Join live matchmaking queue\n"
             "• `/teambattle <@user>` or `!teambattle` — Challenge member to live tactical card battle\n"
-            "• `/dailynba` or `!dailynba` — Face today's $15 Daily Boss squad\n"
+            "• `/dailynba` or `!dailynba` — Face today's Daily Boss Starting 5\n"
             "• `/teamtop` or `!teamtop` — View General Manager Hall of Fame leaderboard"
         ),
         inline=False
@@ -8889,13 +8886,14 @@ async def setup_nba_dreamteam_channel(guild: discord.Guild, target_category_name
     )
     
     hub_embed.add_field(
-        name="💵 Legend Salary Board ($1 - $5)",
+        name="🎴 NBA 2K Card Tiers & Rarities",
         value=(
-            "• **$5**: 🎯 Curry (PG) • 🐐 Jordan (SG) • 👑 LeBron (SF) • 🏛️ Duncan (PF) • 💥 Shaq (C)\n"
-            "• **$4**: 🪄 Magic (PG) • 🐍 Kobe (SG) • 🎯 Durant (SF) • 🍀 Bird (PF) • 🌪️ Hakeem (C)\n"
-            "• **$3**: 🧠 CP3 (PG) • ⚡ Wade (SG) • 🤖 Kawhi (SF) • 🇩🇪 Dirk (PF) • 🃏 Jokić (C)\n"
-            "• **$2**: ⚡ Kyrie (PG) • 🔥 Klay (SG) • ☕ Butler (SF) • 〰️ AD (PF) • 🦌 Giannis (C)\n"
-            "• **$1**: 🔒 Jrue (PG) • 🦬 White (SG) • 🦅 Caruso (SF) • 🐺 Naz Reid (PF) • 👽 Wemby (C)"
+            "• 🌌 **Dark Matter (99 OVR)**: G.O.A.T. Legends (Jordan, LeBron, Kobe, Curry, Shaq)\n"
+            "• 💎 **Galaxy Opal / Diamond (90-98 OVR)**: Superstars & All-NBA Icons\n"
+            "• 🔮 **Amethyst (85-89 OVR)**: Elite Starters & Clutch Playmakers\n"
+            "• 🔴 **Ruby (80-84 OVR)**: Key Starters & 3&D Specialists\n"
+            "• 🟡 **Gold (70-79 OVR)**: High-Motor Rising Stars & Solid Bench Players\n"
+            "• 💡 *Catch cards from wild drops or rip packs to equip in your Starting 5!*"
         ),
         inline=False
     )
@@ -14084,12 +14082,12 @@ class GeminiBot(commands.Bot):
         if uptime_key and render_url:
             asyncio.create_task(register_uptime_monitor(uptime_key, render_url))
 
-        # Step 8: Ensure Sweety AI Bot $15 Championship Team is ready
+        # Step 8: Ensure Sweety AI Bot Starting 5 Team is ready
         try:
             await ensure_sweety_ai_team()
-            logger.info("🏀 Sweety AI $15 All-Time Championship Dream Team initialized")
+            logger.info("🏀 Sweety AI All-Time Championship Starting 5 initialized")
         except Exception as ai_team_err:
-            logger.warning(f"Could not init Sweety AI Dream Team: {ai_team_err}")
+            logger.warning(f"Could not init Sweety AI Starting 5: {ai_team_err}")
 
         # Step 9: Start check_expired_mutes loop
         try:
@@ -14967,14 +14965,14 @@ def make_help_embed(category: str = "all") -> discord.Embed:
 
     elif category == "dream_team":
         embed = discord.Embed(
-            title="🏆 $15 NBA Dream Team GM & Matchmaking",
-            description="Draft your 5-man fantasy lineup under the $15 salary cap and battle other managers in live matchmaking!",
+            title="🏆 NBA 2K Starting 5 GM & Matchmaking",
+            description="Build your 5-man fantasy lineup from your card binder and battle other managers in live matchmaking!",
             color=discord.Color.gold()
         )
         embed.add_field(
-            name="📋 **Draft & Squad Management**",
+            name="📋 **Lineup & Squad Management**",
             value=(
-                "• `/buildteam` / `!buildteam` — Interactive GM Draft Room with live budget tracker ($15 cap)\n"
+                "• `/buildteam` / `!buildteam` — Interactive GM Lineup Builder using your owned cards\n"
                 "• `/myteam [user]` / `!myteam` — Generate high-res visual squad card, win streaks & GM badges\n"
                 "• `/setupnbachannel` / `!setupnbachannel` — Create a dedicated arena channel in the 2K Mobile Hub category"
             ),
@@ -14985,11 +14983,11 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             value=(
                 "• `/teamqueue` / `!teamqueue` — Enter the live matchmaking arena queue to battle random players\n"
                 "• `/teambattle <user>` / `!teambattle` — Challenge any server member to a head-to-head 5v5 showdown\n"
-                "• `/teamleaderboard` / `!teamlb` — View server top-ranked Dream Teams and GM ratings"
+                "• `/teamleaderboard` / `!teamlb` — View server top-ranked Starting 5s and GM ratings"
             ),
             inline=False
         )
-        embed.set_footer(text="🏆 NBA Dream Team Subsystem • Select another category below to explore more")
+        embed.set_footer(text="🏆 NBA Starting 5 Subsystem • Select another category below to explore more")
         return embed
 
     elif category == "ai":
@@ -15123,13 +15121,13 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         inline=False
     )
     embed.add_field(
-        name="🏆 **$15 NBA Dream Team GM & Battles**",
+        name="🏆 **NBA 2K Starting 5 GM & Battles**",
         value=(
-            "• `/buildteam` / `!buildteam` — Interactive GM Draft Room ($15 salary cap)\n"
+            "• `/buildteam` / `!buildteam` — Interactive GM Lineup Builder from Card Binder\n"
             "• `/myteam [user]` / `!myteam` — Squad card, win streaks & GM badges\n"
             "• `/teamqueue` / `!teamqueue` — Live matchmaking queue & battles\n"
             "• `/teambattle <user>` / `!teambattle` — Card battle simulator\n"
-            "• `/teamleaderboard` / `!teamlb` — View top-rated GM Dream Teams\n"
+            "• `/teamleaderboard` / `!teamlb` — View top-rated GM Starting 5s\n"
             "• `/setupnbachannel` — Create dedicated arena channel in 2K Mobile Hub"
         ),
         inline=False
@@ -15205,7 +15203,7 @@ class HelpCategorySelect(discord.ui.Select):
         options = [
             discord.SelectOption(label="Full Overview", value="all", description="View all command categories", emoji="📋", default=True),
             discord.SelectOption(label="NBA 2K Mobile & Dex", value="nba_2k", description="Packs, Dex, Card Drops, Economy & VC", emoji="🏀"),
-            discord.SelectOption(label="NBA Dream Team GM", value="dream_team", description="$15 Salary Cap Drafts & Matchmaking", emoji="🏆"),
+            discord.SelectOption(label="NBA Starting 5 GM", value="dream_team", description="Card Lineup Battles & Matchmaking", emoji="🏆"),
             discord.SelectOption(label="AI Intelligence", value="ai", description="Gemini AI Chat & Long-term Memory", emoji="🧠"),
             discord.SelectOption(label="Server Architect", value="architect", description="AI Server Generation, Voice & Channels", emoji="🏗️"),
             discord.SelectOption(label="Moderation & Security", value="moderation", description="Auto-mod, Warnings, Appeals & Protection", emoji="🛡️"),
@@ -15239,7 +15237,7 @@ class HelpView(discord.ui.View):
 @app_commands.choices(category=[
     app_commands.Choice(name="📋 Full Overview", value="all"),
     app_commands.Choice(name="🏀 NBA 2K Mobile & Dex", value="nba_2k"),
-    app_commands.Choice(name="🏆 NBA Dream Team GM", value="dream_team"),
+    app_commands.Choice(name="🏆 NBA Starting 5 GM", value="dream_team"),
     app_commands.Choice(name="🧠 AI Intelligence", value="ai"),
     app_commands.Choice(name="🏗️ Server Architect", value="architect"),
     app_commands.Choice(name="🛡️ Moderation & Security", value="moderation"),
@@ -16511,7 +16509,7 @@ async def afk_slash_cmd(interaction: discord.Interaction, reason: Optional[str] 
             await interaction.response.send_message(f"❌ Error setting AFK: {e}", ephemeral=True)
 
 
-# ── $15 All-Time NBA Dream Team Slash Commands ──────────────────────────────
+# ── NBA 2K Starting 5 Slash Commands ──────────────────────────────
 
 @bot.tree.command(name="buildteam", description="🏀 Open the interactive Lineup Builder to set your NBA 2K Starting 5")
 @app_commands.guild_only()
@@ -16527,7 +16525,7 @@ async def buildteam_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error opening lineup builder: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="myteam", description="🏀 View your (or another member's) active $15 Dream Team card, career record & GM badges")
+@bot.tree.command(name="myteam", description="🏀 View your (or another member's) active Starting 5 card, career record & GM badges")
 @app_commands.describe(user="The member whose dream team you want to view (defaults to yourself)")
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id or 0, i.user.id))
 @app_commands.guild_only()
@@ -16548,9 +16546,9 @@ async def myteam_slash_cmd(interaction: discord.Interaction, user: Optional[disc
         
         if not row:
             if target.id == interaction.user.id:
-                await interaction.followup.send("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your 5-man championship squad.", ephemeral=True)
+                await interaction.followup.send("❌ **You haven't set an NBA Starting 5 yet!**\nUse `/buildteam` to set your 5-man squad from your card collection.", ephemeral=True)
             else:
-                await interaction.followup.send(f"❌ **{target.display_name}** hasn't drafted a $15 Dream Team yet. Tell them to run `/buildteam`!", ephemeral=True)
+                await interaction.followup.send(f"❌ **{target.display_name}** hasn't set an NBA Starting 5 yet. Tell them to run `/buildteam`!", ephemeral=True)
             return
 
         card_embed, card_file = await build_myteam_embed(target, row)
@@ -16568,7 +16566,7 @@ async def myteam_slash_cmd(interaction: discord.Interaction, user: Optional[disc
             await interaction.response.send_message(f"❌ Error displaying team card: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="teamqueue", description="⚔️ Join the live matchmaking queue to battle another member's $15 Dream Team")
+@bot.tree.command(name="teamqueue", description="⚔️ Join the live matchmaking queue to battle another member's Starting 5")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def teamqueue_slash_cmd(interaction: discord.Interaction):
@@ -16582,7 +16580,7 @@ async def teamqueue_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error joining queue: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="teambattle", description="⚔️ Challenge another member's $15 Dream Team to a tactical live NBA card battle!")
+@bot.tree.command(name="teambattle", description="⚔️ Challenge another member's Starting 5 to a tactical live NBA card battle!")
 @app_commands.describe(opponent="The member whose dream team you want to challenge")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
@@ -16594,7 +16592,7 @@ async def teambattle_slash_cmd(interaction: discord.Interaction, opponent: disco
 
         row_a = await db.get_dream_team(interaction.user.id)
         if not row_a:
-            await interaction.response.send_message("❌ **You haven't built a $15 Dream Team yet!**\nUse `/buildteam` to draft your squad before challenging others.", ephemeral=True)
+            await interaction.response.send_message("❌ **You haven't set an NBA Starting 5 yet!**\nUse `/buildteam` to equip your squad from your card binder before challenging others.", ephemeral=True)
             return
 
         # Defer immediately to prevent 3-second interaction token expiration
@@ -16638,7 +16636,7 @@ async def teambattle_slash_cmd(interaction: discord.Interaction, opponent: disco
 
         row_b = await db.get_dream_team(opponent.id)
         if not row_b:
-            await interaction.followup.send(f"❌ **{opponent.display_name}** hasn't built a $15 Dream Team yet! Ask them to draft one with `/buildteam`.", ephemeral=True)
+            await interaction.followup.send(f"❌ **{opponent.display_name}** hasn't set an NBA Starting 5 yet! Ask them to equip one with `/buildteam`.", ephemeral=True)
             return
 
         picks_a = extract_picks_from_row(row_a)
@@ -16662,14 +16660,14 @@ async def teambattle_slash_cmd(interaction: discord.Interaction, opponent: disco
 
         if versus_file:
             msg = await interaction.followup.send(
-                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {interaction.user.mention}!",
+                content=f"⚔️ {opponent.mention}, you have received an NBA Starting 5 battle challenge from {interaction.user.mention}!",
                 embed=challenge_embed,
                 file=versus_file,
                 view=challenge_view
             )
         else:
             msg = await interaction.followup.send(
-                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {interaction.user.mention}!",
+                content=f"⚔️ {opponent.mention}, you have received an NBA Starting 5 battle challenge from {interaction.user.mention}!",
                 embed=challenge_embed,
                 view=challenge_view
             )
@@ -16685,7 +16683,7 @@ async def teambattle_slash_cmd(interaction: discord.Interaction, opponent: disco
             await interaction.response.send_message(f"❌ Error starting battle: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="teamleaderboard", description="🏀 View the server leaderboard of highest-rated $15 Dream Teams")
+@bot.tree.command(name="teamleaderboard", description="🏀 View the server leaderboard of highest-rated Starting 5 teams")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
 async def teamleaderboard_slash_cmd(interaction: discord.Interaction):
@@ -16701,7 +16699,7 @@ async def teamleaderboard_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="setupnbachannel", description="🏀 Create a dedicated NBA Dream Team arena channel in the 2K Mobile Hub category")
+@bot.tree.command(name="setupnbachannel", description="🏀 Create a dedicated NBA Starting 5 arena channel in the 2K Mobile Hub category")
 @app_commands.describe(category_name="Name of the category to place the channel in (defaults to '2K Mobile Hub')")
 @app_commands.default_permissions(manage_channels=True)
 @app_commands.guild_only()
@@ -16716,9 +16714,9 @@ async def setupnbachannel_slash_cmd(interaction: discord.Interaction, category_n
         try:
             channel, cat_name = await setup_nba_dreamteam_channel(interaction.guild, category_name)
             embed = discord.Embed(
-                title="🏀 NBA Dream Team Channel Created!",
+                title="🏀 NBA Starting 5 Channel Created!",
                 description=f"✅ Successfully created and initialized {channel.mention} inside category **`{cat_name}`**!\n\n"
-                            f"• Pinned interactive GM Draft Board posted with 1-click button\n"
+                            f"• Pinned interactive GM Lineup Board posted with 1-click button\n"
                             f"• Members can build squads with `/buildteam` or `!buildteam`\n"
                             f"• Members can battle squads with `/teambattle` or `!teambattle`\n"
                             f"• General Manager Leaderboard live with `/teamleaderboard`",
@@ -16728,7 +16726,7 @@ async def setupnbachannel_slash_cmd(interaction: discord.Interaction, category_n
             await interaction.followup.send(embed=embed, ephemeral=True)
         except Exception as e:
             logger.error(f"Error in /setupnbachannel: {e}", exc_info=True)
-            await interaction.followup.send(f"❌ Failed to create NBA Dream Team channel: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ Failed to create NBA Starting 5 channel: {e}", ephemeral=True)
     except Exception as e:
         logger.error(f"Error in /setupnbachannel: {e}")
         if interaction.response.is_done():
@@ -16813,7 +16811,7 @@ async def teamtop_slash_cmd(interaction: discord.Interaction, limit: Optional[in
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="dailynba", description="🏀 Face today's $15 Daily Boss team to earn daily GM wins")
+@bot.tree.command(name="dailynba", description="🏀 Face today's Daily Boss Starting 5 to earn daily GM wins")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def dailynba_slash_cmd(interaction: discord.Interaction):
@@ -19350,7 +19348,7 @@ async def kissrole_prefix_cmd(ctx: commands.Context, action: Optional[str] = Non
 
 
 
-# ── $15 All-Time NBA Dream Team Prefix Commands ─────────────────────────────
+# ── NBA 2K Starting 5 Prefix Commands ─────────────────────────────
 
 @bot.command(name="buildteam", aliases=["draftteam", "nbadraft", "lineup"])
 @commands.guild_only()
@@ -19368,7 +19366,7 @@ async def buildteam_prefix_cmd(ctx: commands.Context):
 @commands.cooldown(1, 10.0, commands.BucketType.user)
 @commands.guild_only()
 async def myteam_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
-    """View your (or another member's) active $15 Dream Team squad, career record & GM badges: !myteam [@user]"""
+    """View your (or another member's) active Starting 5 squad, career record & GM badges: !myteam [@user]"""
     try:
         if not check_image_render_limit(ctx.guild.id if ctx.guild else 0):
             return await ctx.send("⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.")
@@ -19381,9 +19379,9 @@ async def myteam_prefix_cmd(ctx: commands.Context, member: Optional[discord.Memb
         
         if not row:
             if target.id == ctx.author.id:
-                await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` or `/buildteam` to draft your 5-man championship squad.")
+                await ctx.send(f"❌ {ctx.author.mention} **You haven't set an NBA Starting 5 yet!**\nUse `!buildteam` or `/buildteam` to equip your 5-man squad from your card binder.")
             else:
-                await ctx.send(f"❌ **{target.display_name}** hasn't drafted a $15 Dream Team yet. Tell them to run `!buildteam`!")
+                await ctx.send(f"❌ **{target.display_name}** hasn't set an NBA Starting 5 yet. Tell them to run `!buildteam`!")
             return
 
         card_embed, card_file = await build_myteam_embed(target, row)
@@ -19402,7 +19400,7 @@ async def myteam_prefix_cmd(ctx: commands.Context, member: Optional[discord.Memb
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamqueue_prefix_cmd(ctx: commands.Context):
-    """Join the live matchmaking queue to battle another member's $15 Dream Team: !teamqueue"""
+    """Join the live matchmaking queue to battle another member's Starting 5: !teamqueue"""
     try:
         await handle_team_queue(ctx=ctx)
     except Exception as e:
@@ -19414,7 +19412,7 @@ async def teamqueue_prefix_cmd(ctx: commands.Context):
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member):
-    """Challenge another member's $15 Dream Team to a tactical live NBA card battle: !teambattle @user"""
+    """Challenge another member's Starting 5 to a tactical live NBA card battle: !teambattle @user"""
     try:
         if opponent.id == ctx.author.id:
             await ctx.send(f"❌ {ctx.author.mention} You cannot battle your own team! Challenge another server member or `@Sweety`: `!teambattle @Sweety`")
@@ -19422,7 +19420,7 @@ async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member)
 
         row_a = await db.get_dream_team(ctx.author.id)
         if not row_a:
-            await ctx.send(f"❌ {ctx.author.mention} **You haven't built a $15 Dream Team yet!**\nUse `!buildteam` to draft your squad before challenging others.")
+            await ctx.send(f"❌ {ctx.author.mention} **You haven't set an NBA Starting 5 yet!**\nUse `!buildteam` to equip your squad from your card binder before challenging others.")
             return
 
         if getattr(opponent, "bot", False) or (bot.user and opponent.id == bot.user.id):
@@ -19463,7 +19461,7 @@ async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member)
 
         row_b = await db.get_dream_team(opponent.id)
         if not row_b:
-            await ctx.send(f"❌ **{opponent.display_name}** hasn't built a $15 Dream Team yet! Ask them to draft one with `!buildteam`.")
+            await ctx.send(f"❌ **{opponent.display_name}** hasn't set an NBA Starting 5 yet! Ask them to equip one with `!buildteam`.")
             return
 
         picks_a = extract_picks_from_row(row_a)
@@ -19487,14 +19485,14 @@ async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member)
 
         if versus_file:
             msg = await ctx.send(
-                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {ctx.author.mention}!",
+                content=f"⚔️ {opponent.mention}, you have received an NBA Starting 5 battle challenge from {ctx.author.mention}!",
                 embed=challenge_embed,
                 file=versus_file,
                 view=challenge_view
             )
         else:
             msg = await ctx.send(
-                content=f"⚔️ {opponent.mention}, you have received an NBA Dream Team battle challenge from {ctx.author.mention}!",
+                content=f"⚔️ {opponent.mention}, you have received an NBA Starting 5 battle challenge from {ctx.author.mention}!",
                 embed=challenge_embed,
                 view=challenge_view
             )
@@ -19508,7 +19506,7 @@ async def teambattle_prefix_cmd(ctx: commands.Context, opponent: discord.Member)
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamleaderboard_prefix_cmd(ctx: commands.Context):
-    """View the server leaderboard of highest-rated $15 Dream Teams: !teamleaderboard or !teamlb"""
+    """View the server leaderboard of highest-rated Starting 5 teams: !teamleaderboard or !teamlb"""
     try:
         rows = await db.get_top_dream_teams(10)
         lb_embed = build_teamleaderboard_embed(rows)
@@ -19522,7 +19520,7 @@ async def teamleaderboard_prefix_cmd(ctx: commands.Context):
 @commands.guild_only()
 @commands.cooldown(1, 10.0, commands.BucketType.user)
 async def setupnbachannel_prefix_cmd(ctx: commands.Context, *, category_name: Optional[str] = "2K Mobile Hub"):
-    """Create a dedicated NBA Dream Team channel in the 2K Mobile Hub category: !setupnbachannel [category_name]"""
+    """Create a dedicated NBA Starting 5 channel in the 2K Mobile Hub category: !setupnbachannel [category_name]"""
     try:
         if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
             await ctx.send("❌ You need `Manage Channels` permission to run this command.")
@@ -19530,9 +19528,9 @@ async def setupnbachannel_prefix_cmd(ctx: commands.Context, *, category_name: Op
 
         channel, cat_name = await setup_nba_dreamteam_channel(ctx.guild, category_name)
         embed = discord.Embed(
-            title="🏀 NBA Dream Team Channel Created!",
+            title="🏀 NBA Starting 5 Channel Created!",
             description=f"✅ Successfully created and initialized {channel.mention} inside category **`{cat_name}`**!\n\n"
-                        f"• Pinned interactive GM Draft Board posted with 1-click button\n"
+                        f"• Pinned interactive GM Lineup Board posted with 1-click button\n"
                         f"• Members can build squads with `/buildteam` or `!buildteam`\n"
                         f"• Members can battle squads with `/teambattle` or `!teambattle`\n"
                         f"• General Manager Leaderboard live with `/teamleaderboard`",
@@ -19542,7 +19540,7 @@ async def setupnbachannel_prefix_cmd(ctx: commands.Context, *, category_name: Op
         await ctx.send(embed=embed)
     except Exception as e:
         logger.error(f"Error in !setupnbachannel: {e}", exc_info=True)
-        await ctx.send(f"❌ Failed to create NBA Dream Team channel: {e}")
+        await ctx.send(f"❌ Failed to create NBA Starting 5 channel: {e}")
 
 
 @bot.command(name="setnbachannel", aliases=["setdropchannel", "nbadropchannel"])
@@ -19596,7 +19594,7 @@ async def teamtop_prefix_cmd(ctx: commands.Context, limit: Optional[int] = 10):
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def dailynba_prefix_cmd(ctx: commands.Context):
-    """Face today's $15 Daily Boss team to earn daily GM wins: !dailynba"""
+    """Face today's Daily Boss Starting 5 to earn daily GM wins: !dailynba"""
     try:
         boss_data = get_daily_challenge_lineup()
         row = await db.get_dream_team(ctx.author.id)
