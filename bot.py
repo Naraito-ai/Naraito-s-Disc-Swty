@@ -9882,13 +9882,228 @@ def format_stat_bar(val: int) -> str:
     return "█" * filled + "░" * (10 - filled)
 
 
+NBA_REAL_MOMENTS: Dict[str, str] = {
+    # Dark Matter
+    "dm-jordan-99": "1998 Finals 'The Last Shot' & 6th Ring",
+    "dm-lebron-99": "2016 Finals Game 7 'The Block' & 40K Pts",
+    "dm-kobe-99": "81-Point Historic Masterpiece vs Raptors",
+    "dm-curry-99": "2022 Finals 'Night Night' & 3PT Record",
+    "dm-shaq-99": "2000 WCF Alley-Oop Lob vs Blazers",
+    "dm-wemby-99": "Rookie 5x5 Historic Swat & Poster Slam",
+    "dm-magic-99": "1987 Junior Skyhook Game-Winner",
+    "dm-bird-99": "1986 3PT Contest Finger in Air & Steal",
+    "dm-kd-99": "2017 Finals Game 3 Pullup 3 Over LeBron",
+    "dm-giannis-99": "2021 Finals Game 6 50-Point Masterpiece",
+    "dm-mj-99": "1988 Slam Dunk From Free Throw Line",
+    "dm-lebron-98": "2020 Finals MVP & All-Time Scoring King",
+    
+    # Galaxy Opal
+    "go-luka-98": "60-21-10 Historic Putback Buzzer Beater",
+    "go-jokic-98": "2023 Finals MVP Sombor Shuffle & Ring",
+    "go-tatum-98": "2024 NBA Championship 'We Did It!'",
+    "go-ad-97": "2020 WCF 'KOBE!' Buzzer-Beater 3",
+    "go-kawhi-97": "2019 Game 7 Corner 4-Bounce Buzzer Beater",
+    "go-butler-97": "2020 Finals Railing Exhaustion & 56 Pts",
+    "go-embiid-98": "70-Point Masterpiece & MVP Roar",
+    "go-iverson-97": "2001 Finals Stepover Over Tyronn Lue",
+    "go-tmac-98": "13 Points in 33 Seconds Miracle",
+    "go-duncan-98": "2003 Finals Quadruple-Double Clincher",
+    "go-jokic-97": "3x MVP Triple-Double Passing Clinic",
+    "go-curry-97": "2016 402 Threes Season & OKC Dagger",
+    "go-durant-96": "2018 Finals Game 3 43-Point Dagger",
+    
+    # Diamond
+    "dia-sga-96": "Clutch Stepback Dagger & MVP Finalist",
+    "dia-ant-95": "Historic Poster Slam Over John Collins",
+    "dia-booker-94": "70-Point Masterpiece vs Celtics",
+    "dia-spida-94": "71-Point Overtime Masterpiece vs Bulls",
+    "dia-kyrie-95": "2016 Finals Game 7 Championship Dagger 3",
+    "dia-morant-93": "360 Spin Layup & Poster on Beasley",
+    "dia-bam-93": "2020 ECF Game 1 Game-Saving Block on Tatum",
+    "dia-hali-94": "In-Season Tournament Dagger & Wrist Tap",
+    "dia-dame-94": "0.9s Buzzer Beater & Wave Goodbye to OKC",
+    "dia-hakeem-96": "1994 Dream Shake on David Robinson",
+    "dia-dirk-95": "2011 Finals Game 2 One-Leg Fadeaway & Ring",
+    "dia-sga-95": "Smooth Mid-Range Playoff Takeover",
+    "dia-tatum-94": "51-Point Game 7 vs 76ers Historic Record",
+    "dia-adavis-93": "2020 Bubble Defensive Dominance Wall",
+    "dia-giannis-94": "2019 MVP Dominant Fastbreak Windmill",
+    
+    # Amethyst
+    "amy-brunson-92": "40-Pt Playoff MSG Roar & 3-to-the-Dome",
+    "amy-brown-91": "2024 Finals MVP & Monster Dunk on Giannis",
+    "amy-fox-90": "Inaugural Clutch Player of the Year Laser",
+    "amy-sabonis-90": "Triple-Double Streak & Hardwood Dominance",
+    "amy-chet-89": "Game-Tying Turnaround 3 vs Warriors",
+    "amy-paolo-90": "All-Star Debut & Playoff Clutch Roar",
+    "amy-lamelo-89": "Full-Court Touchdown Pass & Deep 3",
+    "amy-murray-89": "2024 Game-Winner Buzzer Beaters vs Lakers",
+    "amy-zion-90": "Explosive 360 Windmill Slam vs Blazers",
+    "amy-trae-89": "Bow to Madison Square Garden & Shiver Shimmy",
+    "amy-kat-90": "62-Point Explosion & 3PT Contest Champion",
+    "amy-tymax-90": "MIP Lightning Speed & 50-Pt Eruption",
+    "amy-jalen-89": "Playoff 47-Point Madison Square Garden Masterclass",
+    "amy-pawlo-89": "2023 Rookie of the Year Coast-to-Coast Slam",
+    "amy-aedwards-90": "2024 Playoff Flex 'Send Da Video' Sweep",
+    
+    # Ruby
+    "ruby-maxey-87": "7 Points in 25 Seconds Miracle vs Knicks",
+    "ruby-white-86": "2023 ECF Game 6 0.1s Putback Buzzer-Beater",
+    "ruby-mikal-85": "3-Finger Head Tap Celebration & 45 Pts",
+    "ruby-anunoby-85": "0.5s Game 3 Buzzer-Beater in Bubble",
+    "ruby-jrue-86": "2021 Finals Game 5 Valley Oop Steal",
+    "ruby-gordon-85": "2016 Dunk Contest Under-the-Legs Mascot Slam",
+    "ruby-reaves-84": "'I'M HIM!' Playoff Scream vs Grizzlies",
+    "ruby-coby-85": "MIP Runner-Up Flame & 42-Pt Play-In Roar",
+    "ruby-green-84": "March 2024 Player of the Month Dunk Flurry",
+    "ruby-wagner-86": "FIBA World Cup Gold & Eurostep Finish",
+    "ruby-porzingis-87": "2024 Finals Game 1 Swats & Deep Bomb Surge",
+    "ruby-gobert-86": "4x Defensive Player of the Year Rim Swat",
+    "ruby-trae-87": "Eastern Conference Finals 48-Point Shiver",
+    "ruby-zion-86": "Paint Bulldozer And-1 Slam Through 3 Defenders",
+    "ruby-herro-86": "2020 ECF 37-Point Rookie Snarl Game",
+    "ruby-scottie-86": "2022 ROY All-Around Triple-Double Force",
+    "ruby-cade-86": "40-Piece Explosion & Franchise Floor General",
+    "ruby-wemby-88": "Rookie 10-Block Triple-Double Swat Party",
+    "ruby-ingram-86": "2020 MIP & Smooth Mid-Range Assassin",
+    "ruby-lavine-86": "2016 Free Throw Line Windmill Dunk Contest",
+    "ruby-lauri-85": "2023 MIP & Finnish Flash 3-Point Flurry",
+    
+    # Gold
+    "gold-naz-82": "'NAZ REID' 6th Man of the Year Clutch Threes",
+    "gold-caruso-81": "2020 Finals Flying Putback Slam & Steals",
+    "gold-monk-82": "Overtime Clutch 45-Pt Takeover vs Clippers",
+    "gold-portis-81": "2021 Finals Championship Eyes-Wide-Open Flex",
+    "gold-powell-80": "2019 Raptors Championship Corner 3 & Tomahawk",
+    "gold-jaquez-79": "All-Rookie First Team Up-and-Under Reverse",
+    "gold-podz-78": "League Leader in Charges Drawn & Guard Boards",
+    "gold-lively-79": "2024 Finals Corner 3 & Alley-Oop Reverse Slam",
+    "gold-pritchard-80": "2024 NBA Finals Half-Court Buzzer-Beater",
+    "gold-thomas-82": "Three Consecutive 40-Point Games Historic Run",
+    "gold-herb-82": "First Team All-Defense Lockdown Clamps",
+}
+
+NBA_PLAYER_DEFAULT_MOMENTS: Dict[str, str] = {
+    "Michael Jordan": "1998 Finals 'The Last Shot' & 6th Ring",
+    "LeBron James": "2016 Finals Game 7 'The Block' & 40K Pts",
+    "Kobe Bryant": "81-Point Historic Masterpiece vs Raptors",
+    "Stephen Curry": "2022 Finals 'Night Night' & 3PT Record",
+    "Shaquille O'Neal": "2000 WCF Alley-Oop Lob vs Blazers",
+    "Victor Wembanyama": "Rookie 5x5 Historic Swat & Poster Slam",
+    "Magic Johnson": "1987 Junior Skyhook Game-Winner",
+    "Larry Bird": "1986 3PT Contest Finger in Air & Steal",
+    "Kevin Durant": "2017 Finals Game 3 Pullup 3 Over LeBron",
+    "Giannis Antetokounmpo": "2021 Finals Game 6 50-Point Masterpiece",
+    "Luka Dončić": "60-21-10 Historic Putback Buzzer Beater",
+    "Luka Doncic": "60-21-10 Historic Putback Buzzer Beater",
+    "Nikola Jokić": "2023 Finals MVP Sombor Shuffle & Ring",
+    "Nikola Jokic": "2023 Finals MVP Sombor Shuffle & Ring",
+    "Jayson Tatum": "2024 NBA Championship 'We Did It!'",
+    "Anthony Davis": "2020 WCF 'KOBE!' Buzzer-Beater 3",
+    "Kawhi Leonard": "2019 Game 7 Corner 4-Bounce Buzzer Beater",
+    "Jimmy Butler": "2020 Finals Railing Exhaustion & 56 Pts",
+    "Joel Embiid": "70-Point Masterpiece & MVP Roar",
+    "Allen Iverson": "2001 Finals Stepover Over Tyronn Lue",
+    "Tracy McGrady": "13 Points in 33 Seconds Miracle",
+    "Tim Duncan": "2003 Finals Quadruple-Double Clincher",
+    "Shai Gilgeous-Alexander": "Clutch Stepback Dagger & MVP Finalist",
+    "Anthony Edwards": "Historic Poster Slam Over John Collins",
+    "Devin Booker": "70-Point Masterpiece vs Celtics",
+    "Donovan Mitchell": "71-Point Overtime Masterpiece vs Bulls",
+    "Kyrie Irving": "2016 Finals Game 7 Championship Dagger 3",
+    "Ja Morant": "360 Spin Layup & Poster on Beasley",
+    "Bam Adebayo": "2020 ECF Game 1 Game-Saving Block on Tatum",
+    "Tyrese Haliburton": "In-Season Tournament Dagger & Wrist Tap",
+    "Damian Lillard": "0.9s Buzzer Beater & Wave Goodbye to OKC",
+    "Hakeem Olajuwon": "1994 Dream Shake on David Robinson",
+    "Dirk Nowitzki": "2011 Finals Game 2 One-Leg Fadeaway & Ring",
+    "Jalen Brunson": "40-Pt Playoff MSG Roar & 3-to-the-Dome",
+    "Jaylen Brown": "2024 Finals MVP & Monster Dunk on Giannis",
+    "De'Aaron Fox": "Inaugural Clutch Player of the Year Laser",
+    "Domantas Sabonis": "Triple-Double Streak & Hardwood Dominance",
+    "Chet Holmgren": "Game-Tying Turnaround 3 vs Warriors",
+    "Paolo Banchero": "All-Star Debut & Playoff Clutch Roar",
+    "LaMelo Ball": "Full-Court Touchdown Pass & Deep 3",
+    "Jamal Murray": "2024 Game-Winner Buzzer Beaters vs Lakers",
+    "Zion Williamson": "Explosive 360 Windmill Slam vs Blazers",
+    "Trae Young": "Bow to Madison Square Garden & Shiver Shimmy",
+    "Karl-Anthony Towns": "62-Point Explosion & 3PT Contest Champion",
+    "Tyrese Maxey": "7 Points in 25 Seconds Miracle vs Knicks",
+    "Derrick White": "2023 ECF Game 6 0.1s Putback Buzzer-Beater",
+    "Mikal Bridges": "3-Finger Head Tap Celebration & 45 Pts",
+    "OG Anunoby": "0.5s Game 3 Buzzer-Beater in Bubble",
+    "Jrue Holiday": "2021 Finals Game 5 Valley Oop Steal",
+    "Aaron Gordon": "2016 Dunk Contest Under-the-Legs Mascot Slam",
+    "Austin Reaves": "'I'M HIM!' Playoff Scream vs Grizzlies",
+    "Coby White": "MIP Runner-Up Flame & 42-Pt Play-In Roar",
+    "Jalen Green": "March 2024 Player of the Month Dunk Flurry",
+    "Franz Wagner": "FIBA World Cup Gold & Eurostep Finish",
+    "Kristaps Porziņģis": "2024 Finals Game 1 Swats & Deep Bomb Surge",
+    "Kristaps Porzingis": "2024 Finals Game 1 Swats & Deep Bomb Surge",
+    "Rudy Gobert": "4x Defensive Player of the Year Rim Swat",
+    "Naz Reid": "'NAZ REID' 6th Man of the Year Clutch Threes",
+    "Alex Caruso": "2020 Finals Flying Putback Slam & Steals",
+    "Malik Monk": "Overtime Clutch 45-Pt Takeover vs Clippers",
+    "Bobby Portis": "2021 Finals Championship Eyes-Wide-Open Flex",
+    "Norman Powell": "2019 Raptors Championship Corner 3 & Tomahawk",
+    "Jaime Jaquez Jr.": "All-Rookie First Team Up-and-Under Reverse",
+    "Brandin Podziemski": "League Leader in Charges Drawn & Guard Boards",
+    "Dereck Lively II": "2024 Finals Corner 3 & Alley-Oop Reverse Slam",
+    "Payton Pritchard": "2024 NBA Finals Half-Court Buzzer-Beater",
+    "Cam Thomas": "Three Consecutive 40-Point Games Historic Run",
+    "Herb Jones": "First Team All-Defense Lockdown Clamps",
+    "Tyler Herro": "2020 ECF 37-Point Rookie Sensation",
+    "Scottie Barnes": "2022 ROY All-Around Triple-Double Force",
+    "Cade Cunningham": "40-Piece Explosion & Franchise Floor General",
+    "Brandon Ingram": "2020 MIP & Smooth Mid-Range Assassin",
+    "Zach LaVine": "2016 Free Throw Line Windmill Dunk Contest",
+    "Lauri Markkanen": "2023 MIP & Finnish Flash 3-Point Flurry",
+    "Alperen Sengun": "Baby Jokic No-Look Behind the Back & 45-Pt Game",
+    "Chris Paul": "2021 WCF 41-Point Game 6 Point God Masterpiece",
+    "D'Angelo Russell": "'Ice in My Veins' Celebration & 44-Pt Game",
+    "Darius Garland": "All-Star Crossover & Floater Touch",
+    "Draymond Green": "2016 Finals Game 7 32-15-9 & Defensive Anchor",
+    "Dwyane Wade": "'This is My House!' Table Jump Celebration",
+    "Evan Mobley": "Defensive Switch Lockdown & Alley-Oop",
+    "Fred VanVleet": "2019 Finals Game 6 4th Quarter Threes & 54-Pt Record",
+    "James Harden": "Cooking Wrist Swirl & 60-Point Triple-Double",
+    "Jaren Jackson Jr.": "2023 Defensive Player of the Year Swat Wall",
+    "Julius Randle": "All-NBA 2021 MSG Roar & Stepback 3",
+    "Khris Middleton": "2021 Finals Game 4 Clutch 40-Piece & Dagger",
+    "Klay Thompson": "37-Point Single Quarter Record & 14 Threes Game",
+    "Kyle Lowry": "2019 Finals Championship Opening 11-0 Run",
+    "Miles Bridges": "Monster Windmill Poster Dunk",
+    "Pascal Siakam": "2019 Finals Game 1 32-Point 14/17 Shooting Masterclass",
+    "Pau Gasol": "2010 Finals Game 7 Putback & Championship Hug",
+    "Paul George": "360 Windmill Slam & 2021 WCF Playoff P Run",
+    "RJ Barrett": "Game-Winning Buzzer Beater Bank 3 vs Celtics",
+    "Robert Williams III": "Time Lord 2022 Finals Rim Rejection",
+    "Russell Westbrook": "2017 MVP 42 Triple-Doubles & 'Rock the Baby'",
+    "Scottie Pippen": "1994 Poster Slam on Patrick Ewing & Pointing",
+    "Tobias Harris": "Clutch Mid-Range Jumper & Veteran Bucket"
+}
+
+def get_nba_card_moment(card: Dict[str, Any]) -> str:
+    """Returns the iconic real-life NBA match moment for a given card."""
+    cid = card.get("id", "").lower()
+    if cid in NBA_REAL_MOMENTS:
+        return NBA_REAL_MOMENTS[cid]
+    pname = card.get("name", "").strip()
+    if pname in NBA_PLAYER_DEFAULT_MOMENTS:
+        return NBA_PLAYER_DEFAULT_MOMENTS[pname]
+    norm_name = unicodedata.normalize('NFKD', pname).encode('ascii', 'ignore').decode('utf-8')
+    if norm_name in NBA_PLAYER_DEFAULT_MOMENTS:
+        return NBA_PLAYER_DEFAULT_MOMENTS[norm_name]
+    return f"{card.get('theme', 'Signature Series')} Highlight"
+
+
 def generate_nba_card_graphic(
     card: Dict[str, Any],
     is_mystery: bool = False,
     headshot_img: Optional[Image.Image] = None
 ) -> io.BytesIO:
-    """Generates an authentic 520x760 NBA 2K Mobile-style card graphic with full-bleed artwork,
-    gradient overlay, tier/team pills, OVR banner, 6 stat pills, badge row, and holographic shimmer."""
+    """Generates an authentic 520x760 NBA 2K Mobile-style card graphic with real-life NBA match moments,
+    dynamic player aura lighting, feathered gradient composite, holographic foil lines, OVR shield, and HUD."""
     W, H = 520, 760
     tier_key = card.get("tier", "gold").lower()
     theme = NBA_2K_CARD_THEMES.get(tier_key, NBA_2K_CARD_THEMES["gold"])
@@ -9897,6 +10112,7 @@ def generate_nba_card_graphic(
     margin = 14
     rect_box = [(margin, margin), (W - margin, H - margin)]
     
+    # 1. Base Gradient Canvas
     bg_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     bg_draw = ImageDraw.Draw(bg_layer)
     for y in range(margin, H - margin):
@@ -9909,27 +10125,28 @@ def generate_nba_card_graphic(
     mask = Image.new("L", (W, H), 0)
     mask_draw = ImageDraw.Draw(mask)
     mask_draw.rounded_rectangle(rect_box, radius=24, fill=255)
-    
     card_img.paste(bg_layer, (0, 0), mask)
 
-    # Grid / Holographic energy lines in background
+    # 2. Cosmic / Holographic geometric laser lines & stadium flare
     grid_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     g_draw = ImageDraw.Draw(grid_layer)
-    for i in range(-200, W + 300, 45):
-        g_draw.line([(i, margin), (i + 180, H - margin)], fill=(*theme["glow"], 18), width=1)
-        g_draw.line([(i + 180, margin), (i, H - margin)], fill=(*theme["glow"], 18), width=1)
-    g_draw.ellipse([W//2 - 160, H//2 - 160, W//2 + 160, H//2 + 160], outline=(*theme["primary"], 35), width=2)
+    for i in range(-200, W + 300, 36):
+        g_draw.line([(i, margin), (i + 180, H - margin)], fill=(*theme["glow"], 22), width=1)
+        g_draw.line([(i + 180, margin), (i, H - margin)], fill=(*theme["glow"], 22), width=1)
+    
+    # Concentric orbital stadium glow circles
+    g_draw.ellipse([W//2 - 180, H//2 - 200, W//2 + 180, H//2 + 160], outline=(*theme["primary"], 55), width=2)
+    g_draw.ellipse([W//2 - 130, H//2 - 150, W//2 + 130, H//2 + 110], outline=(*theme["glow"], 85), width=2)
     card_img = Image.alpha_composite(card_img, grid_layer)
     draw = ImageDraw.Draw(card_img)
 
-    # Artwork
+    # 3. Player Artwork / Real Match Moment Composite
     if is_mystery:
         sil_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         s_draw = ImageDraw.Draw(sil_layer)
-        cx, cy = W // 2, H // 2 - 15
+        cx, cy = W // 2, H // 2 - 25
         s_draw.ellipse([cx - 110, cy - 110, cx + 110, cy + 110], fill=(12, 16, 28, 230), outline=(*theme["glow"], 180), width=3)
         s_draw.ellipse([cx - 125, cy - 125, cx + 125, cy + 125], outline=(*theme["primary"], 90), width=2)
-        s_draw.ellipse([cx - 140, cy - 140, cx + 140, cy + 140], outline=(*theme["secondary"], 45), width=1)
         
         f_q = _get_nba_card_font(120, bold=True)
         s_draw.text((cx - 36, cy - 75), "?", fill=theme["border"], font=f_q)
@@ -9937,7 +10154,6 @@ def generate_nba_card_graphic(
         s_draw.rounded_rectangle([(cx - 160, cy + 85), (cx + 160, cy + 125)], radius=10, fill=(10, 14, 24, 240), outline=(*theme["primary"], 200), width=2)
         f_who = _get_nba_card_font(16, bold=True)
         s_draw.text((cx - 115, cy + 96), "WHO'S THAT 2K STAR?", fill=(255, 255, 255, 255), font=f_who)
-        
         card_img = Image.alpha_composite(card_img, sil_layer)
         draw = ImageDraw.Draw(card_img)
     else:
@@ -9945,61 +10161,117 @@ def generate_nba_card_graphic(
             headshot_img = get_nba_player_headshot(card.get("name", ""))
         if headshot_img:
             try:
-                hs = headshot_img.copy()
-                hs.thumbnail((420, 360), Image.Resampling.LANCZOS)
-                hs_w, hs_h = hs.size
-                hs_x = (W - hs_w) // 2
-                hs_y = H // 2 - hs_h // 2 - 20
-                card_img.paste(hs, (hs_x, hs_y), hs)
+                # Enhance vibrancy & contrast for intense live match lighting
+                enh_con = ImageEnhance.Contrast(headshot_img)
+                p_enhanced = enh_con.enhance(1.18)
+                enh_col = ImageEnhance.Color(p_enhanced)
+                p_enhanced = enh_col.enhance(1.22)
+
+                # Scale player to bold full card presence
+                target_w = 460
+                aspect = p_enhanced.height / max(1, p_enhanced.width)
+                target_h = int(target_w * aspect)
+                p_scaled = p_enhanced.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+                # Tier Energy Aura Backlight behind player silhouette
+                aura_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                a_draw = ImageDraw.Draw(aura_layer)
+                cx, cy = W // 2, 280
+                a_draw.ellipse([cx - 175, cy - 185, cx + 175, cy + 185], fill=(*theme["glow"], 50))
+                a_draw.ellipse([cx - 130, cy - 140, cx + 130, cy + 140], fill=(*theme["primary"], 75))
+                aura_layer = aura_layer.filter(ImageFilter.GaussianBlur(30))
+                card_img = Image.alpha_composite(card_img, aura_layer)
+
+                px = (W - p_scaled.width) // 2
+                py = 85
+
+                # Feathered bottom alpha mask: smooth fade into the stats dock
+                p_rgba = p_scaled.convert("RGBA")
+                p_mask = p_rgba.split()[3]
+                
+                fade_h = 110
+                grad_fade = Image.new("L", (p_scaled.width, p_scaled.height), 255)
+                gf_draw = ImageDraw.Draw(grad_fade)
+                for gy in range(p_scaled.height - fade_h, p_scaled.height):
+                    alpha_val = int(255 * (1.0 - (gy - (p_scaled.height - fade_h)) / fade_h))
+                    gf_draw.line([(0, gy), (p_scaled.width, gy)], fill=alpha_val)
+                
+                final_mask = Image.composite(grad_fade, Image.new("L", p_mask.size, 0), p_mask)
+                card_img.paste(p_rgba, (px, py), final_mask)
                 draw = ImageDraw.Draw(card_img)
             except Exception:
                 pass
         else:
-            cx, cy = W // 2, H // 2 - 20
+            cx, cy = W // 2, H // 2 - 40
             draw.ellipse([cx - 95, cy - 95, cx + 95, cy + 95], fill=(20, 26, 42, 220), outline=(*theme["primary"], 200), width=3)
             f_init = _get_nba_card_font(72, bold=True)
             initials = "".join([part[0] for part in card.get("name", "NBA").split()[:2]])
             draw.text((cx - 45, cy - 45), initials, fill=theme["border"], font=f_init)
 
-    # Top Ribbon Bar
-    draw.rounded_rectangle([(margin + 12, margin + 10), (W - margin - 12, margin + 42)], radius=8, fill=(10, 14, 24, 230), outline=(*theme["border"], 180), width=1)
-    f_tier = _get_nba_card_font(13, bold=True)
-    tier_title = f"★  {theme['name']} EDITION  ★"
-    draw.text((W // 2 - int(len(tier_title) * 4.2), margin + 18), tier_title, fill=theme["border"], font=f_tier)
-
-    # Top-Left: OVR Badge & Position
-    ovr_box = [(margin + 12, margin + 52), (margin + 115, margin + 160)]
-    draw.rounded_rectangle(ovr_box, radius=12, fill=(12, 16, 28, 235), outline=(*theme["glow"], 220), width=2)
-    f_ovr = _get_nba_card_font(44, bold=True)
-    draw.text((margin + 24, margin + 55), str(card["ovr"]), fill=(255, 255, 255, 255), font=f_ovr)
-    f_ovr_lbl = _get_nba_card_font(11, bold=True)
-    draw.text((margin + 80, margin + 68), "OVR", fill=theme["border"], font=f_ovr_lbl)
+    # 4. Top Ribbon Bar: Tier Edition
+    draw.rounded_rectangle([(margin + 12, margin + 10), (W - margin - 12, margin + 40)], radius=8, fill=(10, 14, 24, 230), outline=(*theme["border"], 180), width=1)
     
-    draw.line([(margin + 20, margin + 115), (margin + 107, margin + 115)], fill=(*theme["primary"], 120), width=1)
+    tier_title = f"{theme['name'].upper()} EDITION"
+    f_tier = _get_nba_card_font(13, bold=True)
+    t_w = len(tier_title) * 8
+    draw.text((W // 2 - t_w // 2, margin + 16), tier_title, fill=theme["border"], font=f_tier)
+    
+    # Draw crisp gold stars on left and right of tier title
+    _draw_star_polygon(draw, (W // 2 - t_w // 2 - 16, margin + 25), 6, (*theme["border"], 255))
+    _draw_star_polygon(draw, (W // 2 + t_w // 2 + 16, margin + 25), 6, (*theme["border"], 255))
+
+    # 5. Top-Left HUD: OVR & Position Shield
+    ovr_box = [(margin + 12, margin + 48), (margin + 110, margin + 144)]
+    draw.rounded_rectangle(ovr_box, radius=12, fill=(12, 16, 28, 245), outline=(*theme["glow"], 230), width=2)
+    f_ovr = _get_nba_card_font(38, bold=True)
+    draw.text((margin + 20, margin + 52), str(card["ovr"]), fill=(255, 255, 255, 255), font=f_ovr)
+    f_ovr_lbl = _get_nba_card_font(11, bold=True)
+    draw.text((margin + 74, margin + 63), "OVR", fill=theme["border"], font=f_ovr_lbl)
+    
+    draw.line([(margin + 20, margin + 104), (margin + 102, margin + 104)], fill=(*theme["primary"], 140), width=1)
     f_pos = _get_nba_card_font(18, bold=True)
-    draw.text((margin + 34, margin + 124), card.get("pos", "SF"), fill=theme["glow"], font=f_pos)
+    draw.text((margin + 36, margin + 112), card.get("pos", "SF"), fill=theme["glow"], font=f_pos)
 
-    # Top-Right: Team Badge
-    team_box = [(W - margin - 105, margin + 52), (W - margin - 12, margin + 115)]
-    draw.rounded_rectangle(team_box, radius=12, fill=(12, 16, 28, 235), outline=(*theme["primary"], 180), width=2)
+    # 6. Top-Right HUD: Team Badge
+    team_box = [(W - margin - 100, margin + 48), (W - margin - 12, margin + 112)]
+    draw.rounded_rectangle(team_box, radius=12, fill=(12, 16, 28, 245), outline=(*theme["primary"], 180), width=2)
     f_team_lbl = _get_nba_card_font(10, bold=True)
-    draw.text((W - margin - 88, margin + 58), "TEAM", fill=(148, 163, 184, 255), font=f_team_lbl)
-    f_team = _get_nba_card_font(24, bold=True)
-    draw.text((W - margin - 92, margin + 74), card.get("team", "NBA"), fill=(255, 255, 255, 255), font=f_team)
+    draw.text((W - margin - 82, margin + 54), "TEAM", fill=(148, 163, 184, 255), font=f_team_lbl)
+    f_team = _get_nba_card_font(22, bold=True)
+    draw.text((W - margin - 86, margin + 72), card.get("team", "NBA"), fill=(255, 255, 255, 255), font=f_team)
 
-    # Lower Card Banner
-    lower_box = [(margin + 12, H - margin - 170), (W - margin - 12, H - margin - 14)]
-    draw.rounded_rectangle(lower_box, radius=16, fill=(10, 14, 26, 245), outline=(*theme["border"], 220), width=2)
+    # 7. Real-Life NBA Match Moment Banner
+    if not is_mystery:
+        moment_text = get_nba_card_moment(card)
+        m_box = [(margin + 14, H - margin - 228), (W - margin - 14, H - margin - 198)]
+        draw.rounded_rectangle(m_box, radius=8, fill=(12, 18, 32, 250), outline=(*theme["glow"], 220), width=1)
+        
+        # Left and right star accents
+        _draw_star_polygon(draw, (margin + 26, H - margin - 213), 5, (*theme["glow"], 255))
+        _draw_star_polygon(draw, (W - margin - 26, H - margin - 213), 5, (*theme["glow"], 255))
+        
+        full_moment_lbl = f"REAL NBA MOMENT: {moment_text.upper()}"
+        font_sz = 10
+        if len(full_moment_lbl) > 42:
+            font_sz = 9
+        if len(full_moment_lbl) > 50:
+            font_sz = 8
+        f_mom = _get_nba_card_font(font_sz, bold=True)
+        draw.text((margin + 36, H - margin - 220 + (10 - font_sz)), full_moment_lbl, fill=theme["glow"], font=f_mom)
+
+    # 8. Lower Card Info & Stats Deck
+    lower_box = [(margin + 12, H - margin - 190), (W - margin - 12, H - margin - 14)]
+    draw.rounded_rectangle(lower_box, radius=16, fill=(10, 14, 26, 250), outline=(*theme["border"], 220), width=2)
     
     name_display = "??? MYSTERY 2K STAR ???" if is_mystery else card["name"].upper()
     f_name = _get_nba_card_font(22 if is_mystery else 24, bold=True)
-    draw.text((margin + 26, H - margin - 158), name_display, fill=(255, 255, 255, 255), font=f_name)
+    draw.text((margin + 24, H - margin - 178), name_display, fill=(255, 255, 255, 255), font=f_name)
     
     sub_title = "Guess the player name in chat!" if is_mystery else f"{card.get('theme', 'Signature Series')} • {card.get('pos', 'SF')}/{card.get('sec_pos', 'SG')}"
-    f_sub = _get_nba_card_font(13, bold=False)
-    draw.text((margin + 26, H - margin - 128), sub_title, fill=theme["border"], font=f_sub)
+    f_sub = _get_nba_card_font(12, bold=False)
+    draw.text((margin + 24, H - margin - 148), sub_title, fill=theme["border"], font=f_sub)
     
-    draw.line([(margin + 24, H - margin - 106), (W - margin - 24, H - margin - 106)], fill=(*theme["primary"], 120), width=1)
+    draw.line([(margin + 24, H - margin - 126), (W - margin - 24, H - margin - 126)], fill=(*theme["primary"], 120), width=1)
     
     stats_dict = card.get("stats", {"3pt": 90, "def": 90, "ath": 90, "clu": 90, "ins": 90, "ply": 90})
     stat_keys = [("3PT", stats_dict.get("3pt", 90)), ("DEF", stats_dict.get("def", 90)), 
@@ -10007,24 +10279,24 @@ def generate_nba_card_graphic(
     
     stat_w = (W - 2 * margin - 60) // 4
     for idx, (s_lbl, s_val) in enumerate(stat_keys):
-        sx = margin + 26 + idx * (stat_w + 8)
-        sy = H - margin - 96
-        draw.rounded_rectangle([(sx, sy), (sx + stat_w, sy + 42)], radius=6, fill=(18, 24, 40, 230), outline=(38, 50, 72, 200), width=1)
+        sx = margin + 24 + idx * (stat_w + 8)
+        sy = H - margin - 116
+        draw.rounded_rectangle([(sx, sy), (sx + stat_w, sy + 44)], radius=8, fill=(18, 24, 40, 230), outline=(*theme["primary"], 120), width=1)
         
         f_slbl = _get_nba_card_font(10, bold=True)
-        draw.text((sx + 6, sy + 5), s_lbl, fill=(148, 163, 184, 255), font=f_slbl)
+        draw.text((sx + 8, sy + 6), s_lbl, fill=(148, 163, 184, 255), font=f_slbl)
         
-        f_sval = _get_nba_card_font(15, bold=True)
+        f_sval = _get_nba_card_font(16, bold=True)
         val_str = "??" if is_mystery else str(s_val)
-        draw.text((sx + 6, sy + 20), val_str, fill=theme["glow"], font=f_sval)
+        draw.text((sx + 8, sy + 22), val_str, fill=theme["glow"], font=f_sval)
 
     # Footer
-    f_foot = _get_nba_card_font(10, bold=True)
-    draw.text((margin + 26, H - margin - 38), "NBA 2K MOBILE • AUTHENTIC COLLECTIBLE", fill=(100, 116, 139, 255), font=f_foot)
+    f_foot = _get_nba_card_font(9, bold=True)
+    draw.text((margin + 24, H - margin - 38), "NBA 2K MOBILE • AUTHENTIC COLLECTIBLE", fill=(100, 116, 139, 255), font=f_foot)
     cid_str = f"CARD ID: {card.get('id', 'nba-2k')}"
-    draw.text((W - margin - 26 - len(cid_str) * 6, H - margin - 38), cid_str, fill=(100, 116, 139, 255), font=f_foot)
+    draw.text((W - margin - 24 - len(cid_str) * 6, H - margin - 38), cid_str, fill=(100, 116, 139, 255), font=f_foot)
 
-    # Outer Frame
+    # 9. Outer Border Trim
     draw.rounded_rectangle(rect_box, radius=24, outline=(*theme["border"], 255), width=3)
     inner_box = [(margin + 4, margin + 4), (W - margin - 4, H - margin - 4)]
     draw.rounded_rectangle(inner_box, radius=20, outline=(*theme["primary"], 120), width=1)
@@ -10039,9 +10311,10 @@ def generate_nba_card_graphic(
 def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: bool = False, owner_user: Optional[discord.User] = None) -> discord.Embed:
     """Builds a full-detail NBA 2K Mobile inspection card embed."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+    moment = get_nba_card_moment(card)
     embed = discord.Embed(
         title=f"{tier_info['emoji']} [{card['ovr']} OVR] {card['name'].upper()} • {card['pos']} | {card['team']}",
-        description=f"### 🎴 *NBA 2K Mobile • {card['theme']}*\n*{card.get('quote', '')}*\n",
+        description=f"### 🎴 *NBA 2K Mobile • {card['theme']}*\n⚡ **Real-Life NBA Moment:** *{moment}*\n*{card.get('quote', '')}*\n",
         color=tier_info["color"]
     )
     
@@ -10189,6 +10462,7 @@ def build_nbadex_embed(
 def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Dict[str, Any], new_vc: int, is_new: bool = True, copies: int = 1) -> discord.Embed:
     """Builds an authentic 2K Mobile pack reveal embed."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+    moment = get_nba_card_moment(card)
     status_str = "🌟 **NEW CARD ADDED TO BINDER!**" if is_new else f"🔄 **DUPLICATE COPY OBTAINED (Now x{copies})**"
     
     embed = discord.Embed(
@@ -10198,6 +10472,7 @@ def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Di
             f"**{user.mention} opened a {pack_data['name']}!**\n\n"
             f"{status_str}\n\n"
             f"**Player:** `{card['name']}` • **Pos:** `{card['pos']}` • **Team:** `{card['team']}`\n"
+            f"⚡ **Real NBA Moment:** *{moment}*\n"
             f"**Theme:** *{card['theme']}*\n"
             f"*{card.get('quote', '')}*"
         ),
@@ -10351,10 +10626,12 @@ def build_nba_drop_embed(card: Dict[str, Any], hint_level: int = 1) -> discord.E
 def build_catch_success_embed(user: discord.User, card: Dict[str, Any], new_bal: int, copies: int) -> discord.Embed:
     """Builds a concise, clean catch success embed."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+    moment = get_nba_card_moment(card)
     embed = discord.Embed(
         title=f"🏀 {tier_info['emoji']} Card Caught by {user.display_name}!",
         description=(
             f"🎉 {user.mention} guessed correctly and caught **[{card['ovr']} OVR] {card['name']}**!\n\n"
+            f"⚡ **Real NBA Moment:** *{moment}*\n"
             f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}** | **Team:** `{card['team']}` (`{card['pos']}`)\n"
             f"• **Reward:** `+150 VC` (Balance: `💰 {new_bal:,} VC`)\n"
             f"• **Collection:** You now own `{copies}` copies of this card!"
