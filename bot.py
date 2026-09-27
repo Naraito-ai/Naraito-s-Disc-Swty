@@ -6206,6 +6206,9 @@ class TeamBattleRematchView(discord.ui.View):
                 await interaction.response.send_message("❌ Only the match participants can trigger a rematch!", ephemeral=True)
                 return
 
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
             row_a = await db.get_dream_team(self.author.id) or self.row_a
             if getattr(self.opponent, "bot", False) or (bot.user and self.opponent.id == bot.user.id):
                 row_b = await ensure_sweety_ai_team(target_id=self.opponent.id) or self.row_b
@@ -6218,7 +6221,7 @@ class TeamBattleRematchView(discord.ui.View):
 
             live_view = InteractiveTeamBattleView(self.author, self.opponent, picks_a, picks_b, eval_a, eval_b, row_a, row_b)
             embed = live_view.make_battle_embed()
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content=f"🔄 **Rematch Started by {interaction.user.mention}! Choose your play for Quarter 1:**",
                 embed=embed,
                 view=live_view
@@ -6226,8 +6229,7 @@ class TeamBattleRematchView(discord.ui.View):
         except Exception as e:
             logger.error(f"[TeamBattleRematchView] rematch_callback error: {e}", exc_info=True)
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(f"⚠️ Rematch error: `{e}`", ephemeral=True)
+                await interaction.followup.send(f"⚠️ Rematch error: `{e}`", ephemeral=True)
             except Exception:
                 pass
 
@@ -6305,6 +6307,9 @@ class TeamBattleChallengeView(discord.ui.View):
                 )
                 return
 
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
             self.stop()
             picks_a = extract_picks_from_row(self.row_a)
             picks_b = extract_picks_from_row(self.row_b)
@@ -6312,7 +6317,7 @@ class TeamBattleChallengeView(discord.ui.View):
                 self.author, self.opponent, picks_a, picks_b, self.eval_a, self.eval_b, self.row_a, self.row_b
             )
             embed = live_view.make_battle_embed()
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content=f"🔥 **Challenge Accepted by {self.opponent.mention}! Choose your live play call for Quarter 1 (PG Duel):**",
                 embed=embed,
                 view=live_view
@@ -6320,8 +6325,7 @@ class TeamBattleChallengeView(discord.ui.View):
         except Exception as e:
             logger.error(f"[TeamBattleChallengeView] accept_live_callback error: {e}", exc_info=True)
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(f"⚠️ Error accepting battle: `{e}`", ephemeral=True)
+                await interaction.followup.send(f"⚠️ Error accepting battle: `{e}`", ephemeral=True)
             except Exception:
                 pass
 
@@ -6335,18 +6339,21 @@ class TeamBattleChallengeView(discord.ui.View):
                 )
                 return
 
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
             self.stop()
             battle_embed, boxscore_file = await build_teambattle_embed(self.author, self.opponent, self.row_a, self.row_b)
             rematch_view = TeamBattleRematchView(self.author, self.opponent, self.row_a, self.row_b)
             if boxscore_file:
-                await interaction.response.edit_message(
+                await interaction.edit_original_response(
                     content=f"⚡ **Quick Simulation Played by {self.opponent.mention}!**",
                     embed=battle_embed,
                     attachments=[boxscore_file],
                     view=rematch_view
                 )
             else:
-                await interaction.response.edit_message(
+                await interaction.edit_original_response(
                     content=f"⚡ **Quick Simulation Played by {self.opponent.mention}!**",
                     embed=battle_embed,
                     view=rematch_view
@@ -6354,8 +6361,7 @@ class TeamBattleChallengeView(discord.ui.View):
         except Exception as e:
             logger.error(f"[TeamBattleChallengeView] accept_quick_callback error: {e}", exc_info=True)
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(f"⚠️ Error simulating battle: `{e}`", ephemeral=True)
+                await interaction.followup.send(f"⚠️ Error simulating battle: `{e}`", ephemeral=True)
             except Exception:
                 pass
 
@@ -6419,64 +6425,20 @@ class TeamBattleChallengeView(discord.ui.View):
 
 
 class BuildTeamView(discord.ui.View):
-    def __init__(self, author_id: int, user_cards: Optional[List[Dict[str, Any]]] = None):
+    def __init__(self, author_id: int):
         super().__init__(timeout=300)
         self.author_id = author_id
-        self.user_cards = user_cards or []
         self.current_pos = "PG"
         self.picks: Dict[str, Dict[str, Any]] = {}
 
     async def initialize(self):
-        """Populates owned cards and existing active lineup from database."""
-        if not self.user_cards:
-            self.user_cards = await db.get_user_nba_cards(self.author_id)
-        
+        """Populates existing active lineup from database."""
         saved_row = await db.get_dream_team(self.author_id)
         if saved_row:
             saved_picks = extract_picks_from_row(saved_row)
             if len(saved_picks) == 5:
                 self.picks = saved_picks
-
-        if len(self.picks) < 5 and self.user_cards:
-            self.auto_equip_best_lineup()
-
         self._build_components()
-
-    def auto_equip_best_lineup(self):
-        """Auto-equips the highest OVR card owned for each starting position without duplicate cards or duplicate players."""
-        positions = ["PG", "SG", "SF", "PF", "C"]
-        used_card_ids = set()
-        used_player_names = set()
-        new_picks = {}
-        
-        for pos in positions:
-            eligible = []
-            for uc in self.user_cards:
-                cid = uc["card_id"].lower()
-                cobj = NBA_CARDS_BY_ID.get(cid)
-                if not cobj or cid in used_card_ids:
-                    continue
-                pname = cobj.get("name", "").strip().lower()
-                if pname in used_player_names:
-                    continue
-                if cobj.get("pos") == pos or cobj.get("sec_pos") == pos:
-                    eligible.append(cobj)
-            
-            eligible.sort(key=lambda x: x.get("ovr", 0), reverse=True)
-            if eligible:
-                best = eligible[0]
-                new_picks[pos] = card_to_player_dict(best)
-                used_card_ids.add(best["id"].lower())
-                used_player_names.add(best.get("name", "").strip().lower())
-            else:
-                for fallback in NBA_DREAM_PLAYERS.get(pos, []):
-                    fb_name = fallback.get("name", "").strip().lower()
-                    if fb_name not in used_player_names:
-                        new_picks[pos] = fallback
-                        used_player_names.add(fb_name)
-                        break
-
-        self.picks = new_picks
 
     def _build_components(self):
         self.clear_items()
@@ -6485,8 +6447,7 @@ class BuildTeamView(discord.ui.View):
         pos_fullnames = {"PG": "Point Guard", "SG": "Shooting Guard", "SF": "Small Forward", "PF": "Power Forward", "C": "Center"}
         for p in ["PG", "SG", "SF", "PF", "C"]:
             picked = self.picks.get(p)
-            tier_name = picked.get("tier", "").replace("_", " ").title() if picked else ""
-            desc = f"[{picked.get('ovr', 85)} OVR] {picked['name']} ({tier_name})" if picked else "Slot Empty (Click to Equip)"
+            desc = f"Picked: {picked['name']} (${picked['cost']})" if picked else "Slot Empty (Select Player Below)"
             pos_options.append(discord.SelectOption(
                 label=f"{p} • {pos_fullnames[p]}",
                 value=p,
@@ -6496,7 +6457,7 @@ class BuildTeamView(discord.ui.View):
             ))
             
         pos_select = discord.ui.Select(
-            placeholder="Choose position to equip/edit...",
+            placeholder="Choose position to draft/edit...",
             options=pos_options,
             min_values=1,
             max_values=1,
@@ -6505,108 +6466,83 @@ class BuildTeamView(discord.ui.View):
         pos_select.callback = self.on_pos_select
         self.add_item(pos_select)
 
-        # Build card selector for current_pos
-        card_options = []
-        seen_cids = set()
-        
-        for uc in self.user_cards:
-            cid = uc["card_id"].lower()
-            if cid in seen_cids:
-                continue
-            cobj = NBA_CARDS_BY_ID.get(cid)
-            if not cobj:
-                continue
-            if cobj.get("pos") == self.current_pos or cobj.get("sec_pos") == self.current_pos:
-                seen_cids.add(cid)
-                is_cur = self.picks.get(self.current_pos, {}).get("card_id") == cobj["id"]
-                tier_info = NBA_2K_TIERS.get(cobj["tier"], NBA_2K_TIERS["gold"])
-                
-                # Check if this player is currently equipped elsewhere
-                equipped_other_pos = None
-                pname_lower = cobj.get("name", "").strip().lower()
-                for op, op_p in self.picks.items():
-                    if op != self.current_pos and op_p.get("name", "").strip().lower() == pname_lower:
-                        equipped_other_pos = op
-                        break
+        # Player options for self.current_pos from NBA_DREAM_PLAYERS ($5-$1)
+        player_options = []
+        for pl in NBA_DREAM_PLAYERS.get(self.current_pos, []):
+            is_cur = self.picks.get(self.current_pos, {}).get("name") == pl["name"]
+            
+            # Check if player is equipped in another position
+            equipped_other = None
+            pname_l = pl["name"].strip().lower()
+            for op, opp in self.picks.items():
+                if op != self.current_pos and opp.get("name", "").strip().lower() == pname_l:
+                    equipped_other = op
+                    break
+            
+            desc_sfx = f" • [Equipped at {equipped_other}]" if equipped_other else ""
+            desc = f"${pl['cost']} • {pl['tag'][:30]} ({pl['team']}){desc_sfx}"[:50]
+            
+            player_options.append(discord.SelectOption(
+                label=f"${pl['cost']} • {pl['name']}",
+                value=pl["name"],
+                description=desc,
+                default=is_cur,
+                emoji=pl.get("emoji", "🏀")
+            ))
 
-                desc_suffix = f" • [Equipped at {equipped_other_pos}]" if equipped_other_pos else ""
-                card_desc = f"{cobj.get('theme', '2K Series')} • {cobj['tier'].title()} ({cobj['team']}){desc_suffix}"[:50]
-
-                card_options.append(discord.SelectOption(
-                    label=f"[{cobj['ovr']} OVR] {cobj['name']}",
-                    value=cobj["id"],
-                    description=card_desc,
-                    default=is_cur,
-                    emoji=tier_info["emoji"]
-                ))
-        
-        card_options.sort(key=lambda opt: NBA_CARDS_BY_ID.get(opt.value.lower(), {}).get("ovr", 0), reverse=True)
-
-        if not card_options:
-            for pl in NBA_DREAM_PLAYERS.get(self.current_pos, []):
-                is_cur = self.picks.get(self.current_pos, {}).get("name") == pl["name"]
-                card_options.append(discord.SelectOption(
-                    label=f"[Legacy] {pl['name']}",
-                    value=f"legacy_{pl['name']}",
-                    description=f"{pl['tag'][:40]} ({pl['team']})",
-                    default=is_cur,
-                    emoji=pl.get("emoji", "🏀")
-                ))
-
-        card_select = discord.ui.Select(
-            placeholder=f"Equip a {self.current_pos} ({pos_fullnames[self.current_pos]})...",
-            options=card_options[:25],
+        player_select = discord.ui.Select(
+            placeholder=f"Draft a {self.current_pos} ({pos_fullnames[self.current_pos]})...",
+            options=player_options[:25],
             min_values=1,
             max_values=1,
             row=1
         )
-        card_select.callback = self.on_card_select
-        self.add_item(card_select)
+        player_select.callback = self.on_player_select
+        self.add_item(player_select)
 
-        submit_btn = discord.ui.Button(label="Lock In & Save Lineup", style=discord.ButtonStyle.success, emoji="✅", row=2)
+        submit_btn = discord.ui.Button(label="Lock In & Save Squad", style=discord.ButtonStyle.success, emoji="✅", row=2)
         submit_btn.callback = self.on_submit
         self.add_item(submit_btn)
 
-        auto_btn = discord.ui.Button(label="Auto-Equip Best", style=discord.ButtonStyle.primary, emoji="⚡", row=2)
-        auto_btn.callback = self.on_auto_equip
-        self.add_item(auto_btn)
+        random_btn = discord.ui.Button(label="Random $15 Squad", style=discord.ButtonStyle.primary, emoji="🎲", row=2)
+        random_btn.callback = self.on_random
+        self.add_item(random_btn)
 
         reset_btn = discord.ui.Button(label="Reset", style=discord.ButtonStyle.secondary, emoji="🧹", row=2)
         reset_btn.callback = self.on_reset
         self.add_item(reset_btn)
 
     def make_draft_embed(self) -> discord.Embed:
-        evaluation = evaluate_dream_team(self.picks) if len(self.picks) == 5 else None
-        
+        spent = sum(p["cost"] for p in self.picks.values())
+        rem = 15 - spent
+        status_color = discord.Color.green() if spent <= 15 else discord.Color.red()
+
         embed = discord.Embed(
-            title="🏀 NBA 2K Starting 5 Lineup Builder",
+            title="🏀 Space GM Draft Room: $15 All-Time Dream Team",
             description=(
-                "Construct your ultimate 5-man starting lineup directly from your **NBA 2K Card Binder**!\n"
-                "Select each position using the dropdowns or click **⚡ Auto-Equip Best**.\n"
-                "*(Note: Each player can only be equipped in 1 position at a time)*\n"
+                "Construct your ultimate 5-man starting lineup under the strict **$15 salary cap**!\n"
+                "Pick a player for each position using the dropdowns below.\n"
+                f"💰 **Salary Cap**: `${spent} / $15` ({rem} remaining)\n"
             ),
-            color=evaluation["color"] if evaluation else discord.Color.blue()
+            color=status_color
         )
 
         pos_lines = []
         for pos in ["PG", "SG", "SF", "PF", "C"]:
             p = self.picks.get(pos)
-            active_marker = " 👈 *(Editing)*" if pos == self.current_pos else ""
+            active_marker = " 👈 *(Drafting)*" if pos == self.current_pos else ""
             if p:
-                ovr_str = f"`{p.get('ovr', 85)} OVR`"
-                tier_str = p.get('tier', '').replace('_', ' ').title()
-                pos_lines.append(f"• **{pos}**: {p.get('emoji', '🏀')} **{p['name']}** ({ovr_str} • *{tier_str}*){active_marker}")
+                pos_lines.append(f"• **{pos}**: {p.get('emoji', '🏀')} **{p['name']}** (`${p['cost']}` • *{p['tag']}*){active_marker}")
             else:
                 pos_lines.append(f"• **{pos}**: *[Empty Slot]*{active_marker}")
 
-        embed.add_field(name="📋 Current Lineup", value="\n".join(pos_lines), inline=False)
-        
-        if evaluation:
-            ovr_val = evaluation["ovr"]
-            tier_val = evaluation["tier"]
+        embed.add_field(name="📋 Current Draft Board", value="\n".join(pos_lines), inline=False)
+
+        if len(self.picks) == 5:
+            evaluation = evaluate_dream_team(self.picks)
             embed.add_field(
-                name="🏆 Team Rating & Synergy",
-                value=f"**Rating**: `{ovr_val} OVR` • **{tier_val}**\n"
+                name="🏆 Projected Team Rating & Synergy",
+                value=f"**Rating**: `{evaluation['ovr']} OVR` • **{evaluation['tier']}**\n"
                       f"• 🎯 **3PT**: `{evaluation['avg_3pt']}` | 🔒 **DEF**: `{evaluation['avg_def']}` | 🧠 **PLY**: `{evaluation['avg_ply']}`\n"
                       f"• 💥 **INS**: `{evaluation['avg_ins']}` | ⚡ **CLU**: `{evaluation['avg_clu']}`",
                 inline=False
@@ -6616,46 +6552,39 @@ class BuildTeamView(discord.ui.View):
                 embed.add_field(name="⚠️ Potential Weaknesses", value="\n".join(evaluation["weaknesses"]), inline=False)
         else:
             embed.add_field(
-                name="⚠️ Incomplete Lineup",
-                value=f"Equip all 5 positions ({len(self.picks)}/5 selected) to calculate your full team synergy rating!",
+                name="⚠️ Incomplete Roster",
+                value=f"Draft all 5 positions ({len(self.picks)}/5 selected) to reveal your full team synergy rating!",
                 inline=False
             )
 
-        embed.set_footer(text="NBA 2K Mobile Hub • Click 'Lock In & Save Lineup' to save your starting 5!")
+        embed.set_footer(text="Sweety NBA GM Engine • Click 'Lock In & Save Squad' to finalize your roster!")
         return embed
 
     async def on_pos_select(self, interaction: discord.Interaction):
         if interaction.user.id != self.author_id:
-            await interaction.response.send_message("❌ This is not your lineup builder! Run `/buildteam` to start your own.", ephemeral=True)
+            await interaction.response.send_message("❌ This is not your draft room! Run `/buildteam` to start your own.", ephemeral=True)
             return
         selected_pos = interaction.data["values"][0]
         self.current_pos = selected_pos
         self._build_components()
         await interaction.response.edit_message(embed=self.make_draft_embed(), view=self)
 
-    async def on_card_select(self, interaction: discord.Interaction):
+    async def on_player_select(self, interaction: discord.Interaction):
         if interaction.user.id != self.author_id:
-            await interaction.response.send_message("❌ This is not your lineup builder!", ephemeral=True)
+            await interaction.response.send_message("❌ This is not your draft room!", ephemeral=True)
             return
-        chosen_val = interaction.data["values"][0]
-        chosen_player = None
-        if chosen_val.startswith("legacy_"):
-            p_name = chosen_val.replace("legacy_", "")
-            chosen_player = find_nba_player(self.current_pos, p_name)
-        else:
-            cobj = NBA_CARDS_BY_ID.get(chosen_val.lower())
-            if cobj:
-                chosen_player = card_to_player_dict(cobj)
-            
-        if chosen_player:
-            new_pname = chosen_player.get("name", "").strip().lower()
-            # If this player is already in another position slot, auto unequip/move them from that slot!
+        player_name = interaction.data["values"][0]
+        found = find_nba_player(self.current_pos, player_name)
+        if found:
+            # Check duplicate player across other positions: auto unequip from previous slot
+            new_pname = found["name"].strip().lower()
             for other_pos in ["PG", "SG", "SF", "PF", "C"]:
                 if other_pos != self.current_pos and other_pos in self.picks:
                     if self.picks[other_pos].get("name", "").strip().lower() == new_pname:
                         del self.picks[other_pos]
-            self.picks[self.current_pos] = chosen_player
+            self.picks[self.current_pos] = found
 
+        # Auto-advance to next empty position
         positions = ["PG", "SG", "SF", "PF", "C"]
         for p in positions:
             if p not in self.picks:
@@ -6665,17 +6594,40 @@ class BuildTeamView(discord.ui.View):
         self._build_components()
         await interaction.response.edit_message(embed=self.make_draft_embed(), view=self)
 
-    async def on_auto_equip(self, interaction: discord.Interaction):
+    async def on_random(self, interaction: discord.Interaction):
         if interaction.user.id != self.author_id:
-            await interaction.response.send_message("❌ This is not your lineup builder!", ephemeral=True)
+            await interaction.response.send_message("❌ This is not your draft room!", ephemeral=True)
             return
-        self.auto_equip_best_lineup()
+        
+        # Pick a valid $15 team without duplicate players
+        for _ in range(200):
+            costs = [random.randint(1, 5) for _ in range(5)]
+            if sum(costs) == 15:
+                random_picks = {}
+                used_names = set()
+                valid = True
+                for idx, pos in enumerate(["PG", "SG", "SF", "PF", "C"]):
+                    c = costs[idx]
+                    candidates = [p for p in NBA_DREAM_PLAYERS[pos] if p["cost"] == c and p["name"].strip().lower() not in used_names]
+                    if not candidates:
+                        candidates = [p for p in NBA_DREAM_PLAYERS[pos] if p["name"].strip().lower() not in used_names]
+                    if not candidates:
+                        valid = False
+                        break
+                    chosen = random.choice(candidates)
+                    random_picks[pos] = chosen
+                    used_names.add(chosen["name"].strip().lower())
+                if valid and len(random_picks) == 5 and sum(p["cost"] for p in random_picks.values()) <= 15:
+                    self.picks = random_picks
+                    break
+
+        self.current_pos = "PG"
         self._build_components()
         await interaction.response.edit_message(embed=self.make_draft_embed(), view=self)
 
     async def on_reset(self, interaction: discord.Interaction):
         if interaction.user.id != self.author_id:
-            await interaction.response.send_message("❌ This is not your lineup builder!", ephemeral=True)
+            await interaction.response.send_message("❌ This is not your draft room!", ephemeral=True)
             return
         self.picks.clear()
         self.current_pos = "PG"
@@ -6684,15 +6636,23 @@ class BuildTeamView(discord.ui.View):
 
     async def on_submit(self, interaction: discord.Interaction):
         if interaction.user.id != self.author_id:
-            await interaction.response.send_message("❌ This is not your lineup builder!", ephemeral=True)
+            await interaction.response.send_message("❌ This is not your draft room!", ephemeral=True)
             return
 
         if len(self.picks) < 5:
             missing = [pos for pos in ["PG", "SG", "SF", "PF", "C"] if pos not in self.picks]
-            await interaction.response.send_message(f"⚠️ **Incomplete Lineup!** You still need to equip: `{', '.join(missing)}`.", ephemeral=True)
+            await interaction.response.send_message(f"⚠️ **Incomplete Roster!** You still need to draft: `{', '.join(missing)}`.", ephemeral=True)
             return
 
-        # Strict validation: prevent duplicate player across different positions
+        spent = sum(p["cost"] for p in self.picks.values())
+        if spent > 15:
+            await interaction.response.send_message(
+                f"❌ **Salary Cap Exceeded!** Your team costs **${spent}**, which exceeds the **$15** budget limit by **${spent - 15}**.\nPlease downgrade a player to stay under cap.",
+                ephemeral=True
+            )
+            return
+
+        # Check duplicate player
         seen_names = {}
         for pos in ["PG", "SG", "SF", "PF", "C"]:
             p_data = self.picks.get(pos, {})
@@ -6703,8 +6663,8 @@ class BuildTeamView(discord.ui.View):
                 prev_pos = seen_names[p_name.lower()]
                 await interaction.response.send_message(
                     f"❌ **Duplicate Player Detected!**\n"
-                    f"**{p_name}** is equipped in both **{prev_pos}** and **{pos}**.\n"
-                    f"Each position in your Starting 5 must feature a different player!",
+                    f"**{p_name}** is drafted in both **{prev_pos}** and **{pos}**.\n"
+                    f"Each position must feature a different player!",
                     ephemeral=True
                 )
                 return
@@ -6729,20 +6689,24 @@ class BuildTeamView(discord.ui.View):
         )
 
         card_embed = discord.Embed(
-            title=f"🏆 {interaction.user.display_name}'s NBA 2K Starting 5",
-            description=f"**Rating**: `{evaluation['ovr']} OVR` • **{evaluation['tier']}**",
+            title=f"🏆 {interaction.user.display_name}'s $15 All-Time Dream Team",
+            description=(
+                f"**Rating**: `{evaluation['ovr']} OVR` • **{evaluation['tier']}**\n"
+                f"**Salary Cap**: `${total_cost} / $15` (Spent: `${total_cost}`, Remaining: `${15 - total_cost}`)"
+            ),
             color=evaluation["color"]
         )
-        card_embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        if hasattr(interaction.user, "display_avatar") and interaction.user.display_avatar:
+            card_embed.set_thumbnail(url=interaction.user.display_avatar.url)
 
         lineup_text = (
-            f"🏀 **PG**: {self.picks['PG']['emoji']} **[{self.picks['PG'].get('ovr', 85)} OVR] {self.picks['PG']['name']}** ({self.picks['PG'].get('tier', 'Gold').replace('_', ' ').title()})\n"
-            f"🏀 **SG**: {self.picks['SG']['emoji']} **[{self.picks['SG'].get('ovr', 85)} OVR] {self.picks['SG']['name']}** ({self.picks['SG'].get('tier', 'Gold').replace('_', ' ').title()})\n"
-            f"🏀 **SF**: {self.picks['SF']['emoji']} **[{self.picks['SF'].get('ovr', 85)} OVR] {self.picks['SF']['name']}** ({self.picks['SF'].get('tier', 'Gold').replace('_', ' ').title()})\n"
-            f"🏀 **PF**: {self.picks['PF']['emoji']} **[{self.picks['PF'].get('ovr', 85)} OVR] {self.picks['PF']['name']}** ({self.picks['PF'].get('tier', 'Gold').replace('_', ' ').title()})\n"
-            f"🏀 **C**: {self.picks['C']['emoji']} **[{self.picks['C'].get('ovr', 85)} OVR] {self.picks['C']['name']}** ({self.picks['C'].get('tier', 'Gold').replace('_', ' ').title()})"
+            f"🏀 **PG**: {self.picks['PG']['emoji']} **{self.picks['PG']['name']}** (`${self.picks['PG']['cost']}` • *{self.picks['PG']['tag']}*)\n"
+            f"🏀 **SG**: {self.picks['SG']['emoji']} **{self.picks['SG']['name']}** (`${self.picks['SG']['cost']}` • *{self.picks['SG']['tag']}*)\n"
+            f"🏀 **SF**: {self.picks['SF']['emoji']} **{self.picks['SF']['name']}** (`${self.picks['SF']['cost']}` • *{self.picks['SF']['tag']}*)\n"
+            f"🏀 **PF**: {self.picks['PF']['emoji']} **{self.picks['PF']['name']}** (`${self.picks['PF']['cost']}` • *{self.picks['PF']['tag']}*)\n"
+            f"🏀 **C**: {self.picks['C']['emoji']} **{self.picks['C']['name']}** (`${self.picks['C']['cost']}` • *{self.picks['C']['tag']}*)"
         )
-        card_embed.add_field(name="⭐ Saved Starting 5 Lineup", value=lineup_text, inline=False)
+        card_embed.add_field(name="⭐ Starting 5 Lineup", value=lineup_text, inline=False)
 
         stats_text = (
             f"• 🎯 **3PT Spacing**: `{evaluation['avg_3pt']}/99`\n"
@@ -6767,19 +6731,11 @@ class BuildTeamView(discord.ui.View):
 
 
 async def handle_buildteam(interaction_or_ctx: Any):
-    """Unified handler for /buildteam and !buildteam with automatic starter pack grants."""
+    """Unified handler for /buildteam and !buildteam."""
     is_interaction = isinstance(interaction_or_ctx, discord.Interaction)
     user = interaction_or_ctx.user if is_interaction else interaction_or_ctx.author
-    
-    user_cards = await db.get_user_nba_cards(user.id)
-    if len(user_cards) < 5:
-        starter_ids = ["gold-pritchard-80", "gold-monk-82", "gold-herb-82", "gold-portis-81", "gold-naz-82"]
-        for sid in starter_ids:
-            if sid in NBA_CARDS_BY_ID:
-                await db.add_user_nba_card(user.id, sid, source="starter_pack")
-        user_cards = await db.get_user_nba_cards(user.id)
 
-    view = BuildTeamView(author_id=user.id, user_cards=user_cards)
+    view = BuildTeamView(author_id=user.id)
     await view.initialize()
     embed = view.make_draft_embed()
     
@@ -13817,6 +13773,11 @@ class GeminiBot(commands.Bot):
         try:
             await db.initialize()
             logger.info("Database initialized successfully.")
+            # Purge any inadvertent starter cards so users only have genuine caught/earned cards
+            try:
+                await db.execute("DELETE FROM user_nba_cards WHERE source = 'starter_pack'")
+            except Exception as clean_err:
+                logger.debug(f"Starter pack cleanup notice: {clean_err}")
         except Exception as db_err:
             logger.error(f"Database initialization error: {db_err}")
 
