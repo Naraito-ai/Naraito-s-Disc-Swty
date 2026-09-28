@@ -18343,7 +18343,7 @@ async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[disc
         # Check collection privacy if viewing another user's collection
         if not is_owner:
             is_priv = await db.get_user_nba_privacy(target.id)
-            if is_priv and not is_protected(interaction.user):
+            if is_priv and not is_creator(interaction.user):
                 return await interaction.followup.send(
                     f"🔒 **Private Collection**: **{target.display_name}** has set their NBA card binder & Dex to **Private**.",
                     ephemeral=True
@@ -18363,6 +18363,31 @@ async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[disc
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         else:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbaprivacy", description="🔒 Toggle public/private visibility for your NBA 2K Card Dex")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbaprivacy_slash_cmd(interaction: discord.Interaction):
+    """Toggle NBA binder & Dex privacy between Public and Private."""
+    try:
+        new_state = await db.toggle_user_nba_privacy(interaction.user.id)
+        status_tag = "🔒 **PRIVATE**" if new_state else "🌐 **PUBLIC**"
+        expl = (
+            "Other members cannot inspect your collection binder with `/nbadex`."
+            if new_state else
+            "Other members can now view your collection binder with `/nbadex`."
+        )
+        embed = discord.Embed(
+            title="🛡️ NBA Card Collection Privacy",
+            description=f"Your NBA 2K Card Binder & Dex is now {status_tag}.\n\n💡 {expl}",
+            color=discord.Color.red() if new_state else discord.Color.green()
+        )
+        embed.set_footer(text="Use /nbaprivacy or the button inside /nbadex to toggle anytime")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /nbaprivacy: {e}", exc_info=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="shootout", description="🎯 Play the fast-paced NBA All-Star 3-Point Shootout Contest")
@@ -22294,7 +22319,7 @@ async def nbadex_prefix_cmd(ctx: commands.Context, target: Optional[discord.Memb
         # Check collection privacy if viewing another user's collection
         if not is_owner:
             is_priv = await db.get_user_nba_privacy(user_target.id)
-            if is_priv and not is_protected(ctx.author):
+            if is_priv and not is_creator(ctx.author):
                 return await ctx.send(f"🔒 **Private Collection**: **{user_target.display_name}** has set their NBA card binder & Dex to **Private**.")
 
         cards = await db.get_user_nba_cards(user_target.id)
@@ -22307,6 +22332,31 @@ async def nbadex_prefix_cmd(ctx: commands.Context, target: Optional[discord.Memb
         await ctx.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in !nbadex: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbaprivacy", aliases=["privacynba", "dexprivacy", "binderprivacy", "toggleprivacy"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbaprivacy_prefix_cmd(ctx: commands.Context):
+    """Toggle NBA card collection privacy between Public and Private: !nbaprivacy"""
+    try:
+        new_state = await db.toggle_user_nba_privacy(ctx.author.id)
+        status_tag = "🔒 **PRIVATE**" if new_state else "🌐 **PUBLIC**"
+        expl = (
+            "Other members cannot inspect your collection binder with `!nbadex`."
+            if new_state else
+            "Other members can now view your collection binder with `!nbadex`."
+        )
+        embed = discord.Embed(
+            title="🛡️ NBA Card Collection Privacy",
+            description=f"Your NBA 2K Card Binder & Dex is now {status_tag}.\n\n💡 {expl}",
+            color=discord.Color.red() if new_state else discord.Color.green()
+        )
+        embed.set_footer(text="Use !nbaprivacy or the button inside !nbadex to toggle anytime")
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbaprivacy: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
 
 

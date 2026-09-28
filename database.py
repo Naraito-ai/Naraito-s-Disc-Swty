@@ -1828,8 +1828,8 @@ class DatabaseManager:
             await self.execute("""
                 INSERT INTO user_nba_economy (user_id, is_private)
                 VALUES (?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET is_private = ?
-            """, u, new_val, new_val)
+                ON CONFLICT(user_id) DO UPDATE SET is_private = excluded.is_private
+            """, u, new_val)
             return bool(new_val)
         except Exception as e:
             logger.error(f"Error toggling NBA privacy for {u}: {e}")
