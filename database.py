@@ -1653,6 +1653,9 @@ class DatabaseManager:
         """Combines 3 duplicate copies of a card to forge a Holo / Foil Edition (+5 OVR, +20% quicksell)."""
         u = str(user_id)
         cid = str(card_id).strip().lower()
+        if cid.startswith("excl-") or cid.startswith("exclusive_") or cid.startswith("excl_"):
+            return False, "Exclusive cards are uncraftable and cannot be fused!", None
+
         if cid.startswith("holo_") or cid.startswith("holo-"):
             return False, "This card is already an upgraded Holo Foil Edition!", None
         
