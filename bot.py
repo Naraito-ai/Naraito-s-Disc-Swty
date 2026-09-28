@@ -36161,30 +36161,75 @@ async def grantallcards_prefix_cmd(ctx: commands.Context, member: Optional[disco
     )
 
 
-@bot.command(name="nbagrant", aliases=["grantcard", "exclgrant"])
-async def nbagrant_prefix_cmd(ctx: commands.Context, target: discord.Member, count_or_card: Optional[str] = None, *, card_query: Optional[str] = None):
-    """Grant an Exclusive or rare card directly: !nbagrant @user [count] <card_name>"""
+@bot.command(name="sync", aliases=["synctree", "syncslash"])
+async def sync_prefix_cmd(ctx: commands.Context):
+    """Creator-only command to instantly sync all slash commands to Discord: !sync"""
+    if str(ctx.author.id) != "719932313919684670":
+        return await ctx.send("❌ This command is restricted to the Bot Creator.")
+    
+    msg = await ctx.send("⏳ Syncing all slash commands to Discord...")
+    try:
+        synced = await bot.tree.sync()
+        if ctx.guild:
+            await bot.tree.sync(guild=ctx.guild)
+        await msg.edit(content=f"✅ Successfully synced **{len(synced)} global slash commands** to Discord!")
+    except Exception as e:
+        await msg.edit(content=f"❌ Error syncing slash commands: {e}")
+
+
+@bot.command(name="nbagrant", aliases=["grantcard", "exclgrant", "givecard", "grant"])
+async def nbagrant_prefix_cmd(ctx: commands.Context, *, raw_args: str = ""):
+    """Grant an Exclusive or rare card directly:
+    !nbagrant [target] [count] <card_name>
+    Examples:
+      !nbagrant Michael Jordan
+      !nbagrant excl-jordan-99
+      !nbagrant @Naraito 2 LeBron 99
+    """
     try:
         is_creator = str(ctx.author.id) == "719932313919684670"
-        is_admin = bool(ctx.author.guild_permissions.administrator or ctx.author.id == ctx.guild.owner_id)
+        is_admin = bool(ctx.author.guild_permissions.administrator or (ctx.guild and ctx.author.id == ctx.guild.owner_id))
         if not (is_creator or is_admin):
             return await ctx.send("❌ This command is restricted to the Bot Creator and Server Administrators.")
 
-        count = 1
-        query = ""
-        if count_or_card and count_or_card.isdigit():
-            count = max(1, min(int(count_or_card), 50))
-            query = (card_query or "").strip()
-        else:
-            parts = []
-            if count_or_card:
-                parts.append(count_or_card)
-            if card_query:
-                parts.append(card_query)
-            query = " ".join(parts).strip()
+        raw = raw_args.strip()
+        if not raw:
+            return await ctx.send(
+                "👑 **NBA Card Grant Usage:**\n"
+                "• `!nbagrant <card_name>` — Grant to yourself (e.g. `!nbagrant Michael Jordan`)\n"
+                "• `!nbagrant @user <card_name>` — Grant to a member (e.g. `!nbagrant @user Kobe Bryant`)\n"
+                "• `!nbagrant @user 3 <card_name>` — Grant multiple copies"
+            )
 
+        tokens = raw.split()
+        target = ctx.author
+        count = 1
+        idx = 0
+
+        # 1. Check if first token is a member mention or numeric ID
+        first_tok = tokens[0]
+        m_match = re.match(r'^<@!?(\d+)>$', first_tok)
+        if m_match:
+            uid = int(m_match.group(1))
+            found_mem = ctx.guild.get_member(uid) if ctx.guild else None
+            if found_mem:
+                target = found_mem
+            idx += 1
+        elif first_tok.isdigit() and len(first_tok) >= 17:
+            uid = int(first_tok)
+            found_mem = ctx.guild.get_member(uid) if ctx.guild else None
+            if found_mem:
+                target = found_mem
+            idx += 1
+
+        # 2. Check if next token is count
+        if idx < len(tokens) and tokens[idx].isdigit() and len(tokens[idx]) <= 3:
+            count = max(1, min(int(tokens[idx]), 50))
+            idx += 1
+
+        query = " ".join(tokens[idx:]).strip()
         if not query:
-            return await ctx.send("❌ Please specify a card name or ID to grant: `!nbagrant @user [count] <card>`")
+            return await ctx.send("❌ Please specify the card name or ID to grant! Example: `!nbagrant Michael Jordan`")
 
         card_obj = get_nba_card(query)
         if not card_obj:
