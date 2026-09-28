@@ -11102,8 +11102,142 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [
 
 NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {c["id"].lower(): c for c in NBA_2K_MOBILE_CARDS}
 
+NBA_PLAYER_NICKNAMES: Dict[str, str] = {
+    "mj": "Michael Jordan",
+    "air jordan": "Michael Jordan",
+    "jordan": "Michael Jordan",
+    "michael": "Michael Jordan",
+    "bron": "LeBron James",
+    "king james": "LeBron James",
+    "lbj": "LeBron James",
+    "lebron": "LeBron James",
+    "curry": "Stephen Curry",
+    "steph": "Stephen Curry",
+    "chef curry": "Stephen Curry",
+    "kobe": "Kobe Bryant",
+    "mamba": "Kobe Bryant",
+    "black mamba": "Kobe Bryant",
+    "shaq": "Shaquille O'Neal",
+    "diesel": "Shaquille O'Neal",
+    "shaquille": "Shaquille O'Neal",
+    "wemby": "Victor Wembanyama",
+    "wembanyama": "Victor Wembanyama",
+    "kd": "Kevin Durant",
+    "durant": "Kevin Durant",
+    "slim reaper": "Kevin Durant",
+    "giannis": "Giannis Antetokounmpo",
+    "greek freak": "Giannis Antetokounmpo",
+    "luka": "Luka Dončić",
+    "doncic": "Luka Dončić",
+    "jokic": "Nikola Jokić",
+    "joker": "Nikola Jokić",
+    "tatum": "Jayson Tatum",
+    "ant": "Anthony Edwards",
+    "antman": "Anthony Edwards",
+    "ant-man": "Anthony Edwards",
+    "edwards": "Anthony Edwards",
+    "ad": "Anthony Davis",
+    "anthony davis": "Anthony Davis",
+    "brow": "Anthony Davis",
+    "sga": "Shai Gilgeous-Alexander",
+    "shai": "Shai Gilgeous-Alexander",
+    "spida": "Donovan Mitchell",
+    "mitchell": "Donovan Mitchell",
+    "dame": "Damian Lillard",
+    "lillard": "Damian Lillard",
+    "book": "Devin Booker",
+    "booker": "Devin Booker",
+    "brunson": "Jalen Brunson",
+    "jalen": "Jalen Brunson",
+    "maxey": "Tyrese Maxey",
+    "tyrese maxey": "Tyrese Maxey",
+    "paolo": "Paolo Banchero",
+    "banchero": "Paolo Banchero",
+    "lamelo": "LaMelo Ball",
+    "melo": "LaMelo Ball",
+    "hakeem": "Hakeem Olajuwon",
+    "dream": "Hakeem Olajuwon",
+    "dirk": "Dirk Nowitzki",
+    "nowitzki": "Dirk Nowitzki",
+    "iverson": "Allen Iverson",
+    "ai": "Allen Iverson",
+    "tmac": "Tracy McGrady",
+    "t-mac": "Tracy McGrady",
+    "duncan": "Tim Duncan",
+    "bird": "Larry Bird",
+    "larry": "Larry Bird",
+    "magic": "Magic Johnson",
+    "caruso": "Alex Caruso",
+    "naz": "Naz Reid",
+    "naz reid": "Naz Reid",
+    "derrick white": "Derrick White",
+    "ja": "Ja Morant",
+    "morant": "Ja Morant",
+    "bam": "Bam Adebayo",
+    "adebayo": "Bam Adebayo",
+    "hali": "Tyrese Haliburton",
+    "haliburton": "Tyrese Haliburton",
+    "kat": "Karl-Anthony Towns",
+    "towns": "Karl-Anthony Towns",
+    "fox": "De'Aaron Fox",
+    "sabonis": "Domantas Sabonis",
+    "chet": "Chet Holmgren",
+    "holmgren": "Chet Holmgren",
+    "murray": "Jamal Murray",
+    "jamal": "Jamal Murray",
+    "zion": "Zion Williamson",
+    "williamson": "Zion Williamson",
+    "trae": "Trae Young",
+    "trae young": "Trae Young",
+    "mikal": "Mikal Bridges",
+    "bridges": "Mikal Bridges",
+    "anunoby": "OG Anunoby",
+    "og": "OG Anunoby",
+    "jrue": "Jrue Holiday",
+    "holiday": "Jrue Holiday",
+    "aaron gordon": "Aaron Gordon",
+    "gordon": "Aaron Gordon",
+    "reaves": "Austin Reaves",
+    "austin": "Austin Reaves",
+    "coby": "Coby White",
+    "coby white": "Coby White",
+    "green": "Jalen Green",
+    "wagner": "Franz Wagner",
+    "franz": "Franz Wagner",
+    "porzingis": "Kristaps Porziņģis",
+    "tingus": "Kristaps Porziņģis",
+    "gobert": "Rudy Gobert",
+    "rudy": "Rudy Gobert",
+    "herro": "Tyler Herro",
+    "scottie": "Scottie Barnes",
+    "cade": "Cade Cunningham",
+    "cunningham": "Cade Cunningham",
+    "ingram": "Brandon Ingram",
+    "lavine": "Zach LaVine",
+    "lauri": "Lauri Markkanen",
+    "monk": "Malik Monk",
+    "portis": "Bobby Portis",
+    "powell": "Norman Powell",
+    "jaquez": "Jaime Jaquez Jr.",
+    "podz": "Brandin Podziemski",
+    "lively": "Dereck Lively II",
+    "pritchard": "Payton Pritchard",
+    "cam thomas": "Cam Thomas",
+    "herb": "Herb Jones",
+    "herb jones": "Herb Jones",
+}
+
+NBA_TIER_QUERY_ALIASES = [
+    ("dark_matter", ["dark_matter", "dark matter", "darkmatter", "dark", "dm", "goat", "g.o.a.t"]),
+    ("galaxy_opal", ["galaxy_opal", "galaxy opal", "galaxyopal", "galaxy", "opal", "go"]),
+    ("diamond", ["diamond", "dia", "dimond"]),
+    ("amethyst", ["amethyst", "amy", "amethist", "purple"]),
+    ("ruby", ["ruby", "rubie", "red"]),
+    ("gold", ["gold", "emerald", "yellow", "green"]),
+]
+
 def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
-    """Look up a card by ID or exact/fuzzy player name (supports Holo Foil edition upgrades)."""
+    """Intelligently look up an NBA card by ID, nickname, player name, tier, OVR rating, or Holo Foil edition."""
     if not identifier:
         return None
     clean = identifier.strip().lower()
@@ -11116,22 +11250,73 @@ def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
         is_holo = True
         base_identifier = clean[:-5]
 
+    # 1. Direct ID match
     card = None
     if base_identifier in NBA_CARDS_BY_ID:
         card = NBA_CARDS_BY_ID[base_identifier]
     else:
-        for c in NBA_2K_MOBILE_CARDS:
-            if c["name"].lower() == base_identifier or c["id"].lower() == base_identifier:
-                card = c
-                break
-        if not card:
-            for c in NBA_2K_MOBILE_CARDS:
-                if base_identifier in c["name"].lower() or base_identifier in c["id"].lower():
-                    card = c
+        # 2. Extract potential tier filter from query (e.g. "curry opal", "wemby ruby")
+        detected_tier = None
+        query_without_tier = base_identifier
+        for tier_name, tier_keys in NBA_TIER_QUERY_ALIASES:
+            for tk in tier_keys:
+                pattern = r'\b' + re.escape(tk) + r'\b'
+                if re.search(pattern, query_without_tier):
+                    detected_tier = tier_name
+                    query_without_tier = re.sub(pattern, '', query_without_tier).strip()
                     break
+            if detected_tier:
+                break
+
+        # 3. Extract potential OVR rating from query (e.g. "lebron 98", "brunson 89")
+        detected_ovr = None
+        ovr_match = re.search(r'\b(7[5-9]|8[0-9]|9[0-9]|100)\b', query_without_tier)
+        if ovr_match:
+            detected_ovr = int(ovr_match.group(1))
+            query_without_tier = re.sub(r'\b(7[5-9]|8[0-9]|9[0-9]|100)\b', '', query_without_tier).strip()
+
+        # Clean punctuation for nickname and fuzzy matching
+        q_norm = unicodedata.normalize('NFKD', query_without_tier).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+        target_player = NBA_PLAYER_NICKNAMES.get(q_norm) or NBA_PLAYER_NICKNAMES.get(query_without_tier)
+        target_norm = unicodedata.normalize('NFKD', target_player).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip() if target_player else ""
+
+        candidates: List[Dict[str, Any]] = []
+        for c in NBA_2K_MOBILE_CARDS:
+            c_norm = unicodedata.normalize('NFKD', c["name"]).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+            c_id = c["id"].lower()
+
+            is_player_match = False
+            if target_norm and target_norm == c_norm:
+                is_player_match = True
+            elif q_norm:
+                c_words = c_norm.split()
+                if q_norm == c_norm or q_norm in c_words or any(w.startswith(q_norm) for w in c_words if len(q_norm) >= 3):
+                    is_player_match = True
+                elif len(q_norm) >= 4 and (q_norm in c_norm or q_norm in c_id):
+                    is_player_match = True
+            elif not q_norm and detected_tier:
+                is_player_match = True
+
+            if is_player_match:
+                if detected_tier and c["tier"] != detected_tier:
+                    continue
+                if detected_ovr and c["ovr"] != detected_ovr:
+                    continue
+                candidates.append(c)
+
+        if not candidates and detected_tier and (target_norm or q_norm):
+            # Fallback: ignore tier filter if player doesn't exist in requested tier
+            for c in NBA_2K_MOBILE_CARDS:
+                c_norm = unicodedata.normalize('NFKD', c["name"]).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+                if (target_norm and target_norm == c_norm) or (q_norm and (q_norm == c_norm or q_norm in c_norm.split())):
+                    candidates.append(c)
+
+        if candidates:
+            # Sort candidates by OVR descending so highest tier version is default
+            candidates.sort(key=lambda x: x.get("ovr", 0), reverse=True)
+            card = candidates[0]
 
     if card and is_holo:
-        # Clone and apply Holo foil attributes (+5 OVR, +5 stats, +20% quicksell)
         holo_card = dict(card)
         holo_card["id"] = f"holo_{card['id']}"
         holo_card["name"] = f"🌟 {card['name']} (Holo Foil)"
@@ -12049,6 +12234,25 @@ def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: boo
         ),
         inline=False
     )
+    
+    # Show other card versions available in the catalog for this player
+    player_name_clean = card.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip()
+    other_versions = [
+        c for c in NBA_2K_MOBILE_CARDS
+        if c["name"].lower() == player_name_clean.lower() and c["id"].lower() != card["id"].lower()
+    ]
+    if other_versions:
+        lines = []
+        for oc in other_versions:
+            tinfo = NBA_2K_TIERS.get(oc["tier"], NBA_2K_TIERS["gold"])
+            first_name = player_name_clean.split()[0].lower()
+            tier_word = oc['tier'].replace('_', ' ')
+            lines.append(f"• {tinfo['emoji']} **{tinfo['name']}** (`{oc['ovr']} OVR`): `!nbacard {first_name} {tier_word}`")
+        embed.add_field(
+            name=f"🔄 Other Card Tiers for {player_name_clean}",
+            value="\n".join(lines),
+            inline=False
+        )
     
     embed.set_footer(text=f"NBA 2K Mobile Card Dex • Tier: {tier_info['name']} • {owner_str} • Card ID: {card['id']}")
     embed.timestamp = discord.utils.utcnow()
@@ -22112,6 +22316,54 @@ async def nbacard_prefix_cmd(ctx: commands.Context, *, card_query: str):
     except Exception as e:
         logger.error(f"Error in !nbacard: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
+
+
+async def nba_card_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> List[app_commands.Choice[str]]:
+    q = current.lower().strip()
+    choices = []
+    for c in NBA_2K_MOBILE_CARDS:
+        t_info = NBA_2K_TIERS.get(c["tier"], NBA_2K_TIERS["gold"])
+        display_label = f"{t_info['emoji']} {c['name']} [{c['ovr']} OVR • {t_info['name']}]"
+        searchable = f"{c['name']} {c['id']} {c['tier']} {t_info['name']} {c['ovr']}".lower()
+        if not q or q in searchable or any(word in searchable for word in q.split()):
+            choices.append(app_commands.Choice(name=display_label[:100], value=c["id"]))
+            if len(choices) >= 25:
+                break
+    return choices
+
+
+@bot.tree.command(name="nbacard", description="🔍 Inspect HD 2K card artwork, attributes, moment & badges for any player")
+@app_commands.describe(card="Search by player name (e.g. Curry, LeBron, Wemby) or select from dropdown")
+@app_commands.autocomplete(card=nba_card_autocomplete)
+@app_commands.guild_only()
+async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
+    """Slash command version of nbacard with instant autocomplete."""
+    try:
+        card_obj = get_nba_card(card)
+        if not card_obj:
+            return await interaction.response.send_message(f"❌ Card `{card}` not found in 2K Mobile catalog. Use `/nbadex` to browse.", ephemeral=True)
+
+        user_cards = await db.get_user_nba_cards(interaction.user.id)
+        copies = sum(1 for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
+        is_fav = any(c.get("is_favorite") for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
+
+        await interaction.response.defer()
+        card_buf = generate_nba_card_graphic(card_obj, is_mystery=False)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
+        embed = build_nbacard_embed(card_obj, copies_owned=copies, is_fav=is_fav, owner_user=interaction.user)
+        embed.set_image(url="attachment://nba_card.png")
+        view = NBACardInspectView(card_obj, interaction.user, copies, is_fav, author=interaction.user)
+        await interaction.followup.send(embed=embed, file=card_file, view=view)
+    except Exception as e:
+        logger.error(f"Error in /nbacard: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
 
 
 @bot.command(name="nbadaily", aliases=["dailyvc", "nbareward", "claimvc", "freepack"])
