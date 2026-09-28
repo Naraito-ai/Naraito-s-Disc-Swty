@@ -2616,12 +2616,10 @@ def find_nba_player(pos: str, name: str) -> Optional[Dict[str, Any]]:
     clean_query = str(name).strip()
     norm_query = unicodedata.normalize('NFKD', clean_query).encode('ascii', 'ignore').decode('utf-8').lower()
     
-    # 1. Search in 2K Mobile cards catalog
-    cards_catalog = globals().get("NBA_2K_MOBILE_CARDS", [])
-    for c in cards_catalog:
-        c_norm = unicodedata.normalize('NFKD', c.get("name", "")).encode('ascii', 'ignore').decode('utf-8').lower()
-        if (c.get("id", "").lower() == clean_query.lower() or c_norm == norm_query or c.get("name", "").lower() == clean_query.lower()):
-            return card_to_player_dict(c)
+    # 1. Search in 2K Mobile cards catalog via get_nba_card (supports Holo Foil, nicknames & IDs)
+    c_obj = get_nba_card(clean_query)
+    if c_obj:
+        return card_to_player_dict(c_obj)
 
     # 2. Search in legacy NBA_DREAM_PLAYERS
     for p in NBA_DREAM_PLAYERS.get(pos, []):
@@ -6783,12 +6781,12 @@ class BuildTeamView(discord.ui.View):
                     validated_picks[pos] = p
                 else:
                     # Also check by exact player name in owned cards
-                    p_name = p.get("name", "").strip().lower() if isinstance(p, dict) else ""
+                    p_name = p.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower() if isinstance(p, dict) else ""
                     matching_owned = [
-                        NBA_CARDS_BY_ID[uc["card_id"].lower()]
+                        get_nba_card(uc["card_id"])
                         for uc in self.user_cards
-                        if uc.get("card_id", "").lower() in NBA_CARDS_BY_ID
-                        and NBA_CARDS_BY_ID[uc["card_id"].lower()].get("name", "").strip().lower() == p_name
+                        if get_nba_card(uc.get("card_id", ""))
+                        and get_nba_card(uc["card_id"]).get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower() == p_name
                     ]
                     if matching_owned:
                         validated_picks[pos] = card_to_player_dict(matching_owned[0])
@@ -6807,10 +6805,10 @@ class BuildTeamView(discord.ui.View):
             eligible = []
             for uc in self.user_cards:
                 cid = uc.get("card_id", "").lower()
-                cobj = NBA_CARDS_BY_ID.get(cid)
+                cobj = get_nba_card(cid)
                 if not cobj or cid in used_card_ids:
                     continue
-                pname = cobj.get("name", "").strip().lower()
+                pname = cobj.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
                 if pname in used_player_names:
                     continue
                 if cobj.get("pos") == pos or cobj.get("sec_pos") == pos:
@@ -6821,7 +6819,7 @@ class BuildTeamView(discord.ui.View):
                 best = eligible[0]
                 new_picks[pos] = card_to_player_dict(best)
                 used_card_ids.add(best["id"].lower())
-                used_player_names.add(best.get("name", "").strip().lower())
+                used_player_names.add(best.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower())
             # If no card owned, leave slot empty (never equip unowned players)
 
         self.picks = new_picks
@@ -6861,7 +6859,7 @@ class BuildTeamView(discord.ui.View):
             cid = uc.get("card_id", "").lower()
             if cid in seen_cids:
                 continue
-            cobj = NBA_CARDS_BY_ID.get(cid)
+            cobj = get_nba_card(cid)
             if not cobj:
                 continue
             if cobj.get("pos") == self.current_pos or cobj.get("sec_pos") == self.current_pos:
@@ -6871,9 +6869,10 @@ class BuildTeamView(discord.ui.View):
                 
                 # Check if this player is currently equipped in another position
                 equipped_other_pos = None
-                pname_lower = cobj.get("name", "").strip().lower()
+                pname_lower = cobj.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
                 for op, op_p in self.picks.items():
-                    if op != self.current_pos and op_p.get("name", "").strip().lower() == pname_lower:
+                    op_clean = op_p.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
+                    if op != self.current_pos and op_clean == pname_lower:
                         equipped_other_pos = op
                         break
 
@@ -6888,7 +6887,7 @@ class BuildTeamView(discord.ui.View):
                     emoji=tier_info["emoji"]
                 ))
         
-        card_options.sort(key=lambda opt: NBA_CARDS_BY_ID.get(opt.value.lower(), {}).get("ovr", 0), reverse=True)
+        card_options.sort(key=lambda opt: (get_nba_card(opt.value) or {}).get("ovr", 0), reverse=True)
 
         if not card_options:
             card_options.append(discord.SelectOption(
@@ -6991,17 +6990,18 @@ class BuildTeamView(discord.ui.View):
             )
             return
 
-        cobj = NBA_CARDS_BY_ID.get(chosen_val.lower())
+        cobj = get_nba_card(chosen_val)
         chosen_player = None
         if cobj:
             chosen_player = card_to_player_dict(cobj)
             
         if chosen_player:
-            new_pname = chosen_player.get("name", "").strip().lower()
+            new_pname = chosen_player.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
             # If this player is already in another position slot, auto unequip/move them from that slot!
             for other_pos in ["PG", "SG", "SF", "PF", "C"]:
                 if other_pos != self.current_pos and other_pos in self.picks:
-                    if self.picks[other_pos].get("name", "").strip().lower() == new_pname:
+                    op_clean = self.picks[other_pos].get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
+                    if op_clean == new_pname:
                         del self.picks[other_pos]
             self.picks[self.current_pos] = chosen_player
 
@@ -11240,15 +11240,18 @@ def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
     """Intelligently look up an NBA card by ID, nickname, player name, tier, OVR rating, or Holo Foil edition."""
     if not identifier:
         return None
-    clean = identifier.strip().lower()
+    clean = str(identifier).strip().lower().replace("🌟", "").strip()
     is_holo = False
-    base_identifier = clean
+    if "(holo foil)" in clean or "(holo)" in clean or "(foil)" in clean:
+        is_holo = True
+        clean = clean.replace("(holo foil)", "").replace("(holo)", "").replace("(foil)", "").strip()
     if clean.startswith("holo_") or clean.startswith("holo-"):
         is_holo = True
-        base_identifier = clean[5:]
+        clean = clean[5:]
     elif clean.endswith("_holo") or clean.endswith("-holo"):
         is_holo = True
-        base_identifier = clean[:-5]
+        clean = clean[:-5]
+    base_identifier = clean
 
     # 1. Direct ID match
     card = None
