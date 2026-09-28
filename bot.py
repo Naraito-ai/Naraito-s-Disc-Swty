@@ -6204,20 +6204,36 @@ class InteractiveTeamBattleView(discord.ui.View):
                         sweety_talk_line = get_sweety_trash_talk("sweety_timeout")
 
                 if self.is_sweety_ai:
-                    opp_favored = pl_b.get("favored", ["drive", "three", "pnr", "iso"])
-                    # High-IQ tactical execution (85% synergy)
-                    if opp_favored and random.random() < 0.85:
-                        opp_choice = random.choice(opp_favored)
-                    else:
-                        opp_choice = random.choice(["three", "drive", "pnr", "defense", "iso"])
+                    # Grandmaster AI tactical play calling based on player archetype & max attributes
+                    b_3pt = pl_b.get("pts_3", 80)
+                    b_ins = pl_b.get("inside", 80)
+                    b_ply = pl_b.get("playmaking", 80)
+                    b_def = pl_b.get("defense", 80)
 
-                    # Sweety sets defensive counter scheme against user pl_a
-                    if pl_a.get("pts_3", 80) >= 90:
-                        opp_def_scheme = "perimeter_press"
-                    elif pl_a.get("inside", 80) >= 95:
-                        opp_def_scheme = "drop_coverage"
+                    if b_3pt >= 96:
+                        opp_choice = random.choice(["three", "three", "pnr", "iso"])
+                    elif b_ins >= 96:
+                        opp_choice = random.choice(["drive", "drive", "pnr", "iso"])
+                    elif b_def >= 96:
+                        opp_choice = random.choice(["defense", "drive", "iso", "pnr"])
+                    elif b_ply >= 96:
+                        opp_choice = random.choice(["pnr", "three", "drive", "iso"])
                     else:
-                        opp_def_scheme = random.choice(["zone_trap", "isolation_lock", "perimeter_press"])
+                        opp_choice = random.choice(["three", "drive", "pnr", "iso", "defense"])
+
+                    # Sweety Grandmaster Defensive Counter against player A's attributes & tendencies
+                    a_3pt = pl_a.get("pts_3", 80)
+                    a_ins = pl_a.get("inside", 80)
+                    a_ply = pl_a.get("playmaking", 80)
+
+                    if a_3pt >= 88:
+                        opp_def_scheme = "perimeter_press"
+                    elif a_ins >= 90:
+                        opp_def_scheme = "drop_coverage"
+                    elif a_ply >= 88:
+                        opp_def_scheme = "zone_trap"
+                    else:
+                        opp_def_scheme = "isolation_lock"
 
                     is_sweety_clutch = self.is_clutch_mode or self.current_round >= 3 or abs(self.q_pts_a - self.q_pts_b) <= 2
                     res_b = resolve_possession(
@@ -6228,7 +6244,7 @@ class InteractiveTeamBattleView(discord.ui.View):
                         momentum_def=self.momentum_a,
                         scheme_key=opp_def_scheme,
                         play_streak=1,
-                        has_timeout_boost=(getattr(self, "sweety_timeouts_left", 0) == 0 and random.random() < 0.35),
+                        has_timeout_boost=(getattr(self, "sweety_timeouts_left", 0) == 0 and random.random() < 0.40),
                         is_clutch=is_sweety_clutch,
                         is_comeback=(self.duels_won_a >= 2 and self.duels_won_b == 0)
                     )
@@ -7344,17 +7360,17 @@ def extract_picks_from_row(row: Any) -> Dict[str, Dict[str, Any]]:
 
 
 async def ensure_sweety_ai_team(guild_id: Optional[int] = None, target_id: Optional[int] = None) -> Dict[str, Any]:
-    """Ensures Sweety AI Bot has an official 99.3+ OVR Dark Matter Starting 5 lineup saved in database."""
+    """Ensures Sweety AI Bot has the official 99.9 OVR All-Dark Matter G.O.A.T. Dynasty Starting 5 lineup saved in database."""
     bot_id = target_id or (bot.user.id if bot.user else 719932313919684670)
     is_bot = (bot.user and bot_id == bot.user.id) or bot_id == 719932313919684670 or (target_id is None)
     row = await db.get_dream_team(bot_id)
-    if not row or (is_bot and row.get("ovr_rating", 0) < 99.0):
+    if not row or (is_bot and row.get("ovr_rating", 0) < 99.8):
         picks = {
-            "PG": find_nba_player("PG", "Kyrie Irving") or NBA_DREAM_PLAYERS["PG"][3],
-            "SG": find_nba_player("SG", "Michael Jordan") or NBA_DREAM_PLAYERS["SG"][0],
-            "SF": find_nba_player("SF", "Kawhi Leonard") or NBA_DREAM_PLAYERS["SF"][2],
-            "PF": find_nba_player("PF", "Larry Bird") or NBA_DREAM_PLAYERS["PF"][1],
-            "C": find_nba_player("C", "Victor Wembanyama") or NBA_DREAM_PLAYERS["C"][4],
+            "PG": find_nba_player("PG", "dm-curry-99") or NBA_DREAM_PLAYERS["PG"][0],
+            "SG": find_nba_player("SG", "dm-jordan-99") or NBA_DREAM_PLAYERS["SG"][0],
+            "SF": find_nba_player("SF", "dm-lebron-99") or NBA_DREAM_PLAYERS["SF"][0],
+            "PF": find_nba_player("PF", "dm-kd-99") or NBA_DREAM_PLAYERS["PF"][1],
+            "C": find_nba_player("C", "dm-shaq-99") or NBA_DREAM_PLAYERS["C"][0],
         }
         eval_ai = evaluate_dream_team(picks)
         now = time.time()
@@ -7366,7 +7382,7 @@ async def ensure_sweety_ai_team(guild_id: Optional[int] = None, target_id: Optio
             sf=picks["SF"]["name"],
             pf=picks["PF"]["name"],
             c=picks["C"]["name"],
-            total_cost=15,
+            total_cost=25,
             ovr_rating=eval_ai["ovr"],
             team_data=json.dumps(picks),
             updated_at=now
