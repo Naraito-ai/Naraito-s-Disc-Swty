@@ -11587,8 +11587,6 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
     # 1. Check in-memory cache
     if cache_key in _NBA_PLAYER_MOMENT_CACHE:
         return _NBA_PLAYER_MOMENT_CACHE[cache_key]
-    if clean_q in _NBA_PLAYER_MOMENT_CACHE:
-        return _NBA_PLAYER_MOMENT_CACHE[clean_q]
 
     # 2. Check disk cache in assets/player_moments/
     cache_dir = os.path.join(os.path.dirname(__file__), "assets", "player_moments")
@@ -11792,7 +11790,7 @@ def generate_nba_card_graphic(
         # 1. Try loading real match moment photo from local catalog
         action_photo = None
         if not headshot_img:
-            action_photo = get_nba_player_moment_photo(card.get("name", ""))
+            action_photo = get_nba_player_moment_photo(card.get("name", ""), card=card)
 
         if not action_photo:
             if not headshot_img:
