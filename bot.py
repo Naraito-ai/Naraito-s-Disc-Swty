@@ -11554,17 +11554,37 @@ NBA_PLAYER_DEFAULT_MOMENTS: Dict[str, str] = {
 }
 
 def get_nba_card_moment(card: Dict[str, Any]) -> str:
-    """Returns the iconic real-life NBA match moment for a given card."""
-    cid = card.get("id", "").lower()
-    if cid in NBA_REAL_MOMENTS:
-        return NBA_REAL_MOMENTS[cid]
-    pname = card.get("name", "").strip()
-    if pname in NBA_PLAYER_DEFAULT_MOMENTS:
-        return NBA_PLAYER_DEFAULT_MOMENTS[pname]
-    norm_name = unicodedata.normalize('NFKD', pname).encode('ascii', 'ignore').decode('utf-8')
-    if norm_name in NBA_PLAYER_DEFAULT_MOMENTS:
-        return NBA_PLAYER_DEFAULT_MOMENTS[norm_name]
-    return f"{card.get('theme', 'Signature Series')} Highlight"
+    """Returns the iconic real-life NBA match moment for a given card.
+    For Holo Foil cards, returns the player's pinnacle / championship moment."""
+    is_holo = bool(card.get("is_holo") or str(card.get("id", "")).startswith("holo_"))
+    cid = str(card.get("id", "")).lower().replace("holo_", "").replace("holo-", "")
+    
+    moment = None
+    if is_holo:
+        # Resolve the pinnacle moment from the player's highest OVR card in catalog
+        pname_clean = card.get("name", "").replace("🌟", "").replace("(Holo Foil)", "").strip()
+        best_c = None
+        for c in NBA_2K_MOBILE_CARDS:
+            if c["name"].lower().strip() == pname_clean.lower():
+                if best_c is None or c.get("ovr", 0) > best_c.get("ovr", 0):
+                    best_c = c
+        if best_c and best_c["id"].lower() in NBA_REAL_MOMENTS:
+            moment = NBA_REAL_MOMENTS[best_c["id"].lower()]
+
+    if not moment and cid in NBA_REAL_MOMENTS:
+        moment = NBA_REAL_MOMENTS[cid]
+        
+    if not moment:
+        pname = card.get("name", "").replace("🌟", "").replace("(Holo Foil)", "").strip()
+        moment = NBA_PLAYER_DEFAULT_MOMENTS.get(pname)
+        if not moment:
+            norm_name = unicodedata.normalize('NFKD', pname).encode('ascii', 'ignore').decode('utf-8')
+            moment = NBA_PLAYER_DEFAULT_MOMENTS.get(norm_name)
+            
+    if not moment:
+        moment = f"{card.get('theme', 'Signature Series')} Highlight"
+        
+    return f"🌟 [HOLO PINNACLE] {moment}" if is_holo else moment
 
 
 NBA_PLAYER_MOMENT_ACTION_URLS: Dict[str, str] = {
@@ -11755,23 +11775,59 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "gold-herb-82": "https://upload.wikimedia.org/wikipedia/commons/e/eb/Herb_Jones.jpg"
 }
 
+NBA_HOLO_EDITION_MOMENT_URLS: Dict[str, str] = {
+    # ── 👑 ICONIC HOLO FOIL / BEST VERSION CHAMPIONSHIP MOMENTS ──────────────
+    "dm-jordan-99": "https://upload.wikimedia.org/wikipedia/commons/b/b3/Jordan_Lipofsky.jpg",
+    "dm-mj-99": "https://upload.wikimedia.org/wikipedia/commons/a/ae/Michael_Jordan_in_2014.jpg",
+    "dm-lebron-99": "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg",
+    "dm-lebron-98": "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg",
+    "dm-curry-99": "https://upload.wikimedia.org/wikipedia/commons/5/52/Stephen_Curry%2C_Olympic_Games_2024_%28cropped%29.jpg",
+    "go-curry-97": "https://upload.wikimedia.org/wikipedia/commons/5/52/Stephen_Curry%2C_Olympic_Games_2024_%28cropped%29.jpg",
+    "dm-kobe-99": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Kobe_Lakers_Parade.jpg",
+    "dm-wemby-99": "https://upload.wikimedia.org/wikipedia/commons/6/65/Victor_Wembanyama_San_Antonio_Spurs_2024.jpg",
+    "ruby-wemby-88": "https://upload.wikimedia.org/wikipedia/commons/6/65/Victor_Wembanyama_San_Antonio_Spurs_2024.jpg",
+    "dm-giannis-99": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg/1280px-Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg",
+    "dia-giannis-94": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg/1280px-Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg",
+    "go-tatum-98": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg",
+    "dia-tatum-94": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg",
+    "go-jokic-98": "https://upload.wikimedia.org/wikipedia/commons/6/69/Denver_Nuggets_2023_Championship_parade.png",
+    "go-jokic-97": "https://upload.wikimedia.org/wikipedia/commons/6/69/Denver_Nuggets_2023_Championship_parade.png",
+    "dm-kd-99": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Kevin_Durant%2C_Paris_2024_%28cropped%29.jpg",
+    "go-durant-96": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Kevin_Durant%2C_Paris_2024_%28cropped%29.jpg",
+    "go-luka-98": "https://upload.wikimedia.org/wikipedia/commons/b/be/Luka_Don%C4%8Di%C4%87_and_Marines%2C_2026_%28cropped%29.jpg",
+    "dia-ant-95": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg/1280px-Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg",
+    "amy-aedwards-90": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg/1280px-Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg",
+    "dia-sga-96": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg",
+    "dia-sga-95": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg",
+    "amy-brunson-92": "https://upload.wikimedia.org/wikipedia/commons/d/df/Cleveland_Cavaliers_vs._Dallas_Mavericks_%2851176485323%29_%28cropped%29.jpg",
+    "amy-jalen-89": "https://upload.wikimedia.org/wikipedia/commons/f/f2/Jalen_Brunson_2023_%28cropped%29.jpg",
+    "amy-zion-90": "https://upload.wikimedia.org/wikipedia/commons/5/53/Zion_Williamson_2020_%28cropped%29.jpg",
+    "ruby-zion-86": "https://upload.wikimedia.org/wikipedia/commons/5/53/Zion_Williamson_2020_%28cropped%29.jpg",
+    "ruby-maxey-87": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/1_tyrese_maxey_2026.jpg/1280px-1_tyrese_maxey_2026.jpg",
+    "amy-tymax-90": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/1_tyrese_maxey_2026.jpg/1280px-1_tyrese_maxey_2026.jpg",
+}
+
 _NBA_LOCAL_MOMENTS_MAP: Dict[str, str] = {}
 _NBA_PLAYER_MOMENT_CACHE: Dict[str, Image.Image] = {}
 
 def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]] = None) -> Optional[Image.Image]:
     """Resolves and loads an authentic, tier-specific Wikipedia / Wikimedia match moment action photo
-    for any NBA player and card tier, caching locally in assets/player_moments/."""
+    for any NBA player and card tier, caching locally in assets/player_moments/.
+    For Fused (Holo Foil) cards, dynamically resolves the highest tier / best version photo for the player."""
     global _NBA_LOCAL_MOMENTS_MAP, _NBA_PLAYER_MOMENT_CACHE
     if not player_name and not card:
         return None
 
-    card_id = str(card.get("id", "")).replace("holo_", "").lower().strip() if card else ""
+    is_holo = bool(card.get("is_holo") or str(card.get("id", "")).startswith("holo_")) if card else False
+    raw_cid = str(card.get("id", "")).lower().strip() if card else ""
+    base_cid = raw_cid.replace("holo_", "").replace("holo-", "").strip()
     tier = str(card.get("tier", "")).lower().strip() if card else ""
     name_str = (card.get("name") if card else player_name) or player_name
-    clean_q = unicodedata.normalize('NFKD', name_str).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
-    raw_norm = name_str.lower().strip()
+    name_clean = name_str.replace("🌟", "").replace("(Holo Foil)", "").replace("(Holo)", "").replace("(Foil)", "").strip()
+    clean_q = unicodedata.normalize('NFKD', name_clean).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+    raw_norm = name_clean.lower().strip()
 
-    cache_key = f"{card_id}" if card_id else f"{clean_q}_{tier}" if tier else clean_q
+    cache_key = f"holo_{base_cid}" if (is_holo and base_cid) else f"holo_{clean_q}" if is_holo else f"{base_cid}" if base_cid else f"{clean_q}_{tier}" if tier else clean_q
 
     # 1. Check in-memory cache
     if cache_key in _NBA_PLAYER_MOMENT_CACHE:
@@ -11792,7 +11848,28 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
             pass
 
     # 3. Lookup in Card-Specific Moment URLs first, then Player Moment URLs
-    action_url = NBA_CARD_SPECIFIC_MOMENT_URLS.get(card_id)
+    action_url = None
+    if is_holo:
+        # Check explicit Holo Edition moment URL
+        action_url = (
+            NBA_HOLO_EDITION_MOMENT_URLS.get(base_cid)
+            or NBA_HOLO_EDITION_MOMENT_URLS.get(clean_q)
+            or NBA_HOLO_EDITION_MOMENT_URLS.get(raw_norm)
+        )
+        if not action_url:
+            # Dynamically find the highest OVR ("best version") card for this player in the entire catalog
+            best_card = None
+            for c in NBA_2K_MOBILE_CARDS:
+                c_clean = unicodedata.normalize('NFKD', c["name"]).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+                if c_clean == clean_q or c["name"].lower().strip() == raw_norm:
+                    if best_card is None or c.get("ovr", 0) > best_card.get("ovr", 0):
+                        best_card = c
+            if best_card:
+                best_id = best_card["id"].lower()
+                action_url = NBA_CARD_SPECIFIC_MOMENT_URLS.get(best_id)
+
+    if not action_url:
+        action_url = NBA_CARD_SPECIFIC_MOMENT_URLS.get(base_cid)
     if not action_url:
         combo_key = f"{clean_q}_{tier}"
         action_url = NBA_CARD_SPECIFIC_MOMENT_URLS.get(combo_key)
@@ -11829,6 +11906,7 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
                 return img
         except Exception as dl_err:
             logger.debug(f"Could not fetch player moment photo for {name_str} ({tier}) from {clean_url}: {dl_err}")
+
 
     # 4. Fallback to assets/moments/ directory if present
     moments_dir = os.path.join(os.path.dirname(__file__), "assets", "moments")
@@ -12096,22 +12174,22 @@ def generate_nba_card_graphic(
     # 4. Top Ribbon Bar: Tier Edition
     draw.rounded_rectangle([(margin + 12, margin + 10), (W - margin - 12, margin + 40)], radius=8, fill=(10, 14, 24, 230), outline=(*theme["border"], 180), width=1)
     
-    tier_title = f"{theme['name'].upper()} • HOLO FOIL" if is_holo else f"{theme['name'].upper()} EDITION"
-    f_tier = _get_nba_card_font(12 if is_holo else 13, bold=True)
-    t_w = len(tier_title) * 8
-    draw.text((W // 2 - t_w // 2, margin + 16), tier_title, fill=theme["border"], font=f_tier)
+    tier_title = f"🌟 FORGED HOLO FOIL • {card['ovr']} OVR PINNACLE" if is_holo else f"{theme['name'].upper()} EDITION"
+    f_tier = _get_nba_card_font(11 if is_holo else 13, bold=True)
+    t_w = len(tier_title) * 7
+    draw.text((W // 2 - t_w // 2, margin + 16), tier_title, fill=(255, 220, 90, 255) if is_holo else theme["border"], font=f_tier)
     
     # Draw crisp gold stars on left and right of tier title
-    _draw_star_polygon(draw, (W // 2 - t_w // 2 - 16, margin + 25), 6, (*theme["border"], 255))
-    _draw_star_polygon(draw, (W // 2 + t_w // 2 + 16, margin + 25), 6, (*theme["border"], 255))
+    _draw_star_polygon(draw, (W // 2 - t_w // 2 - 16, margin + 25), 6, (255, 215, 0, 255) if is_holo else (*theme["border"], 255))
+    _draw_star_polygon(draw, (W // 2 + t_w // 2 + 16, margin + 25), 6, (255, 215, 0, 255) if is_holo else (*theme["border"], 255))
 
     # 5. Top-Left HUD: OVR & Position Shield
     ovr_box = [(margin + 12, margin + 48), (margin + 110, margin + 144)]
-    draw.rounded_rectangle(ovr_box, radius=12, fill=(12, 16, 28, 245), outline=(*theme["glow"], 230), width=2)
+    draw.rounded_rectangle(ovr_box, radius=12, fill=(12, 16, 28, 245), outline=(255, 215, 0, 240) if is_holo else (*theme["glow"], 230), width=2)
     f_ovr = _get_nba_card_font(38, bold=True)
-    draw.text((margin + 20, margin + 52), str(card["ovr"]), fill=(255, 255, 255, 255), font=f_ovr)
+    draw.text((margin + 20, margin + 52), str(card["ovr"]), fill=(255, 215, 0, 255) if is_holo else (255, 255, 255, 255), font=f_ovr)
     f_ovr_lbl = _get_nba_card_font(11, bold=True)
-    draw.text((margin + 74, margin + 63), "OVR", fill=theme["border"], font=f_ovr_lbl)
+    draw.text((margin + 74, margin + 63), "OVR", fill=(255, 215, 0, 255) if is_holo else theme["border"], font=f_ovr_lbl)
     
     draw.line([(margin + 20, margin + 104), (margin + 102, margin + 104)], fill=(*theme["primary"], 140), width=1)
     f_pos = _get_nba_card_font(18, bold=True)
@@ -12129,11 +12207,11 @@ def generate_nba_card_graphic(
     if not is_mystery:
         moment_text = get_nba_card_moment(card)
         m_box = [(margin + 14, H - margin - 228), (W - margin - 14, H - margin - 198)]
-        draw.rounded_rectangle(m_box, radius=8, fill=(12, 18, 32, 250), outline=(*theme["glow"], 220), width=1)
+        draw.rounded_rectangle(m_box, radius=8, fill=(12, 18, 32, 250), outline=(255, 215, 0, 230) if is_holo else (*theme["glow"], 220), width=1)
         
         # Left and right star accents
-        _draw_star_polygon(draw, (margin + 26, H - margin - 213), 5, (*theme["glow"], 255))
-        _draw_star_polygon(draw, (W - margin - 26, H - margin - 213), 5, (*theme["glow"], 255))
+        _draw_star_polygon(draw, (margin + 26, H - margin - 213), 5, (255, 215, 0, 255) if is_holo else (*theme["glow"], 255))
+        _draw_star_polygon(draw, (W - margin - 26, H - margin - 213), 5, (255, 215, 0, 255) if is_holo else (*theme["glow"], 255))
         
         full_moment_lbl = f"REAL NBA MOMENT: {moment_text.upper()}"
         font_sz = 10
@@ -12142,19 +12220,19 @@ def generate_nba_card_graphic(
         if len(full_moment_lbl) > 50:
             font_sz = 8
         f_mom = _get_nba_card_font(font_sz, bold=True)
-        draw.text((margin + 36, H - margin - 220 + (10 - font_sz)), full_moment_lbl, fill=theme["glow"], font=f_mom)
+        draw.text((margin + 36, H - margin - 220 + (10 - font_sz)), full_moment_lbl, fill=(255, 225, 100, 255) if is_holo else theme["glow"], font=f_mom)
 
     # 8. Lower Card Info & Stats Deck
     lower_box = [(margin + 12, H - margin - 190), (W - margin - 12, H - margin - 14)]
-    draw.rounded_rectangle(lower_box, radius=16, fill=(10, 14, 26, 250), outline=(*theme["border"], 220), width=2)
+    draw.rounded_rectangle(lower_box, radius=16, fill=(10, 14, 26, 250), outline=(255, 215, 0, 240) if is_holo else (*theme["border"], 220), width=2)
     
     name_display = "??? MYSTERY 2K STAR ???" if is_mystery else card["name"].upper()
     f_name = _get_nba_card_font(22 if is_mystery else 24, bold=True)
-    draw.text((margin + 24, H - margin - 178), name_display, fill=(255, 255, 255, 255), font=f_name)
+    draw.text((margin + 24, H - margin - 178), name_display, fill=(255, 215, 0, 255) if is_holo else (255, 255, 255, 255), font=f_name)
     
     sub_title = "Guess the player name in chat!" if is_mystery else f"{card.get('theme', 'Signature Series')} • {card.get('pos', 'SF')}/{card.get('sec_pos', 'SG')}"
     f_sub = _get_nba_card_font(12, bold=False)
-    draw.text((margin + 24, H - margin - 148), sub_title, fill=theme["border"], font=f_sub)
+    draw.text((margin + 24, H - margin - 148), sub_title, fill=(255, 225, 120, 255) if is_holo else theme["border"], font=f_sub)
     
     draw.line([(margin + 24, H - margin - 126), (W - margin - 24, H - margin - 126)], fill=(*theme["primary"], 120), width=1)
     
@@ -12166,14 +12244,14 @@ def generate_nba_card_graphic(
     for idx, (s_lbl, s_val) in enumerate(stat_keys):
         sx = margin + 24 + idx * (stat_w + 8)
         sy = H - margin - 116
-        draw.rounded_rectangle([(sx, sy), (sx + stat_w, sy + 44)], radius=8, fill=(18, 24, 40, 230), outline=(*theme["primary"], 120), width=1)
+        draw.rounded_rectangle([(sx, sy), (sx + stat_w, sy + 44)], radius=8, fill=(18, 24, 40, 230), outline=(255, 215, 0, 180) if is_holo else (*theme["primary"], 120), width=1)
         
         f_slbl = _get_nba_card_font(10, bold=True)
-        draw.text((sx + 8, sy + 6), s_lbl, fill=(148, 163, 184, 255), font=f_slbl)
+        draw.text((sx + 8, sy + 6), s_lbl, fill=(255, 215, 0, 255) if is_holo else (148, 163, 184, 255), font=f_slbl)
         
         f_sval = _get_nba_card_font(16, bold=True)
         val_str = "??" if is_mystery else str(s_val)
-        draw.text((sx + 8, sy + 22), val_str, fill=theme["glow"], font=f_sval)
+        draw.text((sx + 8, sy + 22), val_str, fill=(255, 235, 130, 255) if is_holo else theme["glow"], font=f_sval)
 
     # Footer
     f_foot = _get_nba_card_font(9, bold=True)
@@ -12182,9 +12260,14 @@ def generate_nba_card_graphic(
     draw.text((W - margin - 24 - len(cid_str) * 6, H - margin - 38), cid_str, fill=(100, 116, 139, 255), font=f_foot)
 
     # 9. Outer Border Trim
-    draw.rounded_rectangle(rect_box, radius=24, outline=(*theme["border"], 255), width=3)
-    inner_box = [(margin + 4, margin + 4), (W - margin - 4, H - margin - 4)]
-    draw.rounded_rectangle(inner_box, radius=20, outline=(*theme["primary"], 120), width=1)
+    if is_holo:
+        draw.rounded_rectangle(rect_box, radius=24, outline=(255, 215, 0, 255), width=4)
+        holo_inner = [(margin + 4, margin + 4), (W - margin - 4, H - margin - 4)]
+        draw.rounded_rectangle(holo_inner, radius=20, outline=(255, 230, 100, 230), width=2)
+    else:
+        draw.rounded_rectangle(rect_box, radius=24, outline=(*theme["border"], 255), width=3)
+        inner_box = [(margin + 4, margin + 4), (W - margin - 4, H - margin - 4)]
+        draw.rounded_rectangle(inner_box, radius=20, outline=(*theme["primary"], 120), width=1)
 
     buf = io.BytesIO()
     card_img.save(buf, format="PNG")
