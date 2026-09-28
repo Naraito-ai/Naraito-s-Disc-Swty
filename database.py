@@ -1463,7 +1463,7 @@ class DatabaseManager:
                 return False, f"You do not own card `{cid}` in your collection binder.", None
             
             db_id = row["id"] if isinstance(row, dict) and "id" in row else row[0]
-            await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_to, db_id)
+            await self.execute("UPDATE user_nba_cards SET user_id = ?, source = 'gift' WHERE id = ?", u_to, db_id)
             return True, "Card gifted successfully.", dict(row) if isinstance(row, dict) else {"id": db_id, "card_id": cid}
         except Exception as e:
             logger.error(f"Error gifting NBA card from {u_from} to {u_to}: {e}")
@@ -1507,10 +1507,10 @@ class DatabaseManager:
                 ids_to_transfer_to_a.append(b_pool[req_lower].pop(0))
 
             for db_id in ids_to_transfer_to_b:
-                await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_b, db_id)
+                await self.execute("UPDATE user_nba_cards SET user_id = ?, source = 'trade' WHERE id = ?", u_b, db_id)
 
             for db_id in ids_to_transfer_to_a:
-                await self.execute("UPDATE user_nba_cards SET user_id = ? WHERE id = ?", u_a, db_id)
+                await self.execute("UPDATE user_nba_cards SET user_id = ?, source = 'trade' WHERE id = ?", u_a, db_id)
 
             return True, "Multi-card trade completed successfully."
         except Exception as e:
@@ -1552,8 +1552,8 @@ class DatabaseManager:
             logger.error(f"Error granting bulk NBA cards to {u}: {e}")
             return 0
 
-    async def remove_cards_by_ids(self, card_ids: List[str], exclude_user_id: Optional[Any] = None) -> int:
-        """Removes all copies of specific card IDs from user_nba_cards across the database (optional user exclusion)."""
+    async def remove_abused_top_tier_cards(self, card_ids: List[str], exclude_user_id: Optional[Any] = None) -> int:
+        """Removes only 97+ OVR cards that came from chat catches, command spawns, trades, or gifts (preserves genuine pack pulls & creator vault)."""
         if not card_ids:
             return 0
         try:
@@ -1561,26 +1561,52 @@ class DatabaseManager:
             lower_ids = [str(cid).strip().lower() for cid in card_ids]
             
             if exclude_user_id:
-                count_query = f"SELECT COUNT(*) as cnt FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders}) AND user_id != ?"
+                count_query = f"""
+                    SELECT COUNT(*) as cnt FROM user_nba_cards 
+                    WHERE LOWER(card_id) IN ({placeholders}) 
+                    AND (source NOT LIKE 'pack%' OR source IS NULL OR source = 'trade' OR source = 'gift')
+                    AND source != 'creator_grant'
+                    AND user_id != ?
+                """
                 params = lower_ids + [str(exclude_user_id)]
                 count_rows = await self.fetch(count_query, *params)
                 total_count = count_rows[0]["cnt"] if count_rows and "cnt" in count_rows[0] else 0
                 if total_count > 0:
-                    delete_query = f"DELETE FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders}) AND user_id != ?"
+                    delete_query = f"""
+                        DELETE FROM user_nba_cards 
+                        WHERE LOWER(card_id) IN ({placeholders}) 
+                        AND (source NOT LIKE 'pack%' OR source IS NULL OR source = 'trade' OR source = 'gift')
+                        AND source != 'creator_grant'
+                        AND user_id != ?
+                    """
                     await self.execute(delete_query, *params)
             else:
-                count_query = f"SELECT COUNT(*) as cnt FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders})"
+                count_query = f"""
+                    SELECT COUNT(*) as cnt FROM user_nba_cards 
+                    WHERE LOWER(card_id) IN ({placeholders}) 
+                    AND (source NOT LIKE 'pack%' OR source IS NULL OR source = 'trade' OR source = 'gift')
+                    AND source != 'creator_grant'
+                """
                 count_rows = await self.fetch(count_query, *lower_ids)
                 total_count = count_rows[0]["cnt"] if count_rows and "cnt" in count_rows[0] else 0
                 if total_count > 0:
-                    delete_query = f"DELETE FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders})"
+                    delete_query = f"""
+                        DELETE FROM user_nba_cards 
+                        WHERE LOWER(card_id) IN ({placeholders}) 
+                        AND (source NOT LIKE 'pack%' OR source IS NULL OR source = 'trade' OR source = 'gift')
+                        AND source != 'creator_grant'
+                    """
                     await self.execute(delete_query, *lower_ids)
 
-            logger.info(f"[DB] remove_cards_by_ids removed {total_count} records.")
+            logger.info(f"[DB] remove_abused_top_tier_cards removed {total_count} non-pack abused/spawned records (pack pulls preserved).")
             return total_count
         except Exception as e:
-            logger.error(f"[DB] Error in remove_cards_by_ids: {e}", exc_info=True)
+            logger.error(f"[DB] Error in remove_abused_top_tier_cards: {e}", exc_info=True)
             return 0
+
+    async def remove_cards_by_ids(self, card_ids: List[str], exclude_user_id: Optional[Any] = None) -> int:
+        """Alias pointing to remove_abused_top_tier_cards."""
+        return await self.remove_abused_top_tier_cards(card_ids, exclude_user_id)
 
 
     async def get_user_vc(self, user_id: Any) -> int:

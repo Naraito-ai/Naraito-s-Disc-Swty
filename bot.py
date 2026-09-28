@@ -17123,11 +17123,12 @@ async def stripoverpoweredcards_slash_cmd(interaction: discord.Interaction):
         await ensure_sweety_ai_team(guild_id=interaction.guild_id)
         
         embed = discord.Embed(
-            title="🛡️ Overpowered Cards Purged",
+            title="🛡️ Overpowered Farmed Cards Purged",
             description=(
-                f"✅ Successfully purged **{purged:,}** overpowered cards (`97+ OVR` / Dark Matter & Galaxy Opal) from user binders.\n\n"
-                f"• Starting 5 lineups have been reset to prevent broken roster matchups.\n"
-                f"• All members will build fair squads from Diamond, Amethyst, Ruby, and Gold tiers."
+                f"✅ Successfully purged **{purged:,}** abused/spawned/traded cards (`97+ OVR` / Dark Matter & Galaxy Opal) from user binders.\n\n"
+                f"• 📦 **Pack Pulls Preserved**: Cards genuinely pulled from VC packs remain safe.\n"
+                f"• 🚫 **Abused Drops & Trades Removed**: Spawner abuse and unfair trade cards were purged.\n"
+                f"• 🏀 Starting 5 lineups have been reset for fair competitive play."
             ),
             color=discord.Color.gold()
         )
@@ -19971,11 +19972,12 @@ async def stripoverpoweredcards_prefix_cmd(ctx: commands.Context):
         await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None)
 
         embed = discord.Embed(
-            title="🛡️ Overpowered Cards Purged",
+            title="🛡️ Overpowered Farmed Cards Purged",
             description=(
-                f"✅ Successfully purged **{purged:,}** overpowered cards (`97+ OVR` / Dark Matter & Galaxy Opal) from user binders across the server.\n\n"
-                f"• Starting 5 lineups have been reset to prevent broken roster matchups.\n"
-                f"• All members will build fair squads from Diamond, Amethyst, Ruby, and Gold tiers."
+                f"✅ Successfully purged **{purged:,}** abused/spawned/traded cards (`97+ OVR` / Dark Matter & Galaxy Opal) from user binders across the server.\n\n"
+                f"• 📦 **Pack Pulls Preserved**: Cards genuinely pulled from VC packs remain safe.\n"
+                f"• 🚫 **Abused Drops & Trades Removed**: Spawner abuse and unfair trade cards were purged.\n"
+                f"• 🏀 Starting 5 lineups have been reset for fair competitive play."
             ),
             color=discord.Color.gold()
         )
