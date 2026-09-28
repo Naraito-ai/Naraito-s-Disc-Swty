@@ -6846,7 +6846,7 @@ class BuildTeamView(discord.ui.View):
             for uc in self.user_cards:
                 cid = uc.get("card_id", "").lower()
                 cobj = get_nba_card(cid)
-                if not cobj or cid in used_card_ids:
+                if not cobj or cobj["id"].lower() in used_card_ids:
                     continue
                 pname = cobj.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
                 if pname in used_player_names:
@@ -6893,41 +6893,55 @@ class BuildTeamView(discord.ui.View):
 
         # Build card selector for current_pos from owned cards only
         card_options = []
-        seen_cids = set()
+        seen_canonical_ids = set()
+        eligible_cards = []
         
         for uc in self.user_cards:
             cid = uc.get("card_id", "").lower()
-            if cid in seen_cids:
-                continue
             cobj = get_nba_card(cid)
             if not cobj:
                 continue
+            canonical_id = cobj["id"].lower()
+            if canonical_id in seen_canonical_ids:
+                continue
             if cobj.get("pos") == self.current_pos or cobj.get("sec_pos") == self.current_pos:
-                seen_cids.add(cid)
-                is_cur = self.picks.get(self.current_pos, {}).get("card_id", "").lower() == cobj["id"].lower()
-                tier_info = NBA_2K_TIERS.get(cobj["tier"], NBA_2K_TIERS["gold"])
-                
-                # Check if this player is currently equipped in another position
-                equipped_other_pos = None
-                pname_lower = cobj.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
-                for op, op_p in self.picks.items():
-                    op_clean = op_p.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
-                    if op != self.current_pos and op_clean == pname_lower:
-                        equipped_other_pos = op
-                        break
-
-                desc_suffix = f" • [Equipped at {equipped_other_pos}]" if equipped_other_pos else ""
-                card_desc = f"{cobj.get('theme', '2K Series')} • {cobj['tier'].title()} ({cobj['team']}){desc_suffix}"[:50]
-
-                card_options.append(discord.SelectOption(
-                    label=f"[{cobj['ovr']} OVR] {cobj['name']}",
-                    value=cobj["id"],
-                    description=card_desc,
-                    default=is_cur,
-                    emoji=tier_info["emoji"]
-                ))
+                seen_canonical_ids.add(canonical_id)
+                eligible_cards.append(cobj)
         
-        card_options.sort(key=lambda opt: (get_nba_card(opt.value) or {}).get("ovr", 0), reverse=True)
+        eligible_cards.sort(key=lambda c: c.get("ovr", 0), reverse=True)
+        
+        current_equipped_id = self.picks.get(self.current_pos, {}).get("card_id", "").lower()
+        has_default = False
+        
+        for cobj in eligible_cards[:25]:
+            is_cur = False
+            if not has_default and cobj["id"].lower() == current_equipped_id:
+                is_cur = True
+                has_default = True
+            
+            tier_info = NBA_2K_TIERS.get(cobj["tier"], NBA_2K_TIERS["gold"])
+            
+            # Check if this player is currently equipped in another position
+            equipped_other_pos = None
+            pname_lower = cobj.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
+            for op, op_p in self.picks.items():
+                op_clean = op_p.get("name", "").replace(" (Holo Foil)", "").replace("🌟 ", "").strip().lower()
+                if op != self.current_pos and op_clean == pname_lower:
+                    equipped_other_pos = op
+                    break
+
+            desc_suffix = f" • [Equipped at {equipped_other_pos}]" if equipped_other_pos else ""
+            tier_display = str(cobj.get('tier', 'gold')).replace('_', ' ').title()
+            team_display = str(cobj.get('team', 'NBA'))
+            card_desc = f"{cobj.get('theme', '2K Series')} • {tier_display} ({team_display}){desc_suffix}"[:50]
+
+            card_options.append(discord.SelectOption(
+                label=f"[{cobj.get('ovr', 85)} OVR] {cobj.get('name', 'Unknown')}"[:100],
+                value=cobj["id"],
+                description=card_desc,
+                default=is_cur,
+                emoji=tier_info.get("emoji", "🏀")
+            ))
 
         if not card_options:
             card_options.append(discord.SelectOption(
