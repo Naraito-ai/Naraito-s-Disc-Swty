@@ -11775,59 +11775,45 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "gold-herb-82": "https://upload.wikimedia.org/wikipedia/commons/e/eb/Herb_Jones.jpg"
 }
 
-NBA_HOLO_EDITION_MOMENT_URLS: Dict[str, str] = {
-    # ── 👑 ICONIC HOLO FOIL / BEST VERSION CHAMPIONSHIP MOMENTS ──────────────
-    "dm-jordan-99": "https://upload.wikimedia.org/wikipedia/commons/b/b3/Jordan_Lipofsky.jpg",
-    "dm-mj-99": "https://upload.wikimedia.org/wikipedia/commons/a/ae/Michael_Jordan_in_2014.jpg",
-    "dm-lebron-99": "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg",
-    "dm-lebron-98": "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg",
-    "dm-curry-99": "https://upload.wikimedia.org/wikipedia/commons/5/52/Stephen_Curry%2C_Olympic_Games_2024_%28cropped%29.jpg",
-    "go-curry-97": "https://upload.wikimedia.org/wikipedia/commons/5/52/Stephen_Curry%2C_Olympic_Games_2024_%28cropped%29.jpg",
-    "dm-kobe-99": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Kobe_Lakers_Parade.jpg",
-    "dm-wemby-99": "https://upload.wikimedia.org/wikipedia/commons/6/65/Victor_Wembanyama_San_Antonio_Spurs_2024.jpg",
-    "ruby-wemby-88": "https://upload.wikimedia.org/wikipedia/commons/6/65/Victor_Wembanyama_San_Antonio_Spurs_2024.jpg",
-    "dm-giannis-99": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg/1280px-Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg",
-    "dia-giannis-94": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg/1280px-Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg",
-    "go-tatum-98": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg",
-    "dia-tatum-94": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg",
-    "go-jokic-98": "https://upload.wikimedia.org/wikipedia/commons/6/69/Denver_Nuggets_2023_Championship_parade.png",
-    "go-jokic-97": "https://upload.wikimedia.org/wikipedia/commons/6/69/Denver_Nuggets_2023_Championship_parade.png",
-    "dm-kd-99": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Kevin_Durant%2C_Paris_2024_%28cropped%29.jpg",
-    "go-durant-96": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Kevin_Durant%2C_Paris_2024_%28cropped%29.jpg",
-    "go-luka-98": "https://upload.wikimedia.org/wikipedia/commons/b/be/Luka_Don%C4%8Di%C4%87_and_Marines%2C_2026_%28cropped%29.jpg",
-    "dia-ant-95": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg/1280px-Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg",
-    "amy-aedwards-90": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg/1280px-Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg",
-    "dia-sga-96": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg",
-    "dia-sga-95": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg",
-    "amy-brunson-92": "https://upload.wikimedia.org/wikipedia/commons/d/df/Cleveland_Cavaliers_vs._Dallas_Mavericks_%2851176485323%29_%28cropped%29.jpg",
-    "amy-jalen-89": "https://upload.wikimedia.org/wikipedia/commons/f/f2/Jalen_Brunson_2023_%28cropped%29.jpg",
-    "amy-zion-90": "https://upload.wikimedia.org/wikipedia/commons/5/53/Zion_Williamson_2020_%28cropped%29.jpg",
-    "ruby-zion-86": "https://upload.wikimedia.org/wikipedia/commons/5/53/Zion_Williamson_2020_%28cropped%29.jpg",
-    "ruby-maxey-87": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/1_tyrese_maxey_2026.jpg/1280px-1_tyrese_maxey_2026.jpg",
-    "amy-tymax-90": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/1_tyrese_maxey_2026.jpg/1280px-1_tyrese_maxey_2026.jpg",
+NBA_TIER_EXCLUSIVE_IMAGE_URLS: Dict[str, str] = {
+    # 🟡 Gold — basic in-game action shot, nothing special
+    "gold": "https://upload.wikimedia.org/wikipedia/commons/4/45/Alex_Caruso.jpg",
+    # 🔴 Ruby — close-up mid-game intensity, defense or hustle play
+    "ruby": "https://upload.wikimedia.org/wikipedia/commons/0/09/Tyrese_Maxey_%2851782280104%29_%28cropped%29.jpg",
+    # 🔮 Amethyst — close-up after a big shot, fist pump, hyped reaction
+    "amethyst": "https://upload.wikimedia.org/wikipedia/commons/f/f2/Jalen_Brunson_2023_%28cropped%29.jpg",
+    # 💎 Diamond — iconic clutch moment, game-winner celebration, screaming
+    "diamond": "https://upload.wikimedia.org/wikipedia/commons/5/52/Stephen_Curry%2C_Olympic_Games_2024_%28cropped%29.jpg",
+    # ✨ Galaxy Opal — legendary close-up, Finals moment, trophy celebration
+    "galaxy_opal": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg",
+    # 🌌 Dark Matter — the single most iconic NBA image ever (Michael Jordan iconic Lipofsky)
+    "dark_matter": "https://upload.wikimedia.org/wikipedia/commons/b/b3/Jordan_Lipofsky.jpg",
+    # 🌟 Holo Foil (Fused) — shiny, celebratory, rare trophy & confetti celebration moment
+    "holo_foil": "https://upload.wikimedia.org/wikipedia/commons/6/69/Denver_Nuggets_2023_Championship_parade.png",
 }
 
 _NBA_LOCAL_MOMENTS_MAP: Dict[str, str] = {}
 _NBA_PLAYER_MOMENT_CACHE: Dict[str, Image.Image] = {}
 
 def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]] = None) -> Optional[Image.Image]:
-    """Resolves and loads an authentic, tier-specific Wikipedia / Wikimedia match moment action photo
-    for any NBA player and card tier, caching locally in assets/player_moments/.
-    For Fused (Holo Foil) cards, dynamically resolves the highest tier / best version photo for the player."""
-    global _NBA_LOCAL_MOMENTS_MAP, _NBA_PLAYER_MOMENT_CACHE
+    """Resolves and loads the authentic, tier-specific Wikipedia / Wikimedia match moment action photo
+    for each tier:
+    - Gold: basic in-game action shot
+    - Ruby: close-up mid-game intensity, defense or hustle play
+    - Amethyst: close-up after a big shot, fist pump, hyped reaction
+    - Diamond: iconic clutch moment, game-winner celebration, screaming
+    - Galaxy Opal: legendary close-up, Finals moment, trophy celebration
+    - Dark Matter: the single most iconic NBA image ever (Michael Jordan Lipofsky)
+    - Fused (Holo Foil): unique shiny celebratory trophy & confetti shower moment"""
+    global _NBA_PLAYER_MOMENT_CACHE
     if not player_name and not card:
         return None
 
     is_holo = bool(card.get("is_holo") or str(card.get("id", "")).startswith("holo_")) if card else False
-    raw_cid = str(card.get("id", "")).lower().strip() if card else ""
-    base_cid = raw_cid.replace("holo_", "").replace("holo-", "").strip()
-    tier = str(card.get("tier", "")).lower().strip() if card else ""
-    name_str = (card.get("name") if card else player_name) or player_name
-    name_clean = name_str.replace("🌟", "").replace("(Holo Foil)", "").replace("(Holo)", "").replace("(Foil)", "").strip()
-    clean_q = unicodedata.normalize('NFKD', name_clean).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
-    raw_norm = name_clean.lower().strip()
+    tier = str(card.get("tier", "gold")).lower().strip() if card else "gold"
 
-    cache_key = f"holo_{base_cid}" if (is_holo and base_cid) else f"holo_{clean_q}" if is_holo else f"{base_cid}" if base_cid else f"{clean_q}_{tier}" if tier else clean_q
+    key = "holo_foil" if is_holo else tier
+    cache_key = f"tier_exclusive_{key}"
 
     # 1. Check in-memory cache
     if cache_key in _NBA_PLAYER_MOMENT_CACHE:
@@ -11836,7 +11822,7 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
     # 2. Check disk cache in assets/player_moments/
     cache_dir = os.path.join(os.path.dirname(__file__), "assets", "player_moments")
     os.makedirs(cache_dir, exist_ok=True)
-    safe_fname = re.sub(r'[^a-zA-Z0-9_-]', '_', cache_key) + ".jpg"
+    safe_fname = f"{cache_key}.jpg"
     local_path = os.path.join(cache_dir, safe_fname)
 
     if os.path.exists(local_path) and os.path.getsize(local_path) > 1000:
@@ -11847,44 +11833,9 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
         except Exception:
             pass
 
-    # 3. Lookup in Card-Specific Moment URLs first, then Player Moment URLs
-    action_url = None
-    if is_holo:
-        # Check explicit Holo Edition moment URL
-        action_url = (
-            NBA_HOLO_EDITION_MOMENT_URLS.get(base_cid)
-            or NBA_HOLO_EDITION_MOMENT_URLS.get(clean_q)
-            or NBA_HOLO_EDITION_MOMENT_URLS.get(raw_norm)
-        )
-        if not action_url:
-            # Dynamically find the highest OVR ("best version") card for this player in the entire catalog
-            best_card = None
-            for c in NBA_2K_MOBILE_CARDS:
-                c_clean = unicodedata.normalize('NFKD', c["name"]).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
-                if c_clean == clean_q or c["name"].lower().strip() == raw_norm:
-                    if best_card is None or c.get("ovr", 0) > best_card.get("ovr", 0):
-                        best_card = c
-            if best_card:
-                best_id = best_card["id"].lower()
-                action_url = NBA_CARD_SPECIFIC_MOMENT_URLS.get(best_id)
-
-    if not action_url:
-        action_url = NBA_CARD_SPECIFIC_MOMENT_URLS.get(base_cid)
-    if not action_url:
-        combo_key = f"{clean_q}_{tier}"
-        action_url = NBA_CARD_SPECIFIC_MOMENT_URLS.get(combo_key)
-    if not action_url:
-        action_url = NBA_PLAYER_MOMENT_ACTION_URLS.get(raw_norm) or NBA_PLAYER_MOMENT_ACTION_URLS.get(clean_q)
-    if not action_url:
-        for k, u in NBA_PLAYER_MOMENT_ACTION_URLS.items():
-            if k in clean_q or clean_q in k or k in raw_norm:
-                action_url = u
-                break
-    if not action_url and tier:
-        action_url = TIER_DEFAULT_ACTION_URLS.get(tier)
-
+    # 3. Retrieve tier-exclusive image URL
+    action_url = NBA_TIER_EXCLUSIVE_IMAGE_URLS.get(key, NBA_TIER_EXCLUSIVE_IMAGE_URLS.get("gold"))
     if action_url:
-        # Strip tracking query strings
         clean_url = action_url.split("?")[0]
         try:
             req = urllib.request.Request(
@@ -11905,7 +11856,9 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
                 _NBA_PLAYER_MOMENT_CACHE[cache_key] = img
                 return img
         except Exception as dl_err:
-            logger.debug(f"Could not fetch player moment photo for {name_str} ({tier}) from {clean_url}: {dl_err}")
+            logger.debug(f"Could not fetch tier moment photo for {key} from {clean_url}: {dl_err}")
+
+    return None
 
 
     # 4. Fallback to assets/moments/ directory if present
@@ -12547,12 +12500,10 @@ def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Di
         inline=False
     )
     
-    # Use the verified Wikimedia moment photo URL for the card image
-    verified_url = (
-        NBA_CARD_SPECIFIC_MOMENT_URLS.get(card.get("id", "").lower())
-        or NBA_PLAYER_MOMENT_ACTION_URLS.get(card.get("name", "").lower())
-        or card.get("image_url")
-    )
+    # Use the verified tier-exclusive Wikimedia moment photo URL
+    is_holo = bool(card.get("is_holo") or str(card.get("id", "")).startswith("holo_"))
+    tier_key = "holo_foil" if is_holo else str(card.get("tier", "gold")).lower().strip()
+    verified_url = NBA_TIER_EXCLUSIVE_IMAGE_URLS.get(tier_key, NBA_TIER_EXCLUSIVE_IMAGE_URLS.get("gold"))
     if verified_url:
         embed.set_image(url=verified_url.split("?")[0])
 
@@ -19267,11 +19218,9 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
             ),
             color=tier_info["color"]
         )
-        verified_thumb = (
-            NBA_CARD_SPECIFIC_MOMENT_URLS.get(card_obj.get("id", "").lower())
-            or NBA_PLAYER_MOMENT_ACTION_URLS.get(card_obj.get("name", "").lower())
-            or card_obj.get("image_url")
-        )
+        is_holo = bool(card_obj.get("is_holo") or str(card_obj.get("id", "")).startswith("holo_"))
+        tier_key = "holo_foil" if is_holo else str(card_obj.get("tier", "gold")).lower().strip()
+        verified_thumb = NBA_TIER_EXCLUSIVE_IMAGE_URLS.get(tier_key, NBA_TIER_EXCLUSIVE_IMAGE_URLS.get("gold"))
         if verified_thumb:
             embed.set_thumbnail(url=verified_thumb.split("?")[0])
         embed.set_footer(text=f"Gifted by {interaction.user.display_name} • Check binder with /nbadex")
@@ -23020,11 +22969,9 @@ async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, c
             ),
             color=tier_info["color"]
         )
-        verified_thumb = (
-            NBA_CARD_SPECIFIC_MOMENT_URLS.get(card_obj.get("id", "").lower())
-            or NBA_PLAYER_MOMENT_ACTION_URLS.get(card_obj.get("name", "").lower())
-            or card_obj.get("image_url")
-        )
+        is_holo = bool(card_obj.get("is_holo") or str(card_obj.get("id", "")).startswith("holo_"))
+        tier_key = "holo_foil" if is_holo else str(card_obj.get("tier", "gold")).lower().strip()
+        verified_thumb = NBA_TIER_EXCLUSIVE_IMAGE_URLS.get(tier_key, NBA_TIER_EXCLUSIVE_IMAGE_URLS.get("gold"))
         if verified_thumb:
             embed.set_thumbnail(url=verified_thumb.split("?")[0])
         embed.set_footer(text=f"Gifted by {ctx.author.display_name} • Check binder with !nbadex")
