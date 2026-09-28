@@ -108,24 +108,31 @@ Sweety features a card collection game inspired by **NBA 2K Mobile MyTEAM**:
 
 ## 📋 Complete Command Reference
 
-### 🏀 NBA 2K Mobile Commands
+### 🏀 NBA 2K Mobile & 3PT Shootout Commands
 | Slash Command | Prefix Command | Description |
 | :--- | :--- | :--- |
-| `/nbadex [user] [tier] [page]` | `!nbadex` | Open paginated card binder with tier filters |
+| `/shootout [bet]` | `!shootout` / `!3pt` | Play fast-paced NBA All-Star 3-Point Contest (5 racks, Money/Starry balls) |
+| `/shootout duel @user [bet]` | `!shootout @user [bet]` | Challenge another user to a live 1v1 3-Point Shootout showdown |
+| — | `!shootout lb` / `!3pt lb` | View global 3-Point Shootout high scores leaderboard |
+| `/nbadex [user] [tier] [page]` | `!nbadex` | Open paginated card binder with tier filters & 🔒 Privacy Toggle |
+| `/nbaprivacy` | `!nbaprivacy` | Toggle public/private visibility for your NBA card binder |
+| `/giftcard @user <card_id>` | `!giftcard @user <id>` | Gift an owned NBA card from your binder to another member |
 | `/buildteam` | `!buildteam` | Open interactive Lineup Builder to set Starting 5 from binder |
 | `/myteam [user]` | `!myteam` | Generate high-res 1600x960 2K Starting 5 image card |
 | `/teambattle <user>` | `!teambattle` | Challenge a member to a 5-round tactical NBA showdown |
+| `/vcbet @user <amount>` | `!vcbet @user <amount>` | Wager VC on a 5v5 Starting 5 clash (winner takes pot) |
 | `/teamqueue` | `!teamqueue` | Join auto-matchmaking queue for live NBA battles |
 | `/dailynba` | `!dailynba` | Challenge today's featured daily NBA Boss squad |
 | `/nbacard <id_or_name>` | `!nbacard` | Inspect full 2K card ratings, badges, and quick-sell value |
-| `/nbashop` | `!nbashop` | Open 2K pack store to buy card packs with VC |
-| `/nbabuy <pack>` | `!nbabuy` | Purchase Starter, All-Star, MVP, or GOAT card packs |
+| `/openpack [tier]` | `!openpack [tier]` | Open Standard, Premium, Deluxe, Opal & End Game card packs |
+| `/packodds` | `!packodds` | View transparent card pack drop rates and tier probabilities |
 | `/nbasell <card_id>` | `!nbasell` | Quick-sell owned duplicate cards for VC |
 | `/nbadaily` | `!nbadaily` | Claim daily VC salary reward |
 | `/nbabal [user]` | `!nbabal` | Check your current VC balance and card count |
-| `/nbatrade <user> <your_card> <their_card>` | `!nbatrade` | Propose secure atomic 2-way card trade |
-| `/teamtop [limit]` | `!teamtop` | View top GMs by battle wins and win streaks |
-| `/nbaleaderboard [limit]` | `!nbaleaderboard`| View server leaderboard by card collection size |
+| `/nbatrade @user <card_id>` | `!nbatrade` | Propose secure atomic multi-card trade |
+| `/teamtop [limit]` | `!teamtop` / `!teamlb` | View top GMs by battle wins and win streaks |
+| `/nbatop [cards\|vc]` | `!nbatop [cards\|vc]` | View server leaderboard by card collection size or VC |
+| `/spawndrop [tier]` | `!spawndrop` | Trigger wild player card drops |
 | `/nbahint` | `!nbahint` | Reveal an additional letter hint for active wild drop |
 | `/nbastatus` | `!nbastatus` | Check chat message drop counter and spawn status |
 | `/nbaswitch` | `!nbaswitch` | Set default channel for wild NBA drops |

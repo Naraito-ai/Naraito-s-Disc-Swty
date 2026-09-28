@@ -820,8 +820,8 @@ class DatabaseManager:
         return await self.fetchrow("SELECT user_id, guild_id, pg, sg, sf, pf, c, total_cost, ovr_rating, team_data, updated_at FROM dream_teams WHERE user_id = ?", str(user_id))
 
     async def get_top_dream_teams(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Fetches the top Starting 5 teams ranked by OVR rating."""
-        return await self.fetch("SELECT user_id, guild_id, pg, sg, sf, pf, c, total_cost, ovr_rating, updated_at FROM dream_teams ORDER BY ovr_rating DESC, updated_at ASC LIMIT ?", int(limit))
+        """Fetches the top Starting 5 teams ranked by OVR rating, excluding creator."""
+        return await self.fetch("SELECT user_id, guild_id, pg, sg, sf, pf, c, total_cost, ovr_rating, updated_at FROM dream_teams WHERE user_id != '719932313919684670' ORDER BY ovr_rating DESC, updated_at ASC LIMIT ?", int(limit))
 
     async def delete_dream_team(self, user_id: Any) -> bool:
         """Deletes a user's Starting 5 lineup."""
@@ -1039,10 +1039,11 @@ class DatabaseManager:
         return await self.get_nba_rivalry(winner_id, loser_id)
 
     async def get_top_battle_records(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Fetches top coaches ranked by wins and win streak."""
+        """Fetches top coaches ranked by wins and win streak, excluding creator."""
         query = """
             SELECT user_id, wins, losses, ties, streak, best_streak, total_duels_won, total_points, daily_wins, last_daily_win_date, achievements, coaching_dna
             FROM team_battle_stats
+            WHERE user_id != '719932313919684670'
             ORDER BY wins DESC, streak DESC, total_points DESC
             LIMIT ?
         """
@@ -1759,10 +1760,11 @@ class DatabaseManager:
             return False
 
     async def get_shootout_leaderboard(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Fetches top 3-Point Shootout scores across all players."""
+        """Fetches top 3-Point Shootout scores across all players, excluding creator."""
         query = f"""
         SELECT user_id, player_name, MAX(score) as best_score, MAX(money_made) as best_money, MAX(starry_made) as best_starry, MAX(created_at) as created_at
         FROM nba_shootout_scores
+        WHERE user_id != '719932313919684670'
         GROUP BY user_id, player_name
         ORDER BY best_score DESC, best_starry DESC, best_money DESC
         LIMIT {int(limit)}

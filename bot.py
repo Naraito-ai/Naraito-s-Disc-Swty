@@ -15437,15 +15437,16 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     """Builds categorical and global help guide embeds with all features."""
     if category == "nba_2k":
         embed = discord.Embed(
-            title="🏀 NBA 2K Mobile Card Dex & Economy Commands",
-            description="Collect authentic NBA 2K Mobile player cards, open packs, earn VC currency, and catch wild court drops!",
+            title="🏀 NBA 2K Mobile Card Dex, Shootout & Economy Commands",
+            description="Collect authentic NBA 2K Mobile player cards, open packs, compete in 3-Point Shootouts, earn VC, and catch wild court drops!",
             color=discord.Color.from_rgb(235, 94, 40)
         )
         embed.add_field(
             name="📦 **Packs & Drops**",
             value=(
                 "• `/spawndrop [tier]` / `!spawndrop` — Instantly spawn a wild NBA 2K card drop on the court\n"
-                "• `/openpack [tier]` / `!openpack` — Open Standard (1.5k VC), Premium (3.5k VC), Deluxe (7.5k VC), or Galaxy Opal (15k VC) packs\n"
+                "• `/openpack [tier]` / `!openpack` — Open Standard, Premium, Deluxe, Opal & End Game packs\n"
+                "• `/packodds` / `!packodds` — View exact pack drop rates and card tier odds\n"
                 "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops in chat\n"
                 "• `/nbahint` / `!nbahint` — Reveal progressive letter hints for active wild court drops"
             ),
@@ -15454,9 +15455,20 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed.add_field(
             name="📖 **Binder & Inventory**",
             value=(
-                "• `/nbadex [page]` / `!nbadex` — Open your interactive NBA 2K Mobile Card Binder & Dex\n"
+                "• `/nbadex [page]` / `!nbadex` — Open your interactive NBA 2K Card Binder (includes 🔒 Privacy Toggle)\n"
+                "• `/nbaprivacy` / `!nbaprivacy` — Toggle public/private visibility for your card dex\n"
                 "• `/nbacard <card_id>` / `!nbacard` — View high-res 2K card stats, tier, OVR rating & attributes\n"
-                "• `/nbafav <card_id>` / `!nbafav` — Set your favorite showcase card on your profile"
+                "• `/nbafav <card_id>` / `!nbafav` — Set your favorite showcase card on your profile\n"
+                "• `/giftcard @user <card_id>` / `!giftcard` — Gift an owned card to another member"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🎯 **3-Point Shootout Contest**",
+            value=(
+                "• `/shootout [bet]` / `!shootout` / `!3pt` — Play fast-paced NBA 3-Point Contest (5 racks, Money & Starry balls)\n"
+                "• `/shootout duel @user [bet]` / `!shootout @user` — Challenge a friend to a live 1v1 3PT shootout wager\n"
+                "• `!shootout lb` / `!3pt lb` — View global 3-Point Shootout high scores leaderboard"
             ),
             inline=False
         )
@@ -15466,8 +15478,8 @@ def make_help_embed(category: str = "all") -> discord.Embed:
                 "• `/nbadaily` / `!nbadaily` — Claim daily VC bonus and keep your Court Pass streak active\n"
                 "• `/nbabal [@user]` / `!nbabal` — Check your current VC wallet balance & pack stats\n"
                 "• `/nbasell <card_id>` / `!nbasell` — Sell duplicate or unwanted cards for instant VC\n"
-                "• `/nbatrade @user <card_id>` / `!nbatrade` — Secure peer-to-peer card trading\n"
-                "• `/nbatop` / `!nbatop` — Server leaderboards for top VC tycoons and card collectors"
+                "• `/nbatrade @user <card_id>` / `!nbatrade` — Secure multi-card trading system\n"
+                "• `/nbatop [cards|vc]` / `!nbatop` — Server leaderboards for top VC tycoons and card collectors"
             ),
             inline=False
         )
@@ -15476,8 +15488,8 @@ def make_help_embed(category: str = "all") -> discord.Embed:
 
     elif category == "dream_team":
         embed = discord.Embed(
-            title="🏆 NBA 2K Starting 5 GM & Matchmaking",
-            description="Build your 5-man fantasy lineup from your card binder and battle other managers in live matchmaking!",
+            title="🏆 NBA 2K Starting 5 GM, Battles & VC Wagering",
+            description="Build your 5-man fantasy lineup from your card binder and battle other managers in live matchmaking & high-stakes wagers!",
             color=discord.Color.gold()
         )
         embed.add_field(
@@ -15490,10 +15502,11 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             inline=False
         )
         embed.add_field(
-            name="⚔️ **Matchmaking & Battles**",
+            name="⚔️ **Matchmaking, Battles & VC Wagers**",
             value=(
                 "• `/teamqueue` / `!teamqueue` — Enter the live matchmaking arena queue to battle random players\n"
                 "• `/teambattle <user>` / `!teambattle` — Challenge any server member to a head-to-head 5v5 showdown\n"
+                "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 Starting 5 clash (winner takes pot)\n"
                 "• `/teamleaderboard` / `!teamlb` — View server top-ranked Starting 5s and GM ratings"
             ),
             inline=False
@@ -15619,26 +15632,38 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         value=(
             "• `/spawndrop [tier]` / `!spawndrop` — Trigger wild player card drops\n"
             "• `/openpack [tier]` / `!openpack` — Open Standard, Premium, Deluxe & Opal packs\n"
-            "• `/nbadex [page]` / `!nbadex` — Open 2K Mobile Card Binder & Dex collection\n"
+            "• `/packodds` / `!packodds` — View exact pack drop rates & card tier odds\n"
+            "• `/nbadex [page]` / `!nbadex` — Open 2K Card Binder (includes 🔒 Privacy Toggle)\n"
+            "• `/nbaprivacy` / `!nbaprivacy` — Toggle public/private visibility for your dex\n"
             "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops\n"
             "• `/nbahint` / `!nbahint` — Reveal masked name hints for active court spawns\n"
             "• `/nbacard <id>` / `!nbacard` — High-res visual card stats, tier & attributes\n"
             "• `/nbadaily` / `!nbadaily` — Daily VC currency & Court Pass streak bonus\n"
             "• `/nbabal [@user]` / `!nbabal` — VC balance & pack opening statistics\n"
             "• `/nbasell <id>` / `!nbasell` — Sell duplicate cards for VC payout\n"
-            "• `/nbatrade @user <id>` / `!nbatrade` — Secure peer-to-peer card trading\n"
-            "• `/nbatop` / `!nbatop` — Leaderboards for top VC tycoons & card collectors"
+            "• `/nbatrade @user <id>` / `!nbatrade` — Secure multi-card trading\n"
+            "• `/nbatop [cards|vc]` / `!nbatop` — Leaderboards for top collectors & VC tycoons"
         ),
         inline=False
     )
     embed.add_field(
-        name="🏆 **NBA 2K Starting 5 GM & Battles**",
+        name="🎯 **NBA All-Star 3-Point Shootout**",
+        value=(
+            "• `/shootout [bet]` / `!shootout` / `!3pt` — Play 3-Point Contest (5 racks, Money & Starry balls)\n"
+            "• `/shootout duel @user [bet]` / `!shootout @user` — 1v1 live 3PT shootout duel with VC wagers\n"
+            "• `!shootout lb` / `!3pt lb` — View global 3-Point Shootout high scores leaderboard"
+        ),
+        inline=False
+    )
+    embed.add_field(
+        name="🏆 **NBA 2K Starting 5 GM, Battles & Wagering**",
         value=(
             "• `/buildteam` / `!buildteam` — Interactive GM Lineup Builder from Card Binder\n"
             "• `/myteam [user]` / `!myteam` — Squad card, win streaks & GM badges\n"
             "• `/teamqueue` / `!teamqueue` — Live matchmaking queue & battles\n"
-            "• `/teambattle <user>` / `!teambattle` — Card battle simulator\n"
-            "• `/teamleaderboard` / `!teamlb` — View top-rated GM Starting 5s\n"
+            "• `/teambattle <user>` / `!teambattle` — 5v5 tactical card battle simulator\n"
+            "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 team battle\n"
+            "• `/teamleaderboard` / `!teamlb` — View top-rated GM Starting 5s & records\n"
             "• `/setupnbachannel` — Create dedicated arena channel in 2K Mobile Hub"
         ),
         inline=False
@@ -17878,7 +17903,7 @@ async def nbatop_slash_cmd(interaction: discord.Interaction, category: Optional[
         await interaction.response.defer()
         cat = category or "cards"
         if cat == "vc":
-            query = "SELECT user_id, vc_balance, cards_claimed FROM user_nba_economy ORDER BY vc_balance DESC LIMIT 10"
+            query = "SELECT user_id, vc_balance, cards_claimed FROM user_nba_economy WHERE user_id != '719932313919684670' ORDER BY vc_balance DESC LIMIT 10"
             rows = await db.fetch(query)
             embed = discord.Embed(
                 title="🏆 NBA 2K Mobile • VC Millionaires Leaderboard",
@@ -17895,6 +17920,7 @@ async def nbatop_slash_cmd(interaction: discord.Interaction, category: Optional[
             query = """
             SELECT user_id, COUNT(*) as total_cards, COUNT(DISTINCT card_id) as unique_cards
             FROM user_nba_cards
+            WHERE user_id != '719932313919684670'
             GROUP BY user_id
             ORDER BY total_cards DESC
             LIMIT 10
@@ -21496,7 +21522,7 @@ async def nbatop_prefix_cmd(ctx: commands.Context, category: Optional[str] = "ca
     try:
         cat = (category or "cards").lower().strip()
         if cat == "vc":
-            query = "SELECT user_id, vc_balance, cards_claimed FROM user_nba_economy ORDER BY vc_balance DESC LIMIT 10"
+            query = "SELECT user_id, vc_balance, cards_claimed FROM user_nba_economy WHERE user_id != '719932313919684670' ORDER BY vc_balance DESC LIMIT 10"
             rows = await db.fetch(query)
             embed = discord.Embed(
                 title="🏆 NBA 2K Mobile • VC Millionaires Leaderboard",
@@ -21513,6 +21539,7 @@ async def nbatop_prefix_cmd(ctx: commands.Context, category: Optional[str] = "ca
             query = """
             SELECT user_id, COUNT(*) as total_cards, COUNT(DISTINCT card_id) as unique_cards
             FROM user_nba_cards
+            WHERE user_id != '719932313919684670'
             GROUP BY user_id
             ORDER BY total_cards DESC
             LIMIT 10
