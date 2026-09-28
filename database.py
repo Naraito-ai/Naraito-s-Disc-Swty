@@ -1552,6 +1552,37 @@ class DatabaseManager:
             logger.error(f"Error granting bulk NBA cards to {u}: {e}")
             return 0
 
+    async def remove_cards_by_ids(self, card_ids: List[str], exclude_user_id: Optional[Any] = None) -> int:
+        """Removes all copies of specific card IDs from user_nba_cards across the database (optional user exclusion)."""
+        if not card_ids:
+            return 0
+        try:
+            placeholders = ", ".join(["?"] * len(card_ids))
+            lower_ids = [str(cid).strip().lower() for cid in card_ids]
+            
+            if exclude_user_id:
+                count_query = f"SELECT COUNT(*) as cnt FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders}) AND user_id != ?"
+                params = lower_ids + [str(exclude_user_id)]
+                count_rows = await self.fetch(count_query, *params)
+                total_count = count_rows[0]["cnt"] if count_rows and "cnt" in count_rows[0] else 0
+                if total_count > 0:
+                    delete_query = f"DELETE FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders}) AND user_id != ?"
+                    await self.execute(delete_query, *params)
+            else:
+                count_query = f"SELECT COUNT(*) as cnt FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders})"
+                count_rows = await self.fetch(count_query, *lower_ids)
+                total_count = count_rows[0]["cnt"] if count_rows and "cnt" in count_rows[0] else 0
+                if total_count > 0:
+                    delete_query = f"DELETE FROM user_nba_cards WHERE LOWER(card_id) IN ({placeholders})"
+                    await self.execute(delete_query, *lower_ids)
+
+            logger.info(f"[DB] remove_cards_by_ids removed {total_count} records.")
+            return total_count
+        except Exception as e:
+            logger.error(f"[DB] Error in remove_cards_by_ids: {e}", exc_info=True)
+            return 0
+
+
     async def get_user_vc(self, user_id: Any) -> int:
         """Gets user's current VC (Virtual Currency) balance."""
         query = "SELECT vc_balance FROM user_nba_economy WHERE user_id = ?"

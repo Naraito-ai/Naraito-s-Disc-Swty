@@ -9179,17 +9179,52 @@ _active_nba_drops: Dict[int, Dict[str, Any]] = {}
 _nba_drop_msg_counts: Dict[int, int] = {}
 _nba_drop_last_timestamps: Dict[int, float] = {}
 _guild_last_active_channels: Dict[int, int] = {}
+_staff_daily_spawns: Dict[int, List[float]] = {}
 
 IGNORED_DROP_CHANNEL_KEYWORDS = {
     "welcome", "rules", "announcement", "announcements", "log", "logs", 
     "mod-log", "mod-logs", "audit", "bot-log", "bot-logs", "ticket", 
     "tickets", "appeals", "strike-appeal", "goodbye", "leave", "leaves", 
-    "verify", "verification", "roles", "reaction-roles", "landing", "info", "guidelines"
+    "verify", "verification", "roles", "reaction-roles", "landing", "info", "guidelines",
+    "staff", "admin", "mod", "mods", "private", "secret", "owner", "dev"
 }
 
+def is_public_community_channel(channel: Optional[discord.abc.GuildChannel]) -> bool:
+    """Checks whether the channel is visible and writeable by @everyone (prevents drops in private rooms)."""
+    if not channel or not isinstance(channel, discord.TextChannel) or not channel.guild:
+        return False
+    default_role = channel.guild.default_role
+    perms = channel.permissions_for(default_role)
+    return bool(perms.view_channel and perms.send_messages)
+
+def is_server_owner_or_creator(user: Union[discord.Member, discord.User], guild: Optional[discord.Guild] = None) -> bool:
+    """Checks if a user is the server owner or bot creator."""
+    if is_protected(user) or user.id in [908581177694900224, 769577908973699072, 719932313919684670]:
+        return True
+    if guild and user.id == getattr(guild, "owner_id", None):
+        return True
+    return False
+
+def check_staff_daily_spawn_limit(user_id: int, is_owner: bool) -> Tuple[bool, int, int]:
+    """Enforces max 2 manual spawns per staff member per 24 hours. Owners/creators bypass."""
+    if is_owner:
+        return (True, 0, 999)
+    now = time.time()
+    day_ago = now - 86400  # 24-hour rolling window
+    spawns = [ts for ts in _staff_daily_spawns.get(user_id, []) if ts > day_ago]
+    MAX_STAFF_SPAWNS = 2
+    if len(spawns) >= MAX_STAFF_SPAWNS:
+        _staff_daily_spawns[user_id] = spawns
+        return (False, len(spawns), MAX_STAFF_SPAWNS)
+    spawns.append(now)
+    _staff_daily_spawns[user_id] = spawns
+    return (True, len(spawns), MAX_STAFF_SPAWNS)
+
 def is_valid_drop_channel(channel: Optional[discord.abc.GuildChannel], allow_system: bool = False) -> bool:
-    """Checks if a channel is appropriate for NBA card drops (not a welcome/rules/log channel)."""
+    """Checks if a channel is appropriate for NBA card drops (not a welcome/rules/log channel, and must be public)."""
     if not channel or not isinstance(channel, discord.TextChannel):
+        return False
+    if not is_public_community_channel(channel):
         return False
     if not channel.permissions_for(channel.guild.me).send_messages:
         return False
@@ -11579,23 +11614,26 @@ def build_trade_embed(sender_user: discord.User, target_user: discord.User, card
     list_b = [card_b] if card_b else []
     return build_multi_trade_embed(sender_user, target_user, list_a, list_b, status=status)
 
-def build_nba_drop_embed(card: Dict[str, Any], hint_level: int = 1) -> discord.Embed:
+def build_nba_drop_embed(card: Dict[str, Any], hint_level: int = 1, spawner: Optional[Union[discord.Member, discord.User]] = None) -> discord.Embed:
     """Builds a clean, concise mystery card drop embed."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
     hint_str = generate_player_hint(card["name"], hint_level)
+    host_line = f"\n• 👑 **Hosted By:** {spawner.mention} *(Host disqualified from catching)*" if spawner else ""
+    footer_text = "NBA 2K Mobile Spawns • First to guess catches card + 150 VC! • Event host cannot claim" if spawner else "NBA 2K Mobile Spawns • First to guess catches the card + 150 VC!"
     embed = discord.Embed(
-        title="🏀 A wild NBA 2K card appeared!",
+        title="🏀 A wild NBA 2K card appeared!" if not spawner else f"🏀 Special NBA Card Drop Hosted by {spawner.display_name}!",
         description=(
             f"Guess the player name to catch this card!\n\n"
             f"• **Type:** `!catch <name>` or guess in chat\n"
             f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
             f"• **Position:** `{card['pos']}` | **Team:** `{card['team']}`\n"
             f"• **Hint:** `{hint_str}`"
+            f"{host_line}"
         ),
         color=tier_info["color"]
     )
     embed.set_image(url="attachment://nba_card.png")
-    embed.set_footer(text="NBA 2K Mobile Spawns • First to guess catches the card + 150 VC!")
+    embed.set_footer(text=footer_text)
     embed.timestamp = discord.utils.utcnow()
     return embed
 
@@ -11620,7 +11658,11 @@ def build_catch_success_embed(user: discord.User, card: Dict[str, Any], new_bal:
     return embed
 
 
-async def spawn_nba_card_drop(channel: discord.TextChannel, requested_tier: Optional[str] = None) -> Optional[discord.Message]:
+async def spawn_nba_card_drop(
+    channel: discord.TextChannel,
+    requested_tier: Optional[str] = None,
+    spawner: Optional[Union[discord.Member, discord.User]] = None
+) -> Optional[discord.Message]:
     """Spawns an authentic NBA 2K Mobile wild card drop with card graphic in the specified text channel."""
     now_drop_ts = time.time()
     if requested_tier and requested_tier.lower() in NBA_2K_TIERS:
@@ -11645,7 +11687,9 @@ async def spawn_nba_card_drop(channel: discord.TextChannel, requested_tier: Opti
         "channel_id": channel.id,
         "guild_id": channel.guild.id,
         "spawned_at": now_drop_ts,
-        "hints_used": 1
+        "hints_used": 1,
+        "spawner_id": spawner.id if spawner else None,
+        "spawner_name": spawner.display_name if spawner else None
     }
     _active_nba_drops[channel.id] = drop_info
     _active_nba_drops[channel.guild.id] = drop_info
@@ -11654,7 +11698,7 @@ async def spawn_nba_card_drop(channel: discord.TextChannel, requested_tier: Opti
     card_buf = generate_nba_card_graphic(drop_card, is_mystery=True)
     card_file = discord.File(fp=card_buf, filename="nba_card.png")
     
-    drop_embed = build_nba_drop_embed(drop_card, 1)
+    drop_embed = build_nba_drop_embed(drop_card, 1, spawner=spawner)
     drop_view = NBAChatDropView(drop_card, drop_id, channel.id)
     drop_msg = await channel.send(embed=drop_embed, file=card_file, view=drop_view)
     drop_info["message"] = drop_msg
@@ -12458,6 +12502,9 @@ class NBAChatDropView(discord.ui.View):
         if not drop:
             await interaction.response.send_message("❌ There is no active wild card drop right now.", ephemeral=True)
             return
+        if drop.get("spawner_id") and interaction.user.id == drop.get("spawner_id"):
+            await interaction.response.send_message("❌ **Host Disqualified**: You spawned/hosted this card drop! As the event host, you cannot claim it—leave it for other server members to catch!", ephemeral=True)
+            return
         if drop.get("claimed"):
             claimed_by = drop.get("claimed_by_name", "another player")
             await interaction.response.send_message(f"❌ **Too slow!** This player was already caught by **{claimed_by}**!", ephemeral=True)
@@ -12504,6 +12551,11 @@ async def handle_catch_attempt(
 
         if not drop:
             await _send_ephemeral("❌ There is no active wild NBA card drop in this channel right now. Keep chatting to spawn one!")
+            return
+
+        # Check if spawner is attempting to claim their own manual drop
+        if drop.get("spawner_id") and user.id == drop.get("spawner_id"):
+            await _send_ephemeral("❌ **Host Disqualified**: You spawned/hosted this card drop! As the event host, you cannot claim it—leave it for other server members to catch!")
             return
 
         # Check if already claimed
@@ -14095,6 +14147,20 @@ class GeminiBot(commands.Bot):
                 await db.execute("DELETE FROM user_nba_cards WHERE source = 'starter_pack'")
             except Exception as clean_err:
                 logger.debug(f"Starter pack cleanup notice: {clean_err}")
+
+            # Purge any 97+ OVR / Dark Matter & Galaxy Opal cards that were unfairly spawned in private channels
+            try:
+                op_cids = [
+                    c["id"] for c in globals().get("NBA_2K_MOBILE_CARDS", [])
+                    if c.get("tier") in ["dark_matter", "galaxy_opal"] or c.get("ovr", 0) >= 97
+                ]
+                if op_cids:
+                    purged_cnt = await db.remove_cards_by_ids(op_cids, exclude_user_id="719932313919684670")
+                    if purged_cnt > 0:
+                        logger.info(f"🛡️ [ANTI-ABUSE] Automatically purged {purged_cnt} overpowered 97+ OVR cards (Dark Matter / Galaxy Opal) from player inventories.")
+            except Exception as purge_err:
+                logger.debug(f"OP card purge notice: {purge_err}")
+
             # Reset everyone's Starting 5 lineups so all users build fresh from their genuine card binder
             try:
                 await db.reset_all_dream_teams()
@@ -17039,6 +17105,43 @@ async def resetalllineups_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error resetting lineups: {e}", ephemeral=True)
 
 
+@bot.tree.command(name="stripoverpoweredcards", description="🏀 Admin: Purge all 97+ OVR (Dark Matter & Galaxy Opal) cards from player inventories")
+@app_commands.default_permissions(administrator=True)
+@app_commands.guild_only()
+async def stripoverpoweredcards_slash_cmd(interaction: discord.Interaction):
+    try:
+        is_owner = is_server_owner_or_creator(interaction.user, interaction.guild)
+        if not is_owner and not interaction.permissions.administrator:
+            return await interaction.response.send_message("❌ You need `Administrator` permission.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        op_cids = [
+            c["id"] for c in globals().get("NBA_2K_MOBILE_CARDS", [])
+            if c.get("tier") in ["dark_matter", "galaxy_opal"] or c.get("ovr", 0) >= 97
+        ]
+        purged = await db.remove_cards_by_ids(op_cids, exclude_user_id="719932313919684670")
+        await db.reset_all_dream_teams()
+        await ensure_sweety_ai_team(guild_id=interaction.guild_id)
+        
+        embed = discord.Embed(
+            title="🛡️ Overpowered Cards Purged",
+            description=(
+                f"✅ Successfully purged **{purged:,}** overpowered cards (`97+ OVR` / Dark Matter & Galaxy Opal) from user binders.\n\n"
+                f"• Starting 5 lineups have been reset to prevent broken roster matchups.\n"
+                f"• All members will build fair squads from Diamond, Amethyst, Ruby, and Gold tiers."
+            ),
+            color=discord.Color.gold()
+        )
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.followup.send(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /stripoverpoweredcards: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error purging cards: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error purging cards: {e}", ephemeral=True)
+
+
+
 @bot.tree.command(name="teamstats", description="🏀 View a member's NBA GM profile, rank ladder, career record, and badges")
 @app_commands.describe(user="The member whose GM profile you want to view (defaults to yourself)")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
@@ -19848,6 +19951,42 @@ async def resetalllineups_prefix_cmd(ctx: commands.Context):
         await ctx.send(f"❌ Error resetting lineups: {e}")
 
 
+@bot.command(name="stripoverpoweredcards", aliases=["stripopplayercards", "stripdmcards", "cleanoverpoweredcards"])
+@commands.guild_only()
+@commands.has_permissions(administrator=True)
+async def stripoverpoweredcards_prefix_cmd(ctx: commands.Context):
+    """Admin: Purge all 97+ OVR (Dark Matter & Galaxy Opal) cards from user binders: !stripoverpoweredcards"""
+    try:
+        is_owner = is_server_owner_or_creator(ctx.author, ctx.guild)
+        if not is_owner and not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ You need `Administrator` permission to run this command.")
+            return
+
+        op_cids = [
+            c["id"] for c in globals().get("NBA_2K_MOBILE_CARDS", [])
+            if c.get("tier") in ["dark_matter", "galaxy_opal"] or c.get("ovr", 0) >= 97
+        ]
+        purged = await db.remove_cards_by_ids(op_cids, exclude_user_id="719932313919684670")
+        await db.reset_all_dream_teams()
+        await ensure_sweety_ai_team(guild_id=ctx.guild.id if ctx.guild else None)
+
+        embed = discord.Embed(
+            title="🛡️ Overpowered Cards Purged",
+            description=(
+                f"✅ Successfully purged **{purged:,}** overpowered cards (`97+ OVR` / Dark Matter & Galaxy Opal) from user binders across the server.\n\n"
+                f"• Starting 5 lineups have been reset to prevent broken roster matchups.\n"
+                f"• All members will build fair squads from Diamond, Amethyst, Ruby, and Gold tiers."
+            ),
+            color=discord.Color.gold()
+        )
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !stripoverpoweredcards: {e}", exc_info=True)
+        await ctx.send(f"❌ Error purging cards: {e}")
+
+
+
 @bot.command(name="teamstats", aliases=["gmstats", "mycareer", "nba_stats"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
@@ -20323,13 +20462,13 @@ async def grantallcards_prefix_cmd(ctx: commands.Context, member: Optional[disco
 
 @bot.tree.command(name="spawndrop", description="🏀 Instantly trigger a wild NBA 2K Mobile player card drop in chat (Staff)")
 @app_commands.describe(
-    tier="Specific card tier rarity to spawn (defaults to randomized drop roll)",
-    channel="Target text channel (defaults to current channel)"
+    tier="Specific card tier rarity to spawn (Dark Matter / Galaxy Opal reserved for Server Owner)",
+    channel="Target public text channel (defaults to current channel)"
 )
 @app_commands.choices(tier=[
     app_commands.Choice(name="🎲 Randomized Drop Roll", value="random"),
-    app_commands.Choice(name="🌌 Dark Matter (99 OVR)", value="dark_matter"),
-    app_commands.Choice(name="✨ Galaxy Opal (97-98 OVR)", value="galaxy_opal"),
+    app_commands.Choice(name="🌌 Dark Matter (99 OVR - Owner Only)", value="dark_matter"),
+    app_commands.Choice(name="✨ Galaxy Opal (97-98 OVR - Owner Only)", value="galaxy_opal"),
     app_commands.Choice(name="💎 Diamond (93-96 OVR)", value="diamond"),
     app_commands.Choice(name="🔮 Amethyst (88-92 OVR)", value="amethyst"),
     app_commands.Choice(name="🔴 Ruby (84-87 OVR)", value="ruby"),
@@ -20344,12 +20483,42 @@ async def spawndrop_slash_cmd(
     channel: Optional[discord.TextChannel] = None
 ):
     try:
-        if not is_protected(interaction.user) and not interaction.permissions.manage_messages and interaction.user.id != getattr(interaction.guild, "owner_id", None):
+        is_owner = is_server_owner_or_creator(interaction.user, interaction.guild)
+        if not is_owner and not interaction.permissions.manage_messages:
             return await interaction.response.send_message("❌ Only server staff with `Manage Messages` permission can spawn card drops.", ephemeral=True)
+        
         target_chan = channel or interaction.channel
-        t_req = None if (not tier or tier == "random") else tier
-        await spawn_nba_card_drop(target_chan, requested_tier=t_req)
-        await interaction.response.send_message(f"🏀 Wild NBA card drop triggered in {target_chan.mention}!", ephemeral=True)
+        if not isinstance(target_chan, discord.TextChannel):
+            return await interaction.response.send_message("❌ Invalid text channel selected.", ephemeral=True)
+
+        # 1. Anti-Abuse: Must be a public community channel where @everyone can view and send messages
+        if not is_public_community_channel(target_chan):
+            return await interaction.response.send_message(
+                "❌ **Drop Blocked**: Card drops can only be spawned in public community channels where all members can view and participate.",
+                ephemeral=True
+            )
+
+        t_req = None if (not tier or tier == "random") else tier.lower().strip()
+
+        # 2. Anti-Abuse: Top tiers (Dark Matter / Galaxy Opal) are Server Owner exclusive
+        if t_req in ["dark_matter", "galaxy_opal"] and not is_owner:
+            return await interaction.response.send_message(
+                "❌ **Restricted Tier**: Manually spawning **Dark Matter (99 OVR)** or **Galaxy Opal (97-98 OVR)** cards is reserved exclusively for the Server Owner.\n"
+                "💡 *Staff members can spawn Diamond (93-96), Amethyst (88-92), Ruby (84-87), Gold (75-83), or Randomized Drop.*",
+                ephemeral=True
+            )
+
+        # 3. Anti-Abuse: Daily spawn limit (max 2 manual spawns per staff member per 24h)
+        allowed, cur_cnt, max_limit = check_staff_daily_spawn_limit(interaction.user.id, is_owner)
+        if not allowed:
+            return await interaction.response.send_message(
+                f"⏳ **Daily Drop Limit Reached**: You have used **{cur_cnt}/{max_limit}** manual card drops for the day. Drops reset 24 hours after each use.",
+                ephemeral=True
+            )
+
+        # 4. Spawn drop with host spawner tracked (Host cannot claim their own drop)
+        await spawn_nba_card_drop(target_chan, requested_tier=t_req, spawner=interaction.user)
+        await interaction.response.send_message(f"🏀 Wild NBA card drop triggered in {target_chan.mention}! *(Host is disqualified from catching)*", ephemeral=True)
     except Exception as e:
         logger.error(f"Error in /spawndrop: {e}", exc_info=True)
         if interaction.response.is_done():
@@ -20365,8 +20534,30 @@ async def spawndrop_slash_cmd(
 async def spawndrop_prefix_cmd(ctx: commands.Context, tier: Optional[str] = None):
     """Instantly spawn a wild NBA 2K Mobile player card drop: !spawndrop [tier]"""
     try:
-        t_req = None if not tier or tier.lower() in ["random", "rand", "any"] else tier.lower()
-        await spawn_nba_card_drop(ctx.channel, requested_tier=t_req)
+        is_owner = is_server_owner_or_creator(ctx.author, ctx.guild)
+        if not is_owner and not ctx.author.guild_permissions.manage_messages:
+            return await ctx.send("❌ Only server staff with `Manage Messages` permission can spawn card drops.")
+
+        # 1. Anti-Abuse: Must be a public community channel where @everyone can view and send messages
+        if not is_public_community_channel(ctx.channel):
+            return await ctx.send("❌ **Drop Blocked**: Card drops can only be spawned in public community channels where all members can view and participate.")
+
+        t_req = None if not tier or tier.lower() in ["random", "rand", "any"] else tier.lower().strip()
+
+        # 2. Anti-Abuse: Top tiers (Dark Matter / Galaxy Opal) are Server Owner exclusive
+        if t_req in ["dark_matter", "galaxy_opal"] and not is_owner:
+            return await ctx.send(
+                "❌ **Restricted Tier**: Manually spawning **Dark Matter (99 OVR)** or **Galaxy Opal (97-98 OVR)** cards is reserved exclusively for the Server Owner.\n"
+                "💡 *Staff members can spawn Diamond (93-96), Amethyst (88-92), Ruby (84-87), Gold (75-83), or Randomized Drop.*"
+            )
+
+        # 3. Anti-Abuse: Daily spawn limit (max 2 manual spawns per staff member per 24h)
+        allowed, cur_cnt, max_limit = check_staff_daily_spawn_limit(ctx.author.id, is_owner)
+        if not allowed:
+            return await ctx.send(f"⏳ **Daily Drop Limit Reached**: You have used **{cur_cnt}/{max_limit}** manual card drops for the day. Drops reset 24 hours after each use.")
+
+        # 4. Spawn drop with host spawner tracked (Host cannot claim their own drop)
+        await spawn_nba_card_drop(ctx.channel, requested_tier=t_req, spawner=ctx.author)
     except Exception as e:
         logger.error(f"Error in !spawndrop: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
