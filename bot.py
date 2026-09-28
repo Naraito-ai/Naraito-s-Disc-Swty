@@ -9016,17 +9016,7 @@ class HubDraftButtonView(discord.ui.View):
     @discord.ui.button(label="Open 2K Pack", style=discord.ButtonStyle.success, emoji="📦", custom_id="hub_openpack_btn", row=2)
     async def open_pack_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = await db.get_user_vc(interaction.user.id)
-        embed = discord.Embed(
-            title="📦 NBA 2K Mobile Card Packs Shop",
-            description=(
-                f"**Your VC Balance:** `💰 {vc:,} VC`\n\n"
-                f"• **📦 Starter Pack** (`250 VC`) — Gold/Ruby with Amethyst chance\n"
-                f"• **⭐ All-Star Gold Pack** (`1,500 VC`) — Ruby/Amethyst/Diamond/Galaxy Opal\n"
-                f"• **🐐 G.O.A.T. Dynasty Pack** (`5,000 VC`) — Diamond/Galaxy Opal/99 Dark Matter\n\n"
-                f"*Click a pack below to buy and rip open!*"
-            ),
-            color=discord.Color.gold()
-        )
+        embed = build_pack_shop_embed(vc)
         pack_view = QuickPackSelectView(interaction.user)
         await interaction.response.send_message(embed=embed, view=pack_view, ephemeral=True)
 
@@ -11470,8 +11460,56 @@ def build_nbadex_embed(
     embed.timestamp = discord.utils.utcnow()
     return embed, total_pages, page_cards
 
+def _build_odds_lines(pack_data: Dict[str, Any]) -> str:
+    """Returns a formatted string of pull odds for a pack."""
+    odds = pack_data.get("odds", {})
+    tier_order = ["dark_matter", "galaxy_opal", "diamond", "amethyst", "ruby", "gold"]
+    lines = []
+    for tier_key in tier_order:
+        if tier_key in odds:
+            t_info = NBA_2K_TIERS.get(tier_key, {})
+            emoji = t_info.get("emoji", "•")
+            name = t_info.get("short_name", tier_key.replace("_", " ").title())
+            ovr = t_info.get("ovr_range", "??")
+            pct = odds[tier_key] * 100
+            # Build a simple visual bar (5 chars = 100%)
+            bar_filled = max(1, round(pct / 10))
+            bar = "▰" * bar_filled + "▱" * (10 - bar_filled)
+            lines.append(f"{emoji} **{name}** (`{ovr} OVR`) — `{bar}` **{pct:.0f}%**")
+    return "\n".join(lines) if lines else "No odds data available."
+
+
+def build_pack_shop_embed(vc_balance: int) -> discord.Embed:
+    """Builds the full NBA 2K Mobile Card Shop embed with transparent per-pack drop rates."""
+    embed = discord.Embed(
+        title="📦 NBA 2K Mobile Card Packs Shop",
+        description=(
+            f"**Your VC Balance:** `💰 {vc_balance:,} VC`\n\n"
+            f"Select a pack below to buy and rip open!\n"
+            f"All pull rates are **100% transparent and honest** — no hidden odds.\n"
+        ),
+        color=discord.Color.gold()
+    )
+
+    for pack_id, pack_data in NBA_PACK_TYPES.items():
+        cost = pack_data["cost"]
+        name = pack_data["name"]
+        desc = pack_data.get("description", "")
+        can_afford = "✅" if vc_balance >= cost else "❌"
+        odds_text = _build_odds_lines(pack_data)
+        embed.add_field(
+            name=f"{can_afford} {name} — `{cost:,} VC`",
+            value=f"*{desc}*\n{odds_text}",
+            inline=False
+        )
+
+    embed.set_footer(text="Pull rates shown are exact probabilities • Use !packodds to view anytime")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+
 def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Dict[str, Any], new_vc: int, is_new: bool = True, copies: int = 1) -> discord.Embed:
-    """Builds an authentic 2K Mobile pack reveal embed."""
+    """Builds an authentic 2K Mobile pack reveal embed with transparent drop rates."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
     moment = get_nba_card_moment(card)
     status_str = "🌟 **NEW CARD ADDED TO BINDER!**" if is_new else f"🔄 **DUPLICATE COPY OBTAINED (Now x{copies})**"
@@ -11509,11 +11547,18 @@ def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Di
         value=f"• **Remaining Balance:** `💰 {new_vc:,} VC`\n• **Quick-Sell Value:** `💰 {tier_info['quick_sell']:,} VC`",
         inline=False
     )
+
+    # Transparent drop odds for this pack
+    embed.add_field(
+        name=f"🎲 {pack_data['name']} Pull Rates (Fully Transparent)",
+        value=_build_odds_lines(pack_data),
+        inline=False
+    )
     
     if card.get("image_url"):
         embed.set_image(url=card["image_url"])
         
-    embed.set_footer(text=f"NBA 2K Mobile Pack Opening • Card ID: {card['id']}")
+    embed.set_footer(text=f"NBA 2K Mobile Pack Opening • Card ID: {card['id']} • Odds always shown honestly")
     embed.timestamp = discord.utils.utcnow()
     return embed
 
@@ -11878,17 +11923,7 @@ class NBADexView(discord.ui.View):
         await self.refresh_message(interaction)
 
     async def quick_pack(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📦 NBA 2K Mobile Card Packs Shop",
-            description=(
-                f"**Your VC Balance:** `💰 {self.vc_balance:,} VC`\n\n"
-                f"• **📦 Starter Pack** (`250 VC`) — Gold & Ruby cards with a chance at Amethyst\n"
-                f"• **⭐ All-Star Gold Pack** (`1,500 VC`) — Ruby, Amethyst, Diamond & Galaxy Opal\n"
-                f"• **🐐 G.O.A.T. Dynasty Pack** (`5,000 VC`) — Guaranteed Diamond, Galaxy Opal & 99 OVR Dark Matter\n\n"
-                f"*Use `/openpack <pack_type>` or select a pack below to rip open!*"
-            ),
-            color=discord.Color.gold()
-        )
+        embed = build_pack_shop_embed(self.vc_balance)
         pack_view = QuickPackSelectView(self.author)
         await interaction.response.send_message(embed=embed, view=pack_view, ephemeral=True)
 
@@ -20094,6 +20129,53 @@ async def openpack_prefix_cmd(ctx: commands.Context, pack_type: Optional[str] = 
         await ctx.send(embed=embed, file=card_file, view=reveal_view)
     except Exception as e:
         logger.error(f"Error in !openpack: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="packodds", aliases=["packinformation", "droprates", "packrates", "packinfo", "cardprobability"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def packodds_prefix_cmd(ctx: commands.Context, pack_name: Optional[str] = None):
+    """View the exact pull rates for all NBA 2K Mobile card packs: !packodds [starter|allstar|goat]"""
+    try:
+        pack_name_clean = (pack_name or "").lower().strip()
+        # If a specific pack requested, show just that one in detail
+        pack_data = NBA_PACK_TYPES.get(pack_name_clean)
+        if pack_data:
+            embed = discord.Embed(
+                title=f"🎲 {pack_data['name']} — Pull Rates",
+                description=(
+                    f"*{pack_data.get('description', '')}*\n\n"
+                    f"**Cost:** `💰 {pack_data['cost']:,} VC`\n\n"
+                    f"**Exact Pull Probabilities:**\n"
+                    f"{_build_odds_lines(pack_data)}"
+                ),
+                color=discord.Color.gold()
+            )
+            embed.set_footer(text="All odds are exact probabilities. No deception, no hidden rates.")
+            embed.timestamp = discord.utils.utcnow()
+            return await ctx.send(embed=embed)
+
+        # Show all packs full breakdown
+        embed = discord.Embed(
+            title="🎲 NBA 2K Mobile — Pack Pull Rates (All Packs)",
+            description=(
+                "Here are the **100% transparent, honest pull rates** for every card pack.\n"
+                "No hidden odds. What you see is exactly what you get.\n"
+            ),
+            color=discord.Color.gold()
+        )
+        for _, pdata in NBA_PACK_TYPES.items():
+            embed.add_field(
+                name=f"{pdata['name']} — `{pdata['cost']:,} VC`",
+                value=f"*{pdata.get('description', '')}*\n{_build_odds_lines(pdata)}",
+                inline=False
+            )
+        embed.set_footer(text="Use !openpack [starter|allstar|goat] to rip a pack • !nbadaily for free VC")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !packodds: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
 
 
