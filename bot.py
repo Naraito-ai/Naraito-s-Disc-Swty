@@ -12463,8 +12463,15 @@ def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Di
         inline=False
     )
     
-    if card.get("image_url"):
-        embed.set_image(url=card["image_url"])
+    # Use the verified Wikimedia moment photo URL for the card image
+    verified_url = (
+        NBA_CARD_SPECIFIC_MOMENT_URLS.get(card.get("id", "").lower())
+        or NBA_PLAYER_MOMENT_ACTION_URLS.get(card.get("name", "").lower())
+        or card.get("image_url")
+    )
+    if verified_url:
+        embed.set_image(url=verified_url.split("?")[0])
+
         
     embed.set_footer(text=f"NBA 2K Mobile Pack Opening • Card ID: {card['id']} • Odds always shown honestly")
     embed.timestamp = discord.utils.utcnow()
@@ -12934,7 +12941,12 @@ class QuickPackSelectView(discord.ui.View):
 
         embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
         reveal_view = NBAPackOpenView(interaction.user, pack_id, card, new_bal, is_new, copies_now)
-        await interaction.response.send_message(embed=embed, view=reveal_view)
+        try:
+            card_buf = generate_nba_card_graphic(card, is_mystery=False)
+            card_file = discord.File(fp=card_buf, filename="nba_card.png")
+            await interaction.response.send_message(embed=embed, file=card_file, view=reveal_view)
+        except Exception:
+            await interaction.response.send_message(embed=embed, view=reveal_view)
 
 
 class NBAPackOpenView(discord.ui.View):
@@ -13003,10 +13015,13 @@ class NBAPackOpenView(discord.ui.View):
         self.copies = copies_now
 
         embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
-        if not interaction.response.is_done():
-            await interaction.response.edit_message(embed=embed, view=self)
-        else:
-            await interaction.message.edit(embed=embed, view=self)
+        new_view = NBAPackOpenView(interaction.user, self.pack_id, card, new_bal, is_new, copies_now)
+        try:
+            card_buf = generate_nba_card_graphic(card, is_mystery=False)
+            card_file = discord.File(fp=card_buf, filename="nba_card.png")
+            await interaction.response.send_message(embed=embed, file=card_file, view=new_view)
+        except Exception:
+            await interaction.response.send_message(embed=embed, view=new_view)
 
     async def view_in_dex(self, interaction: discord.Interaction):
         cards = await db.get_user_nba_cards(interaction.user.id)
