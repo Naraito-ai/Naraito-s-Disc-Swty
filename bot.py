@@ -20587,11 +20587,13 @@ async def spawndrop_slash_cmd(
         if not isinstance(target_chan, discord.TextChannel):
             return await interaction.response.send_message("❌ Invalid text channel selected.", ephemeral=True)
 
-        # 1. Anti-Abuse: Block fully hidden staff-only channels (where @everyone cannot even see the channel)
-        if is_staff_only_hidden_channel(target_chan):
+        # 1. Anti-Abuse: Block fully hidden staff-only channels UNLESS it's the server's configured drop channel
+        configured_drop_id = await db.get_config(target_chan.guild.id, "nba_drop_channel", None)
+        is_configured_channel = configured_drop_id and str(target_chan.id) == str(configured_drop_id)
+        if not is_configured_channel and is_staff_only_hidden_channel(target_chan):
             return await interaction.response.send_message(
                 "❌ **Drop Blocked**: Card drops cannot be spawned in private/hidden channels that the community cannot see.\n"
-                "💡 *Use a channel where all members can at least view it — even if only the bot can post.*",
+                "💡 *Set a dedicated drop channel with `!setnbachannel #channel`, or use a channel everyone can view.*",
                 ephemeral=True
             )
 
@@ -20635,11 +20637,13 @@ async def spawndrop_prefix_cmd(ctx: commands.Context, tier: Optional[str] = None
         if not is_owner and not ctx.author.guild_permissions.manage_messages:
             return await ctx.send("❌ Only server staff with `Manage Messages` permission can spawn card drops.")
 
-        # 1. Anti-Abuse: Block fully hidden staff-only channels (where @everyone cannot even see the channel)
-        if is_staff_only_hidden_channel(ctx.channel):
+        # 1. Anti-Abuse: Block fully hidden staff-only channels UNLESS it's the server's configured drop channel
+        configured_drop_id = await db.get_config(ctx.guild.id, "nba_drop_channel", None)
+        is_configured_channel = configured_drop_id and str(ctx.channel.id) == str(configured_drop_id)
+        if not is_configured_channel and is_staff_only_hidden_channel(ctx.channel):
             return await ctx.send(
                 "❌ **Drop Blocked**: Card drops cannot be spawned in private/hidden channels that the community cannot see.\n"
-                "💡 *Use a channel where all members can at least view it — even if only the bot can post.*"
+                "💡 *Set a dedicated drop channel with `!setnbachannel #channel`, or use a channel everyone can view.*"
             )
 
         t_req = None if not tier or tier.lower() in ["random", "rand", "any"] else tier.lower().strip()
