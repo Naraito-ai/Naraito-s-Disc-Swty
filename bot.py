@@ -33669,21 +33669,7 @@ async def grantallcards_prefix_cmd(ctx: commands.Context, member: Optional[disco
     )
 
 
-@bot.command(name="sync", aliases=["synctree", "syncslash"])
-async def sync_prefix_cmd(ctx: commands.Context):
-    """Creator-only command to instantly sync all slash commands to Discord: !sync"""
-    if str(ctx.author.id) != "719932313919684670":
-        return await ctx.send("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).")
-    
-    msg = await ctx.send("⏳ Syncing all global slash commands to Discord...")
-    try:
-        synced = await bot.tree.sync()
-        await msg.edit(content=f"✅ Successfully synced **{len(synced)} global slash commands** to Discord!")
-    except Exception as e:
-        await msg.edit(content=f"❌ Error syncing slash commands: {e}")
-
-
-@bot.command(name="nbagrant", aliases=["grantcard", "exclgrant", "givecard", "grant"])
+@bot.command(name="nbagrant", aliases=["grantcard", "exclgrant", "grantexclusive", "grant"])
 async def nbagrant_prefix_cmd(ctx: commands.Context, *, raw_args: str = ""):
     """Grant an Exclusive or rare card directly:
     !nbagrant [target] [count] <card_name>
@@ -36136,9 +36122,15 @@ async def run_fastapi_server():
             logger.warning(f"FastAPI dashboard startup error: {api_err}")
 
 async def run_bot_gateway():
+    global bot
     while True:
         try:
+            if bot.is_closed():
+                bot = GeminiBot()
             await bot.start(DISCORD_TOKEN)
+        except discord.errors.LoginFailure as login_err:
+            logger.error(f"❌ Discord Login Failure (check DISCORD_TOKEN): {login_err}. Waiting 60s while keeping web server active...")
+            await asyncio.sleep(60)
         except discord.errors.HTTPException as http_err:
             if http_err.status == 429:
                 logger.warning("⚠️ Discord Cloudflare 429 Rate Limit (Error 1015) detected. Keeping container alive and waiting 3 minutes before clean retry...")
