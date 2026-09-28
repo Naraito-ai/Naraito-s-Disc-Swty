@@ -7338,10 +7338,22 @@ NBA_PLAYER_IMG_IDS: Dict[str, str] = {
 _NBA_HEADSHOT_CACHE: Dict[str, Image.Image] = {}
 
 def get_nba_player_headshot(player_name: str) -> Optional[Image.Image]:
-    """Fetches and caches high-resolution transparent NBA player headshot from official NBA CDN."""
+    """Fetches and caches high-resolution transparent NBA player headshot from local assets or official NBA CDN."""
     clean_name = player_name.strip()
     if clean_name in _NBA_HEADSHOT_CACHE:
         return _NBA_HEADSHOT_CACHE[clean_name]
+
+    # 1. Check local assets/players directory first (for custom uploads like Carter Bryant)
+    local_slug = clean_name.lower().replace(" ", "_").replace("'", "").replace(".", "")
+    for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+        local_p = os.path.join(os.path.dirname(__file__), "assets", "players", f"{local_slug}{ext}")
+        if os.path.exists(local_p):
+            try:
+                img = Image.open(local_p).convert("RGBA")
+                _NBA_HEADSHOT_CACHE[clean_name] = img
+                return img
+            except Exception:
+                pass
 
     pid = NBA_PLAYER_IMG_IDS.get(clean_name)
     if not pid:
@@ -11959,7 +11971,7 @@ class CardInspectSelect(discord.ui.Select):
 
 
 class NBADexView(discord.ui.View):
-    def __init__(self, author: discord.User, target_user: discord.User, cards_owned: List[Dict[str, Any]], tier_filter: Optional[str] = "all", page: int = 1, vc_balance: int = 1000):
+    def __init__(self, author: discord.User, target_user: discord.User, cards_owned: List[Dict[str, Any]], tier_filter: Optional[str] = "all", page: int = 1, vc_balance: int = 1000, is_private: bool = False):
         super().__init__(timeout=180.0)
         self.author = author
         self.target_user = target_user
@@ -11967,6 +11979,7 @@ class NBADexView(discord.ui.View):
         self.tier_filter = tier_filter or "all"
         self.page = page
         self.vc_balance = vc_balance
+        self.is_private = is_private
         self.total_pages = 1
         self.page_cards: List[Dict[str, Any]] = []
         self._build_components()
@@ -12015,6 +12028,14 @@ class NBADexView(discord.ui.View):
         daily_btn.callback = self.claim_daily
         self.add_item(daily_btn)
 
+        # Collection Privacy Toggle Button (when viewing your own dex)
+        if self.target_user.id == self.author.id:
+            priv_label = "🔒 Private" if self.is_private else "🌐 Public"
+            priv_style = discord.ButtonStyle.secondary if self.is_private else discord.ButtonStyle.primary
+            priv_btn = discord.ui.Button(label=priv_label, style=priv_style, emoji="🔒" if self.is_private else "🌐", row=3)
+            priv_btn.callback = self.toggle_privacy
+            self.add_item(priv_btn)
+
         close_btn = discord.ui.Button(label="Close", style=discord.ButtonStyle.danger, emoji="✖️", row=3)
         close_btn.callback = self.close_session
         self.add_item(close_btn)
@@ -12025,9 +12046,30 @@ class NBADexView(discord.ui.View):
             return False
         return True
 
+    async def toggle_privacy(self, interaction: discord.Interaction):
+        try:
+            new_state = await db.toggle_user_nba_privacy(self.author.id)
+            self.is_private = new_state
+            status_tag = "🔒 **PRIVATE**" if new_state else "🌐 **PUBLIC**"
+            expl = (
+                "Other members cannot inspect your collection binder with `/nbadex`."
+                if new_state else
+                "Other members can now view your collection binder with `/nbadex`."
+            )
+            await interaction.response.send_message(
+                f"🛡️ **Collection Privacy Updated!**\nYour NBA Card Binder & Dex is now {status_tag}.\n💡 {expl}",
+                ephemeral=True
+            )
+            await self.refresh_message(interaction)
+        except Exception as e:
+            logger.error(f"Error toggling binder privacy: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
     async def refresh_message(self, interaction: discord.Interaction):
         self.cards_owned = await db.get_user_nba_cards(self.target_user.id)
         self.vc_balance = await db.get_user_vc(self.target_user.id)
+        self.is_private = await db.get_user_nba_privacy(self.target_user.id)
         embed, _, _ = build_nbadex_embed(
             self.target_user, self.cards_owned, self.tier_filter, self.page, 6, self.vc_balance
         )
@@ -17446,12 +17488,24 @@ async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[disc
     try:
         await interaction.response.defer()
         target = user or interaction.user
+        is_owner = (target.id == interaction.user.id)
+
+        # Check collection privacy if viewing another user's collection
+        if not is_owner:
+            is_priv = await db.get_user_nba_privacy(target.id)
+            if is_priv and not is_protected(interaction.user):
+                return await interaction.followup.send(
+                    f"🔒 **Private Collection**: **{target.display_name}** has set their NBA card binder & Dex to **Private**.",
+                    ephemeral=True
+                )
+
         cards = await db.get_user_nba_cards(target.id)
         vc = await db.get_user_vc(target.id)
+        is_priv_state = await db.get_user_nba_privacy(target.id)
         pg = max(1, page or 1)
 
         embed, _, _ = build_nbadex_embed(target, cards, tier or "all", pg, 6, vc)
-        view = NBADexView(interaction.user, target, cards, tier or "all", pg, vc)
+        view = NBADexView(interaction.user, target, cards, tier or "all", pg, vc, is_private=is_priv_state)
         await interaction.followup.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in /nbadex: {e}", exc_info=True)
@@ -20533,12 +20587,21 @@ async def nbadex_prefix_cmd(ctx: commands.Context, target: Optional[discord.Memb
     """View your (or another member's) NBA 2K Mobile card collection binder: !nbadex [@user] [tier] [page]"""
     try:
         user_target = target or ctx.author
+        is_owner = (user_target.id == ctx.author.id)
+
+        # Check collection privacy if viewing another user's collection
+        if not is_owner:
+            is_priv = await db.get_user_nba_privacy(user_target.id)
+            if is_priv and not is_protected(ctx.author):
+                return await ctx.send(f"🔒 **Private Collection**: **{user_target.display_name}** has set their NBA card binder & Dex to **Private**.")
+
         cards = await db.get_user_nba_cards(user_target.id)
         vc = await db.get_user_vc(user_target.id)
+        is_priv_state = await db.get_user_nba_privacy(user_target.id)
         pg = max(1, page or 1)
 
         embed, _, _ = build_nbadex_embed(user_target, cards, tier or "all", pg, 6, vc)
-        view = NBADexView(ctx.author, user_target, cards, tier or "all", pg, vc)
+        view = NBADexView(ctx.author, user_target, cards, tier or "all", pg, vc, is_private=is_priv_state)
         await ctx.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in !nbadex: {e}", exc_info=True)

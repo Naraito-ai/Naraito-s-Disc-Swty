@@ -431,12 +431,15 @@ class DatabaseManager:
                     await self.execute("ALTER TABLE team_battle_stats ADD COLUMN last_daily_win_date TEXT DEFAULT '';")
                 if "coaching_dna" not in col_names:
                     await self.execute("ALTER TABLE team_battle_stats ADD COLUMN coaching_dna TEXT DEFAULT '{}';")
+            if not self.is_postgres:
+                eco_cols = await self.fetch("PRAGMA table_info(user_nba_economy);")
+                eco_col_names = [c["name"] for c in eco_cols] if eco_cols else []
+                if "is_private" not in eco_col_names:
+                    await self.execute("ALTER TABLE user_nba_economy ADD COLUMN is_private INTEGER DEFAULT 0;")
             else:
-                await self.execute("ALTER TABLE team_battle_stats ADD COLUMN IF NOT EXISTS daily_wins INTEGER DEFAULT 0;")
-                await self.execute("ALTER TABLE team_battle_stats ADD COLUMN IF NOT EXISTS last_daily_win_date TEXT DEFAULT '';")
-                await self.execute("ALTER TABLE team_battle_stats ADD COLUMN IF NOT EXISTS coaching_dna TEXT DEFAULT '{}';")
+                await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS is_private INTEGER DEFAULT 0;")
         except Exception as alter_err:
-            logger.debug(f"Column check for team_battle_stats: {alter_err}")
+            logger.debug(f"Column check for team_battle_stats/economy: {alter_err}")
             
         logger.info("Database tables verified/created successfully.")
 
@@ -1691,10 +1694,37 @@ class DatabaseManager:
             row = await self.fetchrow(query, str(user_id))
             if row:
                 return dict(row)
-            return {"user_id": str(user_id), "vc_balance": 1000, "packs_opened": 0, "cards_claimed": 0}
+            return {"user_id": str(user_id), "vc_balance": 1000, "packs_opened": 0, "cards_claimed": 0, "is_private": 0}
         except Exception as e:
             logger.error(f"Error fetching user NBA economy stats from DB: {e}")
-            return {"user_id": str(user_id), "vc_balance": 1000, "packs_opened": 0, "cards_claimed": 0}
+            return {"user_id": str(user_id), "vc_balance": 1000, "packs_opened": 0, "cards_claimed": 0, "is_private": 0}
+
+    async def get_user_nba_privacy(self, user_id: Any) -> bool:
+        """Returns True if user has set their NBA card binder/dex to Private, False otherwise."""
+        try:
+            row = await self.fetchrow("SELECT is_private FROM user_nba_economy WHERE user_id = ?", str(user_id))
+            if row and "is_private" in row:
+                return bool(row["is_private"])
+            return False
+        except Exception as e:
+            logger.debug(f"Error checking NBA privacy for {user_id}: {e}")
+            return False
+
+    async def toggle_user_nba_privacy(self, user_id: Any) -> bool:
+        """Toggles user's NBA binder/dex privacy (Public <-> Private) and returns the new state."""
+        u = str(user_id)
+        try:
+            curr = await self.get_user_nba_privacy(u)
+            new_val = 0 if curr else 1
+            await self.execute("""
+                INSERT INTO user_nba_economy (user_id, is_private)
+                VALUES (?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET is_private = ?
+            """, u, new_val, new_val)
+            return bool(new_val)
+        except Exception as e:
+            logger.error(f"Error toggling NBA privacy for {u}: {e}")
+            return False
 
     async def close(self):
         """Closes all database connections."""
