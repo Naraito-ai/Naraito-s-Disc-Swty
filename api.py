@@ -631,8 +631,15 @@ async def websocket_events(websocket: WebSocket):
         active_event_websockets.discard(websocket)
 
 # Uvicorn startup handler
+_fastapi_server_instance = None
+
 async def start_fastapi(bot, db, port: int):
     """Initializes and runs the Uvicorn FastAPI server inside the bot's async event loop."""
+    global _fastapi_server_instance
+    if _fastapi_server_instance is not None:
+        logger.info(f"FastAPI server already running on port {port}, skipping duplicate startup.")
+        return
+    
     app.state.bot = bot
     app.state.db = db
     
@@ -655,6 +662,8 @@ async def start_fastapi(bot, db, port: int):
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info", lifespan="off")
     server = uvicorn.Server(config)
     server.install_signal_handlers = lambda: None
+    _fastapi_server_instance = server
     
     logger.info(f"Starting FastAPI Web Server & WebSocket Engine on port {port}...")
     await server.serve()
+

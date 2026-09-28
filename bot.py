@@ -25621,12 +25621,13 @@ class GeminiBot(commands.Bot):
                     except Exception as cog_err:
                         logger.error(f"[SWEETY] Failed to load cog {filename}: {cog_err}", exc_info=True)
         
-        # 3. Start FastAPI dashboard in the same process & event loop
+        # 3. Start FastAPI dashboard in the same process & event loop (if not already running)
         disable_api = os.getenv("DISABLE_API", "false").lower() in ("true", "1", "yes")
-        if not disable_api:
+        if not disable_api and not globals().get("_fastapi_server_started", False):
             try:
                 from api import start_fastapi
                 port = int(os.getenv("PORT", 8080))
+                globals()["_fastapi_server_started"] = True
                 asyncio.create_task(start_fastapi(self, db, port))
                 logger.info(f"FastAPI dashboard task scheduled on port {port}.")
             except Exception as api_err:
