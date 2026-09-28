@@ -14455,11 +14455,24 @@ class GeminiBot(commands.Bot):
         except Exception as prune_err:
             logger.debug(f"Snipe prune error: {prune_err}")
 
-    @tasks.loop(minutes=20)
+    @tasks.loop(minutes=1)
     async def nba_periodic_drop_loop(self):
-        """Automatically spawns a wild NBA 2K Mobile card drop every 20 minutes in active server channels."""
+        """Automatically spawns wild NBA 2K Mobile card drops respecting each server's configured drop interval (default 20m)."""
         try:
+            now_ts = time.time()
             for guild in self.guilds:
+                # Retrieve guild drop interval (default 20 mins)
+                try:
+                    interval_mins = float(await db.get_config(guild.id, "nba_drop_interval", 20))
+                except (ValueError, TypeError):
+                    interval_mins = 20.0
+                if interval_mins < 2:
+                    interval_mins = 2.0
+
+                last_drop_ts = _nba_drop_last_timestamps.get(guild.id, 0.0)
+                if (now_ts - last_drop_ts) < (interval_mins * 60.0):
+                    continue
+
                 # ── Check for a pinned drop channel first ──
                 configured_id = await db.get_config(guild.id, "nba_drop_channel", None)
                 if configured_id:
@@ -14472,12 +14485,12 @@ class GeminiBot(commands.Bot):
 
                 if target_chan and isinstance(target_chan, discord.TextChannel):
                     active = get_active_nba_drop(target_chan.id, guild.id)
-                    now_ts = time.time()
                     if not active or active.get("claimed") or (now_ts - active.get("spawned_at", 0) > 300):
                         _nba_drop_msg_counts[target_chan.id] = 0
                         _nba_drop_last_timestamps[target_chan.id] = now_ts
+                        _nba_drop_last_timestamps[guild.id] = now_ts
                         await spawn_nba_card_drop(target_chan)
-                        logger.info(f"🏀 [20-MIN NBA DROP] Spawned wild card drop in #{target_chan.name} ({guild.name})")
+                        logger.info(f"🏀 [{int(interval_mins)}-MIN NBA DROP] Spawned wild card drop in #{target_chan.name} ({guild.name})")
         except Exception as drop_loop_err:
             logger.error(f"Error in nba_periodic_drop_loop: {drop_loop_err}")
 
@@ -15475,7 +15488,9 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed.add_field(
             name="💰 **Virtual Currency (VC) & Market**",
             value=(
-                "• `/nbadaily` / `!nbadaily` — Claim daily VC bonus and keep your Court Pass streak active\n"
+                "• `/nbadaily` / `!nbadaily` — Claim daily 1,000 VC bonus & Court Pass streak\n"
+                "• `/nbaweekly` / `!nbaweekly` — Claim weekly 5,000 VC salary bonus\n"
+                "• `/nbamonthly` / `!nbamonthly` — Claim grand monthly 25,000 VC VIP salary\n"
                 "• `/nbabal [@user]` / `!nbabal` — Check your current VC wallet balance & pack stats\n"
                 "• `/nbasell <card_id>` / `!nbasell` — Sell duplicate or unwanted cards for instant VC\n"
                 "• `/nbatrade @user <card_id>` / `!nbatrade` — Secure multi-card trading system\n"
@@ -15638,7 +15653,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops\n"
             "• `/nbahint` / `!nbahint` — Reveal masked name hints for active court spawns\n"
             "• `/nbacard <id>` / `!nbacard` — High-res visual card stats, tier & attributes\n"
-            "• `/nbadaily` / `!nbadaily` — Daily VC currency & Court Pass streak bonus\n"
+            "• `/nbadaily` / `!nbadaily` — Daily 1k VC, `/nbaweekly` (5k VC), `/nbamonthly` (25k VC)\n"
             "• `/nbabal [@user]` / `!nbabal` — VC balance & pack opening statistics\n"
             "• `/nbasell <id>` / `!nbasell` — Sell duplicate cards for VC payout\n"
             "• `/nbatrade @user <id>` / `!nbatrade` — Secure multi-card trading\n"
@@ -17272,26 +17287,70 @@ async def setupnbachannel_slash_cmd(interaction: discord.Interaction, category_n
 
 
 
-@bot.tree.command(name="setnbachannel", description="🏀 Pin NBA 2K card drops to a specific channel (or reset to any active channel)")
-@app_commands.describe(channel="The channel where drops will always appear (leave empty to reset to auto)")
+@bot.tree.command(name="setnbachannel", description="🏀 Configure NBA card drop channel, message count & drop interval")
+@app_commands.describe(
+    channel="The channel where drops will always appear (leave empty to keep current or reset)",
+    message_count="Number of chat messages required to trigger a wild card drop (e.g. 5–500, default 25)",
+    duration_minutes="Periodic background drop interval in minutes (e.g. 2–1440, default 20)",
+    reset_channel="Set to True to reset drop channel back to automatic active chat selection"
+)
 @app_commands.default_permissions(manage_guild=True)
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def setnbachannel_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+async def setnbachannel_slash_cmd(
+    interaction: discord.Interaction,
+    channel: Optional[discord.TextChannel] = None,
+    message_count: Optional[int] = None,
+    duration_minutes: Optional[int] = None,
+    reset_channel: Optional[bool] = False
+):
     try:
         if not is_protected(interaction.user) and not interaction.permissions.manage_guild:
             await interaction.response.send_message("❌ You need `Manage Server` permission.", ephemeral=True)
             return
+
+        updates = []
         if channel:
             await db.set_config(interaction.guild_id, "nba_drop_channel", str(channel.id))
-            await interaction.response.send_message(
-                f"✅ NBA 2K card drops will now **only** spawn in {channel.mention}!", ephemeral=True
-            )
-        else:
+            updates.append(f"• 📌 **Drop Channel:** {channel.mention}")
+        elif reset_channel:
             await db.set_config(interaction.guild_id, "nba_drop_channel", "")
-            await interaction.response.send_message(
-                "✅ Drop channel reset — drops will spawn in whichever channel is most active.", ephemeral=True
+            updates.append("• 📌 **Drop Channel:** Auto (Smart active channel detection)")
+
+        if message_count is not None:
+            clamped_msgs = max(5, min(500, int(message_count)))
+            await db.set_config(interaction.guild_id, "nba_drop_msg_threshold", clamped_msgs)
+            updates.append(f"• 💬 **Message Trigger Threshold:** Every `{clamped_msgs}` chat messages")
+
+        if duration_minutes is not None:
+            clamped_mins = max(2, min(1440, int(duration_minutes)))
+            await db.set_config(interaction.guild_id, "nba_drop_interval", clamped_mins)
+            updates.append(f"• ⏱️ **Periodic Drop Interval:** Every `{clamped_mins}` minutes")
+
+        if not updates:
+            curr_chan_id = await db.get_config(interaction.guild_id, "nba_drop_channel", None)
+            curr_chan_text = f"<#{curr_chan_id}>" if curr_chan_id else "Auto (Active chat selection)"
+            curr_msgs = await db.get_config(interaction.guild_id, "nba_drop_msg_threshold", 25)
+            curr_mins = await db.get_config(interaction.guild_id, "nba_drop_interval", 20)
+            embed = discord.Embed(
+                title="⚙️ NBA Card Drop Configuration",
+                description=(
+                    f"**Current Server Settings:**\n"
+                    f"• 📌 **Drop Channel:** {curr_chan_text}\n"
+                    f"• 💬 **Message Threshold:** Every `{curr_msgs}` messages\n"
+                    f"• ⏱️ **Drop Interval:** Every `{curr_mins}` minutes\n\n"
+                    f"💡 *To update, provide `channel`, `message_count`, or `duration_minutes` in `/setnbachannel`.*"
+                ),
+                color=discord.Color.blue()
             )
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        embed = discord.Embed(
+            title="✅ NBA Card Drop Settings Updated!",
+            description="The following settings have been saved for this server:\n\n" + "\n".join(updates),
+            color=discord.Color.green()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
     except Exception as e:
         logger.error(f"Error in /setnbachannel: {e}")
         if interaction.response.is_done():
@@ -17671,6 +17730,94 @@ async def nbadaily_slash_cmd(interaction: discord.Interaction):
             await interaction.followup.send(embed=embed)
     except Exception as e:
         logger.error(f"Error in /nbadaily: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbaweekly", description="🎁 Claim your weekly 5,000 VC (Virtual Currency) salary & Court Pass bonus")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbaweekly_slash_cmd(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+        success, new_bal, rem = await db.claim_nba_weekly(interaction.user.id, 5000)
+        if success:
+            embed = discord.Embed(
+                title="🌟 Weekly NBA VC Salary Claimed!",
+                description=(
+                    f"**+5,000 VC** has been deposited into your account!\n\n"
+                    f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
+                    f"• 📦 **Recommended Packs:** Deluxe Pack (`7,500 VC`), Premium (`3,500 VC`)\n\n"
+                    f"*Come back in 7 days to claim your next weekly salary!*"
+                ),
+                color=discord.Color.teal()
+            )
+            embed.set_footer(text="NBA 2K Mobile Weekly Salary • Use /openpack to open card packs")
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+        else:
+            days = int(rem // 86400)
+            hours = int((rem % 86400) // 3600)
+            minutes = int((rem % 3600) // 60)
+            embed = discord.Embed(
+                title="⏳ Weekly VC Cooldown Active",
+                description=(
+                    f"You have already claimed this week's reward!\n\n"
+                    f"• **Time Remaining:** `{days}d {hours}h {minutes}m`\n"
+                    f"• 💰 **Current Balance:** `{new_bal:,} VC`"
+                ),
+                color=discord.Color.orange()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /nbaweekly: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbamonthly", description="👑 Claim your grand monthly 25,000 VC (Virtual Currency) VIP salary reward")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbamonthly_slash_cmd(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+        success, new_bal, rem = await db.claim_nba_monthly(interaction.user.id, 25000)
+        if success:
+            embed = discord.Embed(
+                title="👑 Grand Monthly NBA VIP Salary Claimed!",
+                description=(
+                    f"**+25,000 VC** has been deposited into your account!\n\n"
+                    f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
+                    f"• 🌌 **Top Tier Packs:** Galaxy Opal Pack (`15,000 VC`), End Game Pack (`50,000 VC`)\n\n"
+                    f"*Come back in 30 days to claim your next monthly VIP salary!*"
+                ),
+                color=discord.Color.gold()
+            )
+            embed.set_footer(text="NBA 2K Mobile Monthly VIP Salary • Use /openpack to open high-tier packs")
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+        else:
+            days = int(rem // 86400)
+            hours = int((rem % 86400) // 3600)
+            minutes = int((rem % 3600) // 60)
+            embed = discord.Embed(
+                title="⏳ Monthly VC VIP Cooldown Active",
+                description=(
+                    f"You have already claimed this month's VIP salary!\n\n"
+                    f"• **Time Remaining:** `{days}d {hours}h {minutes}m`\n"
+                    f"• 💰 **Current Balance:** `{new_bal:,} VC`"
+                ),
+                color=discord.Color.orange()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /nbamonthly: {e}", exc_info=True)
         if interaction.response.is_done():
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         else:
@@ -21023,17 +21170,95 @@ async def setupnbachannel_prefix_cmd(ctx: commands.Context, *, category_name: Op
         await ctx.send(f"❌ Failed to create NBA Starting 5 channel: {e}")
 
 
-@bot.command(name="setnbachannel", aliases=["setdropchannel", "nbadropchannel"])
+@bot.command(name="setnbachannel", aliases=["setdropchannel", "nbadropchannel", "nbaconfig", "dropconfig"])
 @commands.guild_only()
 @commands.has_permissions(manage_guild=True)
-async def setnbachannel_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
-    """Pin card drops to a specific channel: !setnbachannel [#channel] (no channel = reset to auto)"""
-    if channel:
-        await db.set_config(ctx.guild.id, "nba_drop_channel", str(channel.id))
-        await ctx.send(f"✅ NBA 2K card drops will now **only** spawn in {channel.mention}!")
-    else:
-        await db.set_config(ctx.guild.id, "nba_drop_channel", "")
-        await ctx.send("✅ Drop channel reset — drops will spawn in whichever channel is most active.")
+async def setnbachannel_prefix_cmd(
+    ctx: commands.Context,
+    arg1: Optional[str] = None,
+    arg2: Optional[int] = None,
+    arg3: Optional[int] = None
+):
+    """Configure NBA card drop channel, message count & drop interval:
+    !setnbachannel [#channel|auto] [msg_count] [interval_minutes]
+    Examples:
+      !setnbachannel #drops 15 10
+      !setnbachannel auto 20 15
+      !setnbachannel (view current status)
+    """
+    try:
+        channel_target = None
+        reset_channel = False
+        msg_count = None
+        duration_mins = None
+
+        if arg1:
+            clean_arg1 = arg1.lower().strip()
+            if clean_arg1 in ["auto", "reset", "none", "off"]:
+                reset_channel = True
+            elif ctx.message.channel_mentions:
+                channel_target = ctx.message.channel_mentions[0]
+            elif arg1.isdigit():
+                msg_count = int(arg1)
+            else:
+                found = discord.utils.get(ctx.guild.text_channels, name=arg1.lstrip("#"))
+                if found:
+                    channel_target = found
+
+        if arg2 is not None:
+            if msg_count is None:
+                msg_count = arg2
+            else:
+                duration_mins = arg2
+
+        if arg3 is not None:
+            duration_mins = arg3
+
+        updates = []
+        if channel_target:
+            await db.set_config(ctx.guild.id, "nba_drop_channel", str(channel_target.id))
+            updates.append(f"• 📌 **Drop Channel:** {channel_target.mention}")
+        elif reset_channel:
+            await db.set_config(ctx.guild.id, "nba_drop_channel", "")
+            updates.append("• 📌 **Drop Channel:** Auto (Smart active chat selection)")
+
+        if msg_count is not None:
+            clamped_msgs = max(5, min(500, int(msg_count)))
+            await db.set_config(ctx.guild.id, "nba_drop_msg_threshold", clamped_msgs)
+            updates.append(f"• 💬 **Message Trigger Threshold:** Every `{clamped_msgs}` chat messages")
+
+        if duration_mins is not None:
+            clamped_mins = max(2, min(1440, int(duration_mins)))
+            await db.set_config(ctx.guild.id, "nba_drop_interval", clamped_mins)
+            updates.append(f"• ⏱️ **Periodic Drop Interval:** Every `{clamped_mins}` minutes")
+
+        if not updates:
+            curr_chan_id = await db.get_config(ctx.guild.id, "nba_drop_channel", None)
+            curr_chan_text = f"<#{curr_chan_id}>" if curr_chan_id else "Auto (Active chat selection)"
+            curr_msgs = await db.get_config(ctx.guild.id, "nba_drop_msg_threshold", 25)
+            curr_mins = await db.get_config(ctx.guild.id, "nba_drop_interval", 20)
+            embed = discord.Embed(
+                title="⚙️ NBA Card Drop Configuration",
+                description=(
+                    f"**Current Server Settings:**\n"
+                    f"• 📌 **Drop Channel:** {curr_chan_text}\n"
+                    f"• 💬 **Message Threshold:** Every `{curr_msgs}` messages\n"
+                    f"• ⏱️ **Drop Interval:** Every `{curr_mins}` minutes\n\n"
+                    f"💡 *Usage:* `!setnbachannel [#channel|auto] [msg_count] [interval_minutes]`"
+                ),
+                color=discord.Color.blue()
+            )
+            return await ctx.send(embed=embed)
+
+        embed = discord.Embed(
+            title="✅ NBA Card Drop Settings Updated!",
+            description="The following settings have been saved for this server:\n\n" + "\n".join(updates),
+            color=discord.Color.green()
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !setnbachannel: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="resetalllineups", aliases=["resetlineups", "resetbuildteams", "resetallteams"])
@@ -21336,6 +21561,88 @@ async def nbadaily_prefix_cmd(ctx: commands.Context):
             await ctx.send(embed=embed)
     except Exception as e:
         logger.error(f"Error in !nbadaily: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbaweekly", aliases=["weeklyvc", "nbaweek", "claimweekly"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbaweekly_prefix_cmd(ctx: commands.Context):
+    """Claim your weekly 5,000 VC (Virtual Currency) reward & Court Pass bonus: !nbaweekly"""
+    try:
+        success, new_bal, rem = await db.claim_nba_weekly(ctx.author.id, 5000)
+        if success:
+            embed = discord.Embed(
+                title="🌟 Weekly NBA VC Salary Claimed!",
+                description=(
+                    f"**+5,000 VC** has been deposited into your account!\n\n"
+                    f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
+                    f"• 📦 **Recommended Packs:** Deluxe Pack (`7,500 VC`), Premium (`3,500 VC`)\n\n"
+                    f"*Come back in 7 days to claim your next weekly salary!*"
+                ),
+                color=discord.Color.teal()
+            )
+            embed.set_footer(text="NBA 2K Mobile Weekly Salary • Use !openpack to spend VC")
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+        else:
+            days = int(rem // 86400)
+            hours = int((rem % 86400) // 3600)
+            minutes = int((rem % 3600) // 60)
+            embed = discord.Embed(
+                title="⏳ Weekly VC Cooldown Active",
+                description=(
+                    f"You have already claimed this week's reward!\n\n"
+                    f"• **Time Remaining:** `{days}d {hours}h {minutes}m`\n"
+                    f"• 💰 **Current Balance:** `{new_bal:,} VC`"
+                ),
+                color=discord.Color.orange()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbaweekly: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbamonthly", aliases=["monthlyvc", "nbamonth", "claimmonthly"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbamonthly_prefix_cmd(ctx: commands.Context):
+    """Claim your grand monthly 25,000 VC (Virtual Currency) VIP salary reward: !nbamonthly"""
+    try:
+        success, new_bal, rem = await db.claim_nba_monthly(ctx.author.id, 25000)
+        if success:
+            embed = discord.Embed(
+                title="👑 Grand Monthly NBA VIP Salary Claimed!",
+                description=(
+                    f"**+25,000 VC** has been deposited into your account!\n\n"
+                    f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
+                    f"• 🌌 **Top Tier Packs:** Galaxy Opal Pack (`15,000 VC`), End Game Pack (`50,000 VC`)\n\n"
+                    f"*Come back in 30 days to claim your next monthly VIP salary!*"
+                ),
+                color=discord.Color.gold()
+            )
+            embed.set_footer(text="NBA 2K Mobile Monthly VIP Salary • Use !openpack to spend VC")
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+        else:
+            days = int(rem // 86400)
+            hours = int((rem % 86400) // 3600)
+            minutes = int((rem % 3600) // 60)
+            embed = discord.Embed(
+                title="⏳ Monthly VC VIP Cooldown Active",
+                description=(
+                    f"You have already claimed this month's VIP salary!\n\n"
+                    f"• **Time Remaining:** `{days}d {hours}h {minutes}m`\n"
+                    f"• 💰 **Current Balance:** `{new_bal:,} VC`"
+                ),
+                color=discord.Color.orange()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbamonthly: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
 
 
@@ -23512,7 +23819,7 @@ async def on_message(message):
                             afk_alert_msg = await message.channel.send(embed=afk_embed)
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
 
-        # ── NBA 2K Mobile Wild Card Chat Spawns (Every 25 messages) ────────
+        # ── NBA 2K Mobile Wild Card Chat Spawns (Configurable message threshold) ────
         if message.guild and not message.author.bot:
             if is_valid_drop_channel(message.channel, allow_system=False):
                 chan_id = message.channel.id
@@ -23520,10 +23827,18 @@ async def on_message(message):
                 _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
                 now_drop_ts = time.time()
 
-                # Trigger drop every 25 messages in chat
-                if _nba_drop_msg_counts[chan_id] >= 25:
+                try:
+                    threshold = int(await db.get_config(message.guild.id, "nba_drop_msg_threshold", 25))
+                except (ValueError, TypeError):
+                    threshold = 25
+                if threshold < 5:
+                    threshold = 5
+
+                # Trigger drop after configured messages in chat
+                if _nba_drop_msg_counts[chan_id] >= threshold:
                     _nba_drop_msg_counts[chan_id] = 0
                     _nba_drop_last_timestamps[chan_id] = now_drop_ts
+                    _nba_drop_last_timestamps[message.guild.id] = now_drop_ts
 
                     # Respect pinned drop channel (if configured for this guild)
                     configured_id = await db.get_config(message.guild.id, "nba_drop_channel", None)

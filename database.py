@@ -412,7 +412,10 @@ class DatabaseManager:
                 vc_balance INTEGER DEFAULT 1000,
                 packs_opened INTEGER DEFAULT 0,
                 cards_claimed INTEGER DEFAULT 0,
-                last_daily_claim REAL DEFAULT 0.0
+                last_daily_claim REAL DEFAULT 0.0,
+                last_weekly_claim REAL DEFAULT 0.0,
+                last_monthly_claim REAL DEFAULT 0.0,
+                is_private INTEGER DEFAULT 0
             );
             """,
             # NBA 3-Point Shootout Contest Records Table
@@ -454,8 +457,14 @@ class DatabaseManager:
                 eco_col_names = [c["name"] for c in eco_cols] if eco_cols else []
                 if "is_private" not in eco_col_names:
                     await self.execute("ALTER TABLE user_nba_economy ADD COLUMN is_private INTEGER DEFAULT 0;")
+                if "last_weekly_claim" not in eco_col_names:
+                    await self.execute("ALTER TABLE user_nba_economy ADD COLUMN last_weekly_claim REAL DEFAULT 0.0;")
+                if "last_monthly_claim" not in eco_col_names:
+                    await self.execute("ALTER TABLE user_nba_economy ADD COLUMN last_monthly_claim REAL DEFAULT 0.0;")
             else:
                 await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS is_private INTEGER DEFAULT 0;")
+                await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS last_weekly_claim REAL DEFAULT 0.0;")
+                await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS last_monthly_claim REAL DEFAULT 0.0;")
         except Exception as alter_err:
             logger.debug(f"Column check for team_battle_stats/economy: {alter_err}")
             
@@ -1704,6 +1713,54 @@ class DatabaseManager:
             return True, new_bal, 0.0
         except Exception as e:
             logger.error(f"Error claiming NBA daily VC in DB: {e}")
+            return False, 0, 0.0
+
+    async def claim_nba_weekly(self, user_id: Any, amount: int = 5000) -> Tuple[bool, int, float]:
+        """Claims weekly NBA VC reward (7-day cooldown = 604,800s). Returns (success, new_balance, time_remaining)."""
+        now = time.time()
+        query = "SELECT last_weekly_claim, vc_balance FROM user_nba_economy WHERE user_id = ?"
+        try:
+            row = await self.fetchrow(query, str(user_id))
+            last_claim = float(row.get("last_weekly_claim", 0)) if row else 0.0
+            
+            if now - last_claim < 604800:
+                remaining = 604800 - (now - last_claim)
+                return False, int(row.get("vc_balance", 1000)) if row else 1000, remaining
+
+            update_query = """
+            INSERT INTO user_nba_economy (user_id, vc_balance, last_weekly_claim)
+            VALUES (?, 1000 + ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET vc_balance = user_nba_economy.vc_balance + ?, last_weekly_claim = ?
+            """
+            await self.execute(update_query, str(user_id), int(amount), now, int(amount), now)
+            new_bal = await self.get_user_vc(user_id)
+            return True, new_bal, 0.0
+        except Exception as e:
+            logger.error(f"Error claiming NBA weekly VC in DB: {e}")
+            return False, 0, 0.0
+
+    async def claim_nba_monthly(self, user_id: Any, amount: int = 25000) -> Tuple[bool, int, float]:
+        """Claims monthly NBA VC reward (30-day cooldown = 2,592,000s). Returns (success, new_balance, time_remaining)."""
+        now = time.time()
+        query = "SELECT last_monthly_claim, vc_balance FROM user_nba_economy WHERE user_id = ?"
+        try:
+            row = await self.fetchrow(query, str(user_id))
+            last_claim = float(row.get("last_monthly_claim", 0)) if row else 0.0
+            
+            if now - last_claim < 2592000:
+                remaining = 2592000 - (now - last_claim)
+                return False, int(row.get("vc_balance", 1000)) if row else 1000, remaining
+
+            update_query = """
+            INSERT INTO user_nba_economy (user_id, vc_balance, last_monthly_claim)
+            VALUES (?, 1000 + ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET vc_balance = user_nba_economy.vc_balance + ?, last_monthly_claim = ?
+            """
+            await self.execute(update_query, str(user_id), int(amount), now, int(amount), now)
+            new_bal = await self.get_user_vc(user_id)
+            return True, new_bal, 0.0
+        except Exception as e:
+            logger.error(f"Error claiming NBA monthly VC in DB: {e}")
             return False, 0, 0.0
 
     async def get_user_nba_economy_stats(self, user_id: Any) -> Dict[str, Any]:

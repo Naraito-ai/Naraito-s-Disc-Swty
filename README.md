@@ -127,7 +127,9 @@ Sweety features a card collection game inspired by **NBA 2K Mobile MyTEAM**:
 | `/openpack [tier]` | `!openpack [tier]` | Open Standard, Premium, Deluxe, Opal & End Game card packs |
 | `/packodds` | `!packodds` | View transparent card pack drop rates and tier probabilities |
 | `/nbasell <card_id>` | `!nbasell` | Quick-sell owned duplicate cards for VC |
-| `/nbadaily` | `!nbadaily` | Claim daily VC salary reward |
+| `/nbadaily` | `!nbadaily` | Claim daily 1,000 VC salary reward & streak |
+| `/nbaweekly` | `!nbaweekly` | Claim weekly 5,000 VC bonus & Court Pass salary |
+| `/nbamonthly` | `!nbamonthly` | Claim grand monthly 25,000 VC VIP salary |
 | `/nbabal [user]` | `!nbabal` | Check your current VC balance and card count |
 | `/nbatrade @user <card_id>` | `!nbatrade` | Propose secure atomic multi-card trade |
 | `/teamtop [limit]` | `!teamtop` / `!teamlb` | View top GMs by battle wins and win streaks |
@@ -135,7 +137,7 @@ Sweety features a card collection game inspired by **NBA 2K Mobile MyTEAM**:
 | `/spawndrop [tier]` | `!spawndrop` | Trigger wild player card drops |
 | `/nbahint` | `!nbahint` | Reveal an additional letter hint for active wild drop |
 | `/nbastatus` | `!nbastatus` | Check chat message drop counter and spawn status |
-| `/nbaswitch` | `!nbaswitch` | Set default channel for wild NBA drops |
+| `/setnbachannel` | `!setnbachannel` | Configure drop channel, message count (5–500), and timer (2–1440m) |
 
 ### 🤖 AI & Social Commands
 | Command | Description |
