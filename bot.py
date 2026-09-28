@@ -7179,6 +7179,9 @@ async def handle_buildteam(interaction_or_ctx: Any):
     is_interaction = isinstance(interaction_or_ctx, discord.Interaction)
     user = interaction_or_ctx.user if is_interaction else interaction_or_ctx.author
     
+    if is_interaction and not interaction_or_ctx.response.is_done():
+        await interaction_or_ctx.response.defer(ephemeral=True)
+
     user_cards = await db.get_user_nba_cards(user.id)
     if not user_cards:
         no_cards_msg = (
@@ -7188,7 +7191,7 @@ async def handle_buildteam(interaction_or_ctx: Any):
             "• Once you own cards, run `/buildteam` to set your Starting 5!"
         )
         if is_interaction:
-            return await interaction_or_ctx.response.send_message(no_cards_msg, ephemeral=True)
+            return await interaction_or_ctx.followup.send(no_cards_msg, ephemeral=True)
         else:
             return await interaction_or_ctx.send(no_cards_msg)
 
@@ -7197,10 +7200,7 @@ async def handle_buildteam(interaction_or_ctx: Any):
     embed = view.make_draft_embed()
     
     if is_interaction:
-        if not interaction_or_ctx.response.is_done():
-            await interaction_or_ctx.response.send_message(embed=embed, view=view, ephemeral=True)
-        else:
-            await interaction_or_ctx.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction_or_ctx.followup.send(embed=embed, view=view, ephemeral=True)
     else:
         await interaction_or_ctx.send(embed=embed, view=view)
 
@@ -28339,6 +28339,7 @@ async def afk_slash_cmd(interaction: discord.Interaction, reason: Optional[str] 
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
 async def buildteam_slash_cmd(interaction: discord.Interaction):
     try:
+        await interaction.response.defer(ephemeral=True)
         await handle_buildteam(interaction)
     except Exception as e:
         logger.error(f"Error in /buildteam: {e}", exc_info=True)
