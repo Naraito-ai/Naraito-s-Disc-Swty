@@ -11654,7 +11654,7 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "dm-jordan-99": "https://upload.wikimedia.org/wikipedia/commons/b/b3/Jordan_Lipofsky.jpg",
     "dm-mj-99": "https://upload.wikimedia.org/wikipedia/commons/a/ae/Michael_Jordan_in_2014.jpg",
     "dm-lebron-99": "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg",
-    "dm-lebron-98": "https://upload.wikimedia.org/wikipedia/commons/2/25/LeBron_James_2020.jpg",
+    "dm-lebron-98": "https://upload.wikimedia.org/wikipedia/commons/9/98/LeBron_James_at_the_2022_NBA_All-Star_Game.jpg",
     "dm-kobe-99": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Kobe_Lakers_Parade.jpg",
     "dm-curry-99": "https://upload.wikimedia.org/wikipedia/commons/5/52/Stephen_Curry%2C_Olympic_Games_2024_%28cropped%29.jpg",
     "dm-shaq-99": "https://upload.wikimedia.org/wikipedia/commons/e/e5/TechCrunch_Disrupt_2023_-_Day_1_%28cropped%29.jpg",
@@ -11663,7 +11663,7 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "dm-bird-99": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Larrybird.jpg",
     "dm-kd-99": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Kevin_Durant%2C_Paris_2024_%28cropped%29.jpg",
     "dm-giannis-99": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg/1280px-Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg",
-    "dm-carterbryant-99": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Kobe_Lakers_Parade.jpg",
+    "dm-carterbryant-99": "https://upload.wikimedia.org/wikipedia/commons/8/8d/2016_Jordan_Brand_Classic_%2826391615216%29.jpg",
     "dm-rollins-99": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Ryan_Rollins%2C_Toledo_Rockets_MBB%2C_February_2022.jpg/1280px-Ryan_Rollins%2C_Toledo_Rockets_MBB%2C_February_2022.jpg",
 
     # ── ✨ GALAXY OPAL (97-98 OVR) ───────────────────────────────────────────
@@ -11671,10 +11671,10 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "go-iguodala-2015-97": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Heat_Andre_Iguodala_%28cropped%29.jpg/1280px-Heat_Andre_Iguodala_%28cropped%29.jpg",
     "go-luka-98": "https://upload.wikimedia.org/wikipedia/commons/b/be/Luka_Don%C4%8Di%C4%87_and_Marines%2C_2026_%28cropped%29.jpg",
     "go-jokic-98": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Nikola_Jokic_free_throw_%28cropped%29.jpg",
-    "go-jokic-97": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Nikola_Jokic_2020.jpg",
+    "go-jokic-97": "https://upload.wikimedia.org/wikipedia/commons/6/69/Denver_Nuggets_2023_Championship_parade.png",
     "go-curry-97": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Stephen_Curry_close_up.jpg",
-    "go-durant-96": "https://upload.wikimedia.org/wikipedia/commons/4/44/Kevin_Durant_2020.jpg",
-    "go-tatum-98": "https://upload.wikimedia.org/wikipedia/commons/0/03/Jayson_Tatum_2024.jpg",
+    "go-durant-96": "https://upload.wikimedia.org/wikipedia/commons/0/01/Golden_State_Warriors_Small_Forward_Kevin_Durant.jpg",
+    "go-tatum-98": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg",
     "go-ad-97": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Anthony_Davis_pre-game_%28cropped%29.jpg/1280px-Anthony_Davis_pre-game_%28cropped%29.jpg",
     "go-kawhi-97": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Kawhi_Leonard_%287440607%29_%28cropped%29.jpg",
     "go-butler-97": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/CES_2026_-_Jimmy_Butler_01_%28cropped%29.jpg/1280px-CES_2026_-_Jimmy_Butler_01_%28cropped%29.jpg",
@@ -11685,7 +11685,7 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
 
     # ── 💎 DIAMOND (93-96 OVR) ──────────────────────────────────────────────
     "dia-sga-96": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg",
-    "dia-sga-95": "https://upload.wikimedia.org/wikipedia/commons/b/b3/Shai_Gilgeous-Alexander_2022.jpg",
+    "dia-sga-95": "https://upload.wikimedia.org/wikipedia/commons/a/ae/Shai_Gilgeous-Alexander_%2851815871018%29_%28cropped%29.jpg",
     "dia-ant-95": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg/1280px-Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg",
     "dia-booker-94": "https://upload.wikimedia.org/wikipedia/commons/2/22/Devin_Booker%2C_Olympic_Games_2024_%28cropped%29.jpg",
     "dia-spida-94": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/39/Donovan_Mitchell_Pregame.jpg/1280px-Donovan_Mitchell_Pregame.jpg",
@@ -11697,28 +11697,28 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "dia-hakeem-96": "https://upload.wikimedia.org/wikipedia/commons/8/84/Nigerian_President_Buhari_Stands_With_Secretary_Kerry%2C_U.S._Delegation_After_They_Attended_His_Inauguration_Ceremony_%28cropped%29.jpg",
     "dia-dirk-95": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1d/Dirk_Nowitzki_2_%28cropped%29.jpg/1280px-Dirk_Nowitzki_2_%28cropped%29.jpg",
     "dia-tatum-94": "https://upload.wikimedia.org/wikipedia/commons/8/84/Celtics_at_Wizards_2024-12-044_%28cropped_2%29.jpg",
-    "dia-adavis-93": "https://upload.wikimedia.org/wikipedia/commons/9/93/Anthony_Davis_2020.jpg",
-    "dia-giannis-94": "https://upload.wikimedia.org/wikipedia/commons/1/14/Giannis_Antetokounmpo_2022.jpg",
+    "dia-adavis-93": "https://upload.wikimedia.org/wikipedia/commons/9/96/Anthony_Davis_%2825306400548%29.jpg",
+    "dia-giannis-94": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Giannis_Antetokounmpo_%2839004611954%29.jpg",
 
     # ── 🔮 AMETHYST (88-92 OVR) ──────────────────────────────────────────────
     "amy-brunson-92": "https://upload.wikimedia.org/wikipedia/commons/f/f2/Jalen_Brunson_2023_%28cropped%29.jpg",
-    "amy-jalen-89": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Jalen_Brunson_2024.jpg",
+    "amy-jalen-89": "https://upload.wikimedia.org/wikipedia/commons/d/df/Cleveland_Cavaliers_vs._Dallas_Mavericks_%2851176485323%29_%28cropped%29.jpg",
     "amy-brown-91": "https://upload.wikimedia.org/wikipedia/commons/8/84/Celtics_at_Wizards_2024-12-015_%28cropped%29_%28cropped%29.jpg",
     "amy-fox-90": "https://upload.wikimedia.org/wikipedia/commons/f/fa/De%27Aaron_Fox_%28cropped%29.jpg",
     "amy-sabonis-90": "https://upload.wikimedia.org/wikipedia/commons/0/05/Domantas_Sabonis_by_Augustas_Didzgalvis_%28cropped%29.jpg",
     "amy-chet-89": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4c/Chet_Holmgren.jpg/1280px-Chet_Holmgren.jpg",
     "amy-paolo-90": "https://upload.wikimedia.org/wikipedia/commons/5/54/Paolo_Banchero.png",
-    "amy-pawlo-89": "https://upload.wikimedia.org/wikipedia/commons/2/25/Paolo_Banchero_2023.jpg",
+    "amy-pawlo-89": "https://upload.wikimedia.org/wikipedia/commons/f/f6/Paolo_Banchero_Dominating_in_High_School.jpg",
     "amy-lamelo-89": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f9/LaMelo_Ball_%28cropped%29.jpg/1280px-LaMelo_Ball_%28cropped%29.jpg",
     "amy-murray-89": "https://upload.wikimedia.org/wikipedia/commons/b/b6/Jamal_Murray_free_throw_%28cropped%29.jpg",
-    "amy-zion-90": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/53/Zion_Williamson_2020_%28cropped%29.jpg/1280px-Zion_Williamson_2020_%28cropped%29.jpg",
+    "amy-zion-90": "https://upload.wikimedia.org/wikipedia/commons/5/53/Zion_Williamson_2020_%28cropped%29.jpg",
     "amy-trae-89": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/42/Trae_Young_%282022_All-Star_Weekend%29_%28cropped%29.jpg/1280px-Trae_Young_%282022_All-Star_Weekend%29_%28cropped%29.jpg",
     "amy-kat-90": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Karl-Anthony_Towns_%2851914283512%29_%28cropped%29_%28cropped%29.jpg/1280px-Karl-Anthony_Towns_%2851914283512%29_%28cropped%29_%28cropped%29.jpg",
     "amy-tymax-90": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/1_tyrese_maxey_2026.jpg/1280px-1_tyrese_maxey_2026.jpg",
-    "amy-aedwards-90": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Anthony_Edwards_2023.jpg",
+    "amy-aedwards-90": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Anthony_Edwards_Georgia_2_%28cropped%29.jpg",
 
     # ── 🔴 RUBY (84-87 OVR) ──────────────────────────────────────────────────
-    "ruby-maxey-87": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Tyrese_Maxey_2023.jpg",
+    "ruby-maxey-87": "https://upload.wikimedia.org/wikipedia/commons/0/09/Tyrese_Maxey_%2851782280104%29_%28cropped%29.jpg",
     "ruby-white-86": "https://upload.wikimedia.org/wikipedia/commons/d/db/Boston_Celtics_player_Derrick_White_on_November_21%2C_2024_at_the_White_House_%28cropped%29.jpg",
     "ruby-mikal-85": "https://upload.wikimedia.org/wikipedia/commons/8/86/Mikal_Bridges%2C_April_2024.jpg",
     "ruby-anunoby-85": "https://upload.wikimedia.org/wikipedia/commons/0/03/OG_Anunoby_%2841708749222%29_%28cropped%29.jpg",
@@ -11730,12 +11730,12 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "ruby-wagner-86": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93138.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93138.jpg",
     "ruby-porzingis-87": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Celtics_at_Wizards_2024-12-005_%28cropped%29.jpg/1280px-Celtics_at_Wizards_2024-12-005_%28cropped%29.jpg",
     "ruby-gobert-86": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Rudy_Gobert.jpg/1280px-Rudy_Gobert.jpg",
-    "ruby-trae-87": "https://upload.wikimedia.org/wikipedia/commons/6/6d/Trae_Young_2021.jpg",
-    "ruby-zion-86": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Zion_Williamson_2020.jpg",
+    "ruby-trae-87": "https://upload.wikimedia.org/wikipedia/commons/a/a7/20170329_MCDAAG_Trae_Young_dribbling.jpg",
+    "ruby-zion-86": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Zion_Williamson_Duke_%28cropped%29.jpg",
     "ruby-herro-86": "https://upload.wikimedia.org/wikipedia/commons/7/71/Tyler_Herro_%28cropped%29.jpg",
     "ruby-scottie-86": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4e/Scottie_Barnes%2C_Wizards_vs_Raptors_on_October_12%2C_2021.jpg/1280px-Scottie_Barnes%2C_Wizards_vs_Raptors_on_October_12%2C_2021.jpg",
     "ruby-cade-86": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fe/1_cade_cunningham_2024.jpg/1280px-1_cade_cunningham_2024.jpg",
-    "ruby-wemby-88": "https://upload.wikimedia.org/wikipedia/commons/b/b2/Victor_Wembanyama_%28cropped%29.jpg",
+    "ruby-wemby-88": "https://upload.wikimedia.org/wikipedia/commons/5/5c/San_Antonio_at_Toronto_-_Wembanyama_2024_%28cropped%29.jpg",
     "ruby-ingram-86": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/Brandon_Ingram_2020_%28cropped2%29.jpg/1280px-Brandon_Ingram_2020_%28cropped2%29.jpg",
     "ruby-lavine-86": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/Zach_LaVine_%282022_All-Star_Weekend%29.jpg/1280px-Zach_LaVine_%282022_All-Star_Weekend%29.jpg",
     "ruby-lauri-85": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Lauri_Markkanen%2C_Cavaliers_vs_Rockets_on_December_15%2C_2021_%28cropped%29.jpg/1280px-Lauri_Markkanen%2C_Cavaliers_vs_Rockets_on_December_15%2C_2021_%28cropped%29.jpg",
@@ -11747,8 +11747,8 @@ NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {
     "gold-portis-81": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Bobby_Portis_2021_%28cropped%29.jpg/1280px-Bobby_Portis_2021_%28cropped%29.jpg",
     "gold-powell-80": "https://upload.wikimedia.org/wikipedia/commons/a/af/Norman_Powell_at_2017_Toronto_Film_Festival.jpg",
     "gold-jaquez-79": "https://upload.wikimedia.org/wikipedia/commons/d/df/Jaime_Jaquez_Jr_2021_%28cropped%29.jpg",
-    "gold-podz-78": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Brandin_Podziemski_2023.jpg",
-    "gold-lively-79": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Dereck_Lively_II_2024.jpg",
+    "gold-podz-78": "https://upload.wikimedia.org/wikipedia/commons/b/b2/LeBron_James_%2815662939969%29.jpg",
+    "gold-lively-79": "https://upload.wikimedia.org/wikipedia/commons/3/32/20110419_Anthony_Davis_at_Jordan_Brand_Classic.jpg",
     "gold-pritchard-80": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c1/Celtics_at_Wizards_2024-12-027_%28cropped%29.jpg/1280px-Celtics_at_Wizards_2024-12-027_%28cropped%29.jpg",
     "gold-thomas-82": "https://upload.wikimedia.org/wikipedia/commons/f/fe/Cameron_Thomas_%2851874870188%29_%28cropped%29.jpg",
     "gold-herb-82": "https://upload.wikimedia.org/wikipedia/commons/e/eb/Herb_Jones.jpg"
@@ -11806,8 +11806,16 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
         action_url = TIER_DEFAULT_ACTION_URLS.get(tier)
 
     if action_url:
+        # Strip tracking query strings
+        clean_url = action_url.split("?")[0]
         try:
-            req = urllib.request.Request(action_url, headers={"User-Agent": "SweetyDiscordBot/1.0 (bot@sweety.ai)"})
+            req = urllib.request.Request(
+                clean_url,
+                headers={
+                    "User-Agent": "NBA2KCardBot/1.0 (https://github.com/naraito/sweety-bot; contact@sweety.ai) Python-urllib/3.11",
+                    "Accept": "image/jpeg,image/png,image/*,*/*"
+                }
+            )
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
@@ -11819,7 +11827,7 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
                 _NBA_PLAYER_MOMENT_CACHE[cache_key] = img
                 return img
         except Exception as dl_err:
-            logger.debug(f"Could not fetch player moment photo for {name_str} ({tier}) from {action_url}: {dl_err}")
+            logger.debug(f"Could not fetch player moment photo for {name_str} ({tier}) from {clean_url}: {dl_err}")
 
     # 4. Fallback to assets/moments/ directory if present
     moments_dir = os.path.join(os.path.dirname(__file__), "assets", "moments")
@@ -11891,7 +11899,14 @@ def get_tier_default_moment_image(tier_key: str) -> Optional[Image.Image]:
             pass
             
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "SweetyDiscordBot/1.0 (bot@sweety.ai)"})
+        clean_url = url.split("?")[0]
+        req = urllib.request.Request(
+            clean_url,
+            headers={
+                "User-Agent": "NBA2KCardBot/1.0 (https://github.com/naraito/sweety-bot; contact@sweety.ai) Python-urllib/3.11",
+                "Accept": "image/jpeg,image/png,image/*,*/*"
+            }
+        )
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -18393,6 +18408,371 @@ async def nbaprivacy_slash_cmd(interaction: discord.Interaction):
         await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+@bot.tree.command(name="packodds", description="🎲 View the exact pull rates for all NBA 2K Mobile card packs")
+@app_commands.describe(pack_name="Specific pack to inspect (starter, allstar, goat)")
+@app_commands.choices(pack_name=[
+    app_commands.Choice(name="All Packs", value="all"),
+    app_commands.Choice(name="Starter Pack (1,000 VC)", value="starter"),
+    app_commands.Choice(name="All-Star Pack (5,000 VC)", value="allstar"),
+    app_commands.Choice(name="G.O.A.T. Edition Pack (25,000 VC)", value="goat"),
+])
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def packodds_slash_cmd(interaction: discord.Interaction, pack_name: Optional[str] = "all"):
+    try:
+        pack_name_clean = (pack_name or "all").lower().strip()
+        pack_data = NBA_PACK_TYPES.get(pack_name_clean)
+        if pack_data and pack_name_clean != "all":
+            embed = discord.Embed(
+                title=f"🎲 {pack_data['name']} — Pull Rates",
+                description=(
+                    f"*{pack_data.get('description', '')}*\n\n"
+                    f"**Cost:** `💰 {pack_data['cost']:,} VC`\n\n"
+                    f"**Exact Pull Probabilities:**\n"
+                    f"{_build_odds_lines(pack_data)}"
+                ),
+                color=discord.Color.gold()
+            )
+            embed.set_footer(text="All odds are exact probabilities. No deception, no hidden rates.")
+            embed.timestamp = discord.utils.utcnow()
+            return await interaction.response.send_message(embed=embed)
+
+        embed = discord.Embed(
+            title="🎲 NBA 2K Mobile — Pack Pull Rates (All Packs)",
+            description=(
+                "Here are the **100% transparent, honest pull rates** for every card pack.\n"
+                "No hidden odds. What you see is exactly what you get.\n"
+            ),
+            color=discord.Color.gold()
+        )
+        for _, pdata in NBA_PACK_TYPES.items():
+            embed.add_field(
+                name=f"{pdata['name']} — `{pdata['cost']:,} VC`",
+                value=f"*{pdata.get('description', '')}*\n{_build_odds_lines(pdata)}",
+                inline=False
+            )
+        embed.set_footer(text="Use /openpack to rip a pack • /nbadaily for free VC")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /packodds: {e}", exc_info=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="vcbet", description="💰 Wager VC on a 5v5 team battle — winner takes the pot")
+@app_commands.describe(opponent="The member to challenge to a VC wager battle", bet_amount="Amount of VC to wager (e.g. 500)")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
+async def vcbet_slash_cmd(interaction: discord.Interaction, opponent: discord.Member, bet_amount: int):
+    try:
+        if opponent.id == interaction.user.id:
+            return await interaction.response.send_message("❌ You can't bet against yourself!", ephemeral=True)
+
+        if bet_amount <= 0:
+            return await interaction.response.send_message("❌ Minimum bet is **1 VC**.", ephemeral=True)
+
+        if bet_amount > 50000:
+            return await interaction.response.send_message("❌ Maximum bet is `50,000 VC` per match.", ephemeral=True)
+
+        if getattr(opponent, "bot", False):
+            return await interaction.response.send_message("❌ You can't bet against a bot!", ephemeral=True)
+
+        bal_a = await db.get_user_vc(interaction.user.id)
+        bal_b = await db.get_user_vc(opponent.id)
+
+        if bal_a < bet_amount:
+            return await interaction.response.send_message(
+                f"❌ **Insufficient VC!** You need `{bet_amount:,} VC` but only have `{bal_a:,} VC`.\n💡 Earn VC with `/nbadaily` or by quick-selling cards.",
+                ephemeral=True
+            )
+        if bal_b < bet_amount:
+            return await interaction.response.send_message(
+                f"❌ **{opponent.display_name}** doesn't have enough VC (`{bal_b:,}` < `{bet_amount:,} VC`).",
+                ephemeral=True
+            )
+
+        row_a = await db.get_dream_team(interaction.user.id)
+        if not row_a:
+            return await interaction.response.send_message("❌ You haven't set an NBA Starting 5 yet! Use `/buildteam` first.", ephemeral=True)
+
+        row_b = await db.get_dream_team(opponent.id)
+        if not row_b:
+            return await interaction.response.send_message(f"❌ **{opponent.display_name}** hasn't set an NBA Starting 5 yet! They need to use `/buildteam` first.", ephemeral=True)
+
+        picks_a = extract_picks_from_row(row_a)
+        picks_b = extract_picks_from_row(row_b)
+        eval_a = evaluate_dream_team(picks_a)
+        eval_b = evaluate_dream_team(picks_b)
+
+        bet_view = VCBetChallengeView(interaction.user, opponent, row_a, row_b, eval_a, eval_b, bet_amount)
+        bet_embed = bet_view.make_bet_embed()
+
+        versus_file = None
+        try:
+            stats_a = await db.get_team_battle_stats(interaction.user.id)
+            stats_b = await db.get_team_battle_stats(opponent.id)
+            versus_buf = generate_versus_matchup_image(interaction.user.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
+            versus_file = discord.File(versus_buf, filename="versus_matchup.png")
+            bet_embed.set_image(url="attachment://versus_matchup.png")
+        except Exception as img_err:
+            logger.debug(f"vcbet slash: could not generate versus image: {img_err}")
+
+        if versus_file:
+            await interaction.response.send_message(embed=bet_embed, file=versus_file, view=bet_view)
+        else:
+            await interaction.response.send_message(embed=bet_embed, view=bet_view)
+    except Exception as e:
+        logger.error(f"Error in /vcbet: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="remindme", description="⏰ Set a private reminder with custom note")
+@app_commands.describe(time="Duration string (e.g. 10m, 2h, 1d)", note="Reminder note or message")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def remindme_slash_cmd(interaction: discord.Interaction, time: str, note: Optional[str] = "Reminder"):
+    try:
+        seconds = parse_duration_string(time)
+        if not seconds:
+            return await interaction.response.send_message("❌ **Invalid time format!**\nExamples: `10m`, `2h`, `1d`", ephemeral=True)
+        if seconds < MIN_REMINDER_SECONDS:
+            return await interaction.response.send_message(f"❌ Minimum duration is `{MIN_REMINDER_SECONDS}s`.", ephemeral=True)
+        if seconds > MAX_REMINDER_SECONDS:
+            return await interaction.response.send_message("❌ Maximum duration cannot exceed 365 days.", ephemeral=True)
+
+        clean_note = sanitize_reminder_text(note or "Reminder")
+        if not clean_note:
+            return await interaction.response.send_message("❌ Reminder text cannot be empty!", ephemeral=True)
+
+        active = await db.get_user_reminders(interaction.user.id)
+        if active and len(active) >= 10:
+            return await interaction.response.send_message("❌ You already have 10 active reminders! Use `/reminders` to manage them.", ephemeral=True)
+
+        now = time_module.time() if 'time_module' in globals() else time.time()
+        remind_at = now + seconds
+        rem_id = f"rem_{interaction.user.id}_{int(remind_at)}_{int(now)}"
+
+        await db.add_reminder(
+            reminder_id=rem_id,
+            user_id=interaction.user.id,
+            guild_id=interaction.guild_id,
+            channel_id=interaction.channel_id,
+            reminder_text=clean_note,
+            remind_at=remind_at,
+            created_at=now,
+            delivery_method="dm"
+        )
+
+        embed = discord.Embed(
+            title="🔒 Reminder Scheduled (Private)!",
+            description=f"I will remind you <t:{int(remind_at)}:R> (<t:{int(remind_at)}:f>) via **Direct Message**.",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="📝 Note", value=f">>> {clean_note[:1000]}", inline=False)
+        embed.set_footer(text=f"ID: {rem_id[:16]} • Sweety Productivity Suite (Private)")
+        embed.timestamp = discord.utils.utcnow()
+
+        try:
+            await interaction.user.send(embed=embed)
+            await interaction.response.send_message("🔒 Your reminder has been set privately! I will DM you when it's time.", ephemeral=True)
+        except Exception:
+            await db.update_reminder_delivery(rem_id, "channel")
+            await interaction.response.send_message("⚠️ Your DMs are closed! I scheduled your reminder, but will alert you in this channel.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /remindme: {e}", exc_info=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="reminders", description="⏱️ View or clear your active scheduled reminders")
+@app_commands.describe(action="View active reminders or clear all")
+@app_commands.choices(action=[
+    app_commands.Choice(name="📋 List Active Reminders", value="list"),
+    app_commands.Choice(name="🧹 Clear All Reminders", value="clear"),
+])
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def reminders_slash_cmd(interaction: discord.Interaction, action: Optional[str] = "list"):
+    try:
+        if action == "clear":
+            rows = await db.get_user_reminders(interaction.user.id)
+            if not rows:
+                return await interaction.response.send_message("ℹ️ You have no active reminders to clear.", ephemeral=True)
+            await db.clear_user_reminders(interaction.user.id)
+            return await interaction.response.send_message(f"🧹 Cleared **{len(rows)}** active reminder(s).", ephemeral=True)
+
+        rows = await db.get_user_reminders(interaction.user.id)
+        if not rows:
+            return await interaction.response.send_message("ℹ️ You have no active reminders. Use `/remindme` to set one!", ephemeral=True)
+
+        lines = []
+        for r in rows[:10]:
+            rem_ts = int(r.get("remind_at", 0))
+            text = r.get("reminder_text", "Reminder")
+            lines.append(f"• <t:{rem_ts}:R> (<t:{rem_ts}:f>) — *{text[:80]}*")
+
+        embed = discord.Embed(
+            title="⏱️ Active Reminders",
+            description="\n".join(lines),
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text=f"Total: {len(rows)}/10 reminders • Use /reminders action:clear to wipe all")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /reminders: {e}", exc_info=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="remember", description="🧠 Tell Sweety to remember a personal preference or fact")
+@app_commands.describe(fact="The personal fact or preference for Sweety to store")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def remember_slash_cmd(interaction: discord.Interaction, fact: str):
+    try:
+        await interaction.response.defer()
+        is_clean, clean_fact = _sanitize_ai_input(fact)
+        if not is_clean:
+            return await interaction.followup.send("⚠️ Input contains restricted characters.", ephemeral=True)
+
+        extract_prompt = (
+            f"Extract key personal facts from this user statement: \"{clean_fact}\"\n"
+            "Return a JSON object in this format:\n"
+            "{\n"
+            "  \"facts\": [\n"
+            "    {\"key\": \"short_snake_case_key\", \"value\": \"concise value\"}\n"
+            "  ]\n"
+            "}\n"
+        )
+        saved = []
+        try:
+            raw_res = await call_ai_generation(extract_prompt, "Extract user facts. Return JSON.", json_mode=True)
+            if isinstance(raw_res, dict) and "facts" in raw_res and raw_res["facts"]:
+                for item in raw_res["facts"]:
+                    if isinstance(item, dict):
+                        k = str(item.get("key", "")).strip().lower().replace(" ", "_")[:50]
+                        v = str(item.get("value", "")).strip()[:400]
+                        if k and v:
+                            await db.set_user_memory(interaction.user.id, k, v, guild_id=interaction.guild_id, source="manual")
+                            saved.append(f"• **{k.replace('_', ' ').title()}**: {v}")
+        except Exception:
+            pass
+
+        if not saved:
+            await db.set_user_memory(interaction.user.id, "personal_note", clean_fact[:300], guild_id=interaction.guild_id, source="manual")
+            saved.append(f"• **Note**: {clean_fact[:300]}")
+
+        embed = discord.Embed(
+            title="🧠 Memory Saved!",
+            description=f"Sweety will remember this about you, **{interaction.user.display_name}**:\n\n" + "\n".join(saved),
+            color=discord.Color.brand_green()
+        )
+        embed.set_footer(text="Use /memories to view all facts or /forget to delete.")
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /remember: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="memories", description="🧠 View stored memory profile facts")
+@app_commands.describe(user="Optional member whose profile memories to inspect")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def memories_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None):
+    try:
+        target_user = user or interaction.user
+        is_self = target_user.id == interaction.user.id
+        if not is_self:
+            is_mod = is_admin_or_mod(interaction.user) or interaction.user.id == 719932313919684670
+            if not is_mod:
+                return await interaction.response.send_message("🚫 You can only view your own memories.", ephemeral=True)
+
+        mems = await db.get_user_memories(target_user.id, limit=25)
+        if not mems:
+            return await interaction.response.send_message(f"ℹ️ No memories stored for **{target_user.display_name}**. Use `/remember <fact>` to save one!", ephemeral=True)
+
+        lines = []
+        for m in mems:
+            k_disp = m["fact_key"].replace("_", " ").title()
+            v_disp = m["fact_value"]
+            src = "🤖 *Auto*" if m.get("source") == "auto" else "✍️ *Manual*"
+            lines.append(f"• **{k_disp}**: {v_disp} — {src}")
+
+        embed = discord.Embed(
+            title=f"🧠 Memory Log — {target_user.display_name}",
+            description="\n".join(lines),
+            color=discord.Color.purple()
+        )
+        embed.set_thumbnail(url=target_user.display_avatar.url)
+        embed.set_footer(text=f"Total memories: {len(mems)} • Use /forget <key> to delete a fact.")
+        view = MemoryManageView(target_user.id, interaction.user.id) if is_self else None
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /memories: {e}", exc_info=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="forget", description="🗑️ Forget a specific fact or clear all stored memories")
+@app_commands.describe(key="Fact key to delete or 'all' to wipe everything")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def forget_slash_cmd(interaction: discord.Interaction, key: str):
+    try:
+        target = key.strip().lower()
+        if target in ("all", "*", "everything"):
+            await db.clear_user_memories(interaction.user.id)
+            return await interaction.response.send_message("🧹 **All your stored memories have been completely wiped!**", ephemeral=True)
+
+        ok = await db.delete_user_memory(interaction.user.id, target)
+        if ok:
+            await interaction.response.send_message(f"🗑️ **Forgotten!** Sweety has removed `{target}` from your memories.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Could not find fact `{target}` in your saved memories. Check with `/memories`.", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /forget: {e}", exc_info=True)
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="ask", description="🧠 Ask Sweety any question with personalized memory intelligence")
+@app_commands.describe(question="Your question or prompt for Sweety")
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def ask_slash_cmd(interaction: discord.Interaction, question: str):
+    try:
+        await interaction.response.defer()
+        author_info = f"{interaction.user.name} ({interaction.user.display_name})"
+        server_info = f"in {interaction.guild.name}" if interaction.guild else "in DMs"
+        
+        mems = await db.get_user_memories(interaction.user.id, limit=10)
+        memory_lines = []
+        if mems:
+            for m in mems:
+                memory_lines.append(f"- {m['fact_key'].replace('_', ' ')}: {m['fact_value']}")
+        memory_section = f"\nWhat you know about this user:\n" + "\n".join(memory_lines) if memory_lines else ""
+
+        system_instruction = (
+            f"You are Sweety, a quick, charming, highly intelligent, and loving Discord AI companion {server_info} answering {author_info}.\n"
+            "RESPONSE GUIDELINES:\n"
+            "1. Reply naturally, intelligently, and contextually.\n"
+            "2. Keep everyday replies crisp and engaging (1-3 sentences maximum unless in-depth details requested).\n"
+            "3. Tone: warm, cute, expressive, and fun with occasional emojis (✨, ❤️, 🌸, ⚡).\n"
+            f"{memory_section}"
+        )
+        reply = await call_gemini_ai(question, system_instruction)
+        if not reply:
+            reply = "I'm having a little trouble thinking right now, but I'm here for you! ✨"
+        
+        if len(reply) <= 2000:
+            await interaction.followup.send(reply)
+        else:
+            embed = discord.Embed(description=reply[:4000], color=discord.Color.purple())
+            await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /ask: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
 @bot.tree.command(name="shootout", description="🎯 Play the fast-paced NBA All-Star 3-Point Shootout Contest")
 @app_commands.describe(
     opponent="Optional member to challenge to a 1v1 shootout duel",
@@ -19175,84 +19555,6 @@ async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[disc
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="kissrole", description="Configure which role has permission to use the /kiss command")
-@app_commands.describe(
-    action="Select action: set a role, remove role restriction, or view current setting",
-    role="The role to grant kiss command permissions to (required for 'set')"
-)
-@app_commands.choices(
-    action=[
-        app_commands.Choice(name="⚙️ Set Role (Allow a specific role)", value="set"),
-        app_commands.Choice(name="🔄 Remove Role (Reset to Admins & Owner only)", value="remove"),
-        app_commands.Choice(name="📋 View Current Setting", value="view")
-    ]
-)
-@app_commands.default_permissions(administrator=True)
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def kissrole_slash_cmd(interaction: discord.Interaction, action: str = "view", role: Optional[discord.Role] = None):
-    try:
-        if not can_manage_kiss_role(interaction.guild, interaction.user):
-            await interaction.response.send_message("❌ Only Server Administrators and the Server Owner can manage kiss command permissions.", ephemeral=True)
-            return
-            
-        guild = interaction.guild
-        if action == "set":
-            if not role:
-                await interaction.response.send_message("❌ Please specify a `role` to grant kiss permissions to: `/kissrole set role:@Role`", ephemeral=True)
-                return
-            await db.set_config(guild.id, "kiss_allowed_role_id", role.id)
-            embed = discord.Embed(
-                title="💋 Kiss Command Role Updated",
-                description=f"Members with the {role.mention} role can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
-                color=discord.Color.from_rgb(255, 105, 180)
-            )
-            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            await interaction.response.send_message(embed=embed)
-            
-        elif action == "remove":
-            await db.set_config(guild.id, "kiss_allowed_role_id", "None")
-            embed = discord.Embed(
-                title="🔄 Kiss Command Role Reset",
-                description="The custom kiss role has been removed.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
-                color=discord.Color.blue()
-            )
-            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            await interaction.response.send_message(embed=embed)
-            
-        else:  # view
-            allowed_role_id_raw = await db.get_config(guild.id, "kiss_allowed_role_id", None)
-            allowed_role_id = None
-            if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
-                try:
-                    allowed_role_id = int(allowed_role_id_raw)
-                except (ValueError, TypeError):
-                    allowed_role_id = None
-                    
-            embed = discord.Embed(
-                title=f"💋 Kiss Command Permissions — {guild.name}",
-                color=discord.Color.from_rgb(255, 105, 180)
-            )
-            embed.add_field(name="👑 Default Access", value="• Server Owner\n• Server Administrators\n• Bot Creator", inline=False)
-            if allowed_role_id:
-                role_obj = guild.get_role(allowed_role_id)
-                role_str = role_obj.mention if role_obj else f"`Role ID: {allowed_role_id}` *(Deleted Role)*"
-                embed.add_field(name="🎭 Configured Role", value=f"✅ {role_str}", inline=False)
-            else:
-                embed.add_field(name="🎭 Configured Role", value="*No custom role set (Admins & Owner only)*", inline=False)
-                
-            embed.set_footer(text="Use /kissrole set @Role to change, or /kissrole remove to reset.")
-            await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /kissrole: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error configuring kiss permissions: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error configuring kiss permissions: {e}", ephemeral=True)
-
-
-
-
 @bot.tree.command(name="antiraid", description="Configure automated Join-Raid detection and Server Raid Shield")
 @app_commands.describe(mode="Set anti-raid protection mode")
 @app_commands.choices(
@@ -19980,20 +20282,7 @@ async def warn_command(interaction: discord.Interaction, member: discord.Member,
             await interaction.response.send_message(f"❌ Failed to warn member: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="strike", description="Issue a formal strike to a member with auto-escalation (alias for /warn)")
-@app_commands.describe(member="The member to strike", reason="Reason for the strike")
-@app_commands.default_permissions(moderate_members=True)
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def strike_slash_cmd(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-    try:
-        await warn_command(interaction, member, reason)
-    except Exception as e:
-        logger.error(f"Error in /strike: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
 
 
 # ── Interactive Warning Management UI ──────────────────────────────────────────
@@ -20246,26 +20535,7 @@ async def warnleaderboard_command(interaction: discord.Interaction, limit: Optio
             await interaction.response.send_message(f"❌ Failed to fetch warning leaderboard: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="warnlb", description="Alias for /warnleaderboard — Display the server warnings leaderboard")
-@app_commands.describe(limit="Number of top warned users to display (5 to 25, default 10)")
-@app_commands.choices(limit=[
-    app_commands.Choice(name="Top 5", value=5),
-    app_commands.Choice(name="Top 10", value=10),
-    app_commands.Choice(name="Top 15", value=15),
-    app_commands.Choice(name="Top 20", value=20),
-    app_commands.Choice(name="Top 25", value=25),
-])
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def warnlb_command(interaction: discord.Interaction, limit: Optional[int] = 10):
-    try:
-        await warnleaderboard_command(interaction, limit=limit)
-    except Exception as e:
-        logger.error(f"Error in /warnlb: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
 
 
 
@@ -23791,19 +24061,7 @@ async def whois_command(interaction: discord.Interaction, member: discord.Member
             await interaction.followup.send("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
 
 
-@bot.tree.command(name="userinfo", description="🔍 Comprehensive member profile, roles, permissions & server audit")
-@app_commands.describe(member="The member to inspect (defaults to yourself)")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def userinfo_command(interaction: discord.Interaction, member: discord.Member = None):
-    try:
-        await whois_command(interaction, member)
-    except Exception as e:
-        logger.error(f"Error in /userinfo command: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
-        else:
-            await interaction.followup.send("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
+
 
 
 @bot.command(name="whois", aliases=["profile", "user", "memberinfo"])
@@ -24221,58 +24479,7 @@ async def staff_command(interaction: discord.Interaction):
             await interaction.followup.send("❌ Could not retrieve staff information.", ephemeral=True)
 
 
-@bot.tree.command(name="owner", description="Show the server owner and founder")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def owner_command(interaction: discord.Interaction):
-    try:
-        embed = check_staff_query("who is owner", interaction.guild)
-        if embed:
-            await interaction.response.send_message(embed=embed)
-        else:
-            await interaction.response.send_message("❌ Could not retrieve owner information.")
-    except Exception as e:
-        logger.error(f"Error in /owner command: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message("❌ Could not retrieve owner information.", ephemeral=True)
-        else:
-            await interaction.followup.send("❌ Could not retrieve owner information.", ephemeral=True)
 
-
-@bot.tree.command(name="admins", description="List all server administrators")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def admins_command(interaction: discord.Interaction):
-    try:
-        embed = check_staff_query("who is admin", interaction.guild)
-        if embed:
-            await interaction.response.send_message(embed=embed)
-        else:
-            await interaction.response.send_message("❌ Could not retrieve admin information.")
-    except Exception as e:
-        logger.error(f"Error in /admins command: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message("❌ Could not retrieve admin information.", ephemeral=True)
-        else:
-            await interaction.followup.send("❌ Could not retrieve admin information.", ephemeral=True)
-
-
-@bot.tree.command(name="mods", description="List all server moderators and staff")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def mods_command(interaction: discord.Interaction):
-    try:
-        embed = check_staff_query("who is moderator", interaction.guild)
-        if embed:
-            await interaction.response.send_message(embed=embed)
-        else:
-            await interaction.response.send_message("❌ Could not retrieve moderator information.")
-    except Exception as e:
-        logger.error(f"Error in /mods command: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message("❌ Could not retrieve moderator information.", ephemeral=True)
-        else:
-            await interaction.followup.send("❌ Could not retrieve moderator information.", ephemeral=True)
 
 
 
