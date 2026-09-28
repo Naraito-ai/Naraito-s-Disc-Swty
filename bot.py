@@ -17515,6 +17515,67 @@ async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[disc
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+@bot.tree.command(name="shootout", description="🎯 Play the fast-paced NBA All-Star 3-Point Shootout Contest")
+@app_commands.describe(
+    opponent="Optional member to challenge to a 1v1 shootout duel",
+    wager="Optional VC wager for the shootout duel"
+)
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def shootout_slash_cmd(interaction: discord.Interaction, opponent: Optional[discord.Member] = None, wager: Optional[int] = 0):
+    try:
+        if opponent:
+            if opponent.id == interaction.user.id:
+                return await interaction.response.send_message("❌ You can't challenge yourself! Play solo without tagging an opponent.", ephemeral=True)
+            if getattr(opponent, "bot", False):
+                return await interaction.response.send_message("❌ You cannot challenge a bot to a 3-point wager!", ephemeral=True)
+
+            wager_amt = max(0, wager or 0)
+            if wager_amt > 0:
+                bal_a = await db.get_user_vc(interaction.user.id)
+                bal_b = await db.get_user_vc(opponent.id)
+                if bal_a < wager_amt:
+                    return await interaction.response.send_message(f"❌ You don't have enough VC for a `{wager_amt:,} VC` wager! (Balance: `{bal_a:,} VC`)", ephemeral=True)
+                if bal_b < wager_amt:
+                    return await interaction.response.send_message(f"❌ **{opponent.display_name}** only has `{bal_b:,} VC`, which is less than the `{wager_amt:,} VC` wager.", ephemeral=True)
+
+            duel_view = ThreePointDuelChallengeView(interaction.user, opponent, wager_amt)
+            wager_line = f"\n💰 **Wager**: `{wager_amt:,} VC` each (Winner takes **`{wager_amt*2:,} VC`** pot!)" if wager_amt > 0 else ""
+            embed = discord.Embed(
+                title="🎯 1v1 NBA 3-POINT SHOOTOUT CHALLENGE",
+                description=(
+                    f"🏀 {interaction.user.mention} has challenged {opponent.mention} to an **NBA All-Star 3-Point Shootout Duel**!\n"
+                    f"{wager_line}\n\n"
+                    f"• **Format**: 7 Stations (5 Racks + 2 Deep Starry Balls) • Max 40 PTS\n"
+                    f"• {opponent.mention}, click **`🎯 Accept Shootout Duel`** to begin!"
+                ),
+                color=discord.Color.gold()
+            )
+            await interaction.response.send_message(content=opponent.mention, embed=embed, view=duel_view)
+            return
+
+        # Solo Shootout Run
+        await interaction.response.defer()
+        shooter = await get_user_best_3pt_shooter(interaction.user.id)
+        view = ThreePointShootoutView(author=interaction.user, player=shooter)
+        embed = build_shootout_embed(
+            user=interaction.user,
+            player=shooter,
+            station_results=[],
+            current_station_idx=0,
+            total_score=0,
+            is_complete=False
+        )
+        await interaction.followup.send(embed=embed, view=view)
+
+    except Exception as e:
+        logger.error(f"Error in /shootout: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
 @bot.tree.command(name="nbacard", description="🔍 Inspect full HD 2K card artwork, attributes & badges for any NBA card")
 @app_commands.describe(card="Card ID or Player Name (e.g. 'dm-jordan-99', 'LeBron James', 'Luka')")
 @app_commands.guild_only()
@@ -20146,6 +20207,584 @@ class VCBetChallengeView(discord.ui.View):
                 await self.message.edit(embed=embed, view=self)
             except Exception:
                 pass
+
+
+# ── NBA 3-POINT SHOOTOUT ALL-STAR CONTEST SYSTEM ─────────────────────────────
+
+NBA_SHOOTOUT_STATIONS: List[Dict[str, Any]] = [
+    {"name": "Left Corner Rack", "icon": "📍", "type": "standard", "balls": 5, "max_pts": 6},
+    {"name": "Left Wing Rack", "icon": "📍", "type": "standard", "balls": 5, "max_pts": 6},
+    {"name": "Starry Deep Ball 1 (30ft)", "icon": "⭐", "type": "starry", "balls": 1, "max_pts": 3},
+    {"name": "Top of Arc Rack", "icon": "📍", "type": "standard", "balls": 5, "max_pts": 6},
+    {"name": "Starry Deep Ball 2 (30ft)", "icon": "⭐", "type": "starry", "balls": 1, "max_pts": 3},
+    {"name": "Right Wing Rack", "icon": "📍", "type": "standard", "balls": 5, "max_pts": 6},
+    {"name": "Money Ball Rack (Right Corner)", "icon": "💰", "type": "all_money", "balls": 5, "max_pts": 10},
+]
+
+
+async def get_user_best_3pt_shooter(user_id: int) -> Dict[str, Any]:
+    """Finds the user's highest-rated 3PT shooter from their Starting 5 or card collection."""
+    # 1. Starting 5 Lineup
+    row = await db.get_dream_team(user_id)
+    if row:
+        picks = extract_picks_from_row(row)
+        if picks:
+            best_p = max(picks.values(), key=lambda p: p.get("pts_3", p.get("stats", {}).get("3pt", 80)))
+            return best_p
+
+    # 2. Owned Inventory Cards
+    owned = await db.get_user_nba_cards(user_id)
+    if owned:
+        best_c = None
+        best_val = -1
+        for entry in owned:
+            c = get_nba_card(entry["card_id"])
+            if c:
+                val = c.get("stats", {}).get("3pt", 80)
+                if val > best_val:
+                    best_val = val
+                    best_c = c
+        if best_c:
+            return card_to_player_dict(best_c)
+
+    # 3. Default Fallback
+    return {
+        "name": "Stephen Curry",
+        "pts_3": 99,
+        "team": "GSW",
+        "emoji": "🎯",
+        "tag": "Unanimous MVP • Greatest Shooter Ever"
+    }
+
+
+def simulate_shootout_station(player: Dict[str, Any], station_type: str, current_streak: int = 0) -> Tuple[List[Dict[str, Any]], int, int, int, int]:
+    """Simulates shots for a single rack station based on player 3PT rating & hot streak."""
+    stat_3pt = player.get("pts_3", player.get("stats", {}).get("3pt", 85))
+    base_prob = 0.45 + ((stat_3pt - 70) / 30.0) * 0.40
+    base_prob = max(0.30, min(0.92, base_prob))
+
+    shots = []
+    pts_made = 0
+    money_made = 0
+    starry_made = 0
+    streak = current_streak
+
+    if station_type == "starry":
+        # Deep 30-footer
+        p = base_prob * 0.72 + (0.10 if streak >= 3 else 0.0)
+        made = random.random() < p
+        if made:
+            streak += 1
+            pts_made += 3
+            starry_made += 1
+            shots.append({"icon": "⭐", "pts": 3, "made": True})
+        else:
+            streak = 0
+            shots.append({"icon": "⚪", "pts": 0, "made": False})
+
+    elif station_type == "all_money":
+        for _ in range(5):
+            p = min(0.95, base_prob + (0.08 if streak >= 3 else 0.0))
+            made = random.random() < p
+            if made:
+                streak += 1
+                pts_made += 2
+                money_made += 1
+                shots.append({"icon": "🟡", "pts": 2, "made": True})
+            else:
+                streak = 0
+                shots.append({"icon": "⚪", "pts": 0, "made": False})
+
+    else:
+        # Standard: 4 regular balls (1 pt) + 1 Money Ball (2 pts)
+        for _ in range(4):
+            p = min(0.95, base_prob + (0.08 if streak >= 3 else 0.0))
+            made = random.random() < p
+            if made:
+                streak += 1
+                pts_made += 1
+                shots.append({"icon": "🟢", "pts": 1, "made": True})
+            else:
+                streak = 0
+                shots.append({"icon": "⚪", "pts": 0, "made": False})
+        # Money Ball
+        p = min(0.95, base_prob + (0.08 if streak >= 3 else 0.0))
+        made = random.random() < p
+        if made:
+            streak += 1
+            pts_made += 2
+            money_made += 1
+            shots.append({"icon": "🟡", "pts": 2, "made": True})
+        else:
+            streak = 0
+            shots.append({"icon": "⚪", "pts": 0, "made": False})
+
+    return shots, pts_made, money_made, starry_made, streak
+
+
+def build_shootout_embed(
+    user: Union[discord.Member, discord.User],
+    player: Dict[str, Any],
+    station_results: List[Dict[str, Any]],
+    current_station_idx: int,
+    total_score: int,
+    is_complete: bool = False,
+    opponent_user: Optional[Union[discord.Member, discord.User]] = None,
+    opponent_score: Optional[int] = None,
+    vc_won: int = 0
+) -> discord.Embed:
+    """Renders the high-definition NBA 3-Point Shootout Arena scoreboard embed."""
+    p_name = player.get("name", "Shooter")
+    p_emoji = player.get("emoji", "🏀")
+    stat_3pt = player.get("pts_3", player.get("stats", {}).get("3pt", 85))
+
+    max_possible = sum(s["max_pts"] for s in NBA_SHOOTOUT_STATIONS)  # 40 PTS
+
+    # Build court station lines
+    lines = []
+    for idx, st in enumerate(NBA_SHOOTOUT_STATIONS):
+        s_name = st["name"]
+        if idx < len(station_results):
+            # Completed station
+            res = station_results[idx]
+            shot_str = " ".join(s["icon"] for s in res["shots"])
+            lines.append(f"✅ **Station {idx+1} ({s_name})**: {shot_str} — `+{res['pts']} PTS`")
+        elif idx == current_station_idx:
+            # Active shooting station
+            lines.append(f"🎯 **Station {idx+1} ({s_name})**: 🏀 `[ SHOOTING NOW... ]`")
+        else:
+            # Upcoming
+            lines.append(f"⏳ **Station {idx+1} ({s_name})**: `[ Ready ]`")
+
+    stations_block = "\n".join(lines)
+
+    # Score rating grade
+    if is_complete:
+        if total_score >= 35:
+            grade = "👑 **GOAT SHARPSHOOTER! UNTOUCHABLE LEGEND!**"
+            color = discord.Color.gold()
+        elif total_score >= 28:
+            grade = "🔥 **ALL-STAR CONTEST CHAMPION! ON FIRE!**"
+            color = discord.Color.purple()
+        elif total_score >= 20:
+            grade = "🎯 **ELITE 3PT SPECIALIST!**"
+            color = discord.Color.blue()
+        else:
+            grade = "❄️ **COLD STREAK — BETTER LUCK NEXT RACK!**"
+            color = discord.Color.dark_grey()
+    else:
+        grade = "⚡ *Shooting in progress... Hit the Money & Starry balls for max points!*"
+        color = discord.Color.teal()
+
+    vs_header = f" • ⚔️ **VS {opponent_user.display_name}**" if opponent_user else ""
+    desc = (
+        f"# 🏀 NBA 3-POINT SHOOTOUT CONTEST{vs_header}\n\n"
+        f"• 👤 **Competitor**: {user.mention}\n"
+        f"• 🎯 **Shooter**: {p_emoji} **{p_name}** (`3PT: {stat_3pt}/99`)\n"
+        f"• 🏆 **Score**: **`{total_score}/{max_possible} PTS`**\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"### 📍 COURT RACKS & BALLS:\n"
+        f"`🟢 Regular (1 PT)` • `🟡 Money Ball (2 PTS)` • `⭐ Starry 30ft (3 PTS)`\n\n"
+        f"{stations_block}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{grade}"
+    )
+
+    if is_complete and vc_won > 0:
+        desc += f"\n\n💰 **VC Payout**: You earned **`+{vc_won:,} VC`** for your performance!"
+
+    if is_complete and opponent_user and opponent_score is not None:
+        if total_score > opponent_score:
+            desc += f"\n\n🏆 **MATCH RESULT**: {user.mention} (`{total_score} PTS`) **DEFEATED** {opponent_user.mention} (`{opponent_score} PTS`)!"
+        elif total_score < opponent_score:
+            desc += f"\n\n🏆 **MATCH RESULT**: {opponent_user.mention} (`{opponent_score} PTS`) **WINS THE SHOOTOUT** vs {user.mention} (`{total_score} PTS`)!"
+        else:
+            desc += f"\n\n🤝 **MATCH RESULT**: **DEAD TIE!** Both scored `{total_score} PTS`!"
+
+    embed = discord.Embed(title="🏆 NBA ALL-STAR 3-POINT SHOOTOUT ARENA", description=desc, color=color)
+    if hasattr(user, "display_avatar") and user.display_avatar:
+        embed.set_thumbnail(url=user.display_avatar.url)
+    embed.set_footer(text="Fast 3PT Arcade Contest • View Global Records with !shootout lb")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+
+def build_shootout_leaderboard_embed(rows: List[Dict[str, Any]], guild: Optional[discord.Guild] = None) -> discord.Embed:
+    """Renders the top 3-Point Shootout All-Time Leaderboard embed."""
+    embed = discord.Embed(
+        title="🏆 NBA 3-POINT SHOOTOUT • ALL-TIME RECORD LEADERBOARD",
+        description="Top high-score records recorded in the 3-Point Shootout Contest!\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        color=discord.Color.gold()
+    )
+    if not rows:
+        embed.add_field(name="No Records Yet", value="Be the first to set a record with `!shootout`!", inline=False)
+        return embed
+
+    lines = []
+    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+    for idx, r in enumerate(rows):
+        m = medals[idx] if idx < len(medals) else f"`#{idx+1}`"
+        uid = r["user_id"]
+        member_name = f"<@{uid}>"
+        p_name = r.get("player_name", "Curry")
+        score = r.get("best_score", r.get("score", 0))
+        starry = r.get("best_starry", r.get("starry_made", 0))
+        money = r.get("best_money", r.get("money_made", 0))
+        lines.append(f"{m} {member_name} — **`{score}/40 PTS`** *(Shooter: **{p_name}** • ⭐x{starry} 🟡x{money})*")
+
+    embed.add_field(name="👑 Hall of Fame Sharpshooters", value="\n".join(lines), inline=False)
+    embed.set_footer(text="Compete anytime with !shootout or challenge friends with !shootout @user")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+
+class ThreePointShootoutView(discord.ui.View):
+    """Interactive fast-paced single-tap 3-Point Shootout View."""
+    def __init__(
+        self,
+        author: Union[discord.Member, discord.User],
+        player: Dict[str, Any],
+        opponent: Optional[Union[discord.Member, discord.User]] = None,
+        opponent_score: Optional[int] = None,
+        wager_amount: int = 0
+    ):
+        super().__init__(timeout=120.0)
+        self.author = author
+        self.player = player
+        self.opponent = opponent
+        self.opponent_score = opponent_score
+        self.wager_amount = wager_amount
+
+        self.current_station_idx = 0
+        self.station_results: List[Dict[str, Any]] = []
+        self.total_score = 0
+        self.current_streak = 0
+        self.total_money_made = 0
+        self.total_starry_made = 0
+        self.is_complete = False
+        self.vc_won = 0
+        self._build_controls()
+
+    def _build_controls(self):
+        self.clear_items()
+        if not self.is_complete:
+            cur_station = NBA_SHOOTOUT_STATIONS[self.current_station_idx]
+            btn_shoot = discord.ui.Button(
+                label=f"🏀 SHOOT {cur_station['name'].upper()} ({self.current_station_idx+1}/7)",
+                style=discord.ButtonStyle.success if cur_station["type"] == "all_money" else (discord.ButtonStyle.primary if cur_station["type"] == "standard" else discord.ButtonStyle.secondary),
+                emoji=cur_station["icon"],
+                row=0
+            )
+            btn_shoot.callback = self.shoot_station_callback
+            self.add_item(btn_shoot)
+
+            btn_sim = discord.ui.Button(
+                label="⏩ Fast Sim Remainder",
+                style=discord.ButtonStyle.secondary,
+                emoji="⚡",
+                row=0
+            )
+            btn_sim.callback = self.fast_sim_callback
+            self.add_item(btn_sim)
+        else:
+            btn_replay = discord.ui.Button(label="🔄 Play Again", style=discord.ButtonStyle.primary, emoji="🎯", row=0)
+            btn_replay.callback = self.replay_callback
+            self.add_item(btn_replay)
+
+            btn_lb = discord.ui.Button(label="🏆 Leaderboard", style=discord.ButtonStyle.secondary, emoji="📊", row=0)
+            btn_lb.callback = self.leaderboard_callback
+            self.add_item(btn_lb)
+
+            btn_close = discord.ui.Button(label="Close", style=discord.ButtonStyle.danger, emoji="✖️", row=0)
+            btn_close.callback = self.close_callback
+            self.add_item(btn_close)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message("❌ This is not your 3-Point Shootout run! Start yours with `!shootout`.", ephemeral=True)
+            return False
+        return True
+
+    async def shoot_station_callback(self, interaction: discord.Interaction):
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
+            cur_st = NBA_SHOOTOUT_STATIONS[self.current_station_idx]
+            shots, pts, money, starry, new_streak = simulate_shootout_station(self.player, cur_st["type"], self.current_streak)
+
+            self.station_results.append({
+                "name": cur_st["name"],
+                "shots": shots,
+                "pts": pts,
+                "money": money,
+                "starry": starry
+            })
+            self.total_score += pts
+            self.total_money_made += money
+            self.total_starry_made += starry
+            self.current_streak = new_streak
+            self.current_station_idx += 1
+
+            if self.current_station_idx >= len(NBA_SHOOTOUT_STATIONS):
+                await self._finalize_shootout(interaction)
+            else:
+                self._build_controls()
+                embed = build_shootout_embed(
+                    user=self.author,
+                    player=self.player,
+                    station_results=self.station_results,
+                    current_station_idx=self.current_station_idx,
+                    total_score=self.total_score,
+                    is_complete=False,
+                    opponent_user=self.opponent,
+                    opponent_score=self.opponent_score
+                )
+                await interaction.edit_original_response(embed=embed, view=self)
+
+        except Exception as e:
+            logger.error(f"[ThreePointShootoutView] shoot error: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+    async def fast_sim_callback(self, interaction: discord.Interaction):
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
+            while self.current_station_idx < len(NBA_SHOOTOUT_STATIONS):
+                cur_st = NBA_SHOOTOUT_STATIONS[self.current_station_idx]
+                shots, pts, money, starry, new_streak = simulate_shootout_station(self.player, cur_st["type"], self.current_streak)
+                self.station_results.append({
+                    "name": cur_st["name"],
+                    "shots": shots,
+                    "pts": pts,
+                    "money": money,
+                    "starry": starry
+                })
+                self.total_score += pts
+                self.total_money_made += money
+                self.total_starry_made += starry
+                self.current_streak = new_streak
+                self.current_station_idx += 1
+
+            await self._finalize_shootout(interaction)
+        except Exception as e:
+            logger.error(f"[ThreePointShootoutView] fast_sim error: {e}", exc_info=True)
+
+    async def _finalize_shootout(self, interaction: discord.Interaction):
+        self.is_complete = True
+        p_name = self.player.get("name", "Curry")
+
+        # Save to database
+        await db.save_shootout_score(
+            user_id=self.author.id,
+            player_name=p_name,
+            score=self.total_score,
+            money_made=self.total_money_made,
+            starry_made=self.total_starry_made
+        )
+
+        # VC reward (Solo reward = 40 VC per point scored)
+        if not self.opponent:
+            self.vc_won = self.total_score * 40
+            if self.total_score >= 30:
+                self.vc_won += 1000  # Bonus for 30+ PTS!
+            if self.vc_won > 0:
+                await db.add_user_vc(self.author.id, self.vc_won)
+        else:
+            # 1v1 Wager shootout
+            if self.opponent_score is not None:
+                if self.total_score > self.opponent_score:
+                    if self.wager_amount > 0:
+                        pot = self.wager_amount * 2
+                        self.vc_won = pot
+                        await db.add_user_vc(self.author.id, pot)
+                elif self.total_score < self.opponent_score:
+                    if self.wager_amount > 0:
+                        pot = self.wager_amount * 2
+                        await db.add_user_vc(self.opponent.id, pot)
+
+        self._build_controls()
+        embed = build_shootout_embed(
+            user=self.author,
+            player=self.player,
+            station_results=self.station_results,
+            current_station_idx=self.current_station_idx,
+            total_score=self.total_score,
+            is_complete=True,
+            opponent_user=self.opponent,
+            opponent_score=self.opponent_score,
+            vc_won=self.vc_won
+        )
+        await interaction.edit_original_response(embed=embed, view=self)
+
+    async def replay_callback(self, interaction: discord.Interaction):
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+            shooter = await get_user_best_3pt_shooter(self.author.id)
+            fresh_view = ThreePointShootoutView(self.author, shooter)
+            fresh_embed = build_shootout_embed(
+                user=self.author,
+                player=shooter,
+                station_results=[],
+                current_station_idx=0,
+                total_score=0,
+                is_complete=False
+            )
+            await interaction.edit_original_response(embed=fresh_embed, view=fresh_view)
+        except Exception as e:
+            logger.error(f"[ThreePointShootoutView] replay error: {e}", exc_info=True)
+
+    async def leaderboard_callback(self, interaction: discord.Interaction):
+        try:
+            rows = await db.get_shootout_leaderboard(10)
+            lb_embed = build_shootout_leaderboard_embed(rows, interaction.guild)
+            await interaction.response.send_message(embed=lb_embed, ephemeral=True)
+        except Exception as e:
+            logger.error(f"[ThreePointShootoutView] lb error: {e}", exc_info=True)
+
+    async def close_callback(self, interaction: discord.Interaction):
+        self.stop()
+        await interaction.message.delete()
+
+
+class ThreePointDuelChallengeView(discord.ui.View):
+    """Challenge view for 1v1 3-Point Shootout duels with optional VC wagering."""
+    def __init__(self, challenger: discord.Member, opponent: discord.Member, wager: int = 0):
+        super().__init__(timeout=120.0)
+        self.challenger = challenger
+        self.opponent = opponent
+        self.wager = wager
+        self.message: Optional[discord.Message] = None
+
+    @discord.ui.button(label="🎯 Accept Shootout Duel", style=discord.ButtonStyle.success, emoji="🔥", custom_id="duel_accept_btn")
+    async def accept_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            if interaction.user.id != self.opponent.id:
+                return await interaction.response.send_message(f"❌ Only {self.opponent.mention} can accept this duel!", ephemeral=True)
+
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
+            # Deduct VC if wagered
+            if self.wager > 0:
+                bal_a = await db.get_user_vc(self.challenger.id)
+                bal_b = await db.get_user_vc(self.opponent.id)
+                if bal_a < self.wager or bal_b < self.wager:
+                    return await interaction.followup.send("❌ One of the players no longer has enough VC to cover the wager!", ephemeral=True)
+                await db.deduct_user_vc(self.challenger.id, self.wager)
+                await db.deduct_user_vc(self.opponent.id, self.wager)
+
+            self.stop()
+            self.clear_items()
+
+            # Start Challenger Run
+            shooter_a = await get_user_best_3pt_shooter(self.challenger.id)
+            view_a = ThreePointShootoutView(
+                author=self.challenger,
+                player=shooter_a,
+                opponent=self.opponent,
+                wager_amount=self.wager
+            )
+            embed_a = build_shootout_embed(
+                user=self.challenger,
+                player=shooter_a,
+                station_results=[],
+                current_station_idx=0,
+                total_score=0,
+                is_complete=False,
+                opponent_user=self.opponent
+            )
+            wager_tag = f" (Pot: `{self.wager*2:,} VC`)" if self.wager > 0 else ""
+            msg = f"🔥 **3-POINT SHOOTOUT DUEL ACCEPTED!**{wager_tag}\n🏀 {self.challenger.mention}, step up to Rack 1 and set the target score!"
+            await interaction.edit_original_response(content=msg, embed=embed_a, view=view_a)
+
+        except Exception as e:
+            logger.error(f"[ThreePointDuelChallengeView] accept error: {e}", exc_info=True)
+
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger, emoji="❌", custom_id="duel_decline_btn")
+    async def decline_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            if interaction.user.id not in (self.opponent.id, self.challenger.id):
+                return await interaction.response.send_message("❌ You are not part of this duel challenge!", ephemeral=True)
+            self.stop()
+            self.clear_items()
+            embed = discord.Embed(
+                title="🚫 Shootout Duel Declined",
+                description=f"The 3-Point Shootout challenge between {self.challenger.mention} and {self.opponent.mention} was declined.",
+                color=discord.Color.dark_grey()
+            )
+            await interaction.response.edit_message(content=None, embed=embed, view=self)
+        except Exception as e:
+            logger.error(f"[ThreePointDuelChallengeView] decline error: {e}", exc_info=True)
+
+
+@bot.command(name="shootout", aliases=["3pt", "3ptcontest", "shootoutcontest", "threepoint", "3point"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def shootout_prefix_cmd(ctx: commands.Context, target_or_subcmd: Optional[str] = None, wager: int = 0):
+    """Play the fast-paced NBA 3-Point Shootout Contest (Solo, 1v1 Duel, or Leaderboard): !shootout [@user] [wager] or !shootout lb"""
+    try:
+        # Check subcommands: lb / top / leaderboard
+        if target_or_subcmd and target_or_subcmd.lower() in ["lb", "top", "leaderboard", "records"]:
+            rows = await db.get_shootout_leaderboard(10)
+            embed = build_shootout_leaderboard_embed(rows, ctx.guild)
+            return await ctx.send(embed=embed)
+
+        # Check if 1v1 duel target mentioned
+        opponent_member = None
+        if ctx.message.mentions:
+            opponent_member = ctx.message.mentions[0]
+
+        if opponent_member:
+            if opponent_member.id == ctx.author.id:
+                return await ctx.send("❌ You can't challenge yourself to a shootout! Play solo by typing `!shootout`.")
+            if getattr(opponent_member, "bot", False):
+                return await ctx.send("❌ You cannot challenge a bot to a 3-point wager!")
+
+            wager_amt = max(0, wager)
+            if wager_amt > 0:
+                bal_a = await db.get_user_vc(ctx.author.id)
+                bal_b = await db.get_user_vc(opponent_member.id)
+                if bal_a < wager_amt:
+                    return await ctx.send(f"❌ You don't have enough VC for a `{wager_amt:,} VC` wager! (Balance: `{bal_a:,} VC`)")
+                if bal_b < wager_amt:
+                    return await ctx.send(f"❌ **{opponent_member.display_name}** only has `{bal_b:,} VC`, which is less than the `{wager_amt:,} VC` wager.")
+
+            duel_view = ThreePointDuelChallengeView(ctx.author, opponent_member, wager_amt)
+            wager_line = f"\n💰 **Wager**: `{wager_amt:,} VC` each (Winner takes **`{wager_amt*2:,} VC`** pot!)" if wager_amt > 0 else ""
+            embed = discord.Embed(
+                title="🎯 1v1 NBA 3-POINT SHOOTOUT CHALLENGE",
+                description=(
+                    f"🏀 {ctx.author.mention} has challenged {opponent_member.mention} to an **NBA All-Star 3-Point Shootout Duel**!\n"
+                    f"{wager_line}\n\n"
+                    f"• **Format**: 7 Stations (5 Racks + 2 Deep Starry Balls) • Max 40 PTS\n"
+                    f"• {opponent_member.mention}, click **`🎯 Accept Shootout Duel`** to begin!"
+                ),
+                color=discord.Color.gold()
+            )
+            msg = await ctx.send(content=opponent_member.mention, embed=embed, view=duel_view)
+            duel_view.message = msg
+            return
+
+        # Solo Shootout Run
+        shooter = await get_user_best_3pt_shooter(ctx.author.id)
+        view = ThreePointShootoutView(author=ctx.author, player=shooter)
+        embed = build_shootout_embed(
+            user=ctx.author,
+            player=shooter,
+            station_results=[],
+            current_station_idx=0,
+            total_score=0,
+            is_complete=False
+        )
+        await ctx.send(embed=embed, view=view)
+
+    except Exception as e:
+        logger.error(f"Error in !shootout: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
 
 
 @bot.command(name="vcbet", aliases=["betbattle", "betvc", "wagerbattle", "nbavet", "betfight"])

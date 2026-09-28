@@ -414,6 +414,24 @@ class DatabaseManager:
                 cards_claimed INTEGER DEFAULT 0,
                 last_daily_claim REAL DEFAULT 0.0
             );
+            """,
+            # NBA 3-Point Shootout Contest Records Table
+            """
+            CREATE TABLE IF NOT EXISTS nba_shootout_scores (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                player_name TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                money_made INTEGER DEFAULT 0,
+                starry_made INTEGER DEFAULT 0,
+                created_at REAL NOT NULL
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_nba_shootout_scores_user ON nba_shootout_scores(user_id);
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_nba_shootout_scores_score ON nba_shootout_scores(score DESC);
             """
         ]
         
@@ -1725,6 +1743,52 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error toggling NBA privacy for {u}: {e}")
             return False
+
+    async def save_shootout_score(self, user_id: Any, player_name: str, score: int, money_made: int = 0, starry_made: int = 0) -> bool:
+        """Saves a 3-Point Shootout Contest run score."""
+        try:
+            now = time.time()
+            query = """
+            INSERT INTO nba_shootout_scores (user_id, player_name, score, money_made, starry_made, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """
+            await self.execute(query, str(user_id), player_name, int(score), int(money_made), int(starry_made), now)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving shootout score in DB: {e}")
+            return False
+
+    async def get_shootout_leaderboard(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Fetches top 3-Point Shootout scores across all players."""
+        query = f"""
+        SELECT user_id, player_name, MAX(score) as best_score, MAX(money_made) as best_money, MAX(starry_made) as best_starry, MAX(created_at) as created_at
+        FROM nba_shootout_scores
+        GROUP BY user_id, player_name
+        ORDER BY best_score DESC, best_starry DESC, best_money DESC
+        LIMIT {int(limit)}
+        """
+        try:
+            rows = await self.fetch(query)
+            return [dict(r) for r in rows] if rows else []
+        except Exception as e:
+            logger.error(f"Error fetching shootout leaderboard: {e}")
+            return []
+
+    async def get_user_shootout_best(self, user_id: Any) -> Optional[Dict[str, Any]]:
+        """Fetches a specific user's personal best 3-Point Shootout score."""
+        query = """
+        SELECT user_id, player_name, score, money_made, starry_made, created_at
+        FROM nba_shootout_scores
+        WHERE user_id = ?
+        ORDER BY score DESC, created_at DESC
+        LIMIT 1
+        """
+        try:
+            row = await self.fetchrow(query, str(user_id))
+            return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Error fetching user personal best shootout score: {e}")
+            return None
 
     async def close(self):
         """Closes all database connections."""
