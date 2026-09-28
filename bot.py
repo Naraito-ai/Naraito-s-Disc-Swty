@@ -36117,6 +36117,46 @@ async def on_message(message):
 
 # ── Main Entry Point ────────────────────────────────────────────────────────
 
+_fastapi_server_started = False
+
+async def run_fastapi_server():
+    global _fastapi_server_started
+    if _fastapi_server_started:
+        return
+    disable_api = os.getenv("DISABLE_API", "false").lower() in ("true", "1", "yes")
+    if not disable_api:
+        try:
+            from api import start_fastapi
+            port = int(os.getenv("PORT", 8080))
+            _fastapi_server_started = True
+            logger.info(f"🌐 [RENDER BOOT] Starting FastAPI server immediately on port {port}...")
+            await start_fastapi(bot, db, port)
+        except Exception as api_err:
+            logger.warning(f"FastAPI dashboard startup error: {api_err}")
+
+async def run_bot_gateway():
+    while True:
+        try:
+            await bot.start(DISCORD_TOKEN)
+        except discord.errors.HTTPException as http_err:
+            if http_err.status == 429:
+                logger.warning("⚠️ Discord Cloudflare 429 Rate Limit (Error 1015) detected. Keeping container alive and waiting 3 minutes before clean retry...")
+                await asyncio.sleep(180)
+            else:
+                logger.error(f"HTTP error: {http_err}. Retrying in 15 seconds...")
+                await asyncio.sleep(15)
+        except Exception as e:
+            logger.error(f"Bot session disconnected: {e}. Retrying in 10 seconds...")
+            await asyncio.sleep(10)
+
+async def main():
+    # 1. Start FastAPI server immediately so Render port health check passes instantly (<500ms)
+    api_task = asyncio.create_task(run_fastapi_server())
+    # 2. Concurrently start Discord bot gateway
+    bot_task = asyncio.create_task(run_bot_gateway())
+    # 3. Keep running together
+    await asyncio.gather(api_task, bot_task, return_exceptions=True)
+
 if __name__ == "__main__":
     if not DISCORD_TOKEN or DISCORD_TOKEN == "your_token_here":
         print("❌ STARTUP BLOCKED: DISCORD_TOKEN is not set in .env file.")
@@ -36125,19 +36165,10 @@ if __name__ == "__main__":
     else:
         logger.info("🔒 Security layer active: rate limiting, input sanitization, and prompt injection resistance enabled.")
         logger.info(f"🔒 Per-user AI cooldown: {_USER_COOLDOWN_SECONDS}s | Per-server hourly AI limit: {_SERVER_HOURLY_LIMIT} calls")
-        print("[OK] Starting Discord bot with Cloudflare rate limit resilience...")
-        
-        while True:
-            try:
-                bot.run(DISCORD_TOKEN)
-            except discord.errors.HTTPException as http_err:
-                if http_err.status == 429:
-                    logger.warning("⚠️ Discord Cloudflare 429 Rate Limit (Error 1015) detected. Keeping container alive and waiting 3 minutes before clean retry...")
-                    time.sleep(180)
-                else:
-                    logger.error(f"HTTP error: {http_err}. Retrying in 15 seconds...")
-                    time.sleep(15)
-            except Exception as e:
-                logger.error(f"Bot session disconnected: {e}. Retrying in 10 seconds...")
-                time.sleep(10)
+        print("[OK] Starting Discord bot with instant Web/Port binding for Render...")
+        try:
+            asyncio.run(main())
+        except KeyboardInterrupt:
+            logger.info("Shutting down bot...")
+
 
