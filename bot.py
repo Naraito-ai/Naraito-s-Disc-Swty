@@ -2518,6 +2518,7 @@ async def reminder_delivery_loop():
 NBA_DREAM_PLAYERS = {
     "PG": [
         {"name": "Stephen Curry", "cost": 5, "team": "GSW", "tag": "Unanimous MVP • Greatest Shooter Ever", "emoji": "🎯", "archetype": "Sniper Specialist", "pts_3": 99, "defense": 78, "playmaking": 92, "inside": 84, "clutch": 98, "favored": ["three", "pnr"], "blocked": ["defense"]},
+        {"name": "Ryan Rollins", "cost": 5, "team": "MIL", "tag": "99 OVR • Breakout Invincible", "emoji": "⚡", "archetype": "Explosive Combo Guard", "pts_3": 97, "defense": 95, "playmaking": 98, "inside": 95, "clutch": 97, "favored": ["iso", "three", "drive", "pnr"], "blocked": []},
         {"name": "Magic Johnson", "cost": 4, "team": "LAL", "tag": "5x Champ • Showtime Maestro", "emoji": "🪄", "archetype": "Showtime Floor General", "pts_3": 78, "defense": 86, "playmaking": 99, "inside": 92, "clutch": 96, "favored": ["pnr", "drive"], "blocked": ["three"]},
         {"name": "Chris Paul", "cost": 3, "team": "LAC", "tag": "Point God • Floor General", "emoji": "🧠", "archetype": "Mid-Range General", "pts_3": 86, "defense": 94, "playmaking": 96, "inside": 80, "clutch": 94, "favored": ["pnr", "defense", "iso"], "blocked": []},
         {"name": "Kyrie Irving", "cost": 2, "team": "CLE", "tag": "Ankle Breaker • Finals Dagger", "emoji": "⚡", "archetype": "Isolation Wizard", "pts_3": 92, "defense": 76, "playmaking": 88, "inside": 96, "clutch": 98, "favored": ["iso", "three", "drive"], "blocked": ["defense"]},
@@ -2525,6 +2526,7 @@ NBA_DREAM_PLAYERS = {
     ],
     "SG": [
         {"name": "Michael Jordan", "cost": 5, "team": "CHI", "tag": "6x Finals MVP • Undisputed GOAT", "emoji": "🐐", "archetype": "Two-Way GOAT", "pts_3": 82, "defense": 99, "playmaking": 88, "inside": 99, "clutch": 99, "favored": ["iso", "drive", "defense"], "blocked": []},
+        {"name": "Klay Thompson (2016)", "cost": 5, "team": "GSW", "tag": "98 OVR • 37-Point Quarter", "emoji": "🔥", "archetype": "Flamethrower Sniper", "pts_3": 99, "defense": 96, "playmaking": 85, "inside": 92, "clutch": 99, "favored": ["three", "defense"], "blocked": []},
         {"name": "Kobe Bryant", "cost": 4, "team": "LAL", "tag": "5x Champ • Mamba Mentality", "emoji": "🐍", "archetype": "Mamba Shot-Maker", "pts_3": 86, "defense": 96, "playmaking": 86, "inside": 96, "clutch": 99, "favored": ["iso", "drive", "defense"], "blocked": []},
         {"name": "Dwyane Wade", "cost": 3, "team": "MIA", "tag": "3x Champ • Finals MVP Slashing Flash", "emoji": "⚡", "archetype": "Slashing Guard", "pts_3": 76, "defense": 93, "playmaking": 90, "inside": 97, "clutch": 96, "favored": ["drive", "pnr", "defense"], "blocked": ["three"]},
         {"name": "Klay Thompson", "cost": 2, "team": "GSW", "tag": "4x Champ • Catch & Shoot Flamethrower", "emoji": "🔥", "archetype": "3-and-D Sniper", "pts_3": 98, "defense": 92, "playmaking": 74, "inside": 78, "clutch": 95, "favored": ["three", "defense"], "blocked": ["drive", "iso"]},
@@ -2532,6 +2534,8 @@ NBA_DREAM_PLAYERS = {
     ],
     "SF": [
         {"name": "LeBron James", "cost": 5, "team": "MIA", "tag": "4x MVP • All-Around King", "emoji": "👑", "archetype": "All-Around Point Forward", "pts_3": 85, "defense": 95, "playmaking": 99, "inside": 99, "clutch": 97, "favored": ["drive", "pnr", "defense", "iso"], "blocked": []},
+        {"name": "Carter Bryant", "cost": 5, "team": "SAS", "tag": "99 OVR • Next Gen Invincible", "emoji": "⭐", "archetype": "Generational 3&D Wing", "pts_3": 95, "defense": 98, "playmaking": 94, "inside": 98, "clutch": 96, "favored": ["drive", "three", "defense", "pnr"], "blocked": []},
+        {"name": "Andre Iguodala (2015)", "cost": 4, "team": "GSW", "tag": "97 OVR • 2015 Finals MVP", "emoji": "🔒", "archetype": "Lockdown Finals MVP", "pts_3": 90, "defense": 99, "playmaking": 93, "inside": 95, "clutch": 98, "favored": ["defense", "drive", "pnr"], "blocked": []},
         {"name": "Kevin Durant", "cost": 4, "team": "GSW", "tag": "2x Finals MVP • 7ft Walking Bucket", "emoji": "🎯", "archetype": "Unblockable 3-Level Scorer", "pts_3": 95, "defense": 89, "playmaking": 85, "inside": 94, "clutch": 97, "favored": ["three", "iso", "drive"], "blocked": []},
         {"name": "Kawhi Leonard", "cost": 3, "team": "TOR", "tag": "2x DPOY • The Klaw Lock", "emoji": "🤖", "archetype": "Lockdown Two-Way Force", "pts_3": 89, "defense": 99, "playmaking": 82, "inside": 91, "clutch": 97, "favored": ["defense", "iso", "three"], "blocked": []},
         {"name": "Jimmy Butler", "cost": 2, "team": "MIA", "tag": "Playoff Jimmy • Clutch Beast", "emoji": "☕", "archetype": "Playoff Enforcer", "pts_3": 80, "defense": 94, "playmaking": 86, "inside": 92, "clutch": 98, "favored": ["drive", "defense", "iso"], "blocked": []},
@@ -7187,6 +7191,8 @@ NBA_PLAYER_IMG_IDS: Dict[str, str] = {
     "Aaron Gordon": "203932",
     "Alex Caruso": "1627936",
     "Allen Iverson": "947",
+    "Andre Iguodala": "2738",
+    "Andre Iguodala (2015)": "2738",
     "Anthony Davis": "203076",
     "Anthony Edwards": "1630162",
     "Austin Reaves": "1630559",
@@ -7194,6 +7200,7 @@ NBA_PLAYER_IMG_IDS: Dict[str, str] = {
     "Bobby Portis": "1626171",
     "Brandin Podziemski": "1641764",
     "Cam Thomas": "1630560",
+    "Carter Bryant": "1643126",
     "Chet Holmgren": "1631096",
     "Chris Paul": "101108",
     "Coby White": "1629632",
@@ -7224,6 +7231,7 @@ NBA_PLAYER_IMG_IDS: Dict[str, str] = {
     "Kawhi Leonard": "202695",
     "Kevin Durant": "201142",
     "Klay Thompson": "202691",
+    "Klay Thompson (2016)": "202691",
     "Kobe Bryant": "977",
     "Kristaps Porziņģis": "204001",
     "Kristaps Porzingis": "204001",
@@ -7245,6 +7253,7 @@ NBA_PLAYER_IMG_IDS: Dict[str, str] = {
     "Paolo Banchero": "1631094",
     "Payton Pritchard": "1630202",
     "Rudy Gobert": "203497",
+    "Ryan Rollins": "1631157",
     "Shai Gilgeous-Alexander": "1628983",
     "Shaquille O'Neal": "406",
     "Stephen Curry": "201939",
@@ -9684,8 +9693,64 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [
         "quote": "2021 NBA Champion & Finals MVP • 2x MVP • 2020 DPOY • Unstoppable Euro-Step Monster",
         "image_url": "https://images.squarespace-cdn.com/content/v1/5e9e0fa951fb437d82e11801/1687550186460-GIANNIS_FREAK.png"
     },
+    {
+        "id": "dm-carterbryant-99",
+        "name": "Carter Bryant",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "SF",
+        "sec_pos": "PF",
+        "team": "SAS",
+        "theme": "Next Gen Invincible",
+        "stats": {"3pt": 95, "def": 98, "ply": 94, "ins": 98, "clu": 96, "ath": 99},
+        "badges": ["HOF Limitless Takeoff", "HOF Clamps", "HOF Posterizer", "HOF Ankle Breaker", "HOF Fast Twitch"],
+        "quote": "Generational 5-Star Wing Phenom • Lockdown 3&D Dominator • Next-Gen Elite Prospect",
+        "image_url": "https://cdn.nba.com/headshots/nba/latest/1040x760/1643126.png"
+    },
+    {
+        "id": "dm-rollins-99",
+        "name": "Ryan Rollins",
+        "tier": "dark_matter",
+        "ovr": 99,
+        "pos": "PG",
+        "sec_pos": "SG",
+        "team": "MIL",
+        "theme": "Breakout Invincible",
+        "stats": {"3pt": 97, "def": 95, "ply": 98, "ins": 95, "clu": 97, "ath": 98},
+        "badges": ["HOF Handles For Days", "HOF Dimer", "HOF Limitless Range", "HOF Clamps", "HOF Deadeye"],
+        "quote": "Lightning Quick Combo Guard • Explosive Scoring & Playmaking Engine • Unstoppable Breakdown Wizard",
+        "image_url": "https://cdn.nba.com/headshots/nba/latest/1040x760/1631157.png"
+    },
 
     # ── ✨ GALAXY OPAL (97-98 OVR) ──────────────────────────────────────────
+    {
+        "id": "go-klay-2016-98",
+        "name": "Klay Thompson (2016)",
+        "tier": "galaxy_opal",
+        "ovr": 98,
+        "pos": "SG",
+        "sec_pos": "SF",
+        "team": "GSW",
+        "theme": "37-Point Quarter",
+        "stats": {"3pt": 99, "def": 96, "ply": 85, "ins": 92, "clu": 99, "ath": 92},
+        "badges": ["HOF Catch & Shoot", "HOF Limitless Range", "HOF Clamps", "HOF Deadeye", "HOF Corner Specialist"],
+        "quote": "2016 Record 37 PTS in a Single Quarter • 60 PTS on 11 Dribbles • Ultimate Heat Check Flamethrower",
+        "image_url": "https://cdn.nba.com/headshots/nba/latest/1040x760/202691.png"
+    },
+    {
+        "id": "go-iguodala-2015-97",
+        "name": "Andre Iguodala (2015)",
+        "tier": "galaxy_opal",
+        "ovr": 97,
+        "pos": "SF",
+        "sec_pos": "SG",
+        "team": "GSW",
+        "theme": "2015 Finals MVP",
+        "stats": {"3pt": 90, "def": 99, "ply": 93, "ins": 95, "clu": 98, "ath": 96},
+        "badges": ["HOF Clamps", "HOF Chase Down Artist", "HOF Interceptor", "HOF Fast Break Starter", "HOF Dimer"],
+        "quote": "2015 NBA Finals MVP • Lockdown LeBron Clamp Master • 4x NBA Champion Ultimate Playoff X-Factor",
+        "image_url": "https://cdn.nba.com/headshots/nba/latest/1040x760/2738.png"
+    },
     {
         "id": "go-luka-98",
         "name": "Luka Dončić",
