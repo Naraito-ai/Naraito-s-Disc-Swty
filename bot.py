@@ -11362,44 +11362,179 @@ def get_nba_card_moment(card: Dict[str, Any]) -> str:
     return f"{card.get('theme', 'Signature Series')} Highlight"
 
 
+NBA_PLAYER_MOMENT_ACTION_URLS: Dict[str, str] = {
+    "aaron gordon": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Aaron_Gordon_2019_%28cropped%29.jpg",
+    "alex caruso": "https://upload.wikimedia.org/wikipedia/commons/4/45/Alex_Caruso.jpg",
+    "allen iverson": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Allen_Iverson_08_B.jpg",
+    "andre iguodala (2015)": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Heat_Andre_Iguodala_%28cropped%29.jpg/1280px-Heat_Andre_Iguodala_%28cropped%29.jpg",
+    "andre iguodala": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Heat_Andre_Iguodala_%28cropped%29.jpg/1280px-Heat_Andre_Iguodala_%28cropped%29.jpg",
+    "anthony davis": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Anthony_Davis_pre-game_%28cropped%29.jpg/1280px-Anthony_Davis_pre-game_%28cropped%29.jpg",
+    "anthony edwards": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg/1280px-Anthony_Edwards_Argentina_v_Egypt_7_July_2026-069_%28cropped%29.jpg",
+    "austin reaves": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2c/Austin_Reaves_drives.jpg/1280px-Austin_Reaves_drives.jpg",
+    "bam adebayo": "https://upload.wikimedia.org/wikipedia/commons/7/7d/Bam_Adebayo_%28cropped%29.jpg",
+    "bobby portis": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Bobby_Portis_2021_%28cropped%29.jpg/1280px-Bobby_Portis_2021_%28cropped%29.jpg",
+    "brandin podziemski": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Brandin_Podziemski_2023.jpg",
+    "brandon ingram": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/Brandon_Ingram_2020_%28cropped2%29.jpg/1280px-Brandon_Ingram_2020_%28cropped2%29.jpg",
+    "cade cunningham": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fe/1_cade_cunningham_2024.jpg/1280px-1_cade_cunningham_2024.jpg",
+    "cam thomas": "https://upload.wikimedia.org/wikipedia/commons/f/fe/Cameron_Thomas_%2851874870188%29_%28cropped%29.jpg",
+    "carter bryant": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Kobe_Lakers_Parade.jpg",
+    "chet holmgren": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4c/Chet_Holmgren.jpg/1280px-Chet_Holmgren.jpg",
+    "coby white": "https://upload.wikimedia.org/wikipedia/commons/7/77/White_with_the_Chicago_Bulls_on_January_2022.jpg",
+    "damian lillard": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Damian_Lillard_%282021%29_%28cropped%29.jpg/1280px-Damian_Lillard_%282021%29_%28cropped%29.jpg",
+    "de'aaron fox": "https://upload.wikimedia.org/wikipedia/commons/f/fa/De%27Aaron_Fox_%28cropped%29.jpg",
+    "dereck lively ii": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Dereck_Lively_II_2024.jpg",
+    "derrick white": "https://upload.wikimedia.org/wikipedia/commons/b/b5/Derrick_White_2023.png",
+    "devin booker": "https://upload.wikimedia.org/wikipedia/commons/2/22/Devin_Booker%2C_Olympic_Games_2024_%28cropped%29.jpg",
+    "dirk nowitzki": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1d/Dirk_Nowitzki_2_%28cropped%29.jpg/1280px-Dirk_Nowitzki_2_%28cropped%29.jpg",
+    "domantas sabonis": "https://upload.wikimedia.org/wikipedia/commons/0/05/Domantas_Sabonis_by_Augustas_Didzgalvis_%28cropped%29.jpg",
+    "donovan mitchell": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/39/Donovan_Mitchell_Pregame.jpg/1280px-Donovan_Mitchell_Pregame.jpg",
+    "franz wagner": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93138.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93138.jpg",
+    "giannis antetokounmpo": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg/1280px-Giannis_Antetokounmpo_%2851915153421%29_%28cropped%29.jpg",
+    "hakeem olajuwon": "https://upload.wikimedia.org/wikipedia/commons/8/84/Nigerian_President_Buhari_Stands_With_Secretary_Kerry%2C_U.S._Delegation_After_They_Attended_His_Inauguration_Ceremony_%28cropped%29.jpg",
+    "herb jones": "https://upload.wikimedia.org/wikipedia/commons/e/eb/Herb_Jones.jpg",
+    "ja morant": "https://upload.wikimedia.org/wikipedia/commons/a/a1/Ja_Morant_2021.jpg",
+    "jaime jaquez jr.": "https://upload.wikimedia.org/wikipedia/commons/d/df/Jaime_Jaquez_Jr_2021_%28cropped%29.jpg",
+    "jalen brunson": "https://upload.wikimedia.org/wikipedia/commons/f/f2/Jalen_Brunson_2023_%28cropped%29.jpg",
+    "jalen green": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/28/Jalen_Green_2022_%28cropped%29.jpg/1280px-Jalen_Green_2022_%28cropped%29.jpg",
+    "jamal murray": "https://upload.wikimedia.org/wikipedia/commons/b/b6/Jamal_Murray_free_throw_%28cropped%29.jpg",
+    "jaylen brown": "https://upload.wikimedia.org/wikipedia/commons/8/84/Celtics_at_Wizards_2024-12-015_%28cropped%29_%28cropped%29.jpg",
+    "jayson tatum": "https://upload.wikimedia.org/wikipedia/commons/8/84/Celtics_at_Wizards_2024-12-044_%28cropped_2%29.jpg",
+    "jimmy butler": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/CES_2026_-_Jimmy_Butler_01_%28cropped%29.jpg/1280px-CES_2026_-_Jimmy_Butler_01_%28cropped%29.jpg",
+    "joel embiid": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/13/Joel_Embiid_2019.jpg/1280px-Joel_Embiid_2019.jpg",
+    "jrue holiday": "https://upload.wikimedia.org/wikipedia/commons/b/ba/Celtics_at_Wizards_2024-12-021_%28cropped%29.jpg",
+    "karl-anthony towns": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Karl-Anthony_Towns_%2851914283512%29_%28cropped%29_%28cropped%29.jpg/1280px-Karl-Anthony_Towns_%2851914283512%29_%28cropped%29_%28cropped%29.jpg",
+    "kawhi leonard": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Kawhi_Leonard_%287440607%29_%28cropped%29.jpg",
+    "kevin durant": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Kevin_Durant%2C_Paris_2024_%28cropped%29.jpg",
+    "klay thompson (2016)": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/81/Klay_Thompson_%28cropped%29.jpg/1280px-Klay_Thompson_%28cropped%29.jpg",
+    "klay thompson": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/81/Klay_Thompson_%28cropped%29.jpg/1280px-Klay_Thompson_%28cropped%29.jpg",
+    "kobe bryant": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Kobe_Lakers_Parade.jpg",
+    "kristaps porziņģis": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Celtics_at_Wizards_2024-12-005_%28cropped%29.jpg/1280px-Celtics_at_Wizards_2024-12-005_%28cropped%29.jpg",
+    "kristaps porzingis": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Celtics_at_Wizards_2024-12-005_%28cropped%29.jpg/1280px-Celtics_at_Wizards_2024-12-005_%28cropped%29.jpg",
+    "kyrie irving": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/Kyrie_Irving_%2851830909437%29_%28cropped%29.jpg/1280px-Kyrie_Irving_%2851830909437%29_%28cropped%29.jpg",
+    "lamelo ball": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f9/LaMelo_Ball_%28cropped%29.jpg/1280px-LaMelo_Ball_%28cropped%29.jpg",
+    "larry bird": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Larrybird.jpg",
+    "lauri markkanen": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Lauri_Markkanen%2C_Cavaliers_vs_Rockets_on_December_15%2C_2021_%28cropped%29.jpg/1280px-Lauri_Markkanen%2C_Cavaliers_vs_Rockets_on_December_15%2C_2021_%28cropped%29.jpg",
+    "lebron james": "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg",
+    "luka dončić": "https://upload.wikimedia.org/wikipedia/commons/b/be/Luka_Don%C4%8Di%C4%87_and_Marines%2C_2026_%28cropped%29.jpg",
+    "luka doncic": "https://upload.wikimedia.org/wikipedia/commons/b/be/Luka_Don%C4%8Di%C4%87_and_Marines%2C_2026_%28cropped%29.jpg",
+    "magic johnson": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Magic_Johnson_at_SXSW_2022_%2851958828669%29_%28cropped%29.jpg/1280px-Magic_Johnson_at_SXSW_2022_%2851958828669%29_%28cropped%29.jpg",
+    "malik monk": "https://upload.wikimedia.org/wikipedia/commons/f/fd/Malik_Monk_-_51960020214_%28cropped2%29.jpg",
+    "michael jordan": "https://upload.wikimedia.org/wikipedia/commons/b/b3/Jordan_Lipofsky.jpg",
+    "mikal bridges": "https://upload.wikimedia.org/wikipedia/commons/8/86/Mikal_Bridges%2C_April_2024.jpg",
+    "naz reid": "https://upload.wikimedia.org/wikipedia/commons/3/39/Naz_Reid_%2851733687822%29_%28cropped%29.jpg",
+    "nikola jokić": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Nikola_Jokic_free_throw_%28cropped%29.jpg",
+    "nikola jokic": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Nikola_Jokic_free_throw_%28cropped%29.jpg",
+    "norman powell": "https://upload.wikimedia.org/wikipedia/commons/a/af/Norman_Powell_at_2017_Toronto_Film_Festival.jpg",
+    "og anunoby": "https://upload.wikimedia.org/wikipedia/commons/0/03/OG_Anunoby_%2841708749222%29_%28cropped%29.jpg",
+    "paolo banchero": "https://upload.wikimedia.org/wikipedia/commons/5/54/Paolo_Banchero.png",
+    "payton pritchard": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c1/Celtics_at_Wizards_2024-12-027_%28cropped%29.jpg/1280px-Celtics_at_Wizards_2024-12-027_%28cropped%29.jpg",
+    "rudy gobert": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Rudy_Gobert.jpg/1280px-Rudy_Gobert.jpg",
+    "ryan rollins": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Ryan_Rollins%2C_Toledo_Rockets_MBB%2C_February_2022.jpg/1280px-Ryan_Rollins%2C_Toledo_Rockets_MBB%2C_February_2022.jpg",
+    "scottie barnes": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4e/Scottie_Barnes%2C_Wizards_vs_Raptors_on_October_12%2C_2021.jpg/1280px-Scottie_Barnes%2C_Wizards_vs_Raptors_on_October_12%2C_2021.jpg",
+    "shai gilgeous-alexander": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg/1280px-2023-08-09_Deutschland_gegen_Kanada_%28Basketball-L%C3%A4nderspiel%29_by_Sandro_Halank%E2%80%93109.jpg",
+    "shaquille o'neal": "https://upload.wikimedia.org/wikipedia/commons/e/e5/TechCrunch_Disrupt_2023_-_Day_1_%28cropped%29.jpg",
+    "stephen curry": "https://upload.wikimedia.org/wikipedia/commons/5/52/Stephen_Curry%2C_Olympic_Games_2024_%28cropped%29.jpg",
+    "tim duncan": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Tim_Duncan_Walks_Verizon_Center%27s_Floor_%28cropped%29_%28cropped%29.jpg",
+    "tracy mcgrady": "https://upload.wikimedia.org/wikipedia/commons/f/f9/Tracy_McGrady_1.jpg",
+    "trae young": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/42/Trae_Young_%282022_All-Star_Weekend%29_%28cropped%29.jpg/1280px-Trae_Young_%282022_All-Star_Weekend%29_%28cropped%29.jpg",
+    "tyler herro": "https://upload.wikimedia.org/wikipedia/commons/7/71/Tyler_Herro_%28cropped%29.jpg",
+    "tyrese haliburton": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/1_tyrese_haliburton_2025_%28cropped_2%29.jpg/1280px-1_tyrese_haliburton_2025_%28cropped_2%29.jpg",
+    "tyrese maxey": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/1_tyrese_maxey_2026.jpg/1280px-1_tyrese_maxey_2026.jpg",
+    "victor wembanyama": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/65/Victor_Wembanyama_San_Antonio_Spurs_2024.jpg/1280px-Victor_Wembanyama_San_Antonio_Spurs_2024.jpg",
+    "zach lavine": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/Zach_LaVine_%282022_All-Star_Weekend%29.jpg/1280px-Zach_LaVine_%282022_All-Star_Weekend%29.jpg",
+    "zion williamson": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/53/Zion_Williamson_2020_%28cropped%29.jpg/1280px-Zion_Williamson_2020_%28cropped%29.jpg"
+}
+
 _NBA_LOCAL_MOMENTS_MAP: Dict[str, str] = {}
+_NBA_PLAYER_MOMENT_CACHE: Dict[str, Image.Image] = {}
 
 def get_nba_player_moment_photo(player_name: str) -> Optional[Image.Image]:
-    """Resolves and loads a local high-resolution match moment action photo from assets/moments/."""
-    global _NBA_LOCAL_MOMENTS_MAP
-    moments_dir = os.path.join(os.path.dirname(__file__), "assets", "moments")
-    if not os.path.exists(moments_dir):
+    """Resolves and loads an iconic Wikipedia / Wikimedia match moment action photo for any NBA player,
+    caching locally in assets/player_moments/."""
+    global _NBA_LOCAL_MOMENTS_MAP, _NBA_PLAYER_MOMENT_CACHE
+    if not player_name:
         return None
-        
-    if not _NBA_LOCAL_MOMENTS_MAP:
+
+    clean_q = unicodedata.normalize('NFKD', player_name).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+    raw_norm = player_name.lower().strip()
+
+    # 1. Check in-memory cache
+    if clean_q in _NBA_PLAYER_MOMENT_CACHE:
+        return _NBA_PLAYER_MOMENT_CACHE[clean_q]
+    if raw_norm in _NBA_PLAYER_MOMENT_CACHE:
+        return _NBA_PLAYER_MOMENT_CACHE[raw_norm]
+
+    # 2. Check disk cache in assets/player_moments/
+    cache_dir = os.path.join(os.path.dirname(__file__), "assets", "player_moments")
+    os.makedirs(cache_dir, exist_ok=True)
+    safe_fname = re.sub(r'[^a-zA-Z0-9_-]', '_', clean_q) + ".jpg"
+    local_path = os.path.join(cache_dir, safe_fname)
+
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 1000:
         try:
-            for d in os.listdir(moments_dir):
-                full_d = os.path.join(moments_dir, d)
-                if os.path.isdir(full_d):
-                    for fname in ["1.jpg", "1.png", "2.jpg", "photo.jpg"]:
-                        fpath = os.path.join(full_d, fname)
-                        if os.path.exists(fpath) and os.path.getsize(fpath) > 3000:
-                            norm_d = unicodedata.normalize('NFKD', d).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
-                            _NBA_LOCAL_MOMENTS_MAP[norm_d] = fpath
-                            _NBA_LOCAL_MOMENTS_MAP[d.lower().strip()] = fpath
-                            break
+            img = Image.open(local_path)
+            _NBA_PLAYER_MOMENT_CACHE[clean_q] = img
+            return img
         except Exception:
             pass
 
-    clean_q = unicodedata.normalize('NFKD', player_name).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
-    fpath = _NBA_LOCAL_MOMENTS_MAP.get(clean_q) or _NBA_LOCAL_MOMENTS_MAP.get(player_name.lower().strip())
-    
-    if not fpath:
-        for k, p in _NBA_LOCAL_MOMENTS_MAP.items():
-            if k in clean_q or clean_q in k:
-                fpath = p
+    # 3. Lookup in verified Wikipedia action moment URLs
+    action_url = NBA_PLAYER_MOMENT_ACTION_URLS.get(raw_norm) or NBA_PLAYER_MOMENT_ACTION_URLS.get(clean_q)
+    if not action_url:
+        for k, u in NBA_PLAYER_MOMENT_ACTION_URLS.items():
+            if k in clean_q or clean_q in k or k in raw_norm:
+                action_url = u
                 break
-                
-    if fpath and os.path.exists(fpath):
+
+    if action_url:
         try:
-            return Image.open(fpath)
-        except Exception:
-            return None
+            req = urllib.request.Request(action_url, headers={"User-Agent": "SweetyDiscordBot/1.0 (bot@sweety.ai)"})
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
+                data = resp.read()
+                with open(local_path, "wb") as f:
+                    f.write(data)
+                img = Image.open(io.BytesIO(data))
+                _NBA_PLAYER_MOMENT_CACHE[clean_q] = img
+                return img
+        except Exception as dl_err:
+            logger.debug(f"Could not fetch player moment photo for {player_name} from {action_url}: {dl_err}")
+
+    # 4. Fallback to assets/moments/ directory if present
+    moments_dir = os.path.join(os.path.dirname(__file__), "assets", "moments")
+    if os.path.exists(moments_dir):
+        if not _NBA_LOCAL_MOMENTS_MAP:
+            try:
+                for d in os.listdir(moments_dir):
+                    full_d = os.path.join(moments_dir, d)
+                    if os.path.isdir(full_d):
+                        for fname in ["1.jpg", "1.png", "2.jpg", "photo.jpg"]:
+                            fpath = os.path.join(full_d, fname)
+                            if os.path.exists(fpath) and os.path.getsize(fpath) > 3000:
+                                norm_d = unicodedata.normalize('NFKD', d).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+                                _NBA_LOCAL_MOMENTS_MAP[norm_d] = fpath
+                                _NBA_LOCAL_MOMENTS_MAP[d.lower().strip()] = fpath
+                                break
+            except Exception:
+                pass
+
+        fpath = _NBA_LOCAL_MOMENTS_MAP.get(clean_q) or _NBA_LOCAL_MOMENTS_MAP.get(raw_norm)
+        if not fpath:
+            for k, p in _NBA_LOCAL_MOMENTS_MAP.items():
+                if k in clean_q or clean_q in k:
+                    fpath = p
+                    break
+                    
+        if fpath and os.path.exists(fpath):
+            try:
+                img = Image.open(fpath)
+                _NBA_PLAYER_MOMENT_CACHE[clean_q] = img
+                return img
+            except Exception:
+                pass
+
     return None
 
 
