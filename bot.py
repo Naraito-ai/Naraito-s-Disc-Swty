@@ -22,6 +22,7 @@ import datetime
 import math
 import unicodedata
 import urllib.request
+import ssl
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
