@@ -14195,25 +14195,7 @@ class GeminiBot(commands.Bot):
             except Exception as clean_err:
                 logger.debug(f"Starter pack cleanup notice: {clean_err}")
 
-            # Purge any 97+ OVR / Dark Matter & Galaxy Opal cards that were unfairly spawned in private channels
-            try:
-                op_cids = [
-                    c["id"] for c in globals().get("NBA_2K_MOBILE_CARDS", [])
-                    if c.get("tier") in ["dark_matter", "galaxy_opal"] or c.get("ovr", 0) >= 97
-                ]
-                if op_cids:
-                    purged_cnt = await db.remove_cards_by_ids(op_cids, exclude_user_id="719932313919684670")
-                    if purged_cnt > 0:
-                        logger.info(f"🛡️ [ANTI-ABUSE] Automatically purged {purged_cnt} overpowered 97+ OVR cards (Dark Matter / Galaxy Opal) from player inventories.")
-            except Exception as purge_err:
-                logger.debug(f"OP card purge notice: {purge_err}")
-
-            # Reset everyone's Starting 5 lineups so all users build fresh from their genuine card binder
-            try:
-                await db.reset_all_dream_teams()
-                logger.info("🏀 Cleaned and reset all users' Starting 5 lineups from database")
-            except Exception as reset_team_err:
-                logger.debug(f"Starting 5 reset notice: {reset_team_err}")
+            # One-time cleanup complete — auto-purge disabled, normal trading continues from here
         except Exception as db_err:
             logger.error(f"Database initialization error: {db_err}")
 
