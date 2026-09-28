@@ -4772,6 +4772,53 @@ def evaluate_shot_timing(delta: float, target_time: float, green_min: float, gre
     }
 
 
+def calculate_dynamic_shot_timing(
+    action_key: str,
+    pl_att: Dict[str, Any],
+    pl_def: Dict[str, Any],
+    scheme_key: str = "drop_coverage",
+    momentum: int = 0
+) -> Dict[str, Any]:
+    """Calculates realistic millisecond shot release timing and green status based on player skill ratings, badges, scheme reads, and momentum."""
+    target_time, green_min, green_max = calculate_green_window(action_key, pl_att, pl_def, scheme_key)
+    action = TACTICAL_OUTCOMES.get(action_key, TACTICAL_OUTCOMES["three"])
+    favored_stat = action.get("favors", "pts_3")
+    att_stat = pl_att.get(favored_stat, 80) if isinstance(pl_att, dict) else 80
+
+    # Skill-based baseline green chance (e.g. 99 3PT shooter = ~70% baseline green)
+    green_chance = 0.35 + ((att_stat - 75) / 25.0) * 0.35
+    if scheme_key in action.get("good_against", []):
+        green_chance += 0.25  # Wide open counter read!
+    elif scheme_key in action.get("bad_against", []):
+        green_chance -= 0.30  # Smothered trap / bad read!
+
+    if momentum > 0:
+        green_chance += momentum * 0.08
+    elif momentum < 0:
+        green_chance += momentum * 0.08
+
+    if isinstance(pl_att, dict) and action_key in pl_att.get("favored", []):
+        green_chance += 0.15
+    elif isinstance(pl_att, dict) and action_key in pl_att.get("blocked", []):
+        green_chance -= 0.20
+
+    green_chance = max(0.12, min(0.92, green_chance))
+
+    if random.random() < green_chance:
+        # Perfect Green Release right at apex!
+        offset = random.uniform(-(green_max - target_time) * 0.7, (target_time - green_min) * 0.7)
+        delta = target_time + offset
+    else:
+        # Missed green window (early or late)
+        is_early = random.choice([True, False])
+        if is_early:
+            delta = green_min - random.uniform(0.015, 0.080)
+        else:
+            delta = green_max + random.uniform(0.015, 0.080)
+
+    return evaluate_shot_timing(delta, target_time, green_min, green_max)
+
+
 def resolve_possession(
     action_key: str,
     pl_att: Dict[str, Any],
@@ -5999,16 +6046,9 @@ class InteractiveTeamBattleView(discord.ui.View):
             pl_b = self.picks_b.get(cur_pos, {})
             cur_scheme_key = self.round_schemes[cur_idx] if cur_idx < len(self.round_schemes) else "drop_coverage"
 
-            target_time, green_min, green_max = calculate_green_window(action_key, pl_a, pl_b, cur_scheme_key)
-            self.pending_action_key = action_key
-            self.pending_target_time = target_time
-            self.pending_green_min = green_min
-            self.pending_green_max = green_max
-            self.shot_start_time = None
-
-            self._build_shot_meter_controls(action_key, stage="gather")
-            meter_embed = self.make_shot_meter_embed(action_key, stage="gather")
-            await interaction.edit_original_response(embed=meter_embed, view=self)
+            # Direct dynamic shot release evaluation (eliminates network latency issues & timeouts)
+            timing_res = calculate_dynamic_shot_timing(action_key, pl_a, pl_b, cur_scheme_key, self.momentum_a)
+            await self._execute_possession_resolution(interaction, action_key, timing_result=timing_res)
 
         except Exception as e:
             logger.error(f"[InteractiveTeamBattleView] handle_tactical_action error: {e}", exc_info=True)
@@ -6092,7 +6132,7 @@ class InteractiveTeamBattleView(discord.ui.View):
                 "timing": timing_result.get("grade") if timing_result else "AUTO"
             })
 
-            # 2. Dramatic Suspense Reveal Step 1: Initial Buildup (1.0s delay)
+            # 2. Snappy Suspense Reveal Step 1: Initial Buildup (0.4s delay)
             act_name = TACTICAL_OUTCOMES.get(action_key, {}).get("name", "Offensive Play")
             timing_extra = f"\n> {timing_result.get('meter_line', '')}" if timing_result else ""
             suspense_text_1 = (
@@ -6105,9 +6145,9 @@ class InteractiveTeamBattleView(discord.ui.View):
             except Exception as e:
                 logger.debug(f"Step 1 suspense edit error: {e}")
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.4)
 
-            # 3. Dramatic Suspense Reveal Step 2: Contest (1.0s delay)
+            # 3. Snappy Suspense Reveal Step 2: Contest (0.4s delay)
             suspense_text_2 = (
                 f"🎯 **Called `{act_name}`**{timing_extra}\n"
                 f"> ⏳ {res_a['buildup_1']}\n"
@@ -6119,7 +6159,7 @@ class InteractiveTeamBattleView(discord.ui.View):
             except Exception as e:
                 logger.debug(f"Step 2 suspense edit error: {e}")
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.4)
 
             # 4. Step 3: Apply points and momentum
             self.q_pts_a += res_a["pts"]
