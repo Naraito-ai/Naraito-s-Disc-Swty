@@ -9180,12 +9180,24 @@ IGNORED_DROP_CHANNEL_KEYWORDS = {
 }
 
 def is_public_community_channel(channel: Optional[discord.abc.GuildChannel]) -> bool:
-    """Checks whether the channel is visible and writeable by @everyone (prevents drops in private rooms)."""
+    """Checks whether the channel is visible by @everyone (prevents drops in fully private/hidden rooms).
+    Note: we only require view_channel — NOT send_messages — because drop channels are often
+    bot-only for posting but all members can still see and react to them."""
     if not channel or not isinstance(channel, discord.TextChannel) or not channel.guild:
         return False
     default_role = channel.guild.default_role
     perms = channel.permissions_for(default_role)
-    return bool(perms.view_channel and perms.send_messages)
+    return bool(perms.view_channel)
+
+
+def is_staff_only_hidden_channel(channel: Optional[discord.abc.GuildChannel]) -> bool:
+    """Returns True if the channel is completely hidden from @everyone (i.e. a secret staff/mod/private room).
+    Used to block staff from abusing spawndrop in channels the community cannot even see."""
+    if not channel or not isinstance(channel, discord.TextChannel) or not channel.guild:
+        return True
+    default_role = channel.guild.default_role
+    perms = channel.permissions_for(default_role)
+    return not bool(perms.view_channel)  # If @everyone can't see it — it's hidden
 
 def is_server_owner_or_creator(user: Union[discord.Member, discord.User], guild: Optional[discord.Guild] = None) -> bool:
     """Checks if a user is the server owner or bot creator."""
@@ -20575,10 +20587,11 @@ async def spawndrop_slash_cmd(
         if not isinstance(target_chan, discord.TextChannel):
             return await interaction.response.send_message("❌ Invalid text channel selected.", ephemeral=True)
 
-        # 1. Anti-Abuse: Must be a public community channel where @everyone can view and send messages
-        if not is_public_community_channel(target_chan):
+        # 1. Anti-Abuse: Block fully hidden staff-only channels (where @everyone cannot even see the channel)
+        if is_staff_only_hidden_channel(target_chan):
             return await interaction.response.send_message(
-                "❌ **Drop Blocked**: Card drops can only be spawned in public community channels where all members can view and participate.",
+                "❌ **Drop Blocked**: Card drops cannot be spawned in private/hidden channels that the community cannot see.\n"
+                "💡 *Use a channel where all members can at least view it — even if only the bot can post.*",
                 ephemeral=True
             )
 
@@ -20622,9 +20635,12 @@ async def spawndrop_prefix_cmd(ctx: commands.Context, tier: Optional[str] = None
         if not is_owner and not ctx.author.guild_permissions.manage_messages:
             return await ctx.send("❌ Only server staff with `Manage Messages` permission can spawn card drops.")
 
-        # 1. Anti-Abuse: Must be a public community channel where @everyone can view and send messages
-        if not is_public_community_channel(ctx.channel):
-            return await ctx.send("❌ **Drop Blocked**: Card drops can only be spawned in public community channels where all members can view and participate.")
+        # 1. Anti-Abuse: Block fully hidden staff-only channels (where @everyone cannot even see the channel)
+        if is_staff_only_hidden_channel(ctx.channel):
+            return await ctx.send(
+                "❌ **Drop Blocked**: Card drops cannot be spawned in private/hidden channels that the community cannot see.\n"
+                "💡 *Use a channel where all members can at least view it — even if only the bot can post.*"
+            )
 
         t_req = None if not tier or tier.lower() in ["random", "rand", "any"] else tier.lower().strip()
 
