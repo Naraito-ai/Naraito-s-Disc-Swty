@@ -5545,10 +5545,23 @@ class InteractiveTeamBattleView(discord.ui.View):
                 loser_name = self.author.display_name
                 winner_is_a = False
 
-        # Award VC Coin Rewards for battle participation & victory
+        stats_w = {"wins": 0, "losses": 0, "ties": 0, "streak": 0, "best_streak": 0, "total_duels_won": 0, "total_points": 0, "daily_wins": 0, "last_daily_win_date": "", "achievements": [], "coaching_dna": {}}
+        stats_l = {"wins": 0, "losses": 0, "ties": 0, "streak": 0, "best_streak": 0, "total_duels_won": 0, "total_points": 0, "daily_wins": 0, "last_daily_win_date": "", "achievements": [], "coaching_dna": {}}
+        try:
+            stats_w = await db.get_team_battle_stats(winner_member.id)
+            stats_l = await db.get_team_battle_stats(loser_member.id)
+        except Exception as e:
+            logger.error(f"[InteractiveTeamBattleView] Error fetching stats: {e}")
+
+        cur_w_streak = stats_w.get("streak", 0) if stats_w.get("streak", 0) > 0 else 0
+        streak_bonus_pct = min(100, max(0, cur_w_streak) * 10)
+        streak_bonus_vc = int(250 * (streak_bonus_pct / 100))
+        winner_vc_total = 250 + streak_bonus_vc
+
+        # Award VC Coin Rewards for battle participation & victory with streak bonus
         try:
             if not getattr(winner_member, "bot", False):
-                await db.add_user_vc(winner_member.id, 250)
+                await db.add_user_vc(winner_member.id, winner_vc_total)
             if not getattr(loser_member, "bot", False):
                 await db.add_user_vc(loser_member.id, 50)
         except Exception as vc_err:
@@ -5583,14 +5596,6 @@ class InteractiveTeamBattleView(discord.ui.View):
         if pg_won and sg_won:
             new_achievements_winner.append("splash_dynasty")
 
-        stats_w = {"wins": 0, "losses": 0, "ties": 0, "streak": 0, "best_streak": 0, "total_duels_won": 0, "total_points": 0, "daily_wins": 0, "last_daily_win_date": "", "achievements": [], "coaching_dna": {}}
-        stats_l = {"wins": 0, "losses": 0, "ties": 0, "streak": 0, "best_streak": 0, "total_duels_won": 0, "total_points": 0, "daily_wins": 0, "last_daily_win_date": "", "achievements": [], "coaching_dna": {}}
-        try:
-            stats_w = await db.get_team_battle_stats(winner_member.id)
-            stats_l = await db.get_team_battle_stats(loser_member.id)
-        except Exception as e:
-            logger.error(f"[InteractiveTeamBattleView] Error fetching stats: {e}")
-
         prev_rank_w = get_gm_rank(stats_w.get("wins", 0))
 
         today_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
@@ -5604,7 +5609,6 @@ class InteractiveTeamBattleView(discord.ui.View):
             new_achievements_winner.append("hof_gm")
         if (stats_w.get("total_points", 0) + winner_pts) >= 100:
             new_achievements_winner.append("showtime_century")
-        cur_w_streak = stats_w.get("streak", 0) if stats_w.get("streak", 0) > 0 else 0
         if (cur_w_streak + 1) >= 3:
             new_achievements_winner.append("streak_master")
 
@@ -5812,6 +5816,13 @@ class InteractiveTeamBattleView(discord.ui.View):
                 value=f"👑 **{winner_member.display_name}** unlocked: {', '.join(ach_texts)}!",
                 inline=False
             )
+
+        streak_note = f" 🔥 *(+{streak_bonus_pct}% Win Streak Bonus!)*" if streak_bonus_pct > 0 else ""
+        embed.add_field(
+            name="💰 Match Earnings",
+            value=f"• 👑 **{winner_member.display_name}**: `+{winner_vc_total:,} VC`{streak_note}\n• 🥈 **{loser_member.display_name}**: `+50 VC` *(Consolation)*",
+            inline=False
+        )
 
         mvp_data = {
             "name": p_name,
@@ -7122,6 +7133,172 @@ async def handle_buildteam(interaction_or_ctx: Any):
             await interaction_or_ctx.followup.send(embed=embed, view=view, ephemeral=True)
     else:
         await interaction_or_ctx.send(embed=embed, view=view)
+
+
+async def handle_autoteam(target_user: Union[discord.Member, discord.User], guild: Optional[discord.Guild], send_func: Any, is_interaction: bool):
+    """Automatically slots user's highest OVR owned cards into PG, SG, SF, PF, C without duplicate players."""
+    user_cards = await db.get_user_nba_cards(target_user.id)
+    if not user_cards:
+        msg = "❌ You don't own any NBA cards yet! Open your first free packs with `/openpack` or claim daily VC with `/nbadaily`."
+        if is_interaction:
+            return await send_func(msg, ephemeral=True)
+        return await send_func(msg)
+
+    positions = ["PG", "SG", "SF", "PF", "C"]
+    used_card_ids = set()
+    used_player_names = set()
+    equipped_lineup = {}
+
+    for pos in positions:
+        eligible = []
+        for uc in user_cards:
+            cid = uc.get("card_id", "").lower()
+            cobj = get_nba_card(cid)
+            if not cobj or cid in used_card_ids:
+                continue
+            pname = cobj.get("name", "").strip().lower()
+            if pname in used_player_names:
+                continue
+            if cobj.get("pos") == pos or cobj.get("sec_pos") == pos:
+                eligible.append(cobj)
+
+        eligible.sort(key=lambda x: x.get("ovr", 0), reverse=True)
+        if eligible:
+            best = eligible[0]
+            equipped_lineup[pos] = card_to_player_dict(best)
+            used_card_ids.add(best["id"].lower())
+            used_player_names.add(best.get("name", "").strip().lower())
+
+    if len(equipped_lineup) < 5:
+        for pos in positions:
+            if pos not in equipped_lineup:
+                remaining = []
+                for uc in user_cards:
+                    cid = uc.get("card_id", "").lower()
+                    cobj = get_nba_card(cid)
+                    if not cobj or cid in used_card_ids:
+                        continue
+                    pname = cobj.get("name", "").strip().lower()
+                    if pname in used_player_names:
+                        continue
+                    remaining.append(cobj)
+                remaining.sort(key=lambda x: x.get("ovr", 0), reverse=True)
+                if remaining:
+                    best = remaining[0]
+                    equipped_lineup[pos] = card_to_player_dict(best)
+                    used_card_ids.add(best["id"].lower())
+                    used_player_names.add(best.get("name", "").strip().lower())
+
+    if len(equipped_lineup) < 5:
+        msg = f"❌ You need at least 5 different player cards to auto-equip a full Starting 5. You currently have **{len(user_cards)}** cards."
+        if is_interaction:
+            return await send_func(msg, ephemeral=True)
+        return await send_func(msg)
+
+    total_ovr = sum(p.get("ovr", 85) for p in equipped_lineup.values())
+    avg_ovr = round(total_ovr / 5.0, 1)
+    team_data_json = json.dumps({pos: equipped_lineup[pos] for pos in positions})
+    now_ts = time.time()
+
+    await db.save_dream_team(
+        user_id=target_user.id,
+        guild_id=guild.id if guild else None,
+        pg=equipped_lineup["PG"]["name"],
+        sg=equipped_lineup["SG"]["name"],
+        sf=equipped_lineup["SF"]["name"],
+        pf=equipped_lineup["PF"]["name"],
+        c=equipped_lineup["C"]["name"],
+        total_cost=0,
+        ovr_rating=avg_ovr,
+        team_data=team_data_json,
+        updated_at=now_ts
+    )
+
+    career_stats = await db.get_team_battle_stats(target_user.id)
+    team_eval = evaluate_dream_team(equipped_lineup)
+    img_buf = generate_dream_team_graphic(
+        manager_name=target_user.display_name,
+        team=equipped_lineup,
+        team_eval=team_eval,
+        career_stats=career_stats,
+        user_avatar_url=target_user.display_avatar.url if hasattr(target_user, "display_avatar") else None
+    )
+    img_file = discord.File(fp=img_buf, filename="autoteam.png")
+
+    embed = discord.Embed(
+        title="⚡ Starting 5 Auto-Equipped!",
+        description=(
+            f"✅ Sweety has scanned your binder and equipped your **strongest 5-man squad** ({avg_ovr} OVR)!\n\n"
+            f"• **PG:** [{equipped_lineup['PG']['ovr']} OVR] {equipped_lineup['PG']['name']}\n"
+            f"• **SG:** [{equipped_lineup['SG']['ovr']} OVR] {equipped_lineup['SG']['name']}\n"
+            f"• **SF:** [{equipped_lineup['SF']['ovr']} OVR] {equipped_lineup['SF']['name']}\n"
+            f"• **PF:** [{equipped_lineup['PF']['ovr']} OVR] {equipped_lineup['PF']['name']}\n"
+            f"• **C:** [{equipped_lineup['C']['ovr']} OVR] {equipped_lineup['C']['name']}\n\n"
+            f"🎮 *Ready for battle! Jump into matchmaking with `/teamqueue` or challenge a friend with `/teambattle`.*"
+        ),
+        color=discord.Color.gold()
+    )
+    embed.set_image(url="attachment://autoteam.png")
+    embed.timestamp = discord.utils.utcnow()
+
+    if is_interaction:
+        await send_func(embed=embed, file=img_file)
+    else:
+        await send_func(embed=embed, file=img_file)
+
+
+async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: str, send_func: Any, is_interaction: bool):
+    """Combines 3 duplicate copies of a card into a Holo Foil Edition (+5 OVR & +20% quicksell)."""
+    clean_q = card_query.strip().lower()
+    card_obj = get_nba_card(clean_q)
+    if not card_obj:
+        msg = f"❌ Card `{card_query}` was not found in the NBA 2K catalog."
+        if is_interaction:
+            return await send_func(msg, ephemeral=True)
+        return await send_func(msg)
+
+    if card_obj.get("is_holo") or str(card_obj.get("id", "")).startswith("holo_"):
+        msg = f"❌ **{card_obj['name']}** is already an upgraded Holo Foil Edition!"
+        if is_interaction:
+            return await send_func(msg, ephemeral=True)
+        return await send_func(msg)
+
+    success, msg, data = await db.fuse_nba_cards(user.id, card_obj["id"])
+    if not success:
+        if is_interaction:
+            return await send_func(f"❌ {msg}", ephemeral=True)
+        return await send_func(f"❌ {msg}")
+
+    holo_card = get_nba_card(data["holo_id"])
+    if not holo_card:
+        holo_card = dict(card_obj)
+        holo_card["ovr"] = min(100, card_obj["ovr"] + 5)
+        holo_card["is_holo"] = True
+
+    card_buf = generate_nba_card_graphic(holo_card, is_mystery=False)
+    card_file = discord.File(fp=card_buf, filename="holo_card.png")
+
+    tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
+    embed = discord.Embed(
+        title="🌟 CARD FUSION COMPLETE: HOLO FOIL FORGED!",
+        description=(
+            f"✨ 3x copies of {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}** have fused into a **Holo / Foil Edition**!\n\n"
+            f"• 📈 **OVR Rating Boost:** `{card_obj['ovr']} OVR` ➔ **`{holo_card['ovr']} OVR` (+5 Upgrade)**\n"
+            f"• ⚡ **Stat Boosts:** `+5` Inside, Mid, 3PT, Defense & Playmaking\n"
+            f"• 💰 **VC Quick-Sell Boost:** `+{int(holo_card.get('quicksell_vc', 0) - card_obj.get('quicksell_vc', 0))} VC` (+20% value)\n"
+            f"• 🌈 **Visual Holo Shimmer:** Equipped with radiant rainbow foil reflections\n\n"
+            f"🌟 *Your new Holo Foil card is now permanently in your binder! View with `/nbacard {holo_card['id']}`.*"
+        ),
+        color=discord.Color.from_rgb(255, 215, 0)
+    )
+    embed.set_image(url="attachment://holo_card.png")
+    embed.set_footer(text="NBA 2K Card Fusion • Fuse 3 duplicates anytime with /nbafuse")
+    embed.timestamp = discord.utils.utcnow()
+
+    if is_interaction:
+        await send_func(embed=embed, file=card_file)
+    else:
+        await send_func(embed=embed, file=card_file)
 
 
 def extract_picks_from_row(row: Any) -> Dict[str, Dict[str, Any]]:
@@ -8457,6 +8634,10 @@ async def build_teambattle_embed(author: Union[discord.Member, discord.User], op
     if (cur_w_streak + 1) >= 3:
         new_achievements_winner.append("streak_master")
 
+    streak_bonus_pct = min(100, max(0, cur_w_streak) * 10)
+    streak_bonus_vc = int(250 * (streak_bonus_pct / 100))
+    winner_vc_total = 250 + streak_bonus_vc
+
     new_achievements_loser = []
     if (stats_l["total_points"] + loser_pts) >= 100:
         new_achievements_loser.append("showtime_century")
@@ -8482,10 +8663,10 @@ async def build_teambattle_embed(author: Union[discord.Member, discord.User], op
         new_achievements=new_achievements_loser
     )
 
-    # Award VC Coin Rewards
+    # Award VC Coin Rewards with win streak multiplier
     try:
         if not getattr(winner_member, "bot", False):
-            await db.add_user_vc(winner_member.id, 250)
+            await db.add_user_vc(winner_member.id, winner_vc_total)
         if not getattr(loser_member, "bot", False):
             await db.add_user_vc(loser_member.id, 50)
     except Exception as vc_err:
@@ -8553,6 +8734,13 @@ async def build_teambattle_embed(author: Union[discord.Member, discord.User], op
             value=f"👑 **{winner_member.display_name}** unlocked: {', '.join(ach_texts)}!",
             inline=False
         )
+
+    streak_note = f" 🔥 *(+{streak_bonus_pct}% Win Streak Bonus!)*" if streak_bonus_pct > 0 else ""
+    embed.add_field(
+        name="💰 Match Earnings",
+        value=f"• 👑 **{winner_member.display_name}**: `+{winner_vc_total:,} VC`{streak_note}\n• 🥈 **{loser_member.display_name}**: `+50 VC` *(Consolation)*",
+        inline=False
+    )
 
     mvp_data = {
         "name": mvp.get("name", "Michael Jordan"),
@@ -10899,19 +11087,47 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [
 NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {c["id"].lower(): c for c in NBA_2K_MOBILE_CARDS}
 
 def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
-    """Look up a card by ID or exact/fuzzy player name."""
+    """Look up a card by ID or exact/fuzzy player name (supports Holo Foil edition upgrades)."""
     if not identifier:
         return None
     clean = identifier.strip().lower()
-    if clean in NBA_CARDS_BY_ID:
-        return NBA_CARDS_BY_ID[clean]
-    for c in NBA_2K_MOBILE_CARDS:
-        if c["name"].lower() == clean or c["id"].lower() == clean:
-            return c
-    for c in NBA_2K_MOBILE_CARDS:
-        if clean in c["name"].lower() or clean in c["id"].lower():
-            return c
-    return None
+    is_holo = False
+    base_identifier = clean
+    if clean.startswith("holo_") or clean.startswith("holo-"):
+        is_holo = True
+        base_identifier = clean[5:]
+    elif clean.endswith("_holo") or clean.endswith("-holo"):
+        is_holo = True
+        base_identifier = clean[:-5]
+
+    card = None
+    if base_identifier in NBA_CARDS_BY_ID:
+        card = NBA_CARDS_BY_ID[base_identifier]
+    else:
+        for c in NBA_2K_MOBILE_CARDS:
+            if c["name"].lower() == base_identifier or c["id"].lower() == base_identifier:
+                card = c
+                break
+        if not card:
+            for c in NBA_2K_MOBILE_CARDS:
+                if base_identifier in c["name"].lower() or base_identifier in c["id"].lower():
+                    card = c
+                    break
+
+    if card and is_holo:
+        # Clone and apply Holo foil attributes (+5 OVR, +5 stats, +20% quicksell)
+        holo_card = dict(card)
+        holo_card["id"] = f"holo_{card['id']}"
+        holo_card["name"] = f"🌟 {card['name']} (Holo Foil)"
+        holo_card["ovr"] = min(100, card.get("ovr", 80) + 5)
+        holo_card["is_holo"] = True
+        holo_card["quicksell_vc"] = int(card.get("quicksell_vc", 100) * 1.20)
+        for stat in ["pts_inside", "pts_mid", "pts_3", "defense", "playmaking"]:
+            if stat in holo_card:
+                holo_card[stat] = min(99, holo_card[stat] + 5)
+        return holo_card
+
+    return card
 
 def roll_pack_card(pack_type_id: str) -> Dict[str, Any]:
     """Rolls a random card based on pack odds."""
@@ -11187,6 +11403,56 @@ def get_nba_player_moment_photo(player_name: str) -> Optional[Image.Image]:
     return None
 
 
+TIER_DEFAULT_ACTION_URLS: Dict[str, str] = {
+    "gold": "https://upload.wikimedia.org/wikipedia/commons/4/45/Alex_Caruso.jpg",
+    "ruby": "https://upload.wikimedia.org/wikipedia/commons/b/b5/Derrick_White_2023.png",
+    "amethyst": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Stephen_Curry_close_up.jpg",
+    "diamond": "https://upload.wikimedia.org/wikipedia/commons/7/7a/LeBron_James_%2851959977144%29_%28cropped2%29.jpg",
+    "galaxy_opal": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Kobe_Lakers_Parade.jpg",
+    "dark_matter": "https://upload.wikimedia.org/wikipedia/commons/b/b3/Jordan_Lipofsky.jpg",
+}
+
+_TIER_MOMENT_CACHE: Dict[str, Image.Image] = {}
+
+def get_tier_default_moment_image(tier_key: str) -> Optional[Image.Image]:
+    """Fetches, caches and returns the tier-specific iconic Wikipedia match moment image."""
+    tier = tier_key.lower().strip()
+    if tier in _TIER_MOMENT_CACHE:
+        return _TIER_MOMENT_CACHE[tier]
+    
+    url = TIER_DEFAULT_ACTION_URLS.get(tier, TIER_DEFAULT_ACTION_URLS.get("gold"))
+    if not url:
+        return None
+        
+    cache_dir = os.path.join(os.path.dirname(__file__), "assets", "tier_moments")
+    os.makedirs(cache_dir, exist_ok=True)
+    local_path = os.path.join(cache_dir, f"{tier}.jpg")
+    
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 1000:
+        try:
+            img = Image.open(local_path)
+            _TIER_MOMENT_CACHE[tier] = img
+            return img
+        except Exception:
+            pass
+            
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "SweetyDiscordBot/1.0 (bot@sweety.ai)"})
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
+            data = resp.read()
+            with open(local_path, "wb") as f:
+                f.write(data)
+            img = Image.open(io.BytesIO(data))
+            _TIER_MOMENT_CACHE[tier] = img
+            return img
+    except Exception as e:
+        logger.debug(f"Could not load tier moment image for {tier}: {e}")
+        return None
+
+
 def generate_nba_card_graphic(
     card: Dict[str, Any],
     is_mystery: bool = False,
@@ -11197,6 +11463,7 @@ def generate_nba_card_graphic(
     W, H = 520, 760
     tier_key = card.get("tier", "gold").lower()
     theme = NBA_2K_CARD_THEMES.get(tier_key, NBA_2K_CARD_THEMES["gold"])
+    is_holo = bool(card.get("is_holo") or str(card.get("id", "")).startswith("holo_"))
 
     card_img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     margin = 14
@@ -11223,6 +11490,13 @@ def generate_nba_card_graphic(
     for i in range(-200, W + 300, 36):
         g_draw.line([(i, margin), (i + 180, H - margin)], fill=(*theme["glow"], 22), width=1)
         g_draw.line([(i + 180, margin), (i, H - margin)], fill=(*theme["glow"], 22), width=1)
+    
+    if is_holo:
+        # Radiant rainbow holographic foil shimmer lines across card
+        rainbow_colors = [(255, 100, 100), (255, 200, 50), (100, 255, 150), (50, 220, 255), (200, 100, 255)]
+        for idx, i in enumerate(range(-100, W + 200, 28)):
+            c = rainbow_colors[idx % len(rainbow_colors)]
+            g_draw.line([(i, margin), (i + 220, H - margin)], fill=(*c, 45), width=2)
     
     # Concentric orbital stadium glow circles
     g_draw.ellipse([W//2 - 180, H//2 - 200, W//2 + 180, H//2 + 160], outline=(*theme["primary"], 55), width=2)
@@ -11251,6 +11525,13 @@ def generate_nba_card_graphic(
         action_photo = None
         if not headshot_img:
             action_photo = get_nba_player_moment_photo(card.get("name", ""))
+
+        if not action_photo:
+            if not headshot_img:
+                headshot_img = get_nba_player_headshot(card.get("name", ""))
+            if not headshot_img:
+                # Load tier-specific hardcoded iconic Wikipedia match moment
+                action_photo = get_tier_default_moment_image(tier_key)
 
         if action_photo:
             try:
@@ -11299,64 +11580,54 @@ def generate_nba_card_graphic(
             except Exception:
                 action_photo = None
 
-        if not action_photo:
-            # Fallback to official transparent headshot cutout
-            if not headshot_img:
-                headshot_img = get_nba_player_headshot(card.get("name", ""))
-            if headshot_img:
-                try:
-                    # Enhance vibrancy & contrast for intense live match lighting
-                    enh_con = ImageEnhance.Contrast(headshot_img)
-                    p_enhanced = enh_con.enhance(1.18)
-                    enh_col = ImageEnhance.Color(p_enhanced)
-                    p_enhanced = enh_col.enhance(1.22)
+        if not action_photo and headshot_img:
+            try:
+                # Enhance vibrancy & contrast for intense live match lighting
+                enh_con = ImageEnhance.Contrast(headshot_img)
+                p_enhanced = enh_con.enhance(1.18)
+                enh_col = ImageEnhance.Color(p_enhanced)
+                p_enhanced = enh_col.enhance(1.22)
 
-                    # Scale player to bold full card presence
-                    target_w = 460
-                    aspect = p_enhanced.height / max(1, p_enhanced.width)
-                    target_h = int(target_w * aspect)
-                    p_scaled = p_enhanced.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                # Scale player to bold full card presence
+                target_w = 460
+                aspect = p_enhanced.height / max(1, p_enhanced.width)
+                target_h = int(target_w * aspect)
+                p_scaled = p_enhanced.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-                    # Tier Energy Aura Backlight behind player silhouette
-                    aura_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                    a_draw = ImageDraw.Draw(aura_layer)
-                    cx, cy = W // 2, 280
-                    a_draw.ellipse([cx - 175, cy - 185, cx + 175, cy + 185], fill=(*theme["glow"], 50))
-                    a_draw.ellipse([cx - 130, cy - 140, cx + 130, cy + 140], fill=(*theme["primary"], 75))
-                    aura_layer = aura_layer.filter(ImageFilter.GaussianBlur(30))
-                    card_img = Image.alpha_composite(card_img, aura_layer)
+                # Tier Energy Aura Backlight behind player silhouette
+                aura_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                a_draw = ImageDraw.Draw(aura_layer)
+                cx, cy = W // 2, 280
+                a_draw.ellipse([cx - 175, cy - 185, cx + 175, cy + 185], fill=(*theme["glow"], 50))
+                a_draw.ellipse([cx - 130, cy - 140, cx + 130, cy + 140], fill=(*theme["primary"], 75))
+                aura_layer = aura_layer.filter(ImageFilter.GaussianBlur(30))
+                card_img = Image.alpha_composite(card_img, aura_layer)
 
-                    px = (W - p_scaled.width) // 2
-                    py = 85
+                px = (W - p_scaled.width) // 2
+                py = 85
 
-                    # Feathered bottom alpha mask: smooth fade into the stats dock
-                    p_rgba = p_scaled.convert("RGBA")
-                    p_mask = p_rgba.split()[3]
-                    
-                    fade_h = 110
-                    grad_fade = Image.new("L", (p_scaled.width, p_scaled.height), 255)
-                    gf_draw = ImageDraw.Draw(grad_fade)
-                    for gy in range(p_scaled.height - fade_h, p_scaled.height):
-                        alpha_val = int(255 * (1.0 - (gy - (p_scaled.height - fade_h)) / fade_h))
-                        gf_draw.line([(0, gy), (p_scaled.width, gy)], fill=alpha_val)
-                    
-                    final_mask = Image.composite(grad_fade, Image.new("L", p_mask.size, 0), p_mask)
-                    card_img.paste(p_rgba, (px, py), final_mask)
-                    draw = ImageDraw.Draw(card_img)
-                except Exception:
-                    pass
-            else:
-                cx, cy = W // 2, H // 2 - 40
-                draw.ellipse([cx - 95, cy - 95, cx + 95, cy + 95], fill=(20, 26, 42, 220), outline=(*theme["primary"], 200), width=3)
-                f_init = _get_nba_card_font(72, bold=True)
-                initials = "".join([part[0] for part in card.get("name", "NBA").split()[:2]])
-                draw.text((cx - 45, cy - 45), initials, fill=theme["border"], font=f_init)
+                # Feathered bottom alpha mask: smooth fade into the stats dock
+                p_rgba = p_scaled.convert("RGBA")
+                p_mask = p_rgba.split()[3]
+                
+                fade_h = 110
+                grad_fade = Image.new("L", (p_scaled.width, p_scaled.height), 255)
+                gf_draw = ImageDraw.Draw(grad_fade)
+                for gy in range(p_scaled.height - fade_h, p_scaled.height):
+                    alpha_val = int(255 * (1.0 - (gy - (p_scaled.height - fade_h)) / fade_h))
+                    gf_draw.line([(0, gy), (p_scaled.width, gy)], fill=alpha_val)
+                
+                final_mask = Image.composite(grad_fade, Image.new("L", p_mask.size, 0), p_mask)
+                card_img.paste(p_rgba, (px, py), final_mask)
+                draw = ImageDraw.Draw(card_img)
+            except Exception:
+                pass
 
     # 4. Top Ribbon Bar: Tier Edition
     draw.rounded_rectangle([(margin + 12, margin + 10), (W - margin - 12, margin + 40)], radius=8, fill=(10, 14, 24, 230), outline=(*theme["border"], 180), width=1)
     
-    tier_title = f"{theme['name'].upper()} EDITION"
-    f_tier = _get_nba_card_font(13, bold=True)
+    tier_title = f"{theme['name'].upper()} • HOLO FOIL" if is_holo else f"{theme['name'].upper()} EDITION"
+    f_tier = _get_nba_card_font(12 if is_holo else 13, bold=True)
     t_w = len(tier_title) * 8
     draw.text((W // 2 - t_w // 2, margin + 16), tier_title, fill=theme["border"], font=f_tier)
     
@@ -15472,6 +15743,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
                 "• `/nbaprivacy` / `!nbaprivacy` — Toggle public/private visibility for your card dex\n"
                 "• `/nbacard <card_id>` / `!nbacard` — View high-res 2K card stats, tier, OVR rating & attributes\n"
                 "• `/nbafav <card_id>` / `!nbafav` — Set your favorite showcase card on your profile\n"
+                "• `/nbafuse <card_id>` / `!nbafuse` — Combine 3 duplicate cards into a permanent Holo Edition (+5 OVR & +20% VC)\n"
                 "• `/giftcard @user <card_id>` / `!giftcard` — Gift an owned card to another member"
             ),
             inline=False
@@ -15504,12 +15776,13 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     elif category == "dream_team":
         embed = discord.Embed(
             title="🏆 NBA 2K Starting 5 GM, Battles & VC Wagering",
-            description="Build your 5-man fantasy lineup from your card binder and battle other managers in live matchmaking & high-stakes wagers!",
+            description="Build your 5-man fantasy lineup from your card binder and battle other managers in live matchmaking & high-stakes wagers! Earn +10% VC per win streak (up to +100%)!",
             color=discord.Color.gold()
         )
         embed.add_field(
             name="📋 **Lineup & Squad Management**",
             value=(
+                "• `/autoteam` / `!autoteam` — Automatically slot your 5 highest OVR cards into Starting 5\n"
                 "• `/buildteam` / `!buildteam` — Interactive GM Lineup Builder using your owned cards\n"
                 "• `/myteam [user]` / `!myteam` — Generate high-res visual squad card, win streaks & GM badges\n"
                 "• `/setupnbachannel` / `!setupnbachannel` — Create a dedicated arena channel in the 2K Mobile Hub category"
@@ -15519,7 +15792,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed.add_field(
             name="⚔️ **Matchmaking, Battles & VC Wagers**",
             value=(
-                "• `/teamqueue` / `!teamqueue` — Enter the live matchmaking arena queue to battle random players\n"
+                "• `/teamqueue` / `!teamqueue` — Enter live matchmaking arena queue (+10% VC per win streak!)\n"
                 "• `/teambattle <user>` / `!teambattle` — Challenge any server member to a head-to-head 5v5 showdown\n"
                 "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 Starting 5 clash (winner takes pot)\n"
                 "• `/teamleaderboard` / `!teamlb` — View server top-ranked Starting 5s and GM ratings"
@@ -15649,6 +15922,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             "• `/openpack [tier]` / `!openpack` — Open Standard, Premium, Deluxe & Opal packs\n"
             "• `/packodds` / `!packodds` — View exact pack drop rates & card tier odds\n"
             "• `/nbadex [page]` / `!nbadex` — Open 2K Card Binder (includes 🔒 Privacy Toggle)\n"
+            "• `/nbafuse <id>` / `!nbafuse` — Fuse 3 duplicate cards into Holo Foil (+5 OVR)\n"
             "• `/nbaprivacy` / `!nbaprivacy` — Toggle public/private visibility for your dex\n"
             "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops\n"
             "• `/nbahint` / `!nbahint` — Reveal masked name hints for active court spawns\n"
@@ -15673,9 +15947,10 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     embed.add_field(
         name="🏆 **NBA 2K Starting 5 GM, Battles & Wagering**",
         value=(
+            "• `/autoteam` / `!autoteam` — Instant auto-fill top 5 highest OVR cards into Starting 5\n"
             "• `/buildteam` / `!buildteam` — Interactive GM Lineup Builder from Card Binder\n"
             "• `/myteam [user]` / `!myteam` — Squad card, win streaks & GM badges\n"
-            "• `/teamqueue` / `!teamqueue` — Live matchmaking queue & battles\n"
+            "• `/teamqueue` / `!teamqueue` — Live matchmaking arena (+10% VC win streak bonus)\n"
             "• `/teambattle <user>` / `!teambattle` — 5v5 tactical card battle simulator\n"
             "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 team battle\n"
             "• `/teamleaderboard` / `!teamlb` — View top-rated GM Starting 5s & records\n"
@@ -17076,6 +17351,21 @@ async def buildteam_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error opening lineup builder: {e}", ephemeral=True)
 
 
+@bot.tree.command(name="autoteam", description="⚡ Instantly slot your 5 highest OVR cards into your Starting 5 lineup")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def autoteam_slash_cmd(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+        await handle_autoteam(interaction.user, interaction.guild, interaction.followup.send, is_interaction=True)
+    except Exception as e:
+        logger.error(f"Error in /autoteam: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error auto-equipping team: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error auto-equipping team: {e}", ephemeral=True)
+
+
 @bot.tree.command(name="myteam", description="🏀 View your (or another member's) active Starting 5 card, career record & GM badges")
 @app_commands.describe(user="The member whose dream team you want to view (defaults to yourself)")
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id or 0, i.user.id))
@@ -17917,6 +18207,22 @@ async def nbasell_slash_cmd(interaction: discord.Interaction, card: str):
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         else:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="nbafuse", description="🌟 Fuse 3 duplicate cards of a player into a permanent Holo / Foil Edition (+5 OVR & +20% VC)")
+@app_commands.describe(card="Card ID or Player Name to fuse (requires owning at least 3 copies)")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 4.0, key=lambda i: (i.guild_id, i.user.id))
+async def nbafuse_slash_cmd(interaction: discord.Interaction, card: str):
+    try:
+        await interaction.response.defer()
+        await handle_nbafuse(interaction.user, card, interaction.followup.send, is_interaction=True)
+    except Exception as e:
+        logger.error(f"Error in /nbafuse: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error during card fusion: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error during card fusion: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="nbagive", description="🎁 Directly gift an NBA 2K card to another server member")
@@ -20177,6 +20483,18 @@ async def buildteam_prefix_cmd(ctx: commands.Context):
         await ctx.send(f"❌ Failed to open lineup builder: {e}")
 
 
+@bot.command(name="autoteam", aliases=["autolineup", "bestteam", "autoequip"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def autoteam_prefix_cmd(ctx: commands.Context):
+    """Instantly slot your 5 highest OVR cards into your Starting 5 lineup: !autoteam"""
+    try:
+        await handle_autoteam(ctx.author, ctx.guild, ctx.send, is_interaction=False)
+    except Exception as e:
+        logger.error(f"Error in !autoteam: {e}", exc_info=True)
+        await ctx.send(f"❌ Error auto-equipping team: {e}")
+
+
 @bot.command(name="myteam", aliases=["squad", "dreamteam"])
 @commands.cooldown(1, 10.0, commands.BucketType.user)
 @commands.guild_only()
@@ -21731,6 +22049,18 @@ async def nbasell_prefix_cmd(ctx: commands.Context, *, card_query: str):
     except Exception as e:
         logger.error(f"Error in !nbasell: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="nbafuse", aliases=["fusecard", "cardfuse", "craftcard", "holo"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def nbafuse_prefix_cmd(ctx: commands.Context, *, card: str):
+    """Fuse 3 duplicate cards of a player into a permanent Holo / Foil Edition (+5 OVR & +20% VC): !nbafuse <card_name_or_id>"""
+    try:
+        await handle_nbafuse(ctx.author, card, ctx.send, is_interaction=False)
+    except Exception as e:
+        logger.error(f"Error in !nbafuse: {e}", exc_info=True)
+        await ctx.send(f"❌ Error during card fusion: {e}")
 
 
 @bot.command(name="nbagive", aliases=["nbasend", "giftcard", "cardgive", "givecard"])

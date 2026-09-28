@@ -118,12 +118,14 @@ Sweety features a card collection game inspired by **NBA 2K Mobile MyTEAM**:
 | `/nbaprivacy` | `!nbaprivacy` | Toggle public/private visibility for your NBA card binder |
 | `/giftcard @user <card_id>` | `!giftcard @user <id>` | Gift an owned NBA card from your binder to another member |
 | `/buildteam` | `!buildteam` | Open interactive Lineup Builder to set Starting 5 from binder |
+| `/autoteam` | `!autoteam` | Instantly auto-fill your 5 highest OVR cards into Starting 5 |
 | `/myteam [user]` | `!myteam` | Generate high-res 1600x960 2K Starting 5 image card |
-| `/teambattle <user>` | `!teambattle` | Challenge a member to a 5-round tactical NBA showdown |
+| `/teambattle <user>` | `!teambattle` | Challenge a member to a 5-round tactical NBA showdown (+10% VC win streak bonus) |
 | `/vcbet @user <amount>` | `!vcbet @user <amount>` | Wager VC on a 5v5 Starting 5 clash (winner takes pot) |
-| `/teamqueue` | `!teamqueue` | Join auto-matchmaking queue for live NBA battles |
+| `/teamqueue` | `!teamqueue` | Join auto-matchmaking queue for live NBA battles (+10% VC win streak bonus) |
 | `/dailynba` | `!dailynba` | Challenge today's featured daily NBA Boss squad |
 | `/nbacard <id_or_name>` | `!nbacard` | Inspect full 2K card ratings, badges, and quick-sell value |
+| `/nbafuse <card_id>` | `!nbafuse <card_id>` | Fuse 3 duplicate cards into permanent Holo / Foil Edition (+5 OVR & +20% VC) |
 | `/openpack [tier]` | `!openpack [tier]` | Open Standard, Premium, Deluxe, Opal & End Game card packs |
 | `/packodds` | `!packodds` | View transparent card pack drop rates and tier probabilities |
 | `/nbasell <card_id>` | `!nbasell` | Quick-sell owned duplicate cards for VC |

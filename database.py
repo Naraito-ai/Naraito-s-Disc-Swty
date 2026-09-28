@@ -1649,6 +1649,39 @@ class DatabaseManager:
         """Alias pointing to remove_abused_top_tier_cards."""
         return await self.remove_abused_top_tier_cards(card_ids, exclude_user_id)
 
+    async def fuse_nba_cards(self, user_id: Any, card_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """Combines 3 duplicate copies of a card to forge a Holo / Foil Edition (+5 OVR, +20% quicksell)."""
+        u = str(user_id)
+        cid = str(card_id).strip().lower()
+        if cid.startswith("holo_") or cid.startswith("holo-"):
+            return False, "This card is already an upgraded Holo Foil Edition!", None
+        
+        try:
+            # Find all matching owned cards (non-holo copies)
+            rows = await self.fetch(
+                "SELECT id, card_id FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = ? AND card_id NOT LIKE 'holo_%'",
+                u, cid
+            )
+            if len(rows) < 3:
+                return False, f"You need **3 copies** of `{cid}` to fuse a Holo Foil Edition. You currently own **{len(rows)}/3**.", None
+
+            # Delete 3 copies
+            ids_to_consume = [r["id"] for r in rows[:3]]
+            placeholders = ", ".join(["?"] * len(ids_to_consume))
+            await self.execute(f"DELETE FROM user_nba_cards WHERE id IN ({placeholders})", *ids_to_consume)
+
+            # Insert 1 Holo version
+            now = time.time()
+            holo_cid = f"holo_{cid}"
+            await self.execute(
+                "INSERT INTO user_nba_cards (user_id, card_id, obtained_at, source) VALUES (?, ?, ?, 'fusion_holo')",
+                u, holo_cid, now
+            )
+            return True, "Card fusion successful!", {"base_id": cid, "holo_id": holo_cid}
+        except Exception as e:
+            logger.error(f"Error in fuse_nba_cards for user {u}: {e}")
+            return False, f"Database error during card fusion: {e}", None
+
 
     async def get_user_vc(self, user_id: Any) -> int:
         """Gets user's current VC (Virtual Currency) balance."""
