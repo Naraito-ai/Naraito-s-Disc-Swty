@@ -11859,12 +11859,20 @@ def generate_nba_card_graphic(
 
 
 def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: bool = False, owner_user: Optional[discord.User] = None) -> discord.Embed:
-    """Builds a full-detail NBA 2K Mobile inspection card embed."""
-    tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
+    """Builds a full-detail NBA 2K Mobile inspection card embed with prominent tier details."""
+    tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
     moment = get_nba_card_moment(card)
+    is_holo = bool(card.get("is_holo") or str(card.get("id", "")).startswith("holo_"))
+    holo_badge = "🌟 [HOLO FOIL] " if is_holo else ""
+
     embed = discord.Embed(
-        title=f"{tier_info['emoji']} [{card['ovr']} OVR] {card['name'].upper()} • {card['pos']} | {card['team']}",
-        description=f"### 🎴 *NBA 2K Mobile • {card['theme']}*\n⚡ **Real-Life NBA Moment:** *{moment}*\n*{card.get('quote', '')}*\n",
+        title=f"{tier_info['emoji']} {holo_badge}[{card['ovr']} OVR] {card['name'].upper()} • {card.get('pos', 'SF')} | {card.get('team', 'NBA')}",
+        description=(
+            f"### 🎴 **Tier:** {tier_info['emoji']} **{tier_info['name']}** (`{tier_info['ovr_range']} OVR`)\n"
+            f"**Theme:** *{card.get('theme', 'Signature Series')}*\n"
+            f"⚡ **Real-Life NBA Moment:** *{moment}*\n"
+            f"💬 *\"{card.get('quote', '')}\"*\n"
+        ),
         color=tier_info["color"]
     )
     
@@ -11899,21 +11907,19 @@ def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: boo
         
     fav_indicator = " ⭐ **FAVORITE**" if is_fav else ""
     owner_str = f"Owner: **{owner_user.display_name}**" if owner_user else "Binder Inspection"
+    quick_sell = card.get("quick_sell") or tier_info["quick_sell"]
     embed.add_field(
         name="📦 Inventory & Market Status",
         value=(
-            f"• **Copies Owned:** `{copies_owned}`{fav_indicator}\n"
-            f"• **Quick-Sell Value:** `💰 {tier_info['quick_sell']:,} VC`\n"
-            f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
-            f"• **Card ID:** `{card['id']}`"
+            f"• 🏷️ **Card Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
+            f"• 🎴 **Card ID:** `{card['id']}`\n"
+            f"• 📚 **Copies Owned:** `{copies_owned}`{fav_indicator}\n"
+            f"• 💰 **Quick-Sell Value:** `💰 {quick_sell:,} VC`"
         ),
         inline=False
     )
     
-    if card.get("image_url"):
-        embed.set_image(url=card["image_url"])
-        
-    embed.set_footer(text=f"NBA 2K Mobile Card Dex • {owner_str} • Card ID: {card['id']}")
+    embed.set_footer(text=f"NBA 2K Mobile Card Dex • Tier: {tier_info['name']} • {owner_str} • Card ID: {card['id']}")
     embed.timestamp = discord.utils.utcnow()
     return embed
 
