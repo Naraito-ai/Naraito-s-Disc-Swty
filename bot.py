@@ -5607,6 +5607,19 @@ class InteractiveTeamBattleView(discord.ui.View):
         streak_a_fmt = f"🔥 {streak_a_val}W" if streak_a_val > 0 else (f"❄️ {abs(streak_a_val)}L" if streak_a_val < 0 else "⚪ 0")
         streak_b_fmt = f"🔥 {streak_b_val}W" if streak_b_val > 0 else (f"❄️ {abs(streak_b_val)}L" if streak_b_val < 0 else "⚪ 0")
 
+        # Payout VC Bet if this was a wagered match
+        bet_amount = getattr(self, "_bet_amount", 0)
+        bet_note = ""
+        if bet_amount > 0 and not getattr(self, "_bet_paid", False):
+            self._bet_paid = True
+            pot = bet_amount * 2
+            try:
+                await db.add_user_vc(winner_member.id, pot)
+                bet_note = f"\n💰 **Wager Payout**: {winner_member.mention} won the **`{pot:,} VC`** pot! 🏆\n"
+                logger.info(f"[VCBet] {winner_member} won {pot:,} VC pot against {loser_member}")
+            except Exception as bet_err:
+                logger.error(f"[VCBet] Error paying out bet to {winner_member}: {bet_err}")
+
         tier_a = self.eval_a.get("tier", "Starting 5").split("•")[0].strip()
         tier_b = self.eval_b.get("tier", "Starting 5").split("•")[0].strip()
 
@@ -5614,6 +5627,7 @@ class InteractiveTeamBattleView(discord.ui.View):
             title="🏆 FINAL BUZZER • NBA DUEL RECAP",
             description=(
                 f"# 👑 `{winner_name}` WINS THE SERIES!\n\n"
+                f"{bet_note}"
                 f"### 🏀 Final Score: **`{final_score_a} — {final_score_b}`** *(Series: `{self.duels_won_a} — {self.duels_won_b}`)*\n"
                 f"• 🟢 **{self.author.display_name} ({self.eval_a.get('ovr', 90)} OVR)**: {tier_a} • `Record: {updated_stats_a.get('wins', 0)}W-{updated_stats_a.get('losses', 0)}L ({streak_a_fmt})`\n"
                 f"• 🔴 **{self.opponent.display_name} ({self.eval_b.get('ovr', 90)} OVR)**: {tier_b} • `Record: {updated_stats_b.get('wins', 0)}W-{updated_stats_b.get('losses', 0)}L ({streak_b_fmt})`\n"
@@ -19899,51 +19913,13 @@ class VCBetChallengeView(discord.ui.View):
             picks_a = extract_picks_from_row(self.row_a)
             picks_b = extract_picks_from_row(self.row_b)
 
-            # Create a subclassed battle view that pays out VC on win
-            class BettedBattleView(InteractiveTeamBattleView):
-                def __init__(inner_self, *args, bet_amount: int, challenger, opponent, **kwargs):
-                    super().__init__(*args, **kwargs)
-                    inner_self._bet_amount = bet_amount
-                    inner_self._bet_challenger = challenger
-                    inner_self._bet_opponent = opponent
-                    inner_self._bet_paid = False
-
-                async def _pay_bet_winner(inner_self, winner_member, loser_member):
-                    if inner_self._bet_paid:
-                        return
-                    inner_self._bet_paid = True
-                    pot = inner_self._bet_amount * 2
-                    await db.add_user_vc(winner_member.id, pot)
-                    logger.info(f"[VCBet] {winner_member} won {pot:,} VC bet vs {loser_member}")
-
-            live_view = BettedBattleView(
+            # Start normal battle view — attach bet metadata as simple attributes
+            live_view = InteractiveTeamBattleView(
                 self.challenger, self.opponent, picks_a, picks_b,
-                self.eval_a, self.eval_b, self.row_a, self.row_b,
-                bet_amount=self.bet_amount,
-                challenger=self.challenger,
-                opponent=self.opponent
+                self.eval_a, self.eval_b, self.row_a, self.row_b
             )
-
-            # Hook into resolve to pay winner — patch _execute_possession_resolution
-            original_resolve = live_view._execute_possession_resolution
-            async def patched_resolve(interaction, *args, **kwargs):
-                result = await original_resolve(interaction, *args, **kwargs)
-                # Check if battle is now done
-                if live_view.game_over and not live_view._bet_paid:
-                    winner_is_a = live_view.score_a > live_view.score_b
-                    w = live_view.author if winner_is_a else live_view.opponent
-                    l = live_view.opponent if winner_is_a else live_view.author
-                    await live_view._pay_bet_winner(w, l)
-                    pot = self.bet_amount * 2
-                    try:
-                        await interaction.followup.send(
-                            f"💰 **VC Bet Settled!** {w.mention} won `{pot:,} VC` from the wager! 🏆",
-                            ephemeral=False
-                        )
-                    except Exception:
-                        pass
-                return result
-            live_view._execute_possession_resolution = patched_resolve
+            live_view._bet_amount = self.bet_amount
+            live_view._bet_paid = False
 
             embed = live_view.make_battle_embed()
             pot_total = self.bet_amount * 2
