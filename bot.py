@@ -19183,8 +19183,13 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
             ),
             color=tier_info["color"]
         )
-        if card_obj.get("image_url"):
-            embed.set_thumbnail(url=card_obj["image_url"])
+        verified_thumb = (
+            NBA_CARD_SPECIFIC_MOMENT_URLS.get(card_obj.get("id", "").lower())
+            or NBA_PLAYER_MOMENT_ACTION_URLS.get(card_obj.get("name", "").lower())
+            or card_obj.get("image_url")
+        )
+        if verified_thumb:
+            embed.set_thumbnail(url=verified_thumb.split("?")[0])
         embed.set_footer(text=f"Gifted by {interaction.user.display_name} • Check binder with /nbadex")
         embed.timestamp = discord.utils.utcnow()
 
@@ -22931,8 +22936,13 @@ async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, c
             ),
             color=tier_info["color"]
         )
-        if card_obj.get("image_url"):
-            embed.set_thumbnail(url=card_obj["image_url"])
+        verified_thumb = (
+            NBA_CARD_SPECIFIC_MOMENT_URLS.get(card_obj.get("id", "").lower())
+            or NBA_PLAYER_MOMENT_ACTION_URLS.get(card_obj.get("name", "").lower())
+            or card_obj.get("image_url")
+        )
+        if verified_thumb:
+            embed.set_thumbnail(url=verified_thumb.split("?")[0])
         embed.set_footer(text=f"Gifted by {ctx.author.display_name} • Check binder with !nbadex")
         embed.timestamp = discord.utils.utcnow()
 
