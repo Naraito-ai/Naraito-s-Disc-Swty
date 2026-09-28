@@ -19834,6 +19834,278 @@ async def teamqueue_prefix_cmd(ctx: commands.Context):
         await ctx.send(f"❌ Failed to join queue: {e}")
 
 
+# ── VC Betting System ─────────────────────────────────────────────────────────
+
+class VCBetChallengeView(discord.ui.View):
+    """VC-wagered NBA team battle — both players lock in a bet, winner takes the pot."""
+    def __init__(
+        self,
+        challenger: Union[discord.Member, discord.User],
+        opponent: Union[discord.Member, discord.User],
+        row_a: Any,
+        row_b: Any,
+        eval_a: Dict[str, Any],
+        eval_b: Dict[str, Any],
+        bet_amount: int,
+        message: Optional[discord.Message] = None
+    ):
+        super().__init__(timeout=90)
+        self.challenger = challenger
+        self.opponent = opponent
+        self.row_a = row_a
+        self.row_b = row_b
+        self.eval_a = eval_a
+        self.eval_b = eval_b
+        self.bet_amount = bet_amount
+        self.message = message
+        self._vc_locked = False  # True once both bets are deducted
+
+    def make_bet_embed(self) -> discord.Embed:
+        picks_a = extract_picks_from_row(self.row_a)
+        picks_b = extract_picks_from_row(self.row_b)
+        syn_a = classify_team_synergy(picks_a)
+        syn_b = classify_team_synergy(picks_b)
+        embed = discord.Embed(
+            title="💰 VC BET CHALLENGE — NBA STARTING 5 BATTLE",
+            description=(
+                f"🏀 {self.opponent.mention}, **{self.challenger.display_name}** has challenged you to a **wagered battle!**\n\n"
+                f"💰 **Wager:** `{self.bet_amount:,} VC` each — **Winner takes `{self.bet_amount * 2:,} VC` pot!**\n\n"
+                f"• 🟢 **{self.challenger.display_name}**: `{self.eval_a.get('ovr', 90)} OVR` • {syn_a['icon']} {syn_a['name']}\n"
+                f"• 🔴 **{self.opponent.display_name}**: `{self.eval_b.get('ovr', 90)} OVR` • {syn_b['icon']} {syn_b['name']}\n\n"
+                f"⚠️ *VC will be deducted from both players upon acceptance. No refunds on decline after VC is locked.*\n"
+                f"📋 **Format**: Live Tactical 5-Quarter Battle • First to 7 PTS per quarter wins it!"
+            ),
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text="Challenge expires in 90 seconds • Both players must have enough VC to enter")
+        embed.timestamp = discord.utils.utcnow()
+        return embed
+
+    @discord.ui.button(label="Accept Bet & Play Live", style=discord.ButtonStyle.success, emoji="💰", custom_id="vcbet_accept_btn")
+    async def accept_bet_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            if interaction.user.id != self.opponent.id:
+                return await interaction.response.send_message(
+                    f"❌ Only {self.opponent.mention} can accept this bet!", ephemeral=True
+                )
+
+            # Verify both players still have enough VC
+            bal_a = await db.get_user_vc(self.challenger.id)
+            bal_b = await db.get_user_vc(self.opponent.id)
+
+            if bal_a < self.bet_amount:
+                return await interaction.response.send_message(
+                    f"❌ **Bet Cancelled** — {self.challenger.display_name} no longer has enough VC (`{bal_a:,}` < `{self.bet_amount:,}`).",
+                    ephemeral=True
+                )
+            if bal_b < self.bet_amount:
+                return await interaction.response.send_message(
+                    f"❌ **Bet Cancelled** — You don't have enough VC (`{bal_b:,}` < `{self.bet_amount:,}`).",
+                    ephemeral=True
+                )
+
+            # Deduct from both players
+            await db.deduct_user_vc(self.challenger.id, self.bet_amount)
+            await db.deduct_user_vc(self.opponent.id, self.bet_amount)
+            self._vc_locked = True
+
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
+            self.stop()
+
+            picks_a = extract_picks_from_row(self.row_a)
+            picks_b = extract_picks_from_row(self.row_b)
+
+            # Create a subclassed battle view that pays out VC on win
+            class BettedBattleView(InteractiveTeamBattleView):
+                def __init__(inner_self, *args, bet_amount: int, challenger, opponent, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    inner_self._bet_amount = bet_amount
+                    inner_self._bet_challenger = challenger
+                    inner_self._bet_opponent = opponent
+                    inner_self._bet_paid = False
+
+                async def _pay_bet_winner(inner_self, winner_member, loser_member):
+                    if inner_self._bet_paid:
+                        return
+                    inner_self._bet_paid = True
+                    pot = inner_self._bet_amount * 2
+                    await db.add_user_vc(winner_member.id, pot)
+                    logger.info(f"[VCBet] {winner_member} won {pot:,} VC bet vs {loser_member}")
+
+            live_view = BettedBattleView(
+                self.challenger, self.opponent, picks_a, picks_b,
+                self.eval_a, self.eval_b, self.row_a, self.row_b,
+                bet_amount=self.bet_amount,
+                challenger=self.challenger,
+                opponent=self.opponent
+            )
+
+            # Hook into resolve to pay winner — patch _execute_possession_resolution
+            original_resolve = live_view._execute_possession_resolution
+            async def patched_resolve(interaction, *args, **kwargs):
+                result = await original_resolve(interaction, *args, **kwargs)
+                # Check if battle is now done
+                if live_view.game_over and not live_view._bet_paid:
+                    winner_is_a = live_view.score_a > live_view.score_b
+                    w = live_view.author if winner_is_a else live_view.opponent
+                    l = live_view.opponent if winner_is_a else live_view.author
+                    await live_view._pay_bet_winner(w, l)
+                    pot = self.bet_amount * 2
+                    try:
+                        await interaction.followup.send(
+                            f"💰 **VC Bet Settled!** {w.mention} won `{pot:,} VC` from the wager! 🏆",
+                            ephemeral=False
+                        )
+                    except Exception:
+                        pass
+                return result
+            live_view._execute_possession_resolution = patched_resolve
+
+            embed = live_view.make_battle_embed()
+            pot_total = self.bet_amount * 2
+            await interaction.edit_original_response(
+                content=f"💰 **{self.opponent.mention} accepted the bet! `{pot_total:,} VC` is on the line! 🏆 Choose your play for Quarter 1:**",
+                embed=embed,
+                view=live_view
+            )
+        except Exception as e:
+            logger.error(f"[VCBetChallengeView] accept_bet_callback error: {e}", exc_info=True)
+            # Refund if error after deduction
+            if self._vc_locked:
+                await db.add_user_vc(self.challenger.id, self.bet_amount)
+                await db.add_user_vc(self.opponent.id, self.bet_amount)
+            try:
+                await interaction.followup.send(f"⚠️ Error starting bet battle — VC refunded: `{e}`", ephemeral=True)
+            except Exception:
+                pass
+
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger, emoji="❌", custom_id="vcbet_decline_btn")
+    async def decline_bet_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            if interaction.user.id != self.opponent.id:
+                return await interaction.response.send_message(
+                    f"❌ Only {self.opponent.mention} can decline this bet!", ephemeral=True
+                )
+            self.stop()
+            self.clear_items()
+            embed = discord.Embed(
+                title="🚫 Bet Declined",
+                description=f"❌ **{self.opponent.display_name}** declined the `{self.bet_amount:,} VC` bet challenge from **{self.challenger.display_name}**.\n\nNo VC was deducted.",
+                color=discord.Color.red()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.response.edit_message(content=None, embed=embed, view=self)
+        except Exception as e:
+            logger.error(f"[VCBetChallengeView] decline error: {e}", exc_info=True)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="🚫", custom_id="vcbet_cancel_btn")
+    async def cancel_bet_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            if interaction.user.id != self.challenger.id:
+                return await interaction.response.send_message("❌ Only the challenger can cancel this bet!", ephemeral=True)
+            self.stop()
+            self.clear_items()
+            embed = discord.Embed(
+                title="🚫 Bet Cancelled",
+                description=f"🚫 **{self.challenger.display_name}** cancelled the `{self.bet_amount:,} VC` bet challenge. No VC deducted.",
+                color=discord.Color.dark_grey()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.response.edit_message(content=None, embed=embed, view=self)
+        except Exception as e:
+            logger.error(f"[VCBetChallengeView] cancel error: {e}", exc_info=True)
+
+    async def on_timeout(self):
+        self.clear_items()
+        if self.message:
+            try:
+                embed = discord.Embed(
+                    title="⏱️ Bet Challenge Expired",
+                    description=f"The `{self.bet_amount:,} VC` bet from **{self.challenger.display_name}** expired. No VC was deducted.",
+                    color=discord.Color.dark_grey()
+                )
+                await self.message.edit(embed=embed, view=self)
+            except Exception:
+                pass
+
+
+@bot.command(name="vcbet", aliases=["betbattle", "betvc", "wagerbattle", "nbavet", "betfight"])
+@commands.guild_only()
+@commands.cooldown(1, 10.0, commands.BucketType.user)
+async def vcbet_prefix_cmd(ctx: commands.Context, opponent: discord.Member, bet_amount: int = 0):
+    """Wager VC on a team battle — winner takes the pot: !vcbet @user <amount>"""
+    try:
+        if opponent.id == ctx.author.id:
+            return await ctx.send("❌ You can't bet against yourself!")
+
+        if bet_amount <= 0:
+            return await ctx.send(
+                "❌ **Usage:** `!vcbet @user <amount>`\n"
+                "Example: `!vcbet @Naraito 500` — bets 500 VC each, winner takes 1,000 VC pot!\n"
+                "💡 Minimum bet is **1 VC**."
+            )
+
+        if bet_amount > 50000:
+            return await ctx.send("❌ Maximum bet is `50,000 VC` per match.")
+
+        if getattr(opponent, "bot", False):
+            return await ctx.send("❌ You can't bet against a bot!")
+
+        # Check both balances upfront
+        bal_a = await db.get_user_vc(ctx.author.id)
+        bal_b = await db.get_user_vc(opponent.id)
+
+        if bal_a < bet_amount:
+            return await ctx.send(
+                f"❌ **Insufficient VC!** You need `{bet_amount:,} VC` but only have `{bal_a:,} VC`.\n"
+                f"💡 Earn VC with `!nbadaily` or by quick-selling cards."
+            )
+        if bal_b < bet_amount:
+            return await ctx.send(
+                f"❌ **{opponent.display_name}** doesn't have enough VC (`{bal_b:,}` < `{bet_amount:,} VC`). The bet can't go through."
+            )
+
+        # Check both lineups
+        row_a = await db.get_dream_team(ctx.author.id)
+        if not row_a:
+            return await ctx.send(f"❌ {ctx.author.mention} **You haven't set an NBA Starting 5 yet!** Use `!buildteam` first.")
+
+        row_b = await db.get_dream_team(opponent.id)
+        if not row_b:
+            return await ctx.send(f"❌ **{opponent.display_name}** hasn't set an NBA Starting 5 yet! They need to use `!buildteam` first.")
+
+        picks_a = extract_picks_from_row(row_a)
+        picks_b = extract_picks_from_row(row_b)
+        eval_a = evaluate_dream_team(picks_a)
+        eval_b = evaluate_dream_team(picks_b)
+
+        bet_view = VCBetChallengeView(ctx.author, opponent, row_a, row_b, eval_a, eval_b, bet_amount)
+        bet_embed = bet_view.make_bet_embed()
+
+        # Attach versus image
+        versus_file = None
+        try:
+            stats_a = await db.get_team_battle_stats(ctx.author.id)
+            stats_b = await db.get_team_battle_stats(opponent.id)
+            versus_buf = generate_versus_matchup_image(ctx.author.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
+            versus_file = discord.File(versus_buf, filename="versus_matchup.png")
+            bet_embed.set_image(url="attachment://versus_matchup.png")
+        except Exception as img_err:
+            logger.debug(f"vcbet: could not generate versus image: {img_err}")
+
+        if versus_file:
+            msg = await ctx.send(embed=bet_embed, file=versus_file, view=bet_view)
+        else:
+            msg = await ctx.send(embed=bet_embed, view=bet_view)
+        bet_view.message = msg
+
+    except Exception as e:
+        logger.error(f"Error in !vcbet: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
 @bot.command(name="teambattle", aliases=["finals", "nbabattle", "squadbattle"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)

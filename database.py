@@ -1458,12 +1458,15 @@ class DatabaseManager:
         cid = str(card_id).strip()
 
         try:
-            row = await self.fetchrow("SELECT id, card_id FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = LOWER(?) LIMIT 1", u_from, cid)
+            row = await self.fetchrow("SELECT id, card_id, source FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = LOWER(?) LIMIT 1", u_from, cid)
             if not row:
                 return False, f"You do not own card `{cid}` in your collection binder.", None
             
             db_id = row["id"] if isinstance(row, dict) and "id" in row else row[0]
-            await self.execute("UPDATE user_nba_cards SET user_id = ?, source = 'gift' WHERE id = ?", u_to, db_id)
+            # Preserve pack source so legitimate pack-pulled cards survive the abuse purge
+            orig_source = row.get("source", "gift") if isinstance(row, dict) else "gift"
+            new_source = orig_source if (orig_source and orig_source.startswith("pack")) else "gift"
+            await self.execute("UPDATE user_nba_cards SET user_id = ?, source = ? WHERE id = ?", u_to, new_source, db_id)
             return True, "Card gifted successfully.", dict(row) if isinstance(row, dict) else {"id": db_id, "card_id": cid}
         except Exception as e:
             logger.error(f"Error gifting NBA card from {u_from} to {u_to}: {e}")
@@ -1507,10 +1510,17 @@ class DatabaseManager:
                 ids_to_transfer_to_a.append(b_pool[req_lower].pop(0))
 
             for db_id in ids_to_transfer_to_b:
-                await self.execute("UPDATE user_nba_cards SET user_id = ?, source = 'trade' WHERE id = ?", u_b, db_id)
+                # Preserve pack source so legitimate pack-pulled cards survive the abuse purge
+                orig = await self.fetchrow("SELECT source FROM user_nba_cards WHERE id = ?", db_id)
+                orig_source = orig["source"] if orig and orig.get("source") else "trade"
+                new_source = orig_source if (orig_source and orig_source.startswith("pack")) else "trade"
+                await self.execute("UPDATE user_nba_cards SET user_id = ?, source = ? WHERE id = ?", u_b, new_source, db_id)
 
             for db_id in ids_to_transfer_to_a:
-                await self.execute("UPDATE user_nba_cards SET user_id = ?, source = 'trade' WHERE id = ?", u_a, db_id)
+                orig = await self.fetchrow("SELECT source FROM user_nba_cards WHERE id = ?", db_id)
+                orig_source = orig["source"] if orig and orig.get("source") else "trade"
+                new_source = orig_source if (orig_source and orig_source.startswith("pack")) else "trade"
+                await self.execute("UPDATE user_nba_cards SET user_id = ?, source = ? WHERE id = ?", u_a, new_source, db_id)
 
             return True, "Multi-card trade completed successfully."
         except Exception as e:
