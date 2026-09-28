@@ -18426,8 +18426,26 @@ async def shootout_slash_cmd(interaction: discord.Interaction, opponent: Optiona
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+async def nba_card_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> List[app_commands.Choice[str]]:
+    q = current.lower().strip()
+    choices = []
+    for c in NBA_2K_MOBILE_CARDS:
+        t_info = NBA_2K_TIERS.get(c["tier"], NBA_2K_TIERS["gold"])
+        display_label = f"{t_info['emoji']} {c['name']} [{c['ovr']} OVR • {t_info['name']}]"
+        searchable = f"{c['name']} {c['id']} {c['tier']} {t_info['name']} {c['ovr']}".lower()
+        if not q or q in searchable or any(word in searchable for word in q.split()):
+            choices.append(app_commands.Choice(name=display_label[:100], value=c["id"]))
+            if len(choices) >= 25:
+                break
+    return choices
+
+
 @bot.tree.command(name="nbacard", description="🔍 Inspect full HD 2K card artwork, attributes & badges for any NBA card")
-@app_commands.describe(card="Card ID or Player Name (e.g. 'dm-jordan-99', 'LeBron James', 'Luka')")
+@app_commands.describe(card="Search by player name (e.g. Curry, LeBron, Wemby) or select from dropdown")
+@app_commands.autocomplete(card=nba_card_autocomplete)
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
@@ -22318,51 +22336,6 @@ async def nbacard_prefix_cmd(ctx: commands.Context, *, card_query: str):
         await ctx.send(f"❌ Error: {e}")
 
 
-async def nba_card_autocomplete(
-    interaction: discord.Interaction,
-    current: str,
-) -> List[app_commands.Choice[str]]:
-    q = current.lower().strip()
-    choices = []
-    for c in NBA_2K_MOBILE_CARDS:
-        t_info = NBA_2K_TIERS.get(c["tier"], NBA_2K_TIERS["gold"])
-        display_label = f"{t_info['emoji']} {c['name']} [{c['ovr']} OVR • {t_info['name']}]"
-        searchable = f"{c['name']} {c['id']} {c['tier']} {t_info['name']} {c['ovr']}".lower()
-        if not q or q in searchable or any(word in searchable for word in q.split()):
-            choices.append(app_commands.Choice(name=display_label[:100], value=c["id"]))
-            if len(choices) >= 25:
-                break
-    return choices
-
-
-@bot.tree.command(name="nbacard", description="🔍 Inspect HD 2K card artwork, attributes, moment & badges for any player")
-@app_commands.describe(card="Search by player name (e.g. Curry, LeBron, Wemby) or select from dropdown")
-@app_commands.autocomplete(card=nba_card_autocomplete)
-@app_commands.guild_only()
-async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
-    """Slash command version of nbacard with instant autocomplete."""
-    try:
-        card_obj = get_nba_card(card)
-        if not card_obj:
-            return await interaction.response.send_message(f"❌ Card `{card}` not found in 2K Mobile catalog. Use `/nbadex` to browse.", ephemeral=True)
-
-        user_cards = await db.get_user_nba_cards(interaction.user.id)
-        copies = sum(1 for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
-        is_fav = any(c.get("is_favorite") for c in user_cards if c["card_id"].lower() == card_obj["id"].lower())
-
-        await interaction.response.defer()
-        card_buf = generate_nba_card_graphic(card_obj, is_mystery=False)
-        card_file = discord.File(fp=card_buf, filename="nba_card.png")
-        embed = build_nbacard_embed(card_obj, copies_owned=copies, is_fav=is_fav, owner_user=interaction.user)
-        embed.set_image(url="attachment://nba_card.png")
-        view = NBACardInspectView(card_obj, interaction.user, copies, is_fav, author=interaction.user)
-        await interaction.followup.send(embed=embed, file=card_file, view=view)
-    except Exception as e:
-        logger.error(f"Error in /nbacard: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 
