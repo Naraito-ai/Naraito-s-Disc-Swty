@@ -9894,6 +9894,15 @@ NBA_PACK_TYPES: Dict[str, Dict[str, Any]] = {
         "color": 0xFFD700,
         "odds": {"gold": 0.70, "ruby": 0.25, "amethyst": 0.05}
     },
+    "standard": {
+        "id": "standard",
+        "name": "🏀 Standard Pro Pack",
+        "cost": 750,
+        "description": "Balanced pack featuring solid odds for Gold, Ruby, Amethyst, and a shot at Diamond.",
+        "icon": "🏀",
+        "color": 0xE65100,
+        "odds": {"gold": 0.50, "ruby": 0.35, "amethyst": 0.12, "diamond": 0.03}
+    },
     "allstar": {
         "id": "allstar",
         "name": "⭐ All-Star Gold Pack",
@@ -9903,6 +9912,15 @@ NBA_PACK_TYPES: Dict[str, Dict[str, Any]] = {
         "color": 0x2979FF,
         "odds": {"ruby": 0.40, "amethyst": 0.35, "diamond": 0.20, "galaxy_opal": 0.05}
     },
+    "hof": {
+        "id": "hof",
+        "name": "🏆 Hall of Fame Elite Pack",
+        "cost": 3000,
+        "description": "Elite pack boasting heavy Diamond, Galaxy Opal, and high Dark Matter pull rates.",
+        "icon": "🏆",
+        "color": 0xAB47BC,
+        "odds": {"amethyst": 0.30, "diamond": 0.45, "galaxy_opal": 0.20, "dark_matter": 0.05}
+    },
     "goat": {
         "id": "goat",
         "name": "🐐 G.O.A.T. Dynasty Pack",
@@ -9911,6 +9929,15 @@ NBA_PACK_TYPES: Dict[str, Dict[str, Any]] = {
         "icon": "🐐",
         "color": 0x7B1FA2,
         "odds": {"diamond": 0.35, "galaxy_opal": 0.40, "dark_matter": 0.25}
+    },
+    "boss_raid": {
+        "id": "boss_raid",
+        "name": "👑 Boss Raid Victory Pack",
+        "cost": 0,
+        "description": "Exclusive raid participant pack loaded with Diamond, Galaxy Opal, and Dark Matter rewards!",
+        "icon": "👑",
+        "color": 0xFF1744,
+        "odds": {"diamond": 0.40, "galaxy_opal": 0.40, "dark_matter": 0.20}
     }
 }
 
@@ -18934,17 +18961,40 @@ def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
 
     return card
 
-def roll_pack_card(pack_type_id: str) -> Dict[str, Any]:
-    """Rolls a random card based on pack odds."""
+_USER_PACK_PITY_TRACKER: Dict[int, int] = {}
+
+def roll_pack_card(pack_type_id: str, user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Rolls a random card based on pack odds with bad-luck pity protection."""
     pack_data = NBA_PACK_TYPES.get(pack_type_id, NBA_PACK_TYPES["starter"])
     odds = pack_data["odds"]
     tiers = list(odds.keys())
     weights = list(odds.values())
-    selected_tier = random.choices(tiers, weights=weights, k=1)[0]
+
+    if user_id:
+        pity_count = _USER_PACK_PITY_TRACKER.get(user_id, 0) + 1
+        _USER_PACK_PITY_TRACKER[user_id] = pity_count
+        if pity_count >= 10:
+            # Bad-luck pity protection guarantee: highest tier in pack
+            selected_tier = tiers[-1]
+            _USER_PACK_PITY_TRACKER[user_id] = 0
+        else:
+            selected_tier = random.choices(tiers, weights=weights, k=1)[0]
+            if selected_tier in ["diamond", "galaxy_opal", "dark_matter"]:
+                _USER_PACK_PITY_TRACKER[user_id] = 0
+    else:
+        selected_tier = random.choices(tiers, weights=weights, k=1)[0]
+
     tier_cards = [c for c in NBA_2K_MOBILE_CARDS if c["tier"] == selected_tier]
     if not tier_cards:
         return random.choice(NBA_2K_MOBILE_CARDS)
     return random.choice(tier_cards)
+
+def roll_reward_card(allowed_tiers: List[str]) -> Dict[str, Any]:
+    """Rolls a random card guaranteed from the specified tier list."""
+    candidates = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") in allowed_tiers]
+    if not candidates:
+        return random.choice(NBA_2K_MOBILE_CARDS)
+    return random.choice(candidates)
 
 def format_stat_bar(val: int) -> str:
     """Renders a clean progress bar for a player attribute."""
@@ -23434,20 +23484,28 @@ class QuickPackSelectView(discord.ui.View):
         super().__init__(timeout=60.0)
         self.author = author
 
-    @discord.ui.button(label="Starter Pack (250 VC)", style=discord.ButtonStyle.primary, emoji="📦")
+    @discord.ui.button(label="Starter Pack (250 VC)", style=discord.ButtonStyle.primary, emoji="📦", row=0)
     async def open_starter(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._open(interaction, "starter")
 
-    @discord.ui.button(label="All-Star Pack (1,500 VC)", style=discord.ButtonStyle.success, emoji="⭐")
+    @discord.ui.button(label="Standard Pack (750 VC)", style=discord.ButtonStyle.primary, emoji="🏀", row=0)
+    async def open_standard(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._open(interaction, "standard")
+
+    @discord.ui.button(label="All-Star Pack (1,500 VC)", style=discord.ButtonStyle.success, emoji="⭐", row=0)
     async def open_allstar(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._open(interaction, "allstar")
 
-    @discord.ui.button(label="G.O.A.T. Pack (5,000 VC)", style=discord.ButtonStyle.secondary, emoji="🐐")
+    @discord.ui.button(label="HOF Elite Pack (3,000 VC)", style=discord.ButtonStyle.secondary, emoji="🏆", row=1)
+    async def open_hof(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._open(interaction, "hof")
+
+    @discord.ui.button(label="G.O.A.T. Pack (5,000 VC)", style=discord.ButtonStyle.danger, emoji="🐐", row=1)
     async def open_goat(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._open(interaction, "goat")
 
     async def _open(self, interaction: discord.Interaction, pack_id: str):
-        pack_data = NBA_PACK_TYPES[pack_id]
+        pack_data = NBA_PACK_TYPES.get(pack_id, NBA_PACK_TYPES["starter"])
         cost = pack_data["cost"]
         bal = await db.get_user_vc(interaction.user.id)
         if bal < cost:
@@ -23465,7 +23523,7 @@ class QuickPackSelectView(discord.ui.View):
             await interaction.response.send_message("❌ Failed to process VC transaction. Please try again.", ephemeral=True)
             return
 
-        card = roll_pack_card(pack_id)
+        card = roll_pack_card(pack_id, interaction.user.id)
         existing_cards = await db.get_user_nba_cards(interaction.user.id)
         existing_cids = [c["card_id"].lower() for c in existing_cards]
         is_new = card["id"].lower() not in existing_cids
@@ -23519,7 +23577,7 @@ class NBAPackOpenView(discord.ui.View):
         return True
 
     async def open_another(self, interaction: discord.Interaction):
-        pack_data = NBA_PACK_TYPES[self.pack_id]
+        pack_data = NBA_PACK_TYPES.get(self.pack_id, NBA_PACK_TYPES["starter"])
         cost = pack_data["cost"]
         bal = await db.get_user_vc(interaction.user.id)
         if bal < cost:
@@ -23535,7 +23593,7 @@ class NBAPackOpenView(discord.ui.View):
             await interaction.response.send_message("❌ Failed to process VC transaction.", ephemeral=True)
             return
 
-        card = roll_pack_card(self.pack_id)
+        card = roll_pack_card(self.pack_id, interaction.user.id)
         existing_cards = await db.get_user_nba_cards(interaction.user.id)
         existing_cids = [c["card_id"].lower() for c in existing_cards]
         is_new = card["id"].lower() not in existing_cids
@@ -24301,6 +24359,9 @@ class NBACardTradeView(discord.ui.View):
             card_obj = get_nba_card(query)
             if not card_obj:
                 return await interaction.response.send_message(f"❌ Card `{query}` not found in 2K Mobile catalog.", ephemeral=True)
+
+            if card_obj.get("tier") == "exclusive" or str(card_obj.get("id", "")).startswith("excl-") or card_obj.get("is_exclusive"):
+                return await interaction.response.send_message("❌ **Exclusive cards cannot be traded!** They are non-transferable account-bound trophies.", ephemeral=True)
 
             user_id = self.sender_user.id if is_sender else self.target_user.id
             owned_records = await db.get_user_nba_cards(user_id)
@@ -27295,7 +27356,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             name="📦 **Packs & Drops**",
             value=(
                 "• `/spawndrop [tier]` / `!spawndrop` — Instantly spawn a wild NBA 2K card drop on the court\n"
-                "• `/openpack [tier]` / `!openpack` — Open Standard, Premium, Deluxe, Opal & End Game packs\n"
+                "• `/openpack [tier]` / `!openpack` — Open Starter (250 VC), Standard (750 VC), All-Star (1.5k VC), HOF (3k VC) & G.O.A.T. (5k VC) packs (with pity protection!)\n"
                 "• `/packodds` / `!packodds` — View exact pack drop rates and card tier odds\n"
                 "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops in chat\n"
                 "• `/nbahint` / `!nbahint` — Reveal progressive letter hints for active wild court drops"
@@ -27309,8 +27370,8 @@ def make_help_embed(category: str = "all") -> discord.Embed:
                 "• `/nbaprivacy` / `!nbaprivacy` — Toggle public/private visibility for your card dex\n"
                 "• `/nbacard <card_id>` / `!nbacard` — View high-res 2K card stats, tier, OVR rating & attributes\n"
                 "• `/nbafav <card_id>` / `!nbafav` — Set your favorite showcase card on your profile\n"
-                "• `/nbafuse <card_id>` / `!nbafuse` — Combine 3 duplicate cards into a permanent Holo Edition (+5 OVR & +20% VC)\n"
-                "• `/giftcard @user <card_id>` / `!giftcard` — Gift an owned card to another member"
+                "• `/nbafuse <card_id>` / `!nbafuse` — Combine 3 duplicate copies into a permanent Holo / Foil Edition (+5 OVR & +20% quick-sell VC)\n"
+                "• `/giftcard @user <card_id>` / `!nbagive` — Gift an owned card to another member (Exclusive cards account-bound)"
             ),
             inline=False
         )
@@ -27326,13 +27387,23 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed.add_field(
             name="💰 **Virtual Currency (VC) & Market**",
             value=(
-                "• `/nbadaily` / `!nbadaily` — Claim daily 1,000 VC bonus & Court Pass streak\n"
-                "• `/nbaweekly` / `!nbaweekly` — Claim weekly 5,000 VC salary bonus\n"
-                "• `/nbamonthly` / `!nbamonthly` — Claim grand monthly 25,000 VC VIP salary\n"
+                "• `/nbadaily` / `!nbadaily` — Claim daily 1,000 VC bonus & guaranteed Gold/Ruby/Amethyst card deposit\n"
+                "• `/nbaweekly` / `!nbaweekly` — Claim weekly 5,000 VC salary & guaranteed Ruby/Amethyst/Diamond card deposit\n"
+                "• `/nbamonthly` / `!nbamonthly` — Claim grand monthly 25,000 VC VIP salary & guaranteed Diamond/Galaxy Opal/Dark Matter card deposit\n"
                 "• `/nbabal [@user]` / `!nbabal` — Check your current VC wallet balance & pack stats\n"
-                "• `/nbasell <card_id>` / `!nbasell` — Sell duplicate or unwanted cards for instant VC\n"
-                "• `/nbatrade @user <card_id>` / `!nbatrade` — Secure multi-card trading system\n"
+                "• `/nbasell` / `!nbasell` — Sell single card, quantity (`/nbasell quantity:3`), duplicates (`/nbasell dupes:true`), or tier (`/nbasell tier:gold all:true`)\n"
+                "• `/nbatrade @user` / `!nbatrade` — Secure multi-card & VC trade floor with countdown confirmation\n"
                 "• `/nbatop [cards|vc]` / `!nbatop` — Server leaderboards for top VC tycoons and card collectors"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="👑 **Server Events & World Boss Raids**",
+            value=(
+                "• `/event status` / `!event status` — View active server event, leaderboard & boss HP\n"
+                "• `/event raid` / `!event raid` / `!event attack` — Attack Community Raid Boss with Starting 5 for multi-tier rewards\n"
+                "• `/event list` / `!event list` — View past server event history and rewarded champions\n"
+                "• `/event create|end|reward|cancel` — Creator tools to host tournaments with real Exclusive Immortal prizes"
             ),
             inline=False
         )
@@ -27361,7 +27432,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
                 "• `/teamqueue` / `!teamqueue` — Enter live matchmaking arena queue (+10% VC per win streak!)\n"
                 "• `/teambattle <user>` / `!teambattle` — Challenge any server member to a head-to-head 5v5 showdown\n"
                 "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 Starting 5 clash (winner takes pot)\n"
-                "• `/teamleaderboard` / `!teamlb` — View server top-ranked Starting 5s and GM ratings"
+                "• `/teamleaderboard` / `!teamlb` / `!teamtop` / `!gmtop` — View server top-ranked Starting 5s and GM ratings"
             ),
             inline=False
         )
@@ -27485,7 +27556,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         name="🏀 **NBA 2K Mobile Cards, Packs & Dex**",
         value=(
             "• `/spawndrop [tier]` / `!spawndrop` — Trigger wild player card drops\n"
-            "• `/openpack [tier]` / `!openpack` — Open Standard, Premium, Deluxe & Opal packs\n"
+            "• `/openpack [tier]` / `!openpack` — Open Starter, Standard, All-Star, HOF & G.O.A.T. packs (with pity!)\n"
             "• `/packodds` / `!packodds` — View exact pack drop rates & card tier odds\n"
             "• `/nbadex [page]` / `!nbadex` — Open 2K Card Binder (includes 🔒 Privacy Toggle)\n"
             "• `/nbafuse <id>` / `!nbafuse` — Fuse 3 duplicate cards into Holo Foil (+5 OVR)\n"
@@ -27493,10 +27564,12 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops\n"
             "• `/nbahint` / `!nbahint` — Reveal masked name hints for active court spawns\n"
             "• `/nbacard <id>` / `!nbacard` — High-res visual card stats, tier & attributes\n"
-            "• `/nbadaily` / `!nbadaily` — Daily 1k VC, `/nbaweekly` (5k VC), `/nbamonthly` (25k VC)\n"
+            "• `/nbadaily` / `!nbadaily` — Daily 1k VC + Gold/Ruby/Amethyst card deposit\n"
+            "• `/nbaweekly` (5k VC + Ruby/Amethyst/Diamond card), `/nbamonthly` (25k VC + Diamond/Opal/Dark Matter)\n"
             "• `/nbabal [@user]` / `!nbabal` — VC balance & pack opening statistics\n"
-            "• `/nbasell <id>` / `!nbasell` — Sell duplicate cards for VC payout\n"
-            "• `/nbatrade @user <id>` / `!nbatrade` — Secure multi-card trading\n"
+            "• `/nbasell` / `!nbasell` — Quick-sell single cards, duplicates, or bulk tiers for VC\n"
+            "• `/nbatrade @user` / `!nbatrade` — Multi-card and VC trade floor\n"
+            "• `/event [status|raid|list]` — Server tournaments and World Boss Raids\n"
             "• `/nbatop [cards|vc]` / `!nbatop` — Leaderboards for top collectors & VC tycoons"
         ),
         inline=False
@@ -27519,7 +27592,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             "• `/teamqueue` / `!teamqueue` — Live matchmaking arena (+10% VC win streak bonus)\n"
             "• `/teambattle <user>` / `!teambattle` — 5v5 tactical card battle simulator\n"
             "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 team battle\n"
-            "• `/teamleaderboard` / `!teamlb` — View top-rated GM Starting 5s & records\n"
+            "• `/teamleaderboard` / `!teamlb` / `!teamtop` / `!gmtop` — View top-rated GM Starting 5s & records\n"
             "• `/setupnbachannel` — Create dedicated arena channel in 2K Mobile Hub"
         ),
         inline=False
@@ -29260,6 +29333,145 @@ async def teamstats_slash_cmd(interaction: discord.Interaction, user: Optional[d
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+async def distribute_raid_boss_rewards(event: Dict[str, Any], guild: Optional[discord.Guild] = None, channel: Optional[Any] = None) -> List[Dict[str, Any]]:
+    """Distributes the multi-tier rewards for a completed Community Raid Boss:
+    - 1st Place (Top Damage): Exclusive Card
+    - 2nd Place: Random Dark Matter (99 OVR)
+    - 3rd Place: Random Dark Matter (99 OVR)
+    - All Participants: Boss Raid Victory Pack
+    """
+    eid = int(event["id"])
+    lb = await db.get_nba_raid_leaderboard(eid, limit=100)
+    if not lb:
+        return []
+
+    results = []
+    # 1. 1st Place -> Exclusive prize
+    p1 = lb[0]
+    u1_id = p1["user_id"]
+    prize_id = event.get("prize_card_id", "excl-jordan-99")
+    prize_name = event.get("prize_card_name", "Exclusive Card")
+    await db.reward_nba_event_winner(eid, u1_id, prize_id, prize_name, rewarded_by="719932313919684670")
+    results.append({"rank": 1, "user_id": u1_id, "prize": f"👑 {prize_name} (Exclusive Immortal)", "dmg": p1["damage_dealt"]})
+
+    # 2. 2nd & 3rd Place -> Dark Matter
+    dm_cards = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "dark_matter"]
+    if len(lb) > 1 and dm_cards:
+        p2 = lb[1]
+        c2 = random.choice(dm_cards)
+        await db.add_user_nba_card(p2["user_id"], c2["id"], source="event_raid_2nd")
+        results.append({"rank": 2, "user_id": p2["user_id"], "prize": f"🌌 [{c2['ovr']} OVR] {c2['name']} (Dark Matter)", "dmg": p2["damage_dealt"]})
+
+    if len(lb) > 2 and dm_cards:
+        p3 = lb[2]
+        c3 = random.choice(dm_cards)
+        await db.add_user_nba_card(p3["user_id"], c3["id"], source="event_raid_3rd")
+        results.append({"rank": 3, "user_id": p3["user_id"], "prize": f"🌌 [{c3['ovr']} OVR] {c3['name']} (Dark Matter)", "dmg": p3["damage_dealt"]})
+
+    # 3. All participants get a Boss Raid Victory Pack
+    for p in lb:
+        raid_card = roll_pack_card("boss_raid")
+        if isinstance(raid_card, tuple):
+            raid_card = raid_card[0]
+        await db.add_user_nba_card(p["user_id"], raid_card["id"], source="event_raid_pack")
+
+    # Build and post victory embed
+    lines = []
+    for r in results:
+        lines.append(f"• `#{r['rank']}` <@{r['user_id']}> — **{r['prize']}** *(💥 {r['dmg']:,} DMG)*")
+    
+    embed = discord.Embed(
+        title=f"👑 RAID BOSS DEFEATED: {event.get('boss_name', 'World Boss')}!",
+        description=(
+            f"The server has united and brought down **{event.get('boss_name', 'World Boss')}**! Rewards have been automatically distributed to top damage dealers and all participating managers:\n\n"
+            + "\n".join(lines) +
+            f"\n\n🎁 **All {len(lb)} participants** have received a **👑 Boss Raid Victory Pack** deposited into their binder!"
+        ),
+        color=0xFF1493
+    )
+    embed.set_footer(text=f"Event #{eid} Concluded • Check /nbadex for new cards")
+    embed.timestamp = discord.utils.utcnow()
+
+    if channel and hasattr(channel, "send"):
+        try:
+            await channel.send(embed=embed)
+        except Exception:
+            pass
+
+    return results
+
+
+async def check_nba_event_progress(
+    user: Union[discord.User, discord.Member],
+    guild_id: Optional[int],
+    action: str,
+    channel: Optional[Any] = None
+):
+    """Monitors real-time tournament progress for automated event modes:
+    - Card Collector Race: Automatically checks if user completed the entire tier
+    """
+    if not guild_id:
+        return
+    try:
+        active = await db.get_active_nba_event(guild_id)
+        if not active or active.get("status") != "active":
+            return
+
+        ev_type = active.get("event_type", "custom")
+        eid = active["id"]
+
+        if ev_type == "collector_race" and action == "card_acquired":
+            target_tier = (active.get("target_tier") or "gold").lower().strip()
+            tier_cards = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == target_tier]
+            if tier_cards:
+                user_cards = await db.get_user_nba_cards(user.id)
+                owned_cids = set(c["card_id"].lower() for c in user_cards)
+                all_owned = all(c["id"].lower() in owned_cids for c in tier_cards)
+                if all_owned:
+                    prize_id = active.get("prize_card_id", "excl-jordan-99")
+                    prize_name = active.get("prize_card_name", "Exclusive Card")
+                    await db.reward_nba_event_winner(eid, user.id, prize_id, prize_name, rewarded_by="719932313919684670")
+                    await db.end_nba_event(eid)
+
+                    t_info = NBA_2K_TIERS.get(target_tier, NBA_2K_TIERS["gold"])
+                    prize_obj = get_nba_card(prize_id)
+                    ann_embed = discord.Embed(
+                        title="🏁 CARD COLLECTOR RACE CHAMPION CROWNED!",
+                        description=(
+                            f"🎉 **{user.mention} is the FIRST to collect all {t_info['emoji']} {t_info['name']} tier cards!**\n\n"
+                            f"🏆 **Event:** **{active['name']}** (ID #{eid})\n"
+                            f"👑 **Grand Prize Awarded:** 👑 **[{prize_obj['ovr'] if prize_obj else 99} OVR] {prize_name}**\n\n"
+                            f"✨ *The Exclusive Immortal card has been deposited directly into their collection binder!*"
+                        ),
+                        color=0xFF1493
+                    )
+                    ann_embed.timestamp = discord.utils.utcnow()
+                    target_chan_id = await db.get_nba_event_channel(guild_id)
+                    chan = None
+                    if channel and hasattr(channel, "guild") and channel.guild:
+                        chan = channel.guild.get_channel(target_chan_id) if target_chan_id else channel
+                    elif channel:
+                        chan = channel
+
+                    if chan and hasattr(chan, "send"):
+                        await chan.send(embed=ann_embed)
+
+                    try:
+                        dm_embed = discord.Embed(
+                            title="🏆 YOU WON THE CARD COLLECTOR RACE!",
+                            description=(
+                                f"🎉 You were the first to complete the **{t_info['name']}** tier in **{active['name']}**!\n\n"
+                                f"👑 You have received your **Exclusive Immortal {prize_name}**!"
+                            ),
+                            color=0xFF1493
+                        )
+                        await user.send(embed=dm_embed)
+                    except Exception:
+                        pass
+    except Exception as e:
+        logger.error(f"Error in check_nba_event_progress: {e}", exc_info=True)
+
+
 # ── Server Event & Tournament Slash Command Group ──────────────────────────
 
 event_group = app_commands.Group(name="event", description="🏆 Server Event & Tournament System")
@@ -29404,6 +29616,9 @@ async def event_end_slash_cmd(interaction: discord.Interaction):
             return
 
         await db.end_nba_event(active["id"])
+
+        if active.get("event_type") == "raid":
+            await distribute_raid_boss_rewards(active, interaction.guild, interaction.channel)
 
         embed = discord.Embed(
             title=f"🏁 EVENT CONCLUDED: {active['name']}",
@@ -29704,9 +29919,11 @@ async def event_raid_slash_cmd(interaction: discord.Interaction):
         if new_hp <= 0:
             embed.add_field(
                 name="🎉 BOSS DEFEATED!",
-                value="The server has united and brought down the Raid Boss! The Creator will now review the top damage dealer and award the Exclusive card!",
+                value="The server has united and brought down the Raid Boss! Rewards have been automatically distributed to top damage dealers and all participants!",
                 inline=False
             )
+            await db.end_nba_event(active["id"])
+            await distribute_raid_boss_rewards(active, interaction.guild, interaction.channel)
 
         embed.add_field(
             name="🏆 Top Damage Dealers",
@@ -29804,7 +30021,9 @@ async def dailynba_slash_cmd(interaction: discord.Interaction):
 @app_commands.choices(
     pack_type=[
         app_commands.Choice(name="📦 Starter Pack (250 VC) — Gold/Ruby + Amethyst Chance", value="starter"),
+        app_commands.Choice(name="🏀 Standard Pro Pack (750 VC) — Gold/Ruby/Amethyst + Diamond Chance", value="standard"),
         app_commands.Choice(name="⭐ All-Star Gold Pack (1,500 VC) — Ruby/Amethyst/Diamond/Galaxy Opal", value="allstar"),
+        app_commands.Choice(name="🏆 Hall of Fame Elite Pack (3,000 VC) — Amethyst/Diamond/Galaxy Opal/Dark Matter", value="hof"),
         app_commands.Choice(name="🐐 G.O.A.T. Dynasty Pack (5,000 VC) — Diamond/Galaxy Opal/99 Dark Matter", value="goat"),
     ]
 )
@@ -29838,7 +30057,7 @@ async def openpack_slash_cmd(interaction: discord.Interaction, pack_type: Option
             await interaction.followup.send("❌ Failed to process VC transaction. Please try again.")
             return
 
-        card = roll_pack_card(pack_id)
+        card = roll_pack_card(pack_id, interaction.user.id)
         existing_cards = await db.get_user_nba_cards(interaction.user.id)
         existing_cids = [c["card_id"].lower() for c in existing_cards]
         is_new = card["id"].lower() not in existing_cids
@@ -29846,6 +30065,7 @@ async def openpack_slash_cmd(interaction: discord.Interaction, pack_type: Option
 
         await db.add_user_nba_card(interaction.user.id, card["id"], source=f"pack_{pack_id}")
         new_bal = await db.get_user_vc(interaction.user.id)
+        await check_nba_event_progress(interaction.user, interaction.guild_id, "card_acquired", interaction.channel)
 
         embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
         card_buf = generate_nba_card_graphic(card, is_mystery=False)
@@ -29936,12 +30156,14 @@ async def nbaprivacy_slash_cmd(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="packodds", description="🎲 View the exact pull rates for all NBA 2K Mobile card packs")
-@app_commands.describe(pack_name="Specific pack to inspect (starter, allstar, goat)")
+@app_commands.describe(pack_name="Specific pack to inspect (starter, standard, allstar, hof, goat)")
 @app_commands.choices(pack_name=[
     app_commands.Choice(name="All Packs", value="all"),
-    app_commands.Choice(name="Starter Pack (1,000 VC)", value="starter"),
-    app_commands.Choice(name="All-Star Pack (5,000 VC)", value="allstar"),
-    app_commands.Choice(name="G.O.A.T. Edition Pack (25,000 VC)", value="goat"),
+    app_commands.Choice(name="Starter Pack (250 VC)", value="starter"),
+    app_commands.Choice(name="Standard Pro Pack (750 VC)", value="standard"),
+    app_commands.Choice(name="All-Star Gold Pack (1,500 VC)", value="allstar"),
+    app_commands.Choice(name="Hall of Fame Elite Pack (3,000 VC)", value="hof"),
+    app_commands.Choice(name="G.O.A.T. Dynasty Pack (5,000 VC)", value="goat"),
 ])
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
@@ -30421,7 +30643,7 @@ async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="nbadaily", description="💰 Claim your daily 1,000 VC (Virtual Currency) reward")
+@bot.tree.command(name="nbadaily", description="💰 Claim your daily 1,000 VC (Virtual Currency) & free player card reward")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def nbadaily_slash_cmd(interaction: discord.Interaction):
@@ -30429,12 +30651,18 @@ async def nbadaily_slash_cmd(interaction: discord.Interaction):
         await interaction.response.defer()
         success, new_bal, rem = await db.claim_nba_daily(interaction.user.id, 1000)
         if success:
+            card = roll_reward_card(["gold", "ruby", "amethyst"])
+            await db.add_user_nba_card(interaction.user.id, card["id"], source="daily_reward")
+            await check_nba_event_progress(interaction.user, interaction.guild_id, "card_acquired", interaction.channel)
+
+            tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
             embed = discord.Embed(
-                title="🎉 Daily VC Reward Claimed!",
+                title="🎉 Daily VC & Free Card Reward Claimed!",
                 description=(
                     f"**+1,000 VC** has been deposited into your account!\n\n"
                     f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
-                    f"• 📦 **Next Pack:** Starter Pack (`250 VC`), All-Star (`1,500 VC`)\n\n"
+                    f"• 🎁 **Free Daily Card Dropped:** {tier_info['emoji']} **[{card['ovr']} OVR] {card['name']}** (`{card['id']}`)\n"
+                    f"• 📦 **Next Pack:** Starter Pack (`250 VC`), Standard (`750 VC`), All-Star (`1,500 VC`)\n\n"
                     f"*Come back in 24 hours to claim your next reward!*"
                 ),
                 color=discord.Color.green()
@@ -30464,7 +30692,7 @@ async def nbadaily_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="nbaweekly", description="🎁 Claim your weekly 5,000 VC (Virtual Currency) salary & Court Pass bonus")
+@bot.tree.command(name="nbaweekly", description="🎁 Claim your weekly 5,000 VC salary & guaranteed high-tier card reward")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def nbaweekly_slash_cmd(interaction: discord.Interaction):
@@ -30472,12 +30700,18 @@ async def nbaweekly_slash_cmd(interaction: discord.Interaction):
         await interaction.response.defer()
         success, new_bal, rem = await db.claim_nba_weekly(interaction.user.id, 5000)
         if success:
+            card = roll_reward_card(["ruby", "amethyst", "diamond"])
+            await db.add_user_nba_card(interaction.user.id, card["id"], source="weekly_reward")
+            await check_nba_event_progress(interaction.user, interaction.guild_id, "card_acquired", interaction.channel)
+
+            tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["ruby"])
             embed = discord.Embed(
-                title="🌟 Weekly NBA VC Salary Claimed!",
+                title="🌟 Weekly NBA VC Salary & High-Tier Card Claimed!",
                 description=(
                     f"**+5,000 VC** has been deposited into your account!\n\n"
                     f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
-                    f"• 📦 **Recommended Packs:** Deluxe Pack (`7,500 VC`), Premium (`3,500 VC`)\n\n"
+                    f"• 🎁 **Guaranteed High-Tier Card:** {tier_info['emoji']} **[{card['ovr']} OVR] {card['name']}** (`{card['id']}`)\n"
+                    f"• 📦 **Recommended Packs:** All-Star (`1,500 VC`), HOF Elite (`3,000 VC`)\n\n"
                     f"*Come back in 7 days to claim your next weekly salary!*"
                 ),
                 color=discord.Color.teal()
@@ -30508,7 +30742,7 @@ async def nbaweekly_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="nbamonthly", description="👑 Claim your grand monthly 25,000 VC (Virtual Currency) VIP salary reward")
+@bot.tree.command(name="nbamonthly", description="👑 Claim your grand monthly 25,000 VC VIP salary & premium card reward")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def nbamonthly_slash_cmd(interaction: discord.Interaction):
@@ -30516,12 +30750,18 @@ async def nbamonthly_slash_cmd(interaction: discord.Interaction):
         await interaction.response.defer()
         success, new_bal, rem = await db.claim_nba_monthly(interaction.user.id, 25000)
         if success:
+            card = roll_reward_card(["diamond", "galaxy_opal", "dark_matter"])
+            await db.add_user_nba_card(interaction.user.id, card["id"], source="monthly_reward")
+            await check_nba_event_progress(interaction.user, interaction.guild_id, "card_acquired", interaction.channel)
+
+            tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["diamond"])
             embed = discord.Embed(
-                title="👑 Grand Monthly NBA VIP Salary Claimed!",
+                title="👑 Grand Monthly NBA VIP Salary & Premium Card Claimed!",
                 description=(
                     f"**+25,000 VC** has been deposited into your account!\n\n"
                     f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
-                    f"• 🌌 **Top Tier Packs:** Galaxy Opal Pack (`15,000 VC`), End Game Pack (`50,000 VC`)\n\n"
+                    f"• 👑 **Guaranteed Premium Card:** {tier_info['emoji']} **[{card['ovr']} OVR] {card['name']}** (`{card['id']}`)\n"
+                    f"• 🌌 **Top Tier Packs:** HOF Elite (`3,000 VC`), G.O.A.T. Dynasty (`5,000 VC`)\n\n"
                     f"*Come back in 30 days to claim your next monthly VIP salary!*"
                 ),
                 color=discord.Color.gold()
@@ -30679,6 +30919,10 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
         card_obj = get_nba_card(card)
         if not card_obj:
             await interaction.followup.send(f"❌ Card `{card}` was not found in the 2K Mobile catalog.", ephemeral=True)
+            return
+
+        if card_obj.get("tier") == "exclusive" or str(card_obj.get("id", "")).startswith("excl-") or card_obj.get("is_exclusive"):
+            await interaction.followup.send("❌ **Exclusive cards cannot be traded or gifted!** They are non-transferable account-bound trophies.", ephemeral=True)
             return
 
         success, err_msg, row = await db.gift_user_nba_card(interaction.user.id, user.id, card_obj["id"])
@@ -30885,6 +31129,9 @@ async def nbatrade_slash_cmd(
             if not c_a:
                 await interaction.followup.send(f"❌ Your offered card `{your_card}` was not found.", ephemeral=True)
                 return
+            if c_a.get("tier") == "exclusive" or str(c_a.get("id", "")).startswith("excl-") or c_a.get("is_exclusive"):
+                await interaction.followup.send("❌ **Exclusive cards cannot be traded!** They are non-transferable account-bound trophies.", ephemeral=True)
+                return
             sender_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(interaction.user.id)]
             if c_a["id"].lower() not in sender_cards:
                 await interaction.followup.send(f"❌ You do not own **{c_a['name']}** (`{c_a['id']}`).", ephemeral=True)
@@ -30895,6 +31142,9 @@ async def nbatrade_slash_cmd(
             c_b = get_nba_card(their_card)
             if not c_b:
                 await interaction.followup.send(f"❌ The requested card `{their_card}` was not found.", ephemeral=True)
+                return
+            if c_b.get("tier") == "exclusive" or str(c_b.get("id", "")).startswith("excl-") or c_b.get("is_exclusive"):
+                await interaction.followup.send("❌ **Exclusive cards cannot be traded!** They are non-transferable account-bound trophies.", ephemeral=True)
                 return
             target_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(user.id)]
             if c_b["id"].lower() not in target_cards:
@@ -34206,7 +34456,7 @@ async def dailynba_prefix_cmd(ctx: commands.Context):
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def openpack_prefix_cmd(ctx: commands.Context, pack_type: Optional[str] = "starter"):
-    """Buy and rip open an NBA 2K Mobile card pack: !openpack [starter|allstar|goat]"""
+    """Buy and rip open an NBA 2K Mobile card pack: !openpack [starter|standard|allstar|hof|goat]"""
     try:
         pack_id = (pack_type or "starter").lower().strip()
         if pack_id not in NBA_PACK_TYPES:
@@ -34235,7 +34485,7 @@ async def openpack_prefix_cmd(ctx: commands.Context, pack_type: Optional[str] = 
             await ctx.send("❌ Failed to process VC transaction. Please try again.")
             return
 
-        card = roll_pack_card(pack_id)
+        card = roll_pack_card(pack_id, ctx.author.id)
         existing_cards = await db.get_user_nba_cards(ctx.author.id)
         existing_cids = [c["card_id"].lower() for c in existing_cards]
         is_new = card["id"].lower() not in existing_cids
@@ -34243,6 +34493,7 @@ async def openpack_prefix_cmd(ctx: commands.Context, pack_type: Optional[str] = 
 
         await db.add_user_nba_card(ctx.author.id, card["id"], source=f"pack_{pack_id}")
         new_bal = await db.get_user_vc(ctx.author.id)
+        await check_nba_event_progress(ctx.author, ctx.guild.id, "card_acquired", ctx.channel)
 
         embed = build_openpack_embed(ctx.author, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
         card_buf = generate_nba_card_graphic(card, is_mystery=False)
@@ -34258,10 +34509,9 @@ async def openpack_prefix_cmd(ctx: commands.Context, pack_type: Optional[str] = 
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def packodds_prefix_cmd(ctx: commands.Context, pack_name: Optional[str] = None):
-    """View the exact pull rates for all NBA 2K Mobile card packs: !packodds [starter|allstar|goat]"""
+    """View the exact pull rates for all NBA 2K Mobile card packs: !packodds [starter|standard|allstar|hof|goat]"""
     try:
         pack_name_clean = (pack_name or "").lower().strip()
-        # If a specific pack requested, show just that one in detail
         pack_data = NBA_PACK_TYPES.get(pack_name_clean)
         if pack_data:
             embed = discord.Embed(
@@ -34278,7 +34528,6 @@ async def packodds_prefix_cmd(ctx: commands.Context, pack_name: Optional[str] = 
             embed.timestamp = discord.utils.utcnow()
             return await ctx.send(embed=embed)
 
-        # Show all packs full breakdown
         embed = discord.Embed(
             title="🎲 NBA 2K Mobile — Pack Pull Rates (All Packs)",
             description=(
@@ -34293,7 +34542,7 @@ async def packodds_prefix_cmd(ctx: commands.Context, pack_name: Optional[str] = 
                 value=f"*{pdata.get('description', '')}*\n{_build_odds_lines(pdata)}",
                 inline=False
             )
-        embed.set_footer(text="Use !openpack [starter|allstar|goat] to rip a pack • !nbadaily for free VC")
+        embed.set_footer(text="Use !openpack [starter|standard|allstar|hof|goat] to rip a pack • !nbadaily for free VC")
         embed.timestamp = discord.utils.utcnow()
         await ctx.send(embed=embed)
     except Exception as e:
@@ -34380,23 +34629,26 @@ async def nbacard_prefix_cmd(ctx: commands.Context, *, card_query: str):
         await ctx.send(f"❌ Error: {e}")
 
 
-
-
-
 @bot.command(name="nbadaily", aliases=["dailyvc", "nbareward", "claimvc", "freepack"])
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def nbadaily_prefix_cmd(ctx: commands.Context):
-    """Claim your daily 1,000 VC (Virtual Currency) reward: !nbadaily"""
+    """Claim your daily 1,000 VC reward & free player card: !nbadaily"""
     try:
         success, new_bal, rem = await db.claim_nba_daily(ctx.author.id, 1000)
         if success:
+            card = roll_reward_card(["gold", "ruby", "amethyst"])
+            await db.add_user_nba_card(ctx.author.id, card["id"], source="daily_reward")
+            await check_nba_event_progress(ctx.author, ctx.guild.id, "card_acquired", ctx.channel)
+
+            tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
             embed = discord.Embed(
-                title="🎉 Daily VC Reward Claimed!",
+                title="🎉 Daily VC & Free Card Reward Claimed!",
                 description=(
                     f"**+1,000 VC** has been deposited into your account!\n\n"
                     f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
-                    f"• 📦 **Next Pack:** Starter Pack (`250 VC`), All-Star (`1,500 VC`)\n\n"
+                    f"• 🎁 **Free Daily Card Dropped:** {tier_info['emoji']} **[{card['ovr']} OVR] {card['name']}** (`{card['id']}`)\n"
+                    f"• 📦 **Next Pack:** Starter Pack (`250 VC`), Standard (`750 VC`), All-Star (`1,500 VC`)\n\n"
                     f"*Come back in 24 hours to claim your next reward!*"
                 ),
                 color=discord.Color.green()
@@ -34427,16 +34679,22 @@ async def nbadaily_prefix_cmd(ctx: commands.Context):
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def nbaweekly_prefix_cmd(ctx: commands.Context):
-    """Claim your weekly 5,000 VC (Virtual Currency) reward & Court Pass bonus: !nbaweekly"""
+    """Claim your weekly 5,000 VC salary & guaranteed high-tier card: !nbaweekly"""
     try:
         success, new_bal, rem = await db.claim_nba_weekly(ctx.author.id, 5000)
         if success:
+            card = roll_reward_card(["ruby", "amethyst", "diamond"])
+            await db.add_user_nba_card(ctx.author.id, card["id"], source="weekly_reward")
+            await check_nba_event_progress(ctx.author, ctx.guild.id, "card_acquired", ctx.channel)
+
+            tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["ruby"])
             embed = discord.Embed(
-                title="🌟 Weekly NBA VC Salary Claimed!",
+                title="🌟 Weekly NBA VC Salary & High-Tier Card Claimed!",
                 description=(
                     f"**+5,000 VC** has been deposited into your account!\n\n"
                     f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
-                    f"• 📦 **Recommended Packs:** Deluxe Pack (`7,500 VC`), Premium (`3,500 VC`)\n\n"
+                    f"• 🎁 **Guaranteed High-Tier Card:** {tier_info['emoji']} **[{card['ovr']} OVR] {card['name']}** (`{card['id']}`)\n"
+                    f"• 📦 **Recommended Packs:** All-Star (`1,500 VC`), HOF Elite (`3,000 VC`)\n\n"
                     f"*Come back in 7 days to claim your next weekly salary!*"
                 ),
                 color=discord.Color.teal()
@@ -34468,16 +34726,22 @@ async def nbaweekly_prefix_cmd(ctx: commands.Context):
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def nbamonthly_prefix_cmd(ctx: commands.Context):
-    """Claim your grand monthly 25,000 VC (Virtual Currency) VIP salary reward: !nbamonthly"""
+    """Claim your grand monthly 25,000 VC VIP salary & premium card: !nbamonthly"""
     try:
         success, new_bal, rem = await db.claim_nba_monthly(ctx.author.id, 25000)
         if success:
+            card = roll_reward_card(["diamond", "galaxy_opal", "dark_matter"])
+            await db.add_user_nba_card(ctx.author.id, card["id"], source="monthly_reward")
+            await check_nba_event_progress(ctx.author, ctx.guild.id, "card_acquired", ctx.channel)
+
+            tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["diamond"])
             embed = discord.Embed(
-                title="👑 Grand Monthly NBA VIP Salary Claimed!",
+                title="👑 Grand Monthly NBA VIP Salary & Premium Card Claimed!",
                 description=(
                     f"**+25,000 VC** has been deposited into your account!\n\n"
                     f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
-                    f"• 🌌 **Top Tier Packs:** Galaxy Opal Pack (`15,000 VC`), End Game Pack (`50,000 VC`)\n\n"
+                    f"• 👑 **Guaranteed Premium Card:** {tier_info['emoji']} **[{card['ovr']} OVR] {card['name']}** (`{card['id']}`)\n"
+                    f"• 🌌 **Top Tier Packs:** HOF Elite (`3,000 VC`), G.O.A.T. Dynasty (`5,000 VC`)\n\n"
                     f"*Come back in 30 days to claim your next monthly VIP salary!*"
                 ),
                 color=discord.Color.gold()
@@ -34500,6 +34764,9 @@ async def nbamonthly_prefix_cmd(ctx: commands.Context):
             )
             embed.timestamp = discord.utils.utcnow()
             await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !nbamonthly: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
     except Exception as e:
         logger.error(f"Error in !nbamonthly: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
@@ -34626,7 +34893,9 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 color=0xFF4500 if is_crit else 0xFF1493
             )
             if new_hp <= 0:
-                embed.add_field(name="🎉 BOSS DEFEATED!", value="The server has united and brought down the Raid Boss! The Creator will now review the top damage dealer and award the Exclusive card!", inline=False)
+                embed.add_field(name="🎉 BOSS DEFEATED!", value="The server has united and brought down the Raid Boss! Rewards have been automatically distributed to top damage dealers and all participants!", inline=False)
+                await db.end_nba_event(active["id"])
+                await distribute_raid_boss_rewards(active, ctx.guild, ctx.channel)
             embed.add_field(name="🏆 Top Damage Dealers", value="\n".join(lb_lines) if lb_lines else "*No attacks recorded yet.*", inline=False)
             embed.set_footer(text=f"Event ID: #{active['id']} • Starting 5 Team OVR: {team_ovr}")
             embed.timestamp = discord.utils.utcnow()
@@ -34772,6 +35041,8 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 return
 
             await db.end_nba_event(active["id"])
+            if active.get("event_type") == "raid":
+                await distribute_raid_boss_rewards(active, ctx.guild, ctx.channel)
             embed = discord.Embed(
                 title=f"🏁 EVENT CONCLUDED: {active['name']}",
                 description=(
@@ -35021,6 +35292,9 @@ async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, c
         if not card_obj:
             return await ctx.send(f"❌ Card `{card}` was not found in the 2K Mobile catalog.")
 
+        if card_obj.get("tier") == "exclusive" or str(card_obj.get("id", "")).startswith("excl-") or card_obj.get("is_exclusive"):
+            return await ctx.send("❌ **Exclusive cards cannot be traded or gifted!** They are non-transferable account-bound trophies.")
+
         success, err_msg, row = await db.gift_user_nba_card(ctx.author.id, target.id, card_obj["id"])
         if not success:
             return await ctx.send(f"❌ {err_msg}")
@@ -35085,6 +35359,8 @@ async def nbatrade_prefix_cmd(ctx: commands.Context, target: discord.Member, you
                 c_a = get_nba_card(your_card)
                 if not c_a:
                     return await ctx.send(f"❌ Your offered card `{your_card}` was not found.")
+                if c_a.get("tier") == "exclusive" or str(c_a.get("id", "")).startswith("excl-") or c_a.get("is_exclusive"):
+                    return await ctx.send("❌ **Exclusive cards cannot be traded!** They are non-transferable account-bound trophies.")
                 sender_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(ctx.author.id)]
                 if c_a["id"].lower() not in sender_cards:
                     return await ctx.send(f"❌ You do not own **{c_a['name']}** (`{c_a['id']}`).")
@@ -35094,6 +35370,8 @@ async def nbatrade_prefix_cmd(ctx: commands.Context, target: discord.Member, you
             c_b = get_nba_card(their_card)
             if not c_b:
                 return await ctx.send(f"❌ The requested card `{their_card}` was not found.")
+            if c_b.get("tier") == "exclusive" or str(c_b.get("id", "")).startswith("excl-") or c_b.get("is_exclusive"):
+                return await ctx.send("❌ **Exclusive cards cannot be traded!** They are non-transferable account-bound trophies.")
             target_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(target.id)]
             if c_b["id"].lower() not in target_cards:
                 return await ctx.send(f"❌ {target.mention} does not own **{c_b['name']}** (`{c_b['id']}`).")

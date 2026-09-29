@@ -1536,6 +1536,9 @@ class DatabaseManager:
         u_to = str(to_user_id)
         cid = str(card_id).strip()
 
+        if cid.lower().startswith("excl-") or cid.lower().startswith("exclusive"):
+            return False, "Exclusive cards cannot be traded or gifted.", None
+
         try:
             row = await self.fetchrow("SELECT id, card_id, source FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = LOWER(?) LIMIT 1", u_from, cid)
             if not row:
@@ -1568,6 +1571,10 @@ class DatabaseManager:
 
         if not card_a_ids and not card_b_ids and vc_a <= 0 and vc_b <= 0:
             return False, "Cannot execute an empty trade."
+
+        for c in (card_a_ids or []) + (card_b_ids or []):
+            if str(c).lower().startswith("excl-") or str(c).lower().startswith("exclusive"):
+                return False, "Exclusive cards cannot be traded or transferred."
 
         try:
             # Verify VC balances if VC is included in offer
