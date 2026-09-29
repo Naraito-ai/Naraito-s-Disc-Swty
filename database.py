@@ -1876,41 +1876,74 @@ class DatabaseManager:
             logger.error(f"[DB] Error in wipe_user_nba_data for user {u}: {e}", exc_info=True)
             return result
 
-    async def fuse_nba_cards(self, user_id: Any, card_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-        """Combines 3 duplicate copies of a card to forge a Holo / Foil Edition (+5 OVR, +20% quicksell)."""
+    async def migrate_legacy_nba_cards(self, legacy_map: Dict[str, str]) -> int:
+        """Automatically updates legacy/duplicate card IDs in user_nba_cards to canonical IDs."""
+        if not legacy_map:
+            return 0
+        total_migrated = 0
+        try:
+            for old_id, new_id in legacy_map.items():
+                old_clean = str(old_id).strip().lower()
+                new_clean = str(new_id).strip().lower()
+                if old_clean != new_clean:
+                    # Update base cards
+                    await self.execute(
+                        "UPDATE user_nba_cards SET card_id = ? WHERE LOWER(card_id) = ?",
+                        new_clean, old_clean
+                    )
+                    # Update holo versions
+                    await self.execute(
+                        "UPDATE user_nba_cards SET card_id = ? WHERE LOWER(card_id) = ?",
+                        f"holo_{new_clean}", f"holo_{old_clean}"
+                    )
+            logger.info("[DB] Legacy NBA card migration completed successfully.")
+        except Exception as e:
+            logger.error(f"[DB] Error in migrate_legacy_nba_cards: {e}", exc_info=True)
+        return total_migrated
+
+    async def fuse_nba_cards(self, user_id: Any, card_id: str, legacy_map: Optional[Dict[str, str]] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """Combines 3 duplicate copies of a card to forge a Holo / Foil Edition (+5 OVR, +20% quicksell).
+        Accepts canonical or legacy card IDs and matches all equivalent variants."""
         u = str(user_id)
-        cid = str(card_id).strip().lower()
-        if cid.startswith("excl-") or cid.startswith("exclusive_") or cid.startswith("excl_"):
+        raw_cid = str(card_id).strip().lower().replace("holo_", "").replace("holo-", "")
+        canonical_cid = (legacy_map.get(raw_cid, raw_cid) if legacy_map else raw_cid).lower()
+
+        if canonical_cid.startswith("excl-") or canonical_cid.startswith("exclusive_") or canonical_cid.startswith("excl_"):
             return False, "Exclusive cards are uncraftable and cannot be fused!", None
 
-        if cid.startswith("holo_") or cid.startswith("holo-"):
-            return False, "This card is already an upgraded Holo Foil Edition!", None
-        
         try:
             # Find all matching owned cards (non-holo copies)
-            rows = await self.fetch(
-                "SELECT id, card_id FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = ? AND card_id NOT LIKE 'holo_%'",
-                u, cid
+            all_rows = await self.fetch(
+                "SELECT id, card_id FROM user_nba_cards WHERE user_id = ? AND card_id NOT LIKE 'holo_%' AND card_id NOT LIKE 'holo-%'",
+                u
             )
-            if len(rows) < 3:
-                return False, f"You need **3 copies** of `{cid}` to fuse a Holo Foil Edition. You currently own **{len(rows)}/3**.", None
+            matching_rows = []
+            for r in all_rows:
+                cid_in_db = str(r.get("card_id", "")).strip().lower()
+                canon_in_db = (legacy_map.get(cid_in_db, cid_in_db) if legacy_map else cid_in_db).lower()
+                if canon_in_db == canonical_cid:
+                    matching_rows.append(r)
 
-            # Delete 3 copies
-            ids_to_consume = [r["id"] for r in rows[:3]]
+            if len(matching_rows) < 3:
+                return False, f"You need **3 copies** of `{canonical_cid}` to fuse a Holo Foil Edition. You currently own **{len(matching_rows)}/3**.", None
+
+            # Delete 3 copies atomically
+            ids_to_consume = [r["id"] for r in matching_rows[:3]]
             placeholders = ", ".join(["?"] * len(ids_to_consume))
             await self.execute(f"DELETE FROM user_nba_cards WHERE id IN ({placeholders})", *ids_to_consume)
 
             # Insert 1 Holo version
             now = time.time()
-            holo_cid = f"holo_{cid}"
+            holo_cid = f"holo_{canonical_cid}"
             await self.execute(
                 "INSERT INTO user_nba_cards (user_id, card_id, obtained_at, source) VALUES (?, ?, ?, 'fusion_holo')",
                 u, holo_cid, now
             )
-            return True, "Card fusion successful!", {"base_id": cid, "holo_id": holo_cid}
+            return True, "Card fusion successful!", {"base_id": canonical_cid, "holo_id": holo_cid}
         except Exception as e:
-            logger.error(f"Error in fuse_nba_cards for user {u}: {e}")
+            logger.error(f"Error in fuse_nba_cards for user {u}: {e}", exc_info=True)
             return False, f"Database error during card fusion: {e}", None
+
 
 
     async def get_user_vc(self, user_id: Any) -> int:
