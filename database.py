@@ -1649,6 +1649,64 @@ class DatabaseManager:
         """Alias pointing to remove_abused_top_tier_cards."""
         return await self.remove_abused_top_tier_cards(card_ids, exclude_user_id)
 
+    async def strip_exclusive_cards(
+        self,
+        target_user_id: Optional[Any] = None,
+        exclude_creator_id: str = "719932313919684670",
+        catalog_exclusive_ids: Optional[List[str]] = None
+    ) -> Tuple[int, int]:
+        """Strips/deletes all Exclusive-tier cards from a specific user or globally across all users (excluding creator).
+        Returns (total_cards_deleted, affected_users_count).
+        """
+        try:
+            excl_ids = catalog_exclusive_ids or []
+            lower_ids = [cid.lower().strip() for cid in excl_ids if cid]
+
+            id_conditions = [
+                "LOWER(card_id) LIKE 'excl-%'",
+                "LOWER(card_id) LIKE 'excl_%'",
+                "LOWER(card_id) LIKE 'exclusive%'"
+            ]
+            params = []
+            if lower_ids:
+                placeholders = ", ".join(["?"] * len(lower_ids))
+                id_conditions.append(f"LOWER(card_id) IN ({placeholders})")
+                params.extend(lower_ids)
+
+            where_cards = f"({' OR '.join(id_conditions)})"
+
+            if target_user_id:
+                t_user = str(target_user_id)
+                full_where = f"WHERE user_id = ? AND {where_cards}"
+                count_params = [t_user] + params
+                count_query = f"SELECT COUNT(*) as cnt FROM user_nba_cards {full_where}"
+                count_rows = await self.fetch(count_query, *count_params)
+                total_cnt = count_rows[0]["cnt"] if count_rows and "cnt" in count_rows[0] else 0
+
+                if total_cnt > 0:
+                    del_query = f"DELETE FROM user_nba_cards {full_where}"
+                    await self.execute(del_query, *count_params)
+                logger.info(f"[DB] strip_exclusive_cards removed {total_cnt} cards for user {t_user}.")
+                return int(total_cnt), (1 if total_cnt > 0 else 0)
+            else:
+                c_id = str(exclude_creator_id)
+                full_where = f"WHERE user_id != ? AND {where_cards}"
+                count_params = [c_id] + params
+
+                summary_query = f"SELECT COUNT(*) as total_cards, COUNT(DISTINCT user_id) as total_users FROM user_nba_cards {full_where}"
+                sum_rows = await self.fetch(summary_query, *count_params)
+                total_cards = sum_rows[0]["total_cards"] if sum_rows and "total_cards" in sum_rows[0] else 0
+                total_users = sum_rows[0]["total_users"] if sum_rows and "total_users" in sum_rows[0] else 0
+
+                if total_cards > 0:
+                    del_query = f"DELETE FROM user_nba_cards {full_where}"
+                    await self.execute(del_query, *count_params)
+                logger.info(f"[DB] strip_exclusive_cards globally stripped {total_cards} cards across {total_users} users (creator {c_id} preserved).")
+                return int(total_cards), int(total_users)
+        except Exception as e:
+            logger.error(f"[DB] Error in strip_exclusive_cards: {e}", exc_info=True)
+            return 0, 0
+
     async def fuse_nba_cards(self, user_id: Any, card_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """Combines 3 duplicate copies of a card to forge a Holo / Foil Edition (+5 OVR, +20% quicksell)."""
         u = str(user_id)

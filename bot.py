@@ -28710,42 +28710,6 @@ async def resetalllineups_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error resetting lineups: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="stripoverpoweredcards", description="🏀 Admin: Purge all 97+ OVR (Dark Matter & Galaxy Opal) cards from player inventories")
-@app_commands.default_permissions(administrator=True)
-@app_commands.guild_only()
-async def stripoverpoweredcards_slash_cmd(interaction: discord.Interaction):
-    try:
-        is_owner = is_server_owner_or_creator(interaction.user, interaction.guild)
-        if not is_owner and not interaction.permissions.administrator:
-            return await interaction.response.send_message("❌ You need `Administrator` permission.", ephemeral=True)
-        await interaction.response.defer(ephemeral=True)
-        op_cids = [
-            c["id"] for c in globals().get("NBA_2K_MOBILE_CARDS", [])
-            if c.get("tier") in ["dark_matter", "galaxy_opal"] or c.get("ovr", 0) >= 97
-        ]
-        purged = await db.remove_cards_by_ids(op_cids, exclude_user_id="719932313919684670")
-        await db.reset_all_dream_teams()
-        await ensure_sweety_ai_team(guild_id=interaction.guild_id)
-        
-        embed = discord.Embed(
-            title="🛡️ Overpowered Farmed Cards Purged",
-            description=(
-                f"✅ Successfully purged **{purged:,}** abused/spawned/traded cards (`97+ OVR` / Dark Matter & Galaxy Opal) from user binders.\n\n"
-                f"• 📦 **Pack Pulls Preserved**: Cards genuinely pulled from VC packs remain safe.\n"
-                f"• 🚫 **Abused Drops & Trades Removed**: Spawner abuse and unfair trade cards were purged.\n"
-                f"• 🏀 Starting 5 lineups have been reset for fair competitive play."
-            ),
-            color=discord.Color.gold()
-        )
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.followup.send(embed=embed, ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /stripoverpoweredcards: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error purging cards: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error purging cards: {e}", ephemeral=True)
-
 
 
 @bot.tree.command(name="teamstats", description="🏀 View a member's NBA GM profile, rank ladder, career record, and badges")
@@ -29802,6 +29766,76 @@ async def nbagrant_slash_cmd(interaction: discord.Interaction, user: discord.Mem
             await interaction.followup.send(f"❌ Error granting card: {e}", ephemeral=True)
         else:
             await interaction.response.send_message(f"❌ Error granting card: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="stripexclusives", description="🛡️ Strip away / revoke all Exclusive cards from a user or globally (Creator Only)")
+@app_commands.describe(
+    user="Optional: Specific member to strip all Exclusive cards from",
+    all_users="Optional: Set to True to strip all Exclusive cards from all users globally"
+)
+@app_commands.guild_only()
+async def stripexclusives_slash_cmd(
+    interaction: discord.Interaction,
+    user: Optional[discord.Member] = None,
+    all_users: Optional[bool] = False
+):
+    try:
+        is_creator = str(interaction.user.id) == "719932313919684670"
+        if not is_creator:
+            await interaction.response.send_message("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).", ephemeral=True)
+            return
+
+        if not user and not all_users:
+            await interaction.response.send_message("❌ Please specify either a target `user` or set `all_users=True` to execute the exclusive strip!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        excl_catalog_ids = [c["id"] for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive"]
+
+        if user:
+            total_deleted, affected = await db.strip_exclusive_cards(
+                target_user_id=user.id,
+                catalog_exclusive_ids=excl_catalog_ids
+            )
+            embed = discord.Embed(
+                title="🛡️ [ EXCLUSIVE STRIP ] • CARDS REVOKED",
+                description=(
+                    f"✅ Successfully stripped **`{total_deleted:,}` Exclusive cards** from {user.mention}!\n\n"
+                    f"• **Target User:** {user.mention} (`{user.id}`)\n"
+                    f"• **Cards Removed:** `{total_deleted:,}`\n"
+                    f"• **Action Executed By:** {interaction.user.mention}"
+                ),
+                color=discord.Color.red()
+            )
+            embed.set_footer(text="NBA 2K Exclusive Security Protocol")
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+        else:
+            total_deleted, total_users = await db.strip_exclusive_cards(
+                target_user_id=None,
+                exclude_creator_id="719932313919684670",
+                catalog_exclusive_ids=excl_catalog_ids
+            )
+            embed = discord.Embed(
+                title="🛡️ [ GLOBAL EXCLUSIVE STRIP ] • ALL EXCLUSIVES PURGED",
+                description=(
+                    f"🚨 **Global Exclusive Card Purge Completed!**\n\n"
+                    f"• 🗑️ **Total Exclusive Cards Revoked:** `{total_deleted:,}`\n"
+                    f"• 👥 **Affected Users:** `{total_users:,}`\n"
+                    f"• 👑 **Creator Card Binder:** *Safely Protected & Preserved*\n"
+                    f"• 🔒 **Executed By:** {interaction.user.mention}"
+                ),
+                color=discord.Color.dark_red()
+            )
+            embed.set_footer(text="NBA 2K Global Card Integrity Sweep")
+            embed.timestamp = discord.utils.utcnow()
+            await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /stripexclusives: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error stripping exclusive cards: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error stripping exclusive cards: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="nbatrade", description="🤝 Open an interactive multi-card trade panel with another member")
@@ -33839,6 +33873,80 @@ async def nbagrant_prefix_cmd(ctx: commands.Context, *, raw_args: str = ""):
     except Exception as e:
         logger.error(f"Error in !nbagrant: {e}", exc_info=True)
         await ctx.send(f"❌ Error granting card: {e}")
+
+
+@bot.command(name="stripexclusives", aliases=["stripallexclusives", "purgeexclusives", "nbarevokeexcl", "nbastripexl", "stripall", "purgeall"])
+async def stripexclusives_prefix_cmd(ctx: commands.Context, *, raw_args: str = ""):
+    """Strip away all Exclusive cards from a user or globally across all users (Creator Only):
+    • !stripexclusives @user  (Strip all exclusives from a specific user)
+    • !stripexclusives all    (Global strip from all users except creator)
+    """
+    try:
+        is_creator = str(ctx.author.id) == "719932313919684670"
+        if not is_creator:
+            return await ctx.send("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).")
+
+        raw = raw_args.strip().lower()
+        if not raw:
+            return await ctx.send(
+                "🛡️ **NBA Exclusive Strip Usage:**\n"
+                "• `!stripexclusives @user` — Strip all exclusive cards from a member\n"
+                "• `!stripexclusives all` or `!stripallexclusives` — Strip all exclusive cards globally (protects creator)"
+            )
+
+        excl_catalog_ids = [c["id"] for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive"]
+
+        target_user = None
+        if ctx.message.mentions:
+            target_user = ctx.message.mentions[0]
+        elif raw.split()[0].isdigit() and len(raw.split()[0]) >= 17:
+            uid = int(raw.split()[0])
+            target_user = ctx.guild.get_member(uid) if ctx.guild else None
+
+        if target_user:
+            total_deleted, affected = await db.strip_exclusive_cards(
+                target_user_id=target_user.id,
+                catalog_exclusive_ids=excl_catalog_ids
+            )
+            embed = discord.Embed(
+                title="🛡️ [ EXCLUSIVE STRIP ] • CARDS REVOKED",
+                description=(
+                    f"✅ Successfully stripped **`{total_deleted:,}` Exclusive cards** from {target_user.mention}!\n\n"
+                    f"• **Target User:** {target_user.mention} (`{target_user.id}`)\n"
+                    f"• **Cards Removed:** `{total_deleted:,}`\n"
+                    f"• **Action Executed By:** {ctx.author.mention}"
+                ),
+                color=discord.Color.red()
+            )
+            embed.set_footer(text="NBA 2K Exclusive Security Protocol")
+            embed.timestamp = discord.utils.utcnow()
+            return await ctx.send(embed=embed)
+
+        if raw in ["all", "global", "everyone", "all_users", "purge"]:
+            total_deleted, total_users = await db.strip_exclusive_cards(
+                target_user_id=None,
+                exclude_creator_id="719932313919684670",
+                catalog_exclusive_ids=excl_catalog_ids
+            )
+            embed = discord.Embed(
+                title="🛡️ [ GLOBAL EXCLUSIVE STRIP ] • ALL EXCLUSIVES PURGED",
+                description=(
+                    f"🚨 **Global Exclusive Card Purge Completed!**\n\n"
+                    f"• 🗑️ **Total Exclusive Cards Revoked:** `{total_deleted:,}`\n"
+                    f"• 👥 **Affected Users:** `{total_users:,}`\n"
+                    f"• 👑 **Creator Card Binder:** *Safely Protected & Preserved*\n"
+                    f"• 🔒 **Executed By:** {ctx.author.mention}"
+                ),
+                color=discord.Color.dark_red()
+            )
+            embed.set_footer(text="NBA 2K Global Card Integrity Sweep")
+            embed.timestamp = discord.utils.utcnow()
+            return await ctx.send(embed=embed)
+
+        return await ctx.send("❌ Invalid syntax. Use `!stripexclusives @user` or `!stripexclusives all`.")
+    except Exception as e:
+        logger.error(f"Error in !stripexclusives: {e}", exc_info=True)
+        await ctx.send(f"❌ Error stripping exclusive cards: {e}")
 
 
 @bot.tree.command(name="spawndrop", description="🏀 Instantly trigger a wild NBA 2K Mobile player card drop in chat (Staff)")
