@@ -10019,226 +10019,226 @@ NBA_PACK_TYPES: Dict[str, Dict[str, Any]] = {
 NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', 'HOF Rebound King', 'HOF Posterizer', 'HOF Anchor', 'HOF Aerial Wizard'],
   'id': 'excl-wilt-99',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/1/11/Wilt_Chamberlain_1960_%28cropped%29_%28cropped%29.jpg',
-  'moment': "• H • o • l • d • i • n • g •   • t • h • e •   • H • a • n • d • - • W • r • i • t • t • e • n •   • ' • "
-            "1 • 0 • 0 • ' •   • P • a • p • e • r •   • S • i • g • n •   • i • n •   • H • e • r • s • h • e • y •   "
-            '• A • r • e • n • a •   • L • o • c • k • e • r •   • R • o • o • m •',
+  'moment': "HoldingtheHand- Written• ' • "
+            "1 00' •   PaperSigninHershey"
+            'ArenaLockerRoom •',
   'name': 'Wilt Chamberlain',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• S • c • o • r • e • d •   • 1 • 0 • 0 •   • P • o • i • n • t • s •   • i • n •   • a •   • S • i • n • '
-           'g • l • e •   • G • a • m • e •   • ( • M • a • r • c • h •   • 2 • , •   • 1 • 9 • 6 • 2 • ) •   • • •   '
-           '• U • n • b • r • o • k • e • n •   • R • e • c • o • r • d •   • i • n •   • S • p • o • r • t • s •   • '
-           'H • i • s • t • o • r • y •',
+  'quote': 'Scored100Pointsin• a •   Sin'
+           'g leGame• ( March• 2 • , •   1962) • • •   '
+           'UnbrokenRecordinSports• '
+           'H istory •',
   'sec_pos': 'PF',
   'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
   'team': 'PHI',
-  'theme': "• 1 • 0 • 0 • - • P • o • i • n • t •   • G • a • m • e •   • ' • 1 • 0 • 0 • ' •   • S • i • g • n •",
+  'theme': "100- PointGame• ' 100' •   Sign •",
   'tier': 'exclusive'},
  {'badges': ['HOF Diesel Dominance', 'HOF Dropstepper', 'HOF Backdown Punisher', 'HOF Anchor', 'HOF Posterizer'],
   'id': 'excl-shaq-99',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/e5/TechCrunch_Disrupt_2023_-_Day_1_%28cropped%29.jpg',
-  'moment': '• 2 • 0 • 0 • 0 •   • W • C • F •   • G • a • m • e •   • 7 •   • R • u • n • n • i • n • g •   • A • l • '
-            'l • e • y • - • O • o • p •   • L • o • b •   • f • r • o • m •   • K • o • b • e •   • v • s •   • B • l '
-            '• a • z • e • r • s •',
+  'moment': '2000WCFGame• 7 •   RunningAl'
+            'l ey- OopLobfromKobevsBl '
+            'azers •',
   'name': "Shaquille O'Neal",
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 3 • - • P • e • a • t •   • F • i • n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • 0 • 0 •   • M • '
-           'V • P •   • • •   • M • o • s • t •   • D • o • m • i • n • a • n • t •   • F • o • r • c • e •   • E • v '
-           '• e • r •   • • •   • S • h • a • t • t • e • r • i • n • g •   • B • a • c • k • b • o • a • r • d • s '
-           '•   • & •   • T • r • o • p • h • y •   • L • i • f • t • s •',
+  'quote': '• 3 • - PeatFinalsMVP• • •   2000• M • '
+           'V • P • • •   MostDominantForceEv '
+           'er• • •   ShatteringBackboards '
+           '• & •   TrophyLifts •',
   'sec_pos': 'PF',
   'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 82},
   'team': 'LAL',
-  'theme': '• 3 • - • P • e • a • t •   • F • i • n • a • l • s •   • M • V • P •   • & •   • R • i • m •   • W • r • '
-           'e • c • k • e • r •',
+  'theme': '• 3 • - PeatFinalsMVP• & •   RimWr'
+           'e cker •',
   'tier': 'exclusive'},
  {'badges': ['HOF Last Shot', 'HOF Clamps', 'HOF Limitless Takeoff', 'HOF Posterizer', 'HOF Clutch God'],
   'id': 'excl-jordan-99',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/43/Steve_Lipfosky_--_Michael_Jordan_%281997%29.jpg',
-  'moment': "• 1 • 9 • 9 • 8 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • ' • T • h • e •   • L • a • "
-            "s • t •   • S • h • o • t • ' •   • O • v • e • r •   • B • r • y • o • n •   • R • u • s • s • e • l • l "
-            '•   • f • o • r •   • 6 • t • h •   • R • i • n • g •',
+  'moment': "1998FinalsGame• 6 • ' TheLa"
+            "s • t •   Shot' •   OverBryonRussell "
+            '•   for6thRing •',
   'name': 'Michael Jordan',
   'ovr': 99,
   'pos': 'SG',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 5 • x •   • M • V • P •   • • •   • 1 • 9 • 9 • 8 •   • F • i • n • a • l '
-           "• s •   • ' • T • h • e •   • L • a • s • t •   • S • h • o • t • ' •   • H • i • s • t • o • r • i • c "
-           '•   • F • a • r • e • w • e • l • l •',
+  'quote': '6xNBAChampion• • •   6xFinal'
+           's •   MVP• • •   5xMVP• • •   1998Final '
+           "• s • ' TheLastShot' •   Historic "
+           '•   Farewell •',
   'sec_pos': 'SF',
   'stats': {'3pt': 93, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 96},
   'team': 'CHI',
-  'theme': "• 1 • 9 • 9 • 8 •   • F • i • n • a • l • s •   • ' • T • h • e •   • L • a • s • t •   • S • h • o • t • "
+  'theme': "1998Finals• ' TheLastShot"
            "' •",
   'tier': 'exclusive'},
  {'badges': ['HOF Junior Skyhook', 'HOF Showtime Maestro', 'HOF Needle Threader', 'HOF Dimer', 'HOF Floor General'],
   'id': 'excl-magic-99',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/e8/Pat_Riley_and_Earvin_%22Magic%22_Johnsonat_the_Century_Plaza_%28cropped%29.jpg',
-  'moment': "• 1 • 9 • 8 • 7 •   • F • i • n • a • l • s •   • G • a • m • e •   • 4 •   • ' • J • u • n • i • o • r • "
-            ", •   • J • u • n • i • o • r • ' •   • S • k • y • h • o • o • k •   • G • a • m • e • - • W • i • n • n "
-            '• e • r •   • a • t •   • B • o • s • t • o • n •   • G • a • r • d • e • n •',
+  'moment': "1987FinalsGame• 4 • ' Junior"
+            ", •   Junior' •   SkyhookGame- Winn "
+            'eratBostonGarden •',
   'name': 'Magic Johnson',
   'ovr': 99,
   'pos': 'PG',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 1 • 9 • 8 • 0 •   • F • i • n • a • l • s •   • 4 • 2 • - • P • t •   • G '
-           '• a • m • e •   • 6 •   • a • s •   • R • o • o • k • i • e •   • C • e • n • t • e • r •   • • •   • S • '
-           'h • o • w • t • i • m • e •   • M • a • e • s • t • r • o •',
+  'quote': '5xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   1980Finals42- Pt• G '
+           'ame• 6 •   asRookieCenter• • • S • '
+           'h owtimeMaestro •',
   'sec_pos': 'SF',
   'stats': {'3pt': 86, 'ath': 95, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 99},
   'team': 'LAL',
-  'theme': '• 1 • 9 • 8 • 0 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • & •   • B • a • b • y •   • '
-           'S • k • y • h • o • o • k •',
+  'theme': '1980FinalsGame• 6 • & •   Baby• '
+           'S kyhook •',
   'tier': 'exclusive'},
  {'badges': ['HOF The Block', 'HOF Chase Down Artist', 'HOF Dimer', 'HOF Bully', 'HOF Floor General'],
   'id': 'excl-lebron-99',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/2/25/Lebron_wizards_2017_%28cropped%29.jpg',
-  'moment': "• 2 • 0 • 1 • 6 •   • F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • ' • T • h • e •   • B • l • "
-            "o • c • k • ' •   • o • n •   • A • n • d • r • e •   • I • g • u • o • d • a • l • a •   • & •   • C • h "
-            '• a • m • p • i • o • n • s • h • i • p •   • T • e • a • r • s •',
+  'moment': "2016FinalsGame• 7 • ' TheBl"
+            "o ck' •   onAndreIguodala• & •   Ch "
+            'ampionshipTears •',
   'name': 'LeBron James',
   'ovr': 99,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 1 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           "•   • M • V • P •   • • •   • ' • C • l • e • v • e • l • a • n • d • , •   • T • h • i • s •   • i • s "
-           "•   • F • o • r •   • Y • o • u • ! • ' •   • • •   • L • e • g • e • n • d • a • r • y •   • G • a • m • "
-           'e •   • 7 •   • C • h • a • s • e • - • D • o • w • n •   • B • l • o • c • k •',
+  'quote': '2016NBAChampion• & •   Finals '
+           "•   MVP• • • ' Cleveland, •   Thisis "
+           "•   ForYou! • ' • • •   LegendaryGam"
+           'e • 7 •   Chase- DownBlock •',
   'sec_pos': 'PF',
   'stats': {'3pt': 91, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 99},
   'team': 'CLE',
-  'theme': "• 2 • 0 • 1 • 6 •   • F • i • n • a • l • s •   • ' • T • h • e •   • B • l • o • c • k • ' •   • & •   • "
-           'R • i • n • g •',
+  'theme': "2016Finals• ' TheBlock' • & • "
+           'R ing •',
   'tier': 'exclusive'},
  {'badges': ['HOF 81-Piece', 'HOF Mamba Mentality', 'HOF Deadeye', 'HOF Clamps', 'HOF Difficult Shots'],
   'id': 'excl-kobe-99',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/43/Kobe_Bryant_Jumper_07_%28cropped%29.jpg',
-  'moment': '• 8 • 1 • - • P • o • i • n • t •   • H • i • s • t • o • r • i • c •   • M • a • s • t • e • r • p • i • '
-            'e • c • e •   • v • s •   • R • a • p • t • o • r • s •   • & •   • I • n • d • e • x •   • F • i • n • g '
-            '• e • r •   • t • o •   • t • h • e •   • S • k • y •',
+  'moment': '81- PointHistoricMasterpi'
+            'e cevsRaptors• & •   IndexFing '
+            'ertotheSky •',
   'name': 'Kobe Bryant',
   'ovr': 99,
   'pos': 'SG',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 8 • 1 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c '
-           "• e •   • v • s •   • R • a • p • t • o • r • s •   • • •   • ' • M • a • m • b • a •   • O • u • t • ' "
-           '•   • F • a • r • e • w • e • l • l •',
+  'quote': '5xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   81- PointMasterpiec '
+           "• e •   vsRaptors• • • ' MambaOut' "
+           '•   Farewell •',
   'sec_pos': 'SF',
   'stats': {'3pt': 94, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 94},
   'team': 'LAL',
-  'theme': '• 8 • 1 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • & •   • M • a • m • '
-           'b • a •   • O • u • t •',
+  'theme': '81- PointMasterpiece• & •   Mam'
+           'b • a •   Out •',
   'tier': 'exclusive'},
  {'badges': ['HOF Unstoppable Skyhook', 'HOF Post Hook', 'HOF Anchor', 'HOF Dream Shake', 'HOF Dropstepper'],
   'id': 'excl-kareem-99',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/a/a0/Kareem_Abdul-Jabbar_May_2014.jpg',
-  'moment': '• 1 • 9 • 7 • 4 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • I • c • o • n • i • c •   • '
-            'S • k • y • h • o • o • k •   • B • u • z • z • e • r • - • B • e • a • t • e • r •   • O • v • e • r •   '
-            '• B • o • s • t • o • n •',
+  'moment': '1974FinalsGame• 6 •   Iconic• '
+            'S kyhookBuzzer- BeaterOver'
+            'Boston •',
   'name': 'Kareem Abdul-Jabbar',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • M • V • P •   • • '
-           '•   • 1 • 9 • x •   • A • l • l • - • S • t • a • r •   • • •   • A • l • l • - • T • i • m • e •   • S • '
-           'c • o • r • i • n • g •   • K • i • n • g •   • f • o • r •   • 3 • 9 •   • Y • e • a • r • s •',
+  'quote': '6xNBAChampion• • •   6xMVP• • '
+           '•   19xAll- Star• • •   All- Time• S • '
+           'c oringKingfor39Years •',
   'sec_pos': 'PF',
   'stats': {'3pt': 60, 'ath': 96, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 88},
   'team': 'LAL',
-  'theme': '• U • n • s • t • o • p • p • a • b • l • e •   • S • k • y • h • o • o • k •   • M • a • s • t • e • r •',
+  'theme': 'UnstoppableSkyhookMaster •',
   'tier': 'exclusive'},
  {'badges': ['HOF Quadruple Double', 'HOF Post Lock', 'HOF Anchor', 'HOF Rebound Chaser', 'HOF Break Starter'],
   'id': 'excl-duncan-98',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/c/cb/Tim_Duncan_Walks_Verizon_Center%27s_Floor_%28cropped%29_%28cropped%29.jpg',
-  'moment': '• 2 • 0 • 0 • 3 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 2 • 1 •   • P • T • S • , '
-            '•   • 2 • 0 •   • R • E • B • , •   • 1 • 0 •   • A • S • T • , •   • 8 •   • B • L • K •   • C • h • a • '
-            'm • p • i • o • n • s • h • i • p •   • H • u • g •',
+  'moment': '2003FinalsGame• 6 •   21PTS, '
+            '•   20REB, •   10AST, • 8 •   BLKCha'
+            'm pionshipHug •',
   'name': 'Tim Duncan',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • 2 • 0 • 0 • 3 •   • F • i • n • a • l '
-           '• s •   • Q • u • a • d • r • u • p • l • e • - • D • o • u • b • l • e •   • C • h • a • m • p • i • o • '
-           'n • s • h • i • p •   • G • a • m • e •',
+  'quote': '5xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   2xMVP• • •   2003Final '
+           '• s •   Quadruple- DoubleChampio'
+           'n shipGame •',
   'sec_pos': 'C',
   'stats': {'3pt': 68, 'ath': 91, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 89},
-  'theme': '• 2 • 0 • 0 • 3 •   • F • i • n • a • l • s •   • Q • u • a • d • r • u • p • l • e • - • D • o • u • b • '
+  'theme': '2003FinalsQuadruple- Doub'
            'l • e •',
   'tier': 'exclusive',
   'team': 'NBA'},
  {'badges': ['HOF Night Night', 'HOF Limitless Range', 'HOF Chef', 'HOF Agent 3', 'HOF Circus Threes'],
   'id': 'excl-curry-98',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/8/84/Booker_and_Curry%2C_Paris_2024_Olympic_Games.jpg',
-  'moment': "• 2 • 0 • 2 • 2 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • ' • N • i • g • h • t •   • "
-            "N • i • g • h • t • ' •   • G • e • s • t • u • r • e •   • P • o • i • n • t • i • n • g •   • t • o •   "
-            '• R • i • n • g •   • F • i • n • g • e • r •',
+  'moment': "2022FinalsGame• 6 • ' Night• "
+            "N ight' •   GesturePointingto"
+            'RingFinger •',
   'name': 'Stephen Curry',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 2 • 2 •   • F • i • n • '
-           "a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • ' • N • i • g • h • t •   • N "
-           "• i • g • h • t • ' •   • C • e • l • e • b • r • a • t • i • o • n •   • i • n •   • B • o • s • t • o • "
-           'n •   • G • a • r • d • e • n •',
+  'quote': '4xNBAChampion• • •   2022Fin'
+           "a lsMVP• • •   2xMVP• • • ' Night• N "
+           "ight' •   CelebrationinBosto"
+           'n •   Garden •',
   'sec_pos': 'SG',
   'stats': {'3pt': 99, 'ath': 94, 'clu': 99, 'def': 88, 'ins': 91, 'ply': 98},
   'team': 'GSW',
-  'theme': "• 2 • 0 • 2 • 2 •   • F • i • n • a • l • s •   • ' • N • i • g • h • t •   • N • i • g • h • t • ' •   • "
-           '& •   • 3 • P • T •   • K • i • n • g •',
+  'theme': "2022Finals• ' NightNight' • "
+           '& •   3PTKing •',
   'tier': 'exclusive'},
  {'badges': ['HOF Finger In The Air', 'HOF Clutch Shooter', 'HOF Catch & Shoot', 'HOF Deadeye', 'HOF Dimer'],
   'id': 'excl-bird-98',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/December_1983_One_on_One_Dr_J_vs_Larry_Bird_advertisement_by_Electronic_Arts_%28cropped%29_%28cropped%29.jpg',
-  'moment': '• 1 • 9 • 8 • 6 •   • 3 • P • T •   • C • o • n • t • e • s • t •   • L • a • s • t •   • S • h • o • t '
-            '•   • F • i • n • g • e • r •   • i • n •   • t • h • e •   • A • i • r •   • B • e • f • o • r • e •   • '
-            'i • t •   • D • r • o • p • p • e • d •   • & •   • J • a • c • k • e • t •   • O • n •',
+  'moment': '19863PTContestLastShot '
+            '•   FingerintheAirBefore• '
+            'i • t •   Dropped• & •   JacketOn •',
   'name': 'Larry Bird',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 3 • x •   • C • o • n • s • e • c • u • t • i • v • e •   • M • V • P •   '
-           "• • •   • ' • W • h • o • ' • s •   • C • o • m • i • n • g •   • i • n •   • S • e • c • o • n • d • ? • "
-           "' •   • 3 • P • T •   • L • e • g • e • n • d •",
+  'quote': '3xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   3xConsecutiveMVP'
+           "• • • ' Who' • s •   CominginSecond? • "
+           "' •   3PTLegend •",
   'sec_pos': 'PF',
   'stats': {'3pt': 99, 'ath': 90, 'clu': 99, 'def': 95, 'ins': 95, 'ply': 98},
   'team': 'BOS',
-  'theme': '• 3 • - • P • e • a • t •   • M • V • P •   • & •   • F • i • n • g • e • r •   • I • n •   • T • h • e '
-           '•   • A • i • r •',
+  'theme': '• 3 • - PeatMVP• & •   FingerInThe '
+           '•   Air •',
   'tier': 'exclusive'},
  {'badges': ['HOF Finals MVP Dagger', 'HOF Guard Up', 'HOF Deadeye', 'HOF Green Machine', 'HOF Blinders'],
   'id': 'excl-durant-98',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/4a/Jonas_Maciulis_attacks_the_basket_%28cropped%29.jpg',
-  'moment': '• 2 • 0 • 1 • 7 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • C • o • l • d • - • B • l • '
-            'o • o • d • e • d •   • P • u • l • l • - • U • p •   • 3 •   • O • v • e • r •   • L • e • B • r • o • n '
-            '•   • J • a • m • e • s •',
+  'moment': '2017FinalsGame• 3 •   Cold- Bl'
+            'o odedPull- Up• 3 •   OverLeBron '
+            '•   James •',
   'name': 'Kevin Durant',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • 0 • 1 • 7 •   • & •   • 2 • 0 • 1 • 8 •   • F • i • n • a • l • s •   '
-           '• G • a • m • e •   • 3 •   • P • u • l • l • - • U • p •   • D • a • g • g • e • r • s •   • O • v • e • '
-           'r •   • L • e • B • r • o • n •',
+  'quote': '2xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   2017• & •   2018Finals'
+           'Game• 3 •   Pull- UpDaggersOve'
+           'r •   LeBron •',
   'sec_pos': 'PF',
   'stats': {'3pt': 98, 'ath': 96, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 92},
   'team': 'GSW',
-  'theme': '• B • a • c • k • - • t • o • - • B • a • c • k •   • F • i • n • a • l • s •   • M • V • P •   • D • a • '
-           'g • g • e • r • s •',
+  'theme': 'Back- to- BackFinalsMVPDa'
+           'g gers •',
   'tier': 'exclusive'},
  {'badges': ['HOF The Dream Shake', 'HOF Post Spin Technician', 'HOF Anchor', 'HOF Post Lock', 'HOF Dropstepper'],
   'id': 'excl-hakeem-98',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/b/bd/Hakeem.jpg',
-  'moment': '• 1 • 9 • 9 • 4 •   • F • i • n • a • l • s •   • D • r • e • a • m •   • S • h • a • k • e •   • C • l • '
-            'i • n • i • c •   • O • v • e • r •   • P • a • t • r • i • c • k •   • E • w • i • n • g •   • & •   • D '
-            '• a • v • i • d •   • R • o • b • i • n • s • o • n •',
+  'moment': '1994FinalsDreamShakeCl'
+            'i nicOverPatrickEwing• & • D '
+            'avidRobinson •',
   'name': 'Hakeem Olajuwon',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s •   • M • '
-           'V • P •   • • •   • 1 • 9 • 9 • 4 •   • M • V • P •   • & •   • D • P • O • Y •   • T • r • i • p • l • e '
-           '•   • C • r • o • w • n •   • • •   • G • r • e • a • t • e • s • t •   • F • o • o • t • w • o • r • k '
-           '•   • i • n •   • H • i • s • t • o • r • y •',
+  'quote': '2xNBAChampion• & •   Finals• M • '
+           'V • P • • •   1994MVP• & •   DPOYTriple '
+           '•   Crown• • •   GreatestFootwork '
+           '•   inHistory •',
   'sec_pos': 'PF',
   'stats': {'3pt': 65, 'ath': 94, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
   'team': 'HOU',
-  'theme': '• 1 • 9 • 9 • 4 •   • M • V • P •   • & •   • D • r • e • a • m •   • S • h • a • k • e •   • S • w • e • '
+  'theme': '1994MVP• & •   DreamShakeSwe'
            'e • p •',
   'tier': 'exclusive'},
  {'badges': ['HOF 11 Rings Anchor',
@@ -10248,210 +10248,210 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
              'HOF Fast Break Starter'],
   'id': 'excl-russell-98',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/d/d3/Bill_russell_dribbling_%28cropped%29.jpg',
-  'moment': '• 1 • 9 • 6 • 2 •   • F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • 3 • 0 •   • P • o • i • n • '
-            't • s •   • & •   • 4 • 0 •   • R • e • b • o • u • n • d • s •   • C • h • a • m • p • i • o • n • s • h '
-            '• i • p •   • C • l • i • n • c • h • e • r •',
+  'moment': '1962FinalsGame• 7 •   30Poin'
+            't • s • & •   40ReboundsChampionsh '
+            'ipClincher •',
   'name': 'Bill Russell',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 1 • 1 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • i • n •   • 1 • 3 •   • S • e • a • '
-           's • o • n • s •   • • •   • 5 • x •   • M • V • P •   • • •   • T • h • e •   • G • r • e • a • t • e • s '
-           '• t •   • D • e • f • e • n • s • i • v • e •   • L • e • a • d • e • r •   • & •   • W • i • n • n • e • '
-           'r •   • i • n •   • H • i • s • t • o • r • y •',
+  'quote': '11xNBAChampionin13Sea'
+           's ons• • •   5xMVP• • •   TheGreates '
+           '• t •   DefensiveLeader• & •   Winne'
+           'r •   inHistory •',
   'sec_pos': 'PF',
   'stats': {'3pt': 50, 'ath': 97, 'clu': 99, 'def': 99, 'ins': 96, 'ply': 88},
   'team': 'BOS',
-  'theme': '• 1 • 1 • x •   • C • h • a • m • p • i • o • n •   • G • o • l • d •   • S • t • a • n • d • a • r • d •',
+  'theme': '11xChampionGoldStandard •',
   'tier': 'exclusive'},
  {'badges': ['HOF Triple-Double King', 'HOF Dimer', 'HOF Triple Threat', 'HOF Floor General', 'HOF Break Starter'],
   'id': 'excl-oscar-97',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/a/a1/Oscar_Robertson_1960.jpeg',
-  'moment': '• 1 • 9 • 7 • 1 •   • F • i • n • a • l • s •   • C • h • a • m • p • i • o • n • s • h • i • p •   • C • '
-            'e • l • e • b • r • a • t • i • o • n •   • W • i • t • h •   • K • a • r • e • e • m •   • i • n •   • M '
-            '• i • l • w • a • u • k • e • e •',
+  'moment': '1971FinalsChampionship• C • '
+            'e lebrationWithKareemin• M '
+            'ilwaukee •',
   'name': 'Oscar Robertson',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 1 • 9 • 7 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 6 • 4 •   • M • '
-           'V • P •   • • •   • A • v • e • r • a • g • e • d •   • 3 • 0 • . • 8 •   • P • T • S • , •   • 1 • 2 • . '
-           '• 5 •   • R • E • B • , •   • 1 • 1 • . • 4 •   • A • S • T •   • i • n •   • S • i • n • g • l • e •   • '
-           'S • e • a • s • o • n •',
+  'quote': '1971NBAChampion• • •   1964• M • '
+           'V • P • • •   Averaged30. • 8 •   PTS, •   12. '
+           '• 5 •   REB, •   11. • 4 •   ASTinSingle• '
+           'S eason •',
   'sec_pos': 'SG',
   'stats': {'3pt': 86, 'ath': 94, 'clu': 98, 'def': 93, 'ins': 96, 'ply': 99},
   'team': 'MIL',
-  'theme': '• 1 • 9 • 7 • 1 •   • C • h • a • m • p • i • o • n • s • h • i • p •   • & •   • T • r • i • p • l • e • '
-           '- • D • o • u • b • l • e •   • K • i • n • g •',
+  'theme': '1971Championship• & •   Triple'
+           '- DoubleKing •',
   'tier': 'exclusive'},
  {'badges': ['HOF Sombor Shuffle Ring', 'HOF Needle Threader', 'HOF Touch Passer', 'HOF Post Playmaker', 'HOF Masher'],
   'id': 'excl-jokic-97',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Nikola_Jokic_free_throw_%28cropped%29.jpg',
-  'moment': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n • s • h • i • p •   • P • a • r • a • '
-            'd • e •   • T • r • o • p • h • y •   • L • i • f • t •   • & •   • C • e • l • e • b • r • a • t • o • r '
-            '• y •   • L • a • u • g • h •',
+  'moment': '2023NBAChampionshipPara'
+            'd • e •   TrophyLift• & •   Celebrator '
+            '• y •   Laugh •',
   'name': 'Nikola Jokic',
   'ovr': 97,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • H • i • s • t • o • r • i • c •   • 3 • '
-           '0 • - • 2 • 0 • - • 1 • 0 •   • F • i • n • a • l • s •   • R • u • n •   • & •   • S • o • m • b • o • r '
-           '•   • S • h • u • f • f • l • e •',
+  'quote': '2023NBAChampion• & •   Finals '
+           '•   MVP• • •   3xMVP• • •   Historic• 3 • '
+           '0 • - 20- 10FinalsRun• & •   Sombor '
+           '•   Shuffle •',
   'sec_pos': 'PF',
   'stats': {'3pt': 91, 'ath': 83, 'clu': 98, 'def': 86, 'ins': 98, 'ply': 99},
   'team': 'DEN',
-  'theme': '• 2 • 0 • 2 • 3 •   • F • i • n • a • l • s •   • M • V • P •   • P • a • r • a • d • e •   • & •   • R • '
-           'i • n • g •',
+  'theme': '2023FinalsMVPParade• & • R • '
+           'i ng •',
   'tier': 'exclusive'},
  {'badges': ['HOF Anything Is Possible', 'HOF Anchor', 'HOF Post Lock', 'HOF Rebound Chaser', 'HOF Clamps'],
   'id': 'excl-garnett-97',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/6/60/Kevin_Garnett_2008-01-13.jpg',
-  'moment': '• 2 • 0 • 0 • 8 •   • N • B • A •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • C • o • n • '
-            "f • e • t • t • i •   • H • u • g •   • & •   • ' • A • N • Y • T • H • I • N • G •   • I • S •   • P • O "
-            "• S • S • I • B • L • E • ! • ' •   • R • o • a • r •",
+  'moment': '2008NBAFinalsGame• 6 •   Con'
+            "f ettiHug• & • ' ANYTHINGISPO "
+            "SSIBLE! • ' •   Roar •",
   'name': 'Kevin Garnett',
   'ovr': 97,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 0 • 8 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • 4 •   • M • '
-           "V • P •   • • •   • 2 • 0 • 0 • 8 •   • D • P • O • Y •   • • •   • ' • A • N • Y • T • H • I • N • G •   "
-           "• I • S •   • P • O • S • S • I • B • L • E • ! • ' •   • H • i • s • t • o • r • i • c •   • P • o • s • "
-           't • - • G • a • m • e •   • S • c • r • e • a • m •',
+  'quote': '2008NBAChampion• • •   2004• M • '
+           "V • P • • •   2008DPOY• • • ' ANYTHING"
+           "ISPOSSIBLE! • ' •   HistoricPos"
+           't • - GameScream •',
   'sec_pos': 'C',
   'stats': {'3pt': 78, 'ath': 96, 'clu': 98, 'def': 99, 'ins': 97, 'ply': 88},
-  'theme': "• ' • A • N • Y • T • H • I • N • G •   • I • S •   • P • O • S • S • I • B • L • E • ! • ' •   • 2 • 0 • "
-           '0 • 8 •   • R • i • n • g •',
+  'theme': "• ' ANYTHINGISPOSSIBLE! • ' •   20"
+           '0 • 8 •   Ring •',
   'tier': 'exclusive',
   'team': 'NBA'},
  {'badges': ['HOF The Logo 60-Footer', 'HOF Clutch Shooter', 'HOF Deadeye', 'HOF Dimer', 'HOF Middy Magician'],
   'id': 'excl-jerrywest-97',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/5/5a/Jerry_West_1972.jpeg',
-  'moment': '• 1 • 9 • 7 • 0 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • 6 • 0 • - • F • o • o • t '
-            '•   • B • u • z • z • e • r • - • B • e • a • t • i • n • g •   • H • a • l • f • - • C • o • u • r • t '
-            '•   • M • i • r • a • c • l • e •   • S • h • o • t •',
+  'moment': '1970FinalsGame• 3 •   60- Foot '
+            '•   Buzzer- BeatingHalf- Court '
+            '•   MiracleShot •',
   'name': 'Jerry West',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 1 • 9 • 7 • 2 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 6 • 9 •   • F • '
-           'i • n • a • l • s •   • M • V • P •   • ( • O • n • l • y •   • o • n •   • l • o • s • i • n • g •   • t '
-           '• e • a • m • ) •   • • •   • 6 • 0 • - • F • o • o • t •   • G • a • m • e •   • 3 •   • B • u • z • z • '
-           'e • r •   • B • e • a • t • e • r •',
+  'quote': '1972NBAChampion• • •   1969• F • '
+           'i nalsMVP• ( Onlyonlosing• t '
+           'eam) • • •   60- FootGame• 3 •   Buzz'
+           'e • r •   Beater •',
   'sec_pos': 'SG',
   'stats': {'3pt': 96, 'ath': 93, 'clu': 99, 'def': 94, 'ins': 95, 'ply': 97},
   'team': 'LAL',
-  'theme': '• T • h • e •   • N • B • A •   • L • o • g • o •   • & •   • 6 • 0 • - • F • t •   • B • u • z • z • e • '
-           'r •   • B • e • a • t • e • r •',
+  'theme': 'TheNBALogo• & •   60- FtBuzze'
+           'r •   Beater •',
   'tier': 'exclusive'},
  {'badges': ['HOF 50-Point Clincher', 'HOF Posterizer', 'HOF Bully', 'HOF Anchor', 'HOF Chase Down Artist'],
   'id': 'excl-giannis-97',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/7/7f/Giannis_Antetokoummpo_%2831669417562%29.jpg',
-  'moment': '• 2 • 0 • 2 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 5 • 0 • - • P • o • i • n • '
-            't •   • M • a • s • t • e • r • p • i • e • c • e •   • & •   • T • r • o • p • h • y •   • K • i • s • s '
-            '•   • i • n •   • M • i • l • w • a • u • k • e • e •',
+  'moment': '2021FinalsGame• 6 •   50- Poin'
+            't •   Masterpiece• & •   TrophyKiss '
+            '•   inMilwaukee •',
   'name': 'Giannis Antetokounmpo',
   'ovr': 97,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 5 • 0 •   • P • o • i • n • t • s • , •   • 1 • 4 •   • R • e • b • o • u • '
-           'n • d • s • , •   • 5 •   • B • l • o • c • k • s •   • i • n •   • G • a • m • e •   • 6 •   • C • l • i '
-           '• n • c • h • e • r •',
+  'quote': '2021NBAChampion• & •   Finals '
+           '•   MVP• • •   50Points, •   14Rebou'
+           'n ds, • 5 •   BlocksinGame• 6 •   Cli '
+           'ncher •',
   'sec_pos': 'C',
   'stats': {'3pt': 76, 'ath': 99, 'clu': 97, 'def': 99, 'ins': 99, 'ply': 91},
   'team': 'MIL',
-  'theme': '• 2 • 0 • 2 • 1 •   • F • i • n • a • l • s •   • 5 • 0 • - • P • o • i • n • t •   • M • a • s • t • e • '
-           'r • p • i • e • c • e •',
+  'theme': '2021Finals50- PointMaste'
+           'r piece •',
   'tier': 'exclusive'},
  {'badges': ['HOF One-Leg Fadeaway', 'HOF Deadeye', 'HOF Catch & Shoot', 'HOF Middy Magician', 'HOF Clutch Shooter'],
   'id': 'excl-dirk-97',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/5/54/Dirk_Nowitzki_al_rimbalzo.jpg',
-  'moment': '• 2 • 0 • 1 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 2 •   • L • e • f • t • - • H • a • '
-            'n • d • e • d •   • G • a • m • e • - • W • i • n • n • i • n • g •   • D • r • i • v • i • n • g •   • L '
-            '• a • y • u • p •   • & •   • T • r • o • p • h • y •   • T • e • a • r • s •',
+  'moment': '2011FinalsGame• 2 •   Left- Ha'
+            'n dedGame- WinningDriving• L '
+            'ayup• & •   TrophyTears •',
   'name': 'Dirk Nowitzki',
   'ovr': 97,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 2 • 0 • 0 • 7 •   • M • V • P •   • • •   • O • v • e • r • c • o • m • i • '
-           'n • g •   • M • i • a • m • i •   • H • e • a • t •   • B • i • g •   • 3 •   • W • i • t • h •   • I • c '
-           '• o • n • i • c •   • F • a • d • e • a • w • a • y •',
+  'quote': '2011NBAChampion• & •   Finals '
+           '•   MVP• • •   2007MVP• • •   Overcomi'
+           'n • g •   MiamiHeatBig• 3 •   WithIc '
+           'onicFadeaway •',
   'sec_pos': 'C',
   'stats': {'3pt': 97, 'ath': 84, 'clu': 99, 'def': 84, 'ins': 96, 'ply': 82},
-  'theme': '• 2 • 0 • 1 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 2 •   • F • a • d • e • a • w • a • '
-           'y •   • & •   • R • i • n • g •',
+  'theme': '2011FinalsGame• 2 •   Fadeawa'
+           'y • & •   Ring •',
   'tier': 'exclusive',
   'team': 'NBA'},
  {'badges': ['HOF The Stepover', 'HOF Ankle Breaker', 'HOF Giant Slayer', 'HOF Acrobat', 'HOF Quick First Step'],
   'id': 'excl-iverson-97',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f4/Allen_Iverson_08_B.jpg',
-  'moment': '• 2 • 0 • 0 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 1 •   • C • o • r • n • e • r •   • '
-            'S • t • e • p • - • B • a • c • k •   • J • u • m • p • e • r •   • & •   • S • t • e • p • o • v • e • r '
-            '•   • O • v • e • r •   • T • y • r • o • n • n •   • L • u • e •',
+  'moment': '2001FinalsGame• 1 •   Corner• '
+            'S tep- BackJumper• & •   Stepover '
+            '•   OverTyronnLue •',
   'name': 'Allen Iverson',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 0 • 1 •   • N • B • A •   • M • V • P •   • • •   • 4 • 8 • - • P • o • i • n • t •   • G • a • '
-           'm • e •   • 1 •   • a • t •   • S • t • a • p • l • e • s •   • C • e • n • t • e • r •   • • •   • T • h '
-           '• e •   • I • c • o • n • i • c •   • S • t • e • p • o • v • e • r •   • O • v • e • r •   • T • y • r • '
-           'o • n • n •   • L • u • e •',
+  'quote': '2001NBAMVP• • •   48- PointGa'
+           'm • e • 1 •   atStaplesCenter• • •   Th '
+           '• e •   IconicStepoverOverTyr'
+           'o nnLue •',
   'sec_pos': 'SG',
   'stats': {'3pt': 91, 'ath': 99, 'clu': 99, 'def': 93, 'ins': 97, 'ply': 97},
   'team': 'PHI',
-  'theme': '• 2 • 0 • 0 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 1 •   • T • h • e •   • S • t • e • '
-           'p • o • v • e • r •',
+  'theme': '2001FinalsGame• 1 •   TheSte'
+           'p over •',
   'tier': 'exclusive'},
  {'badges': ['HOF 13 in 33s', 'HOF Limitless Range', 'HOF Posterizer', 'HOF Blindside', 'HOF Deadeye'],
   'id': 'excl-tmac-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f9/Tracy_McGrady_1.jpg',
-  'moment': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • s •   • M • i • '
-            'r • a • c • l • e •   • G • a • m • e • - • W • i • n • n • i • n • g •   • P • u • l • l • - • U • p •   '
-            '• 3 •   • v • s •   • S • a • n •   • A • n • t • o • n • i • o •   • S • p • u • r • s •',
+  'moment': '13Pointsin33SecondsMi'
+            'r acleGame- WinningPull- Up'
+            '• 3 •   vsSanAntonioSpurs •',
   'name': 'Tracy McGrady',
   'ovr': 96,
   'pos': 'SG',
-  'quote': '• 2 • x •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • A • '
-           'l • l • - • S • t • a • r •   • • •   • H • i • s • t • o • r • i • c •   • 1 • 3 •   • P • o • i • n • t '
-           '• s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • s •   • C • o • m • e • b • a • c • k •   • v • '
-           's •   • S • p • u • r • s •',
+  'quote': '2xScoringChampion• • •   7x• A • '
+           'l • l • - Star• • •   Historic13Point '
+           '• s •   in33SecondsComeback• v • '
+           's •   Spurs •',
   'sec_pos': 'SF',
   'stats': {'3pt': 98, 'ath': 97, 'clu': 99, 'def': 91, 'ins': 97, 'ply': 94},
   'team': 'HOU',
-  'theme': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • s •   • M • i • '
-           'r • a • c • l • e •',
+  'theme': '13Pointsin33SecondsMi'
+           'r acle •',
   'tier': 'exclusive'},
  {'badges': ['HOF Ewing Poster Slam', 'HOF Clamps', 'HOF Glove', 'HOF Interceptor', 'HOF Dimer'],
   'id': 'excl-pippen-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/e4/Lipofsky_Pippen.jpg',
-  'moment': '• 1 • 9 • 9 • 4 •   • E • C • S • F •   • G • a • m • e •   • 6 •   • T • o • m • a • h • a • w • k •   • '
-            'P • o • s • t • e • r •   • S • l • a • m •   • O • v • e • r •   • P • a • t • r • i • c • k •   • E • w '
-            '• i • n • g •   • & •   • S • t • r • u • t •',
+  'moment': '1994ECSFGame• 6 •   Tomahawk• '
+            'P osterSlamOverPatrickEw '
+            'ing• & •   Strut •',
   'name': 'Scottie Pippen',
   'ovr': 96,
   'pos': 'SF',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • A • l • l • - • S • '
-           't • a • r •   • • •   • 8 • x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • F • i • r • s '
-           '• t •   • T • e • a • m •   • • •   • 1 • 9 • 9 • 4 •   • I • c • o • n • i • c •   • P • o • s • t • e • '
-           'r •   • S • l • a • m •',
+  'quote': '6xNBAChampion• • •   7xAll- • S • '
+           't ar• • •   8xAll- DefensiveFirs '
+           '• t •   Team• • •   1994IconicPoste'
+           'r •   Slam •',
   'sec_pos': 'SG',
   'stats': {'3pt': 88, 'ath': 97, 'clu': 97, 'def': 99, 'ins': 95, 'ply': 94},
   'team': 'CHI',
-  'theme': '• 1 • 9 • 9 • 4 •   • E • w • i • n • g •   • P • o • s • t • e • r •   • D • u • n • k •   • & •   • P • '
-           'o • i • n • t •',
+  'theme': '1994EwingPosterDunk• & • P • '
+           'o int •',
   'tier': 'exclusive'},
  {'badges': ['HOF 60-21-10 Miracle', 'HOF Stepback Maestro', 'HOF Dimer', 'HOF Space Creator', 'HOF Ankle Breaker'],
   'id': 'excl-luka-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/b/be/Luka_Don%C4%8Di%C4%87_and_Marines%2C_2026_%28cropped%29.jpg',
-  'moment': '• I • n • t • e • n • t • i • o • n • a • l •   • M • i • s • s • e • d •   • F • r • e • e •   • T • h • '
-            'r • o • w •   • P • u • t • b • a • c • k •   • B • u • z • z • e • r • - • B • e • a • t • e • r •   • & '
-            '•   • D • a • n • c • i • n • g •   • J • i • g •   • v • s •   • K • n • i • c • k • s •',
+  'moment': 'IntentionalMissedFreeTh'
+            'r owPutbackBuzzer- Beater• & '
+            '•   DancingJigvsKnicks •',
   'name': 'Luka Doncic',
   'ovr': 96,
   'pos': 'PG',
-  'quote': '• 5 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • S • c • '
-           'o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 6 • 0 •   • P • T • S • , •   • 2 • 1 '
-           '•   • R • E • B • , •   • 1 • 0 •   • A • S • T •   • M • i • s • s • e • d •   • F • r • e • e •   • T • '
-           'h • r • o • w •   • P • u • t • b • a • c • k •',
+  'quote': '5xAll- NBAFirstTeam• • •   Sc'
+           'o ringChampion• • •   60PTS, •   21 '
+           '•   REB, •   10ASTMissedFree• T • '
+           'h rowPutback •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 89, 'clu': 99, 'def': 84, 'ins': 97, 'ply': 99},
   'team': 'DAL',
-  'theme': '• 6 • 0 • - • 2 • 1 • - • 1 • 0 •   • H • i • s • t • o • r • i • c •   • P • u • t • b • a • c • k •   • '
-           'M • i • r • a • c • l • e •',
+  'theme': '60- 21- 10HistoricPutback• '
+           'M iracle •',
   'tier': 'exclusive'},
  {'badges': ['HOF 70-Point Masterpiece',
              'HOF Post Spin Technician',
@@ -10460,115 +10460,115 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
              'HOF Backdown Punisher'],
   'id': 'excl-embiid-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/1/13/Joel_Embiid_2019.jpg',
-  'moment': '• 7 • 0 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • C • e • l • e • b • '
-            'r • a • t • i • o • n •   • & •   • R • o • a • r •   • v • s •   • S • a • n •   • A • n • t • o • n • i '
-            '• o •   • S • p • u • r • s •',
+  'moment': '70- PointMasterpieceCeleb'
+            'r ation• & •   RoarvsSanAntoni '
+            '• o •   Spurs •',
   'name': 'Joel Embiid',
   'ovr': 96,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • M • V • P •   • • •   • 2 • x •   • S • c • o • r • i • n • g •   • '
-           'C • h • a • m • p • i • o • n •   • • •   • 7 • 0 •   • P • o • i • n • t • s • , •   • 1 • 8 •   • R • e '
-           '• b • o • u • n • d • s •   • v • s •   • S • p • u • r • s •   • ( • J • a • n • u • a • r • y •   • 2 • '
-           '0 • 2 • 4 • ) •',
+  'quote': '2023NBAMVP• • •   2xScoring• '
+           'C hampion• • •   70Points, •   18Re '
+           'boundsvsSpurs• ( January• 2 • '
+           '0 24) •',
   'sec_pos': 'PF',
   'stats': {'3pt': 89, 'ath': 92, 'clu': 97, 'def': 96, 'ins': 99, 'ply': 86},
   'team': 'PHI',
-  'theme': '• 7 • 0 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • & •   • M • V • P '
-           '•   • F • l • e • x •',
+  'theme': '70- PointMasterpiece• & •   MVP '
+           '•   Flex •',
   'tier': 'exclusive'},
  {'badges': ['HOF 25-Point Sprain', 'HOF Quick First Step', 'HOF Handles For Days', 'HOF Dimer', 'HOF Clutch Shooter'],
   'id': 'excl-isiah-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/5/50/Isiah-thomas_detroit-v-new-york_1985.jpg',
-  'moment': '• 1 • 9 • 8 • 8 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 2 • 5 • - • P • o • i • n • '
-            't •   • S • i • n • g • l • e •   • Q • u • a • r • t • e • r •   • o • n •   • H • e • a • v • i • l • y '
-            '•   • S • p • r • a • i • n • e • d •   • A • n • k • l • e •',
+  'moment': '1988FinalsGame• 6 •   25- Poin'
+            't •   SingleQuarteronHeavily '
+            '•   SprainedAnkle •',
   'name': 'Isiah Thomas',
   'ovr': 96,
   'pos': 'PG',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 9 • 0 •   • F • i • n • '
-           'a • l • s •   • M • V • P •   • • •   • 2 • 5 •   • P • o • i • n • t • s •   • i • n •   • 3 • r • d •   '
-           '• Q • u • a • r • t • e • r •   • o • f •   • 1 • 9 • 8 • 8 •   • F • i • n • a • l • s •   • o • n •   • '
-           'S • e • v • e • r • e •   • S • p • r • a • i • n •',
+  'quote': '2xNBAChampion• • •   1990Fin'
+           'a lsMVP• • •   25Pointsin3rd'
+           'Quarterof1988Finalson• '
+           'S evereSprain •',
   'sec_pos': 'SG',
   'stats': {'3pt': 87, 'ath': 95, 'clu': 99, 'def': 94, 'ins': 94, 'ply': 98},
   'team': 'DET',
-  'theme': '• 1 • 9 • 8 • 8 •   • F • i • n • a • l • s •   • 2 • 5 • - • P • t •   • S • p • r • a • i • n • e • d '
-           '•   • A • n • k • l • e •   • Q • u • a • r • t • e • r •',
+  'theme': '1988Finals25- PtSprained '
+           '•   AnkleQuarter •',
   'tier': 'exclusive'},
  {'badges': ['HOF This Is My House', 'HOF Acrobat', 'HOF Fearless Finisher', 'HOF Clamps', 'HOF Fast Break Starter'],
   'id': 'excl-wade-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/8/88/Dwyane_Wade_2012.jpg',
-  'moment': '• 2 • 0 • 0 • 6 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • C • o • m • e • b • a • c • '
-            "k •   • R • o • a • r •   • & •   • J • u • m • p • i • n • g •   • o • n •   • S • c • o • r • e • r • ' "
-            '• s •   • T • a • b • l • e •',
+  'moment': '2006FinalsGame• 3 •   Comebac'
+            "k •   Roar• & •   JumpingonScorer' "
+            '• s •   Table •',
   'name': 'Dwyane Wade',
   'ovr': 96,
   'pos': 'SG',
-  'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • 6 •   • F • i • n • '
-           'a • l • s •   • M • V • P •   • ( • 3 • 4 • . • 7 •   • P • P • G •   • c • o • m • e • b • a • c • k •   '
-           "• f • r • o • m •   • 0 • - • 2 • ) •   • • •   • ' • T • h • i • s •   • i • s •   • M • y •   • H • o • "
-           "u • s • e • ! • ' •",
+  'quote': '3xNBAChampion• • •   2006Fin'
+           'a lsMVP• ( 34. • 7 •   PPGcomeback'
+           "from• 0 • - • 2 • ) • • • ' ThisisMyHo"
+           "u se! • ' •",
   'sec_pos': 'PG',
   'stats': {'3pt': 84, 'ath': 98, 'clu': 98, 'def': 97, 'ins': 98, 'ply': 95},
   'team': 'MIA',
-  'theme': "• 2 • 0 • 0 • 6 •   • F • i • n • a • l • s •   • M • V • P •   • & •   • ' • T • h • i • s •   • I • s "
-           "•   • M • y •   • H • o • u • s • e • ' •",
+  'theme': "2006FinalsMVP• & • ' ThisIs "
+           "•   MyHouse' •",
   'tier': 'exclusive'},
  {'badges': ['HOF Point God 41-Piece', 'HOF Floor General', 'HOF Dimer', 'HOF Middy Magician', 'HOF Glove'],
   'id': 'excl-cp3-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Chris_Paul_%282022_All-Star_Weekend%29_%28cropped%29.jpg',
-  'moment': '• 2 • 0 • 2 • 1 •   • W • C • F •   • G • a • m • e •   • 6 •   • 4 • 1 • - • P • o • i • n • t •   • S • '
-            'e • c • o • n • d •   • H • a • l • f •   • E • r • u • p • t • i • o • n •   • a • t •   • S • t • a • p '
-            '• l • e • s •   • C • e • n • t • e • r •',
+  'moment': '2021WCFGame• 6 •   41- Point• S • '
+            'e condHalfEruptionatStap '
+            'lesCenter •',
   'name': 'Chris Paul',
   'ovr': 96,
   'pos': 'PG',
-  'quote': '• 1 • 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • s • s • i • s • t • s •   • '
-           'L • e • a • d • e • r •   • • •   • 6 • x •   • S • t • e • a • l • s •   • L • e • a • d • e • r •   • • '
-           '•   • 4 • 1 •   • P • o • i • n • t • s •   • i • n •   • G • a • m • e •   • 6 •   • t • o •   • R • e • '
-           'a • c • h •   • N • B • A •   • F • i • n • a • l • s •',
+  'quote': '12xAll- Star• • •   5xAssists• '
+           'L eader• • •   6xStealsLeader• • '
+           '•   41PointsinGame• 6 •   toRe'
+           'a chNBAFinals •',
   'sec_pos': 'SG',
   'stats': {'3pt': 94, 'ath': 90, 'clu': 98, 'def': 96, 'ins': 89, 'ply': 99},
   'team': 'PHX',
-  'theme': '• 2 • 0 • 2 • 1 •   • W • C • F •   • 4 • 1 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • '
-           'e • c • e •',
+  'theme': '2021WCF41- PointMasterpi'
+           'e ce •',
   'tier': 'exclusive'},
  {'badges': ['HOF 44-Point Game 7', 'HOF Bully', 'HOF Rebound Chaser', 'HOF Posterizer', 'HOF Fast Twitch'],
   'id': 'excl-barkley-96',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f6/Charles_Barkley_representing_the_1992_Dream_Team.jpg',
-  'moment': '• 1 • 9 • 9 • 3 •   • W • e • s • t • e • r • n •   • C • o • n • f • e • r • e • n • c • e •   • F • i • '
-            'n • a • l • s •   • G • a • m • e •   • 7 •   • 4 • 4 • - • P • o • i • n • t •   • 2 • 4 • - • R • e • b '
-            '• o • u • n • d •   • R • o • a • r •   • v • s •   • S • o • n • i • c • s •',
+  'moment': '1993WesternConferenceFi'
+            'n alsGame• 7 •   44- Point24- Reb '
+            'oundRoarvsSonics •',
   'name': 'Charles Barkley',
   'ovr': 96,
   'pos': 'PF',
-  'quote': '• 1 • 9 • 9 • 3 •   • N • B • A •   • M • V • P •   • • •   • 1 • 1 • x •   • A • l • l • - • S • t • a • '
-           'r •   • • •   • 1 • 9 • 9 • 3 •   • W • C • F •   • G • a • m • e •   • 7 •   • 4 • 4 •   • P • T • S • , '
-           '•   • 2 • 4 •   • R • E • B •   • M • a • s • t • e • r • c • l • a • s • s •',
+  'quote': '1993NBAMVP• • •   11xAll- Sta'
+           'r • • •   1993WCFGame• 7 •   44PTS, '
+           '•   24REBMasterclass •',
   'sec_pos': 'SF',
   'stats': {'3pt': 76, 'ath': 97, 'clu': 98, 'def': 92, 'ins': 99, 'ply': 90},
   'team': 'PHX',
-  'theme': '• 1 • 9 • 9 • 3 •   • M • V • P •   • & •   • 4 • 4 • - • P • t •   • G • a • m • e •   • 7 •   • T • a • '
-           'k • e • o • v • e • r •',
+  'theme': '1993MVP• & •   44- PtGame• 7 •   Ta'
+           'k eover •',
   'tier': 'exclusive'},
  {'badges': ['HOF We Did It Ring', 'HOF Clamps', 'HOF Agent 3', 'HOF Catch & Shoot', 'HOF Posterizer'],
   'id': 'excl-tatum-95',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg',
-  'moment': '• 2 • 0 • 2 • 4 •   • N • B • A •   • F • i • n • a • l • s •   • G • a • m • e •   • 5 •   • C • l • i • '
-            "n • c • h • e • r •   • ' • W • e •   • D • i • d •   • I • t • ! • ' •   • T • r • o • p • h • y •   • S "
-            '• c • r • e • a • m •   • & •   • C • o • n • f • e • t • t • i •',
+  'moment': '2024NBAFinalsGame• 5 •   Cli'
+            "n cher• ' WeDidIt! • ' •   Trophy• S "
+            'cream• & •   Confetti •',
   'name': 'Jayson Tatum',
   'ovr': 95,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • A • l • l • '
-           '- • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • E • a • s • t • e • r • n •   • C '
-           "• o • n • f • e • r • e • n • c • e •   • F • i • n • a • l • s •   • M • V • P •   • • •   • ' • W • e "
-           "•   • D • i • d •   • I • t • ! • ' •",
+  'quote': '2024NBAChampion• • •   3xAll'
+           '- NBAFirstTeam• • •   Eastern• C '
+           "onferenceFinalsMVP• • • ' We "
+           "•   DidIt! • ' •",
   'sec_pos': 'PF',
   'stats': {'3pt': 96, 'ath': 95, 'clu': 97, 'def': 95, 'ins': 95, 'ply': 91},
   'team': 'BOS',
-  'theme': "• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n • s • h • i • p •   • ' • W • e •   • "
-           "D • i • d •   • I • t • ! • ' •",
+  'theme': "2024NBAChampionship• ' We• "
+           "D idIt! • ' •",
   'tier': 'exclusive'},
  {'badges': ['HOF Human Highlight Film',
              'HOF Posterizer',
@@ -10577,21 +10577,21 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
              'HOF Fast Twitch'],
   'id': 'excl-wilkins-95',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Dominique_Wilkins_%2851914585633%29.jpg',
-  'moment': '• 1 • 9 • 8 • 8 •   • S • l • a • m •   • D • u • n • k •   • C • o • n • t • e • s • t •   • T • w • o • '
-            '- • H • a • n • d • e • d •   • B • a • c • k • s • c • r • a • t • c • h • e • r •   • W • i • n • d • m '
-            '• i • l • l •   • S • l • a • m •',
+  'moment': '1988SlamDunkContestTwo'
+            '- HandedBackscratcherWindm '
+            'illSlam •',
   'name': 'Dominique Wilkins',
   'ovr': 95,
   'pos': 'SF',
-  'quote': '• 2 • x •   • S • l • a • m •   • D • u • n • k •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • '
-           '8 • 6 •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 9 • x •   • A • l '
-           '• l • - • S • t • a • r •   • • •   • T • h • e •   • H • u • m • a • n •   • H • i • g • h • l • i • g • '
-           'h • t •   • F • i • l • m •',
+  'quote': '2xSlamDunkChampion• • •   19'
+           '8 • 6 •   ScoringChampion• • •   9xAl '
+           '• l • - Star• • •   TheHumanHighlig'
+           'h • t •   Film •',
   'sec_pos': 'SG',
   'stats': {'3pt': 84, 'ath': 99, 'clu': 96, 'def': 90, 'ins': 98, 'ply': 88},
   'team': 'ATL',
-  'theme': '• 1 • 9 • 8 • 8 •   • D • u • n • k •   • C • o • n • t • e • s • t •   • W • i • n • d • m • i • l • l '
-           '•   • D • u • e • l •',
+  'theme': '1988DunkContestWindmill '
+           '•   Duel •',
   'tier': 'exclusive'},
  {'badges': ['HOF Half-Man Half-Amazing',
              'HOF Posterizer',
@@ -10600,40 +10600,40 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
              'HOF Acrobat'],
   'id': 'excl-vince-94',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/2/25/Vince_Carter_%28cropped%29.jpg',
-  'moment': '• 2 • 0 • 0 • 0 •   • S • l • a • m •   • D • u • n • k •   • C • o • n • t • e • s • t •   • H • o • n • '
-            'e • y •   • D • i • p •   • E • l • b • o • w • - • I • n • - • T • h • e • - • R • i • m •   • & •   • 3 '
-            '• 6 • 0 •   • W • i • n • d • m • i • l • l •   • S • l • a • m •',
+  'moment': '2000SlamDunkContestHon'
+            'e • y •   DipElbow- In- The- Rim• & • 3 '
+            '60WindmillSlam •',
   'name': 'Vince Carter',
   'ovr': 94,
   'pos': 'SG',
-  'quote': '• 2 • 0 • 0 • 0 •   • S • l • a • m •   • D • u • n • k •   • C • h • a • m • p • i • o • n •   • • •   • '
-           "' • I • t • ' • s •   • O • v • e • r • ! • ' •   • C • e • l • e • b • r • a • t • i • o • n •   • • •   "
-           '• G • r • e • a • t • e • s • t •   • D • u • n • k •   • C • o • n • t • e • s • t •   • P • e • r • f • '
-           'o • r • m • a • n • c • e •   • i • n •   • H • i • s • t • o • r • y •',
+  'quote': '2000SlamDunkChampion• • • '
+           "' It' • s •   Over! • ' •   Celebration• • •   "
+           'GreatestDunkContestPerf'
+           'o rmanceinHistory •',
   'sec_pos': 'SF',
   'stats': {'3pt': 93, 'ath': 99, 'clu': 96, 'def': 88, 'ins': 99, 'ply': 91},
   'team': 'TOR',
-  'theme': '• 2 • 0 • 0 • 0 •   • D • u • n • k •   • C • o • n • t • e • s • t •   • A • r • m • - • I • n • - • R • '
-           'i • m •   • G • O • A • T •',
+  'theme': '2000DunkContestArm- In- • R • '
+           'i • m •   GOAT •',
   'tier': 'exclusive'},
  {'badges': ['HOF Game-Saving Block', 'HOF Anchor', 'HOF Clamps', 'HOF Interceptor', 'HOF Rebound Chaser'],
   'id': 'excl-bam-93',
   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Adebayo_Hachimura_%28cropped%29.jpg',
-  'moment': '• 2 • 0 • 2 • 0 •   • E • C • F •   • G • a • m • e •   • 1 •   • G • a • m • e • - • S • a • v • i • n • '
-            'g •   • L • e • f • t • - • H • a • n • d • e • d •   • R • i • m •   • R • e • j • e • c • t • i • o • n '
-            '•   • o • n •   • J • a • y • s • o • n •   • T • a • t • u • m •',
+  'moment': '2020ECFGame• 1 •   Game- Savin'
+            'g •   Left- HandedRimRejection '
+            '•   onJaysonTatum •',
   'name': 'Bam Adebayo',
   'ovr': 93,
   'pos': 'C',
-  'quote': '• 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • l • l • - • D • e • f • e • n • '
-           's • i • v • e •   • • •   • 2 • 0 • 2 • 0 •   • E • a • s • t • e • r • n •   • C • o • n • f • e • r • e '
-           '• n • c • e •   • F • i • n • a • l • s •   • G • a • m • e •   • 1 •   • B • l • o • c • k •   • o • n '
-           "•   • T • a • t • u • m • ' • s •   • D • u • n • k •",
+  'quote': '3xAll- Star• • •   5xAll- Defen'
+           's ive• • •   2020EasternConfere '
+           'nceFinalsGame• 1 •   Blockon '
+           "•   Tatum' • s •   Dunk •",
   'sec_pos': 'PF',
   'stats': {'3pt': 74, 'ath': 94, 'clu': 96, 'def': 99, 'ins': 94, 'ply': 89},
   'team': 'MIA',
-  'theme': '• 2 • 0 • 2 • 0 •   • E • C • F •   • G • a • m • e •   • 1 •   • G • a • m • e • - • S • a • v • i • n • '
-           'g •   • B • l • o • c • k •',
+  'theme': '2020ECFGame• 1 •   Game- Savin'
+           'g •   Block •',
   'tier': 'exclusive'},
  {'badges': ['HOF Posterizer', 'HOF Anchor', 'HOF Dropstepper', 'HOF Backdown Punisher', 'HOF Aerial Wizard'],
   'id': 'dm-wiltchamberlain-99',
@@ -10642,13 +10642,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Wilt Chamberlain',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • M • V • P •   • • '
-           '•   • S • c • o • r • e • d •   • 1 • 0 • 0 •   • P • o • i • n • t • s •   • i • n •   • S • i • n • g • '
-           'l • e •   • G • a • m • e •   • • •   • R • e • b • o • u • n • d • i • n • g •   • K • i • n • g •',
+  'quote': '2xNBAChampion• • •   4xMVP• • '
+           '•   Scored100PointsinSing'
+           'l • e •   Game• • •   ReboundingKing •',
   'sec_pos': 'PF',
   'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
   'team': 'PHI',
-  'theme': '• 1 • 0 • 0 • - • P • o • i • n • t •   • D • o • m • i • n • a • t • o • r •',
+  'theme': '100- PointDominator •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Anchor', 'HOF Interceptor', 'HOF Limitless Range', 'HOF Rim Protector', 'HOF Pogo Stick'],
   'id': 'dm-wemby-99',
@@ -10657,13 +10657,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Victor Wembanyama',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 7 • f • t •   • 4 • i • n •   • G • e • n • e • r • a • t • i • o • n • a • l •   • P • h • e • n • o • '
-           'm •   • • •   • N • B • A •   • B • l • o • c • k •   • L • e • a • d • e • r •   • • •   • R • o • o • k '
-           '• i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • A • l • i • e • n •',
+  'quote': '7ft4inGenerationalPheno'
+           'm • • •   NBABlockLeader• • •   Rook '
+           'ieoftheYearAlien •',
   'sec_pos': 'PF',
   'stats': {'3pt': 92, 'ath': 96, 'clu': 95, 'def': 99, 'ins': 97, 'ply': 88},
   'team': 'SAS',
-  'theme': '• A • l • i • e • n •   • I • n • v • i • n • c • i • b • l • e •',
+  'theme': 'AlienInvincible •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Anchor', 'HOF Interceptor', 'HOF Limitless Range', 'HOF Rim Protector', 'HOF Pogo Stick'],
   'id': 'dm-victorwembanyama-99',
@@ -10672,13 +10672,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Victor Wembanyama',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 7 • f • t •   • 4 • i • n •   • G • e • n • e • r • a • t • i • o • n • a • l •   • P • h • e • n • o • '
-           'm •   • • •   • N • B • A •   • B • l • o • c • k •   • L • e • a • d • e • r •   • • •   • R • o • o • k '
-           '• i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • A • l • i • e • n •',
+  'quote': '7ft4inGenerationalPheno'
+           'm • • •   NBABlockLeader• • •   Rook '
+           'ieoftheYearAlien •',
   'sec_pos': 'PF',
   'stats': {'3pt': 75, 'ath': 98, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 92},
   'team': 'SAS',
-  'theme': '• A • l • i • e • n •   • I • n • v • i • n • c • i • b • l • e •',
+  'theme': 'AlienInvincible •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Post Lock', 'HOF Anchor', 'HOF Rebound Chaser', 'HOF Dropstepper', 'HOF Break Starter'],
   'id': 'dm-timduncan-99',
@@ -10687,13 +10687,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tim Duncan',
   'ovr': 99,
   'pos': 'PF',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • G • r • e • a • t • e • s • t •   • P '
-           '• o • w • e • r •   • F • o • r • w • a • r • d •   • o • f •   • A • l • l •   • T • i • m • e •',
+  'quote': '5xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   2xMVP• • •   Greatest• P '
+           'owerForwardofAllTime •',
   'sec_pos': 'C',
   'stats': {'3pt': 68, 'ath': 91, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 89},
   'team': 'SAS',
-  'theme': '• T • h • e •   • B • i • g •   • F • u • n • d • a • m • e • n • t • a • l •',
+  'theme': 'TheBigFundamental •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Limitless Range', 'HOF Chef', 'HOF Agent 3', 'HOF Handles For Days', 'HOF Circus Threes'],
   'id': 'dm-curry-99',
@@ -10702,13 +10702,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Stephen Curry',
   'ovr': 99,
   'pos': 'PG',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • F • i • n • a • l • s •   • M • '
-           'V • P •   • • •   • 2 • x •   • M • V • P •   • ( • O • n • l • y •   • U • n • a • n • i • m • o • u • s '
-           '• ) •   • • •   • G • r • e • a • t • e • s • t •   • S • h • o • o • t • e • r •   • E • v • e • r •',
+  'quote': '4xNBAChampion• • •   Finals• M • '
+           'V • P • • •   2xMVP• ( OnlyUnanimous '
+           '• ) • • •   GreatestShooterEver •',
   'sec_pos': 'SG',
   'stats': {'3pt': 99, 'ath': 93, 'clu': 99, 'def': 85, 'ins': 89, 'ply': 98},
   'team': 'GSW',
-  'theme': '• U • n • a • n • i • m • o • u • s •   • M • V • P •',
+  'theme': 'UnanimousMVP •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Limitless Range', 'HOF Chef', 'HOF Agent 3', 'HOF Handles For Days', 'HOF Circus Threes'],
   'id': 'dm-stephencurry-99',
@@ -10717,13 +10717,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Stephen Curry',
   'ovr': 99,
   'pos': 'PG',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • F • i • n • a • l • s •   • M • '
-           'V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • G • r • e • a • t • e • s • t •   • 3 • P • T •   '
-           '• S • h • o • o • t • e • r •   • i • n •   • H • i • s • t • o • r • y •',
+  'quote': '4xNBAChampion• • •   Finals• M • '
+           'V • P • • •   2xMVP• • •   Greatest3PT'
+           'ShooterinHistory •',
   'sec_pos': 'SG',
   'stats': {'3pt': 99, 'ath': 94, 'clu': 99, 'def': 88, 'ins': 91, 'ply': 98},
   'team': 'GSW',
-  'theme': '• U • n • a • n • i • m • o • u • s •   • M • V • P •',
+  'theme': 'UnanimousMVP •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Dropstepper', 'HOF Posterizer', 'HOF Rebound Chaser', 'HOF Anchor', 'HOF Backdown Punisher'],
   'id': 'dm-shaq-99',
@@ -10732,14 +10732,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': "Shaquille O'Neal",
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • 0 • 0 • 0 •   • M • V • P •   • • •   • M • o • s • t •   • D • o • m '
-           '• i • n • a • n • t •   • P • h • y • s • i • c • a • l •   • F • o • r • c • e •   • i • n •   • H • i • '
-           's • t • o • r • y •',
+  'quote': '4xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   2000MVP• • •   MostDom '
+           'inantPhysicalForceinHi'
+           's tory •',
   'sec_pos': 'PF',
   'stats': {'3pt': 55, 'ath': 98, 'clu': 96, 'def': 97, 'ins': 99, 'ply': 78},
   'team': 'LAL',
-  'theme': '• D • i • e • s • e • l •   • D • o • m • i • n • a • n • c • e •',
+  'theme': 'DieselDominance •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Dropstepper', 'HOF Posterizer', 'HOF Rebound Chaser', 'HOF Anchor', 'HOF Backdown Punisher'],
   'id': 'dm-shaquilleoneal-99',
@@ -10748,14 +10748,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': "Shaquille O'Neal",
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • 0 • 0 • 0 •   • M • V • P •   • • •   • M • o • s • t •   • D • o • m '
-           '• i • n • a • n • t •   • P • h • y • s • i • c • a • l •   • F • o • r • c • e •   • i • n •   • H • i • '
-           's • t • o • r • y •',
+  'quote': '4xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   2000MVP• • •   MostDom '
+           'inantPhysicalForceinHi'
+           's tory •',
   'sec_pos': 'PF',
   'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 82},
   'team': 'LAL',
-  'theme': '• D • i • e • s • e • l •   • D • o • m • i • n • a • n • c • e •',
+  'theme': 'DieselDominance •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Clamps', 'HOF Limitless Takeoff', 'HOF Posterizer', 'HOF Ankle Breaker', 'HOF Clutch Performer'],
   'id': 'dm-jordan-99',
@@ -10764,13 +10764,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Michael Jordan',
   'ovr': 99,
   'pos': 'SG',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 5 • x •   • R • e • g • u • l • a • r •   • S • e • a • s • o • n •   • M '
-           '• V • P •   • • •   • T • h • e •   • U • n • d • i • s • p • u • t • e • d •   • G • O • A • T •',
+  'quote': '6xNBAChampion• • •   6xFinal'
+           's •   MVP• • •   5xRegularSeason• M '
+           'VP• • •   TheUndisputedGOAT •',
   'sec_pos': 'SF',
   'stats': {'3pt': 90, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 92},
   'team': 'CHI',
-  'theme': '• G • . • O • . • A • . • T • . •   • E • d • i • t • i • o • n •',
+  'theme': '• G • . • O • . • A • . • T • . •   Edition •',
   'tier': 'dark_matter'},
  {'badges': ['Gold Posterizer', 'Gold Limitless Range', 'Gold Clamps', 'Gold Clutch Shooter'],
   'id': 'dm-mj-99',
@@ -10779,13 +10779,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Michael Jordan',
   'ovr': 99,
   'pos': 'SG',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • - •   • 6 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • - •   • G • r • e • a • t • e • s • t •   • o • f •   • A • l • l •   • T • i • m '
+  'quote': '6xNBAChampion• - •   6xFinal'
+           's •   MVP• - •   GreatestofAllTim '
            '• e •',
   'sec_pos': 'SF',
   'stats': {'3pt': 88, 'ath': 99, 'clu': 99, 'def': 97, 'ins': 96, 'ply': 95},
   'team': 'CHI',
-  'theme': '• 6 • x •   • C • h • a • m • p • i • o • n •   • S • i • l • h • o • u • e • t • t • e •',
+  'theme': '6xChampionSilhouette •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Clamps', 'HOF Limitless Takeoff', 'HOF Posterizer', 'HOF Ankle Breaker', 'HOF Clutch Performer'],
   'id': 'dm-michaeljordan-99',
@@ -10794,13 +10794,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Michael Jordan',
   'ovr': 99,
   'pos': 'SG',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 5 • x •   • R • e • g • u • l • a • r •   • S • e • a • s • o • n •   • M '
-           '• V • P •   • • •   • T • h • e •   • U • n • d • i • s • p • u • t • e • d •   • G • O • A • T •',
+  'quote': '6xNBAChampion• • •   6xFinal'
+           's •   MVP• • •   5xRegularSeason• M '
+           'VP• • •   TheUndisputedGOAT •',
   'sec_pos': 'SF',
   'stats': {'3pt': 93, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 96},
   'team': 'CHI',
-  'theme': '• G • . • O • . • A • . • T • . •   • E • d • i • t • i • o • n •',
+  'theme': '• G • . • O • . • A • . • T • . •   Edition •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Needle Threader', 'HOF Dimer', 'HOF Special Delivery', 'HOF Floor General', 'HOF Post Playmaker'],
   'id': 'dm-magic-99',
@@ -10809,14 +10809,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Magic Johnson',
   'ovr': 99,
   'pos': 'PG',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • L • e • a • d • e • r •   • o • f •   '
-           '• t • h • e •   • L • e • g • e • n • d • a • r • y •   • S • h • o • w • t • i • m • e •   • L • a • k • '
-           'e • r • s •',
+  'quote': '5xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   3xMVP• • •   Leaderof'
+           'theLegendaryShowtimeLak'
+           'e rs •',
   'sec_pos': 'SF',
   'stats': {'3pt': 84, 'ath': 94, 'clu': 98, 'def': 92, 'ins': 96, 'ply': 99},
   'team': 'LAL',
-  'theme': '• S • h • o • w • t • i • m • e •   • M • a • e • s • t • r • o •',
+  'theme': 'ShowtimeMaestro •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Needle Threader', 'HOF Dimer', 'HOF Special Delivery', 'HOF Floor General', 'HOF Post Playmaker'],
   'id': 'dm-magicjohnson-99',
@@ -10825,13 +10825,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Magic Johnson',
   'ovr': 99,
   'pos': 'PG',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • L • e • a • d • e • r •   • o • f •   '
-           '• t • h • e •   • S • h • o • w • t • i • m • e •   • L • a • k • e • r • s •',
+  'quote': '5xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   3xMVP• • •   Leaderof'
+           'theShowtimeLakers •',
   'sec_pos': 'SF',
   'stats': {'3pt': 86, 'ath': 95, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 99},
   'team': 'LAL',
-  'theme': '• S • h • o • w • t • i • m • e •   • M • a • e • s • t • r • o •',
+  'theme': 'ShowtimeMaestro •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Chase Down Artist', 'HOF Dimer', 'HOF Bully', 'HOF Fast Twitch', 'HOF Unpluckable'],
   'id': 'dm-lebron-99',
@@ -10840,14 +10840,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'LeBron James',
   'ovr': 99,
   'pos': 'SF',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • A • l • l • - • T • i • m • e •   • N • B • A •   • S • c • o • r • i • n '
-           '• g •   • L • e • a • d • e • r •   • • •   • P • o • i • n • t •   • F • o • r • w • a • r • d •   • M • '
-           'a • s • t • e • r •',
+  'quote': '4xNBAChampion• • •   4xFinal'
+           's •   MVP• • •   All- TimeNBAScorin '
+           '• g •   Leader• • •   PointForward• M • '
+           'a ster •',
   'sec_pos': 'PF',
   'stats': {'3pt': 88, 'ath': 99, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 99},
   'team': 'MIA',
-  'theme': '• I • n • v • i • n • c • i • b • l • e •   • K • i • n • g •',
+  'theme': 'InvincibleKing •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Chase Down Artist', 'HOF Dimer', 'HOF Bully', 'HOF Fast Twitch', 'HOF Unpluckable'],
   'id': 'dm-lebronjames-99',
@@ -10856,13 +10856,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'LeBron James',
   'ovr': 99,
   'pos': 'SF',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • A • l • l • - • T • i • m • e •   • N • B • A •   • S • c • o • r • i • n '
-           '• g •   • L • e • a • d • e • r •   • • •   • 2 • 2 • x •   • A • l • l • - • S • t • a • r •',
+  'quote': '4xNBAChampion• • •   4xFinal'
+           's •   MVP• • •   All- TimeNBAScorin '
+           '• g •   Leader• • •   22xAll- Star •',
   'sec_pos': 'PF',
   'stats': {'3pt': 91, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 99},
   'team': 'LAL',
-  'theme': '• A • l • l • - • T • i • m • e •   • S • c • o • r • i • n • g •   • K • i • n • g •',
+  'theme': 'All- TimeScoringKing •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Clutch Shooter', 'HOF Catch & Shoot', 'HOF Deadeye', 'HOF Dimer', 'HOF Interceptor'],
   'id': 'dm-bird-99',
@@ -10871,14 +10871,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Larry Bird',
   'ovr': 99,
   'pos': 'PF',
-  'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 3 • x •   • C • o • n • s • e • c • u • t • i • v • e •   • M • V • P •   '
-           '• • •   • U • l • t • i • m • a • t • e •   • C • o • l • d • - • B • l • o • o • d • e • d •   • C • l • '
-           'u • t • c • h •   • S • h • o • o • t • e • r •',
+  'quote': '3xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   3xConsecutiveMVP'
+           '• • •   UltimateCold- BloodedCl'
+           'u tchShooter •',
   'sec_pos': 'SF',
   'stats': {'3pt': 98, 'ath': 89, 'clu': 99, 'def': 94, 'ins': 94, 'ply': 97},
   'team': 'BOS',
-  'theme': '• B • o • s • t • o • n •   • L • e • g • e • n • d •',
+  'theme': 'BostonLegend •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Clutch Shooter', 'HOF Catch & Shoot', 'HOF Deadeye', 'HOF Dimer', 'HOF Interceptor'],
   'id': 'dm-larrybird-99',
@@ -10887,14 +10887,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Larry Bird',
   'ovr': 99,
   'pos': 'SF',
-  'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 3 • x •   • C • o • n • s • e • c • u • t • i • v • e •   • M • V • P •   '
-           '• • •   • C • o • l • d • - • B • l • o • o • d • e • d •   • C • l • u • t • c • h •   • L • e • g • e • '
+  'quote': '3xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   3xConsecutiveMVP'
+           '• • •   Cold- BloodedClutchLege'
            'n • d •',
   'sec_pos': 'PF',
   'stats': {'3pt': 99, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 97},
   'team': 'BOS',
-  'theme': '• B • o • s • t • o • n •   • L • e • g • e • n • d •',
+  'theme': 'BostonLegend •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Mamba Mentality', 'HOF Blinders', 'HOF Deadeye', 'HOF Clamps', 'HOF Difficult Shots'],
   'id': 'dm-kobe-99',
@@ -10903,13 +10903,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kobe Bryant',
   'ovr': 99,
   'pos': 'SG',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 1 • 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • R • e • l • e '
-           '• n • t • l • e • s • s •   • M • a • m • b • a •   • M • e • n • t • a • l • i • t • y •',
+  'quote': '5xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   18xAll- Star• • •   Rele '
+           'ntlessMambaMentality •',
   'sec_pos': 'SF',
   'stats': {'3pt': 92, 'ath': 98, 'clu': 99, 'def': 98, 'ins': 98, 'ply': 90},
   'team': 'LAL',
-  'theme': '• 8 • 1 • - • P • t •   • M • a • s • t • e • r • p • i • e • c • e •',
+  'theme': '81- PtMasterpiece •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Mamba Mentality', 'HOF Blinders', 'HOF Deadeye', 'HOF Clamps', 'HOF Difficult Shots'],
   'id': 'dm-kobebryant-99',
@@ -10918,13 +10918,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kobe Bryant',
   'ovr': 99,
   'pos': 'SG',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 1 • 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • R • e • l • e '
-           '• n • t • l • e • s • s •   • M • a • m • b • a •   • M • e • n • t • a • l • i • t • y •',
+  'quote': '5xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   18xAll- Star• • •   Rele '
+           'ntlessMambaMentality •',
   'sec_pos': 'SF',
   'stats': {'3pt': 94, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 94},
   'team': 'LAL',
-  'theme': '• 8 • 1 • - • P • t •   • M • a • m • b • a •',
+  'theme': '81- PtMamba •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Guard Up', 'HOF Deadeye', 'HOF Green Machine', 'HOF Blinders', 'HOF Slippery Off-Ball'],
   'id': 'dm-kd-99',
@@ -10933,14 +10933,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kevin Durant',
   'ovr': 99,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • 0 • 1 • 4 •   • M • V • P •   • • •   • U • n • b • l • o • c • k • a '
-           '• b • l • e •   • 7 • f • t •   • 3 • - • L • e • v • e • l •   • S • c • o • r • i • n • g •   • M • a • '
-           'c • h • i • n • e •',
+  'quote': '2xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   2014MVP• • •   Unblocka '
+           'ble7ft• 3 • - LevelScoringMa'
+           'c hine •',
   'sec_pos': 'PF',
   'stats': {'3pt': 98, 'ath': 96, 'clu': 99, 'def': 93, 'ins': 97, 'ply': 90},
   'team': 'GSW',
-  'theme': '• S • l • i • m •   • R • e • a • p • e • r •   • 3 • - • L • e • v • e • l •',
+  'theme': 'SlimReaper• 3 • - Level •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Post Spin Technician', 'HOF Anchor', 'HOF Post Hook', 'HOF Dream Shake', 'HOF Dropstepper'],
   'id': 'dm-kareemabduljabbar-99',
@@ -10949,13 +10949,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kareem Abdul-Jabbar',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • M • V • P •   • • '
-           '•   • 1 • 9 • x •   • A • l • l • - • S • t • a • r •   • • •   • U • n • s • t • o • p • p • a • b • l • '
-           'e •   • S • k • y • h • o • o • k •   • M • a • s • t • e • r •',
+  'quote': '6xNBAChampion• • •   6xMVP• • '
+           '•   19xAll- Star• • •   Unstoppabl'
+           'e •   SkyhookMaster •',
   'sec_pos': 'PF',
   'stats': {'3pt': 58, 'ath': 95, 'clu': 99, 'def': 98, 'ins': 99, 'ply': 89},
   'team': 'LAL',
-  'theme': '• S • k • y • h • o • o • k •   • M • a • s • t • e • r •',
+  'theme': 'SkyhookMaster •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Post Spin Technician', 'HOF Anchor', 'HOF Dream Shake', 'HOF Post Lock', 'HOF Dropstepper'],
   'id': 'dm-hakeemolajuwon-99',
@@ -10964,13 +10964,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Hakeem Olajuwon',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 1 • 9 • 9 • 4 •   • M • V • P •   • • •   • A • l • l • - • T • i • m • e '
-           '•   • N • B • A •   • B • l • o • c • k • s •   • L • e • a • d • e • r •',
+  'quote': '2xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   1994MVP• • •   All- Time '
+           '•   NBABlocksLeader •',
   'sec_pos': 'PF',
   'stats': {'3pt': 65, 'ath': 94, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
   'team': 'HOU',
-  'theme': '• T • h • e •   • D • r • e • a • m •   • S • h • a • k • e •',
+  'theme': 'TheDreamShake •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Posterizer', 'HOF Bully', 'HOF Anchor', 'HOF Chase Down Artist', 'HOF Fast Twitch'],
   'id': 'dm-giannis-99',
@@ -10979,14 +10979,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Giannis Antetokounmpo',
   'ovr': 99,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • 2 • 0 • 2 • 0 •   • D • P • O • Y •   • '
-           '• •   • U • n • s • t • o • p • p • a • b • l • e •   • E • u • r • o • - • S • t • e • p •   • M • o • n '
-           '• s • t • e • r •',
+  'quote': '2021NBAChampion• & •   Finals '
+           '•   MVP• • •   2xMVP• • •   2020DPOY• '
+           '• •   UnstoppableEuro- StepMon '
+           'ster •',
   'sec_pos': 'C',
   'stats': {'3pt': 75, 'ath': 99, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 90},
   'team': 'MIL',
-  'theme': '• G • r • e • e • k •   • F • r • e • a • k •   • M • V • P •',
+  'theme': 'GreekFreakMVP •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Anchor', 'HOF Rim Protector', 'HOF Rebound Chaser', 'HOF Post Lock', 'HOF Fast Break Starter'],
   'id': 'dm-billrussell-99',
@@ -10995,13 +10995,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Bill Russell',
   'ovr': 99,
   'pos': 'C',
-  'quote': '• 1 • 1 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 5 • x •   • M • V • P •   • '
-           '• •   • U • l • t • i • m • a • t • e •   • D • e • f • e • n • s • i • v • e •   • A • n • c • h • o • r '
-           '•   • a • n • d •   • W • i • n • n • i • n • g •   • I • c • o • n •',
+  'quote': '11xNBAChampion• • •   5xMVP• '
+           '• •   UltimateDefensiveAnchor '
+           '•   andWinningIcon •',
   'sec_pos': 'PF',
   'stats': {'3pt': 50, 'ath': 96, 'clu': 98, 'def': 99, 'ins': 94, 'ply': 86},
   'team': 'BOS',
-  'theme': '• 1 • 1 • x •   • C • h • a • m • p • i • o • n •   • A • n • c • h • o • r •',
+  'theme': '11xChampionAnchor •',
   'tier': 'dark_matter'},
  {'badges': ['Gold Floor General', 'Gold Giant Slayer', 'Gold Posterizer', 'Gold Clutch Shooter'],
   'id': 'dm-lebron-98',
@@ -11010,13 +11010,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'LeBron James',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• N • B • A •   • A • l • l • - • T • i • m • e •   • S • c • o • r • i • n • g •   • L • e • a • d • e • '
-           'r •   • - •   • 4 • x •   • C • h • a • m • p • i • o • n •   • - •   • 4 • x •   • F • i • n • a • l • s '
-           '•   • M • V • P •',
+  'quote': 'NBAAll- TimeScoringLeade'
+           'r • - •   4xChampion• - •   4xFinals '
+           '•   MVP •',
   'sec_pos': 'PG',
   'stats': {'3pt': 87, 'ath': 98, 'clu': 97, 'def': 93, 'ins': 98, 'ply': 99},
   'team': 'LAL',
-  'theme': '• A • l • l • - • T • i • m • e •   • S • c • o • r • i • n • g •   • K • i • n • g •',
+  'theme': 'All- TimeScoringKing •',
   'tier': 'dark_matter'},
  {'badges': ['HOF Glove', 'HOF Dimer', 'HOF Clamps', 'HOF Floor General'],
   'id': 'go-waltfrazier-98',
@@ -11025,13 +11025,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Walt Frazier',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • A • l • l • - • S • '
-           't • a • r •   • • •   • 1 • 9 • 7 • 0 •   • G • a • m • e •   • 7 •   • 3 • 6 •   • P • T • S •   • & •   '
-           '• 1 • 9 •   • A • S • T •   • M • a • s • t • e • r • p • i • e • c • e •',
+  'quote': '2xNBAChampion• • •   7xAll- • S • '
+           't ar• • •   1970Game• 7 •   36PTS• & •   '
+           '19ASTMasterpiece •',
   'sec_pos': 'SG',
   'stats': {'3pt': 99, 'ath': 99, 'clu': 99, 'def': 95, 'ins': 94, 'ply': 99},
   'team': 'NYK',
-  'theme': '• C • l • y • d • e •   • 1 • 9 • 7 • 0 •   • F • i • n • a • l • s •   • 3 • 6 • - • 1 • 9 •',
+  'theme': 'Clyde1970Finals36- 19 •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Limitless Range', 'HOF Posterizer', 'HOF Blindside', 'HOF Deadeye'],
   'id': 'go-tmac-98',
@@ -11040,14 +11040,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tracy McGrady',
   'ovr': 98,
   'pos': 'SG',
-  'quote': '• 2 • x •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • A • '
-           'l • l • - • S • t • a • r •   • • •   • S • c • o • r • e • d •   • 1 • 3 •   • P • o • i • n • t • s •   '
-           '• i • n •   • 3 • 5 •   • S • e • c • o • n • d • s •   • i • n •   • H • i • s • t • o • r • i • c •   • '
-           'C • o • m • e • b • a • c • k •',
+  'quote': '2xScoringChampion• • •   7x• A • '
+           'l • l • - Star• • •   Scored13Points'
+           'in35SecondsinHistoric• '
+           'C omeback •',
   'sec_pos': 'SF',
   'stats': {'3pt': 97, 'ath': 97, 'clu': 99, 'def': 90, 'ins': 97, 'ply': 94},
   'team': 'ORL',
-  'theme': '• 1 • 3 •   • i • n •   • 3 • 5 • s •',
+  'theme': '13in35s •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Limitless Range', 'HOF Posterizer', 'HOF Blindside', 'HOF Deadeye'],
   'id': 'go-tracymcgrady-98',
@@ -11056,13 +11056,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tracy McGrady',
   'ovr': 98,
   'pos': 'SG',
-  'quote': '• 2 • x •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • A • '
-           'l • l • - • S • t • a • r •   • • •   • H • i • s • t • o • r • i • c •   • 1 • 3 •   • P • o • i • n • t '
-           '• s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • s •   • C • o • m • e • b • a • c • k •',
+  'quote': '2xScoringChampion• • •   7x• A • '
+           'l • l • - Star• • •   Historic13Point '
+           '• s •   in33SecondsComeback •',
   'sec_pos': 'SF',
   'stats': {'3pt': 98, 'ath': 97, 'clu': 99, 'def': 91, 'ins': 97, 'ply': 94},
   'team': 'HOU',
-  'theme': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • s •',
+  'theme': '13Pointsin33Seconds •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Post Lock', 'HOF Anchor', 'HOF Rebound Chaser', 'HOF Dropstepper'],
   'id': 'go-duncan-98',
@@ -11071,14 +11071,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tim Duncan',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • T • h • e •   • G • r • e • a • t • e '
-           '• s • t •   • P • o • w • e • r •   • F • o • r • w • a • r • d •   • o • f •   • A • l • l •   • T • i • '
+  'quote': '5xNBAChampion• • •   3xFinal'
+           's •   MVP• • •   2xMVP• • •   TheGreate '
+           'stPowerForwardofAllTi'
            'm • e •',
   'sec_pos': 'C',
   'stats': {'3pt': 65, 'ath': 89, 'clu': 97, 'def': 99, 'ins': 98, 'ply': 86},
   'team': 'SAS',
-  'theme': '• T • h • e •   • B • i • g •   • F • u • n • d • a • m • e • n • t • a • l •',
+  'theme': 'TheBigFundamental •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Dimer', 'HOF Needle Threader', 'HOF Catch & Shoot', 'HOF Handles For Days'],
   'id': 'go-stevenash-98',
@@ -11087,13 +11087,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Steve Nash',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 2 • x •   • R • e • g • u • l • a • r •   • S • e • a • s • o • n •   • M • V • P •   • • •   • 8 • x '
-           '•   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • N • B • A •   • A • s • s • i • s • t • s '
-           '•   • L • e • a • d • e • r •   • • •   • 5 • 0 • - • 4 • 0 • - • 9 • 0 •   • M • a • s • t • e • r •',
+  'quote': '2xRegularSeasonMVP• • •   8x '
+           '•   All- Star• • •   5xNBAAssists '
+           '•   Leader• • •   50- 40- 90Master •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 90, 'clu': 96, 'def': 78, 'ins': 84, 'ply': 99},
   'team': 'PHX',
-  'theme': '• 7 •   • S • e • c • o • n • d • s •   • o • r •   • L • e • s • s •   • M • V • P •',
+  'theme': '• 7 •   SecondsorLessMVP •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Glove', 'HOF Interceptor', 'HOF Dimer'],
   'id': 'go-scottiepippen-98',
@@ -11102,13 +11102,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Scottie Pippen',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • A • l • l • - • S • '
-           't • a • r •   • • •   • 8 • x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • F • i • r • s '
-           '• t •   • T • e • a • m •   • A • n • c • h • o • r •',
+  'quote': '6xNBAChampion• • •   7xAll- • S • '
+           't ar• • •   8xAll- DefensiveFirs '
+           '• t •   TeamAnchor •',
   'sec_pos': 'SG',
   'stats': {'3pt': 93, 'ath': 97, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 97},
   'team': 'CHI',
-  'theme': '• 6 • x •   • C • h • a • m • p • i • o • n •   • L • o • c • k • d • o • w • n •',
+  'theme': '6xChampionLockdown •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-paulgeorge-98',
@@ -11117,15 +11117,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Paul George',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 9 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 3 • – • 2 • 0 • 1 • 4 • ; •   • 2 • 0 • 1 '
-           '• 6 • – • 2 • 0 • 1 • 9 • ; •   • 2 • 0 • 2 • 1 • ; •   • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 4 • ) •   • • '
-           '•   • E • r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   9x• N • '
+           'B • A •   All- Star• ( 2013– 2014; •   201 '
+           '• 6 • – 2019; •   2021; •   2023– 2024) • • '
+           '•   Era- DefiningSuperstar •',
   'sec_pos': 'PG',
   'stats': {'3pt': 77, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 89},
   'team': 'DEN',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 9xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-patrickewing-98',
@@ -11134,15 +11134,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Patrick Ewing',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 1 • 1 • x •   • '
-           'N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 8 • 6 • ; •   • 1 • 9 • 8 • 8 • – • 1 • 9 '
-           '• 9 • 7 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • '
+  'quote': 'HallofFameLegend• • •   11x• '
+           'N BAAll- Star• ( 1986; •   1988– 19 '
+           '97) • • •   Era- DefiningSuperst'
            'a • r •',
   'sec_pos': 'SG',
   'stats': {'3pt': 78, 'ath': 99, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 90},
   'team': 'CHA',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 1 • 1 • x •   • A • '
-           'l • l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 11x• A • '
+           'l • l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Dimer', 'HOF Triple Threat', 'HOF Floor General', 'HOF Break Starter'],
   'id': 'go-oscarrobertson-98',
@@ -11151,13 +11151,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Oscar Robertson',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 1 • 9 • 7 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 6 • 4 •   • M • '
-           'V • P •   • • •   • F • i • r • s • t •   • P • l • a • y • e • r •   • t • o •   • A • v • e • r • a • g '
-           '• e •   • a •   • T • r • i • p • l • e • - • D • o • u • b • l • e •',
+  'quote': '1971NBAChampion• • •   1964• M • '
+           'V • P • • •   FirstPlayertoAverag '
+           '• e • a •   Triple- Double •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 99, 'clu': 98, 'def': 92, 'ins': 93, 'ply': 98},
   'team': 'MIL',
-  'theme': '• T • h • e •   • B • i • g •   • O •   • T • r • i • p • l • e • - • D • o • u • b • l • e •',
+  'theme': 'TheBig• O •   Triple- Double •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Needle Threader', 'HOF Touch Passer', 'HOF Post Playmaker', 'HOF Masher'],
   'id': 'go-jokic-98',
@@ -11166,13 +11166,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Nikola Jokic',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • G • r • e • a • t • e • s • t •   • P • '
-           'a • s • s • i • n • g •   • B • i • g •   • M • a • n •   • i • n •   • H • i • s • t • o • r • y •',
+  'quote': '2023NBAChampion• & •   Finals '
+           '•   MVP• • •   3xMVP• • •   Greatest• P • '
+           'a ssingBigManinHistory •',
   'sec_pos': 'PF',
   'stats': {'3pt': 90, 'ath': 82, 'clu': 98, 'def': 85, 'ins': 98, 'ply': 99},
   'team': 'DEN',
-  'theme': '• P • o • i • n • t •   • C • e • n • t • e • r •   • G • e • n • i • u • s •',
+  'theme': 'PointCenterGenius •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Needle Threader', 'HOF Touch Passer', 'HOF Post Playmaker', 'HOF Masher'],
   'id': 'go-nikolajokic-98',
@@ -11181,13 +11181,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Nikola Jokic',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • H • i • s • t • o • r • i • c •   • T • '
-           'r • i • p • l • e • - • D • o • u • b • l • e •   • M • a • c • h • i • n • e •',
+  'quote': '2023NBAChampion• & •   Finals '
+           '•   MVP• • •   3xMVP• • •   Historic• T • '
+           'r iple- DoubleMachine •',
   'sec_pos': 'PF',
   'stats': {'3pt': 91, 'ath': 83, 'clu': 98, 'def': 86, 'ins': 98, 'ply': 99},
   'team': 'DEN',
-  'theme': '• 3 • x •   • M • V • P •   • P • o • i • n • t •   • C • e • n • t • e • r •',
+  'theme': '3xMVPPointCenter •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Rebound Chaser', 'HOF Boxout Beast', 'HOF Putback Boss', 'HOF Dropstepper'],
   'id': 'go-mosesmalone-98',
@@ -11196,13 +11196,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Moses Malone',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 1 • 9 • 8 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • 1 • 2 • x •   • A • l • l • - • S • t • '
+  'quote': '1983NBAChampion• & •   Finals '
+           '•   MVP• • •   3xMVP• • •   12xAll- St'
            'a • r •',
   'sec_pos': 'PF',
   'stats': {'3pt': 73, 'ath': 99, 'clu': 95, 'def': 99, 'ins': 99, 'ply': 91},
   'team': 'PHI',
-  'theme': '• C • h • a • i • r • m • a • n •   • o • f •   • t • h • e •   • B • o • a • r • d • s •',
+  'theme': 'ChairmanoftheBoards •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Stepback Maestro', 'HOF Dimer', 'HOF Space Creator', 'HOF Ankle Breaker'],
   'id': 'go-luka-98',
@@ -11211,14 +11211,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Luka Doncic',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 5 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • S • c • '
-           'o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • M • a • s • t • e • r •   • o • f •   '
-           '• t • h • e •   • U • n • s • t • o • p • p • a • b • l • e •   • S • t • e • p • - • B • a • c • k •   • '
-           'T • h • r • e • e •',
+  'quote': '5xAll- NBAFirstTeam• • •   Sc'
+           'o ringChampion• • •   Masterof'
+           'theUnstoppableStep- Back• '
+           'T hree •',
   'sec_pos': 'SG',
   'stats': {'3pt': 94, 'ath': 88, 'clu': 98, 'def': 84, 'ins': 96, 'ply': 99},
   'team': 'DAL',
-  'theme': '• T • r • i • p • l • e •   • D • o • u • b • l • e •   • K • i • n • g •',
+  'theme': 'TripleDoubleKing •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Stepback Maestro', 'HOF Dimer', 'HOF Space Creator', 'HOF Ankle Breaker'],
   'id': 'go-lukadoncic-98',
@@ -11227,13 +11227,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Luka Doncic',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 5 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • S • c • '
-           'o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • M • a • s • t • e • r •   • o • f •   '
-           '• S • t • e • p • - • B • a • c • k •   • D • a • g • g • e • r • s •',
+  'quote': '5xAll- NBAFirstTeam• • •   Sc'
+           'o ringChampion• • •   Masterof'
+           'Step- BackDaggers •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 89, 'clu': 99, 'def': 84, 'ins': 97, 'ply': 99},
   'team': 'DAL',
-  'theme': '• 6 • 0 • - • P • t •   • T • r • i • p • l • e • - • D • o • u • b • l • e •   • K • i • n • g •',
+  'theme': '60- PtTriple- DoubleKing •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-kyrieirving-98',
@@ -11242,15 +11242,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kyrie Irving',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 9 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 3 • – • 2 • 0 • 1 • 5 • ; •   • 2 • 0 • 1 '
-           '• 7 • – • 2 • 0 • 1 • 9 • ; •   • 2 • 0 • 2 • 1 • ; •   • 2 • 0 • 2 • 3 • ; •   • 2 • 0 • 2 • 5 • ) •   • '
-           '• •   • E • r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   9x• N • '
+           'B • A •   All- Star• ( 2013– 2015; •   201 '
+           '• 7 • – 2019; •   2021; •   2023; •   2025) • '
+           '• •   Era- DefiningSuperstar •',
   'sec_pos': 'PG',
   'stats': {'3pt': 86, 'ath': 96, 'clu': 94, 'def': 97, 'ins': 99, 'ply': 89},
   'team': 'DAL',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 9xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Post Lock', 'HOF Rebound Chaser', 'HOF Clamps'],
   'id': 'go-kevingarnett-98',
@@ -11259,13 +11259,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kevin Garnett',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 0 • 8 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • 4 •   • M • '
-           'V • P •   • • •   • 2 • 0 • 0 • 8 •   • D • P • O • Y •   • • •   • 1 • 5 • x •   • A • l • l • - • S • t '
-           '• a • r •',
+  'quote': '2008NBAChampion• • •   2004• M • '
+           'V • P • • •   2008DPOY• • •   15xAll- St '
+           'ar •',
   'sec_pos': 'C',
   'stats': {'3pt': 85, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 94},
   'team': 'BOS',
-  'theme': '• T • h • e •   • B • i • g •   • T • i • c • k • e • t •',
+  'theme': 'TheBigTicket •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Guard Up', 'HOF Deadeye', 'HOF Green Machine', 'HOF Blinders'],
   'id': 'go-kevindurant-98',
@@ -11274,13 +11274,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kevin Durant',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s •   • M • '
-           'V • P •   • • •   • 2 • 0 • 1 • 4 •   • M • V • P •   • • •   • 1 • 6 • x •   • A • l • l • - • S • t • a '
+  'quote': '2xNBAChampion• & •   Finals• M • '
+           'V • P • • •   2014MVP• • •   16xAll- Sta '
            '• r •',
   'sec_pos': 'PF',
   'stats': {'3pt': 98, 'ath': 96, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 92},
   'team': 'PHX',
-  'theme': '• S • l • i • m •   • R • e • a • p • e • r •   • 3 • - • L • e • v • e • l •',
+  'theme': 'SlimReaper• 3 • - Level •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Backdown Punisher', 'HOF Dropstepper', 'HOF Post Lock', 'HOF Rebound Chaser'],
   'id': 'go-karlmalone-98',
@@ -11289,13 +11289,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Karl Malone',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• 2 • x •   • M • V • P •   • • •   • 1 • 4 • x •   • A • l • l • - • S • t • a • r •   • • •   • O • v • '
-           'e • r •   • 3 • 6 • , • 0 • 0 • 0 •   • C • a • r • e • e • r •   • P • o • i • n • t • s •   • • •   • 1 '
-           '• 1 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •',
+  'quote': '2xMVP• • •   14xAll- Star• • •   Ov'
+           'e • r •   36, 000CareerPoints• • • 1 '
+           '1xAll- NBAFirstTeam •',
   'sec_pos': 'C',
   'stats': {'3pt': 83, 'ath': 99, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 91},
   'team': 'UTA',
-  'theme': '• T • h • e •   • M • a • i • l • m • a • n •   • P • i • c • k •   • & •   • R • o • l • l •',
+  'theme': 'TheMailmanPick• & •   Roll •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Posterizer', 'HOF Limitless Takeoff', 'HOF Acrobat', 'HOF Aerial Wizard'],
   'id': 'go-juliuserving-98',
@@ -11304,13 +11304,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Julius Erving',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 1 • 9 • 8 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 8 • 1 •   • M • '
-           'V • P •   • • •   • 1 • 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • • •   • C • r • a '
-           '• d • l • e •   • D • u • n • k •   • L • e • g • e • n • d •',
+  'quote': '1983NBAChampion• • •   1981• M • '
+           'V • P • • •   11xNBAAll- Star• • •   Cra '
+           'dleDunkLegend •',
   'sec_pos': 'SG',
   'stats': {'3pt': 96, 'ath': 96, 'clu': 95, 'def': 99, 'ins': 99, 'ply': 97},
   'team': 'PHI',
-  'theme': '• D • r • . •   • J •   • A • b • o • v • e •   • t • h • e •   • R • i • m •',
+  'theme': 'Dr. • J •   AbovetheRim •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Needle Threader', 'HOF Dimer', 'HOF Glove', 'HOF Floor General'],
   'id': 'go-johnstockton-98',
@@ -11319,13 +11319,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'John Stockton',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• A • l • l • - • T • i • m • e •   • N • B • A •   • A • s • s • i • s • t • s •   • & •   • S • t • e • '
-           'a • l • s •   • L • e • a • d • e • r •   • • •   • 1 • 0 • x •   • A • l • l • - • S • t • a • r •   • • '
-           '•   • F • l • o • o • r •   • G • e • n • e • r • a • l •   • L • e • g • e • n • d •',
+  'quote': 'All- TimeNBAAssists• & •   Ste'
+           'a lsLeader• • •   10xAll- Star• • '
+           '•   FloorGeneralLegend •',
   'sec_pos': 'SG',
   'stats': {'3pt': 90, 'ath': 91, 'clu': 95, 'def': 96, 'ins': 86, 'ply': 99},
   'team': 'UTA',
-  'theme': '• A • l • l • - • T • i • m • e •   • A • s • s • i • s • t •   • K • i • n • g •',
+  'theme': 'All- TimeAssistKing •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Post Spin Technician', 'HOF Dream Shake', 'HOF Anchor', 'HOF Backdown Punisher'],
   'id': 'go-embiid-98',
@@ -11334,13 +11334,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Joel Embiid',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • M • V • P •   • • •   • 2 • x •   • S • c • o • r • i • n • g •   • '
-           'C • h • a • m • p • i • o • n •   • • •   • 7 • 0 • - • P • o • i • n • t •   • G • a • m • e •   • L • e '
-           '• g • e • n • d •',
+  'quote': '2023NBAMVP• • •   2xScoring• '
+           'C hampion• • •   70- PointGameLe '
+           'gend •',
   'sec_pos': 'PF',
   'stats': {'3pt': 88, 'ath': 90, 'clu': 96, 'def': 96, 'ins': 99, 'ply': 84},
   'team': 'PHI',
-  'theme': '• P • r • o • c • e • s • s •   • M • V • P •',
+  'theme': 'ProcessMVP •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Post Spin Technician', 'HOF Dream Shake', 'HOF Anchor', 'HOF Backdown Punisher'],
   'id': 'go-joelembiid-98',
@@ -11349,13 +11349,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Joel Embiid',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • M • V • P •   • • •   • 2 • x •   • S • c • o • r • i • n • g •   • '
-           'C • h • a • m • p • i • o • n •   • • •   • 7 • 0 • - • P • o • i • n • t •   • G • a • m • e •   • L • e '
-           '• g • e • n • d •',
+  'quote': '2023NBAMVP• • •   2xScoring• '
+           'C hampion• • •   70- PointGameLe '
+           'gend •',
   'sec_pos': 'PF',
   'stats': {'3pt': 73, 'ath': 96, 'clu': 95, 'def': 99, 'ins': 99, 'ply': 85},
   'team': 'PHI',
-  'theme': '• 7 • 0 • - • P • t •   • M • V • P •   • P • r • o • c • e • s • s •',
+  'theme': '70- PtMVPProcess •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clutch Shooter', 'HOF Deadeye', 'HOF Dimer', 'HOF Middy Magician'],
   'id': 'go-jerrywest-98',
@@ -11364,13 +11364,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jerry West',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 1 • 9 • 7 • 2 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 6 • 9 •   • F • '
-           'i • n • a • l • s •   • M • V • P •   • • •   • 1 • 4 • x •   • A • l • l • - • S • t • a • r •   • • •   '
-           '• T • h • e •   • I • c • o • n • i • c •   • N • B • A •   • S • i • l • h • o • u • e • t • t • e •',
+  'quote': '1972NBAChampion• • •   1969• F • '
+           'i nalsMVP• • •   14xAll- Star• • •   '
+           'TheIconicNBASilhouette •',
   'sec_pos': 'SG',
   'stats': {'3pt': 96, 'ath': 99, 'clu': 97, 'def': 95, 'ins': 95, 'ply': 99},
   'team': 'LAL',
-  'theme': '• T • h • e •   • N • B • A •   • L • o • g • o •',
+  'theme': 'TheNBALogo •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Agent 3', 'HOF Catch & Shoot', 'HOF Posterizer'],
   'id': 'go-tatum-98',
@@ -11379,13 +11379,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jayson Tatum',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • A • l • l • '
-           '- • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • E • a • s • t • e • r • n •   • C '
-           '• o • n • f • e • r • e • n • c • e •   • F • i • n • a • l • s •   • M • V • P •',
+  'quote': '2024NBAChampion• • •   3xAll'
+           '- NBAFirstTeam• • •   Eastern• C '
+           'onferenceFinalsMVP •',
   'sec_pos': 'PF',
   'stats': {'3pt': 95, 'ath': 94, 'clu': 96, 'def': 95, 'ins': 95, 'ply': 90},
   'team': 'BOS',
-  'theme': '• F • i • n • a • l • s •   • C • h • a • m • p • i • o • n •',
+  'theme': 'FinalsChampion •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Agent 3', 'HOF Catch & Shoot', 'HOF Posterizer'],
   'id': 'go-jaysontatum-98',
@@ -11394,13 +11394,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jayson Tatum',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • A • l • l • '
-           '- • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • E • a • s • t • e • r • n •   • C '
-           '• o • n • f • e • r • e • n • c • e •   • F • i • n • a • l • s •   • M • V • P •',
+  'quote': '2024NBAChampion• • •   3xAll'
+           '- NBAFirstTeam• • •   Eastern• C '
+           'onferenceFinalsMVP •',
   'sec_pos': 'PF',
   'stats': {'3pt': 99, 'ath': 99, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 98},
   'team': 'BOS',
-  'theme': '• 2 • 0 • 2 • 4 •   • C • h • a • m • p • i • o • n •   • W • i • n • g •',
+  'theme': '2024ChampionWing •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Floor General', 'HOF Break Starter', 'HOF Glove', 'HOF Needle Threader'],
   'id': 'go-jasonkidd-98',
@@ -11409,13 +11409,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jason Kidd',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 0 • x •   • A • l • '
-           'l • - • S • t • a • r •   • • •   • 2 • n • d •   • A • l • l • - • T • i • m • e •   • i • n •   • N • B '
-           '• A •   • A • s • s • i • s • t • s •   • & •   • S • t • e • a • l • s •',
+  'quote': '2011NBAChampion• • •   10xAl'
+           'l • - Star• • •   2ndAll- TimeinNB '
+           '• A •   Assists• & •   Steals •',
   'sec_pos': 'SG',
   'stats': {'3pt': 84, 'ath': 93, 'clu': 94, 'def': 97, 'ins': 86, 'ply': 98},
   'team': 'NJN',
-  'theme': '• T • r • i • p • l • e • - • D • o • u • b • l • e •   • G • e • n • e • r • a • l •',
+  'theme': 'Triple- DoubleGeneral •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Quick First Step', 'HOF Handles For Days', 'HOF Dimer', 'HOF Clutch Shooter'],
   'id': 'go-isiahthomas-98',
@@ -11424,13 +11424,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Isiah Thomas',
   'ovr': 98,
   'pos': 'PG',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 9 • 0 •   • F • i • n • '
-           'a • l • s •   • M • V • P •   • • •   • 1 • 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 5 '
-           '• - • P • t •   • S • p • r • a • i • n • e • d •   • A • n • k • l • e •   • Q • u • a • r • t • e • r •',
+  'quote': '2xNBAChampion• • •   1990Fin'
+           'a lsMVP• • •   12xAll- Star• • •   25 '
+           '• - PtSprainedAnkleQuarter •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 97, 'clu': 93, 'def': 95, 'ins': 93, 'ply': 99},
   'team': 'DET',
-  'theme': '• B • a • d •   • B • o • y • s •   • G • e • n • e • r • a • l •',
+  'theme': 'BadBoysGeneral •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Posterizer', 'HOF Bully', 'HOF Anchor', 'HOF Chase Down Artist'],
   'id': 'go-giannisantetokounmpo-98',
@@ -11439,12 +11439,12 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Giannis Antetokounmpo',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • 2 • 0 • 2 • 0 •   • D • P • O • Y •',
+  'quote': '2021NBAChampion• & •   Finals '
+           '•   MVP• • •   2xMVP• • •   2020DPOY •',
   'sec_pos': 'C',
   'stats': {'3pt': 86, 'ath': 99, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 89},
   'team': 'MIL',
-  'theme': '• G • r • e • e • k •   • F • r • e • a • k •   • D • o • m • i • n • a • n • c • e •',
+  'theme': 'GreekFreakDominance •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Acrobat', 'HOF Aerial Wizard', 'HOF Middy Magician', 'HOF Fearless Finisher'],
   'id': 'go-elginbaylor-98',
@@ -11453,13 +11453,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Elgin Baylor',
   'ovr': 98,
   'pos': 'SF',
-  'quote': '• 1 • 1 • x •   • A • l • l • - • S • t • a • r •   • • •   • 1 • 0 • x •   • A • l • l • - • N • B • A '
-           '•   • F • i • r • s • t •   • T • e • a • m •   • • •   • 6 • 1 • - • P • o • i • n • t •   • N • B • A '
-           '•   • F • i • n • a • l • s •   • G • a • m • e •   • R • e • c • o • r • d •',
+  'quote': '11xAll- Star• • •   10xAll- NBA '
+           '•   FirstTeam• • •   61- PointNBA '
+           '•   FinalsGameRecord •',
   'sec_pos': 'PF',
   'stats': {'3pt': 98, 'ath': 99, 'clu': 99, 'def': 98, 'ins': 98, 'ply': 95},
   'team': 'LAL',
-  'theme': '• A • c • r • o • b • a • t • i • c •   • P • i • o • n • e • e • r •',
+  'theme': 'AcrobaticPioneer •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Acrobat', 'HOF Fearless Finisher', 'HOF Clamps', 'HOF Fast Break Starter'],
   'id': 'go-dwyanewade-98',
@@ -11468,13 +11468,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Dwyane Wade',
   'ovr': 98,
   'pos': 'SG',
-  'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • 6 •   • F • i • n • '
-           'a • l • s •   • M • V • P •   • • •   • 1 • 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • M • i '
-           '• a • m • i •   • H • e • a • t •   • I • c • o • n •',
+  'quote': '3xNBAChampion• • •   2006Fin'
+           'a lsMVP• • •   13xAll- Star• • •   Mi '
+           'amiHeatIcon •',
   'sec_pos': 'PG',
   'stats': {'3pt': 98, 'ath': 99, 'clu': 98, 'def': 93, 'ins': 99, 'ply': 95},
   'team': 'MIA',
-  'theme': '• F • l • a • s • h •   • F • i • n • a • l • s •   • M • V • P •',
+  'theme': 'FlashFinalsMVP •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-dominiquewilkins-98',
@@ -11483,14 +11483,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Dominique Wilkins',
   'ovr': 98,
   'pos': 'SG',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 9 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 8 • 6 • – • 1 • 9 • 9 • 4 • ) •   • • •   • E '
-           '• r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   9x• N • '
+           'B • A •   All- Star• ( 1986– 1994) • • • E '
+           'ra- DefiningSuperstar •',
   'sec_pos': 'C',
   'stats': {'3pt': 99, 'ath': 99, 'clu': 98, 'def': 95, 'ins': 99, 'ply': 98},
   'team': 'ATL',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 9xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Deadeye', 'HOF Catch & Shoot', 'HOF Middy Magician', 'HOF Clutch Shooter'],
   'id': 'go-dirknowitzki-98',
@@ -11499,13 +11499,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Dirk Nowitzki',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 2 • 0 • 0 • 7 •   • M • V • P •   • • •   • 1 • 4 • x •   • A • l • l • - • '
-           'S • t • a • r •   • • •   • 3 • 1 • K •   • P • o • i • n • t • s •',
+  'quote': '2011NBAChampion• & •   Finals '
+           '•   MVP• • •   2007MVP• • •   14xAll- • '
+           'S tar• • •   31KPoints •',
   'sec_pos': 'C',
   'stats': {'3pt': 86, 'ath': 99, 'clu': 97, 'def': 99, 'ins': 98, 'ply': 92},
   'team': 'DAL',
-  'theme': '• O • n • e • - • L • e • g •   • F • a • d • e • a • w • a • y •   • R • i • n • g •',
+  'theme': 'One- LegFadeawayRing •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Rim Protector', 'HOF Post Lock', 'HOF Chase Down Artist'],
   'id': 'go-davidrobinson-98',
@@ -11514,13 +11514,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'David Robinson',
   'ovr': 98,
   'pos': 'C',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 9 • 5 •   • M • V • P '
-           '•   • • •   • 1 • 9 • 9 • 2 •   • D • P • O • Y •   • • •   • Q • u • a • d • r • u • p • l • e • - • D • '
-           'o • u • b • l • e •   • L • e • g • e • n • d •',
+  'quote': '2xNBAChampion• • •   1995MVP '
+           '• • •   1992DPOY• • •   Quadruple- • D • '
+           'o ubleLegend •',
   'sec_pos': 'PF',
   'stats': {'3pt': 73, 'ath': 99, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 85},
   'team': 'SAS',
-  'theme': '• T • h • e •   • A • d • m • i • r • a • l •   • Q • u • a • d • r • u • p • l • e • - • D • o • u • b • '
+  'theme': 'TheAdmiralQuadruple- Doub'
            'l • e •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
@@ -11530,15 +11530,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Damian Lillard',
   'ovr': 98,
   'pos': 'SG',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 9 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 4 • – • 2 • 0 • 1 • 5 • ; •   • 2 • 0 • 1 '
-           '• 8 • – • 2 • 0 • 2 • 1 • ; •   • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 5 • ) •   • • •   • E • r • a • - • D • '
-           'e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   9x• N • '
+           'B • A •   All- Star• ( 2014– 2015; •   201 '
+           '• 8 • – 2021; •   2023– 2025) • • •   Era- • D • '
+           'e finingSuperstar •',
   'sec_pos': 'C',
   'stats': {'3pt': 96, 'ath': 93, 'clu': 98, 'def': 82, 'ins': 92, 'ply': 93},
   'team': 'MIL',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 9xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-clydedrexler-98',
@@ -11547,15 +11547,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Clyde Drexler',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 1 • 0 • x •   • '
-           'N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 8 • 6 • ; •   • 1 • 9 • 8 • 8 • – • 1 • 9 '
-           '• 9 • 4 • ; •   • 1 • 9 • 9 • 6 • – • 1 • 9 • 9 • 7 • ) •   • • •   • E • r • a • - • D • e • f • i • n • '
-           'i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   10x• '
+           'N BAAll- Star• ( 1986; •   1988– 19 '
+           '94; •   1996– 1997) • • •   Era- Defin'
+           'i ngSuperstar •',
   'sec_pos': 'SG',
   'stats': {'3pt': 84, 'ath': 98, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 88},
   'team': 'GSW',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 1 • 0 • x •   • A • '
-           'l • l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 10x• A • '
+           'l • l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Bully', 'HOF Rebound Chaser', 'HOF Posterizer', 'HOF Fast Twitch'],
   'id': 'go-charlesbarkley-98',
@@ -11564,13 +11564,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Charles Barkley',
   'ovr': 98,
   'pos': 'PF',
-  'quote': '• 1 • 9 • 9 • 3 •   • M • V • P •   • • •   • 1 • 1 • x •   • A • l • l • - • S • t • a • r •   • • •   • '
-           'U • n • s • t • o • p • p • a • b • l • e •   • P • o • w • e • r •   • F • o • r • w • a • r • d •   • F '
-           '• o • r • c • e •',
+  'quote': '1993MVP• • •   11xAll- Star• • • '
+           'U nstoppablePowerForward• F '
+           'orce •',
   'sec_pos': 'SF',
   'stats': {'3pt': 81, 'ath': 97, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 88},
   'team': 'PHX',
-  'theme': '• R • o • u • n • d •   • M • o • u • n • d •   • o • f •   • R • e • b • o • u • n • d •',
+  'theme': 'RoundMoundofRebound •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-willisreed-97',
@@ -11579,14 +11579,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Willis Reed',
   'ovr': 97,
   'pos': 'SG',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 7 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 6 • 5 • – • 1 • 9 • 7 • 1 • ) •   • • •   • E '
-           '• r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   7x• N • '
+           'B • A •   All- Star• ( 1965– 1971) • • • E '
+           'ra- DefiningSuperstar •',
   'sec_pos': 'SF',
   'stats': {'3pt': 97, 'ath': 99, 'clu': 99, 'def': 91, 'ins': 94, 'ply': 95},
   'team': 'WAS',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 7 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 7xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Posterizer', 'HOF Limitless Takeoff', 'HOF Aerial Wizard', 'HOF Acrobat'],
   'id': 'go-vincecarter-97',
@@ -11595,13 +11595,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Vince Carter',
   'ovr': 97,
   'pos': 'SG',
-  'quote': '• 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 0 • 0 •   • D • u • n • k •   • C • o • '
-           'n • t • e • s • t •   • G • O • A • T •   • • •   • 2 • 2 •   • N • B • A •   • S • e • a • s • o • n • s '
-           '•   • L • e • g • e • n • d •',
+  'quote': '8xAll- Star• • •   2000DunkCo'
+           'n testGOAT• • •   22NBASeasons '
+           '•   Legend •',
   'sec_pos': 'SF',
   'stats': {'3pt': 92, 'ath': 98, 'clu': 95, 'def': 87, 'ins': 98, 'ply': 90},
   'team': 'TOR',
-  'theme': '• H • a • l • f • - • M • a • n •   • H • a • l • f • - • A • m • a • z • i • n • g •',
+  'theme': 'Half- ManHalf- Amazing •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Giant Slayer', 'HOF Quick First Step', 'HOF Acrobat', 'HOF Middy Magician'],
   'id': 'go-tonyparker-97',
@@ -11610,13 +11610,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tony Parker',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • 7 •   • F • i • n • '
-           'a • l • s •   • M • V • P •   • • •   • 6 • x •   • A • l • l • - • S • t • a • r •   • • •   • T • e • a '
-           '• r • d • r • o • p •   • F • l • o • a • t • e • r •   • K • i • n • g •',
+  'quote': '4xNBAChampion• • •   2007Fin'
+           'a lsMVP• • •   6xAll- Star• • •   Tea '
+           'rdropFloaterKing •',
   'sec_pos': 'SG',
   'stats': {'3pt': 97, 'ath': 99, 'clu': 98, 'def': 95, 'ins': 90, 'ply': 96},
   'team': 'SAS',
-  'theme': '• 2 • 0 • 0 • 7 •   • F • i • n • a • l • s •   • M • V • P •   • T • e • a • r • d • r • o • p •',
+  'theme': '2007FinalsMVPTeardrop •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-timhardaway-97',
@@ -11625,15 +11625,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tim Hardaway',
   'ovr': 97,
   'pos': 'PF',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 5 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 9 • 1 • – • 1 • 9 • 9 • 3 • ; •   • 1 • 9 • 9 '
-           '• 7 • – • 1 • 9 • 9 • 8 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • '
-           'e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   5x• N • '
+           'B • A •   All- Star• ( 1991– 1993; •   199 '
+           '• 7 • – 1998) • • •   Era- DefiningSup'
+           'e rstar •',
   'sec_pos': 'PG',
   'stats': {'3pt': 83, 'ath': 98, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 90},
   'team': 'MIN',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 5 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 5xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['Gold Limitless Range', 'Gold Catch & Shoot', 'Gold Agent 3', 'Gold Clutch Shooter'],
   'id': 'go-curry-97',
@@ -11642,13 +11642,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Stephen Curry',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • - •   • 2 • x •   • M • V • P •   • - '
-           '•   • A • l • l • - • T • i • m • e •   • 3 • P • T •   • R • e • c • o • r • d •   • H • o • l • d • e • '
+  'quote': '4xNBAChampion• - •   2xMVP• - '
+           '•   All- Time3PTRecordHolde'
            'r •',
   'sec_pos': 'SG',
   'stats': {'3pt': 99, 'ath': 93, 'clu': 99, 'def': 82, 'ins': 84, 'ply': 96},
   'team': 'GSW',
-  'theme': '• G • r • e • a • t • e • s • t •   • S • h • o • o • t • e • r •   • E • v • e • r •',
+  'theme': 'GreatestShooterEver •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Fast Twitch', 'HOF Posterizer', 'HOF Break Starter', 'HOF Bully'],
   'id': 'go-russellwestbrook-97',
@@ -11657,13 +11657,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Russell Westbrook',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 1 • 7 •   • N • B • A •   • M • V • P •   • • •   • 9 • x •   • A • l • l • - • S • t • a • r '
-           '•   • • •   • A • l • l • - • T • i • m • e •   • N • B • A •   • T • r • i • p • l • e • - • D • o • u • '
-           'b • l • e •   • R • e • c • o • r • d •   • L • e • a • d • e • r •',
+  'quote': '2017NBAMVP• • •   9xAll- Star '
+           '• • •   All- TimeNBATriple- Dou'
+           'b leRecordLeader •',
   'sec_pos': 'SG',
   'stats': {'3pt': 98, 'ath': 99, 'clu': 97, 'def': 95, 'ins': 91, 'ply': 98},
   'team': 'OKC',
-  'theme': '• T • r • i • p • l • e • - • D • o • u • b • l • e •   • S • e • a • s • o • n •   • M • V • P •',
+  'theme': 'Triple- DoubleSeasonMVP •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-rickbarry-97',
@@ -11672,15 +11672,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Rick Barry',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 8 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 6 • 6 • – • 1 • 9 • 6 • 7 • ; •   • 1 • 9 • 7 '
-           '• 3 • – • 1 • 9 • 7 • 8 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • '
-           'e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   8x• N • '
+           'B • A •   All- Star• ( 1966– 1967; •   197 '
+           '• 3 • – 1978) • • •   Era- DefiningSup'
+           'e rstar •',
   'sec_pos': 'PF',
   'stats': {'3pt': 92, 'ath': 97, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 97},
   'team': 'ATL',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 8 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 8xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Limitless Range', 'HOF Catch & Shoot', 'HOF Clutch Shooter', 'HOF Deadeye'],
   'id': 'go-reggiemiller-97',
@@ -11689,13 +11689,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Reggie Miller',
   'ovr': 97,
   'pos': 'SG',
-  'quote': '• 5 • x •   • A • l • l • - • S • t • a • r •   • • •   • 3 • - • P • o • i • n • t •   • P • i • o • n • '
-           'e • e • r •   • • •   • L • e • g • e • n • d • a • r • y •   • M • S • G •   • P • l • a • y • o • f • f '
-           '•   • H • e • a • r • t • b • r • e • a • k • e • r •',
+  'quote': '5xAll- Star• • • 3 • - PointPion'
+           'e er• • •   LegendaryMSGPlayoff '
+           '•   Heartbreaker •',
   'sec_pos': 'SF',
   'stats': {'3pt': 96, 'ath': 89, 'clu': 98, 'def': 85, 'ins': 87, 'ply': 84},
   'team': 'IND',
-  'theme': '• 8 •   • P • o • i • n • t • s •   • i • n •   • 9 •   • S • e • c • o • n • d • s •',
+  'theme': '• 8 •   Pointsin• 9 •   Seconds •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Corner Specialist', 'HOF Catch & Shoot', 'HOF Limitless Range', 'HOF Clutch Shooter'],
   'id': 'go-rayallen-97',
@@ -11704,13 +11704,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Ray Allen',
   'ovr': 97,
   'pos': 'SG',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 0 • x •   • A • l • l • - • '
-           'S • t • a • r •   • • •   • L • e • g • e • n • d • a • r • y •   • 2 • 0 • 1 • 3 •   • F • i • n • a • l '
-           '• s •   • G • a • m • e •   • 6 •   • T • i • e •   • 3 •',
+  'quote': '2xNBAChampion• • •   10xAll- • '
+           'S tar• • •   Legendary2013Final '
+           '• s •   Game• 6 •   Tie• 3 •',
   'sec_pos': 'SF',
   'stats': {'3pt': 97, 'ath': 91, 'clu': 97, 'def': 86, 'ins': 88, 'ply': 87},
   'team': 'MIA',
-  'theme': '• G • a • m • e •   • 6 •   • C • o • r • n • e • r •   • M • i • r • a • c • l • e •',
+  'theme': 'Game• 6 •   CornerMiracle •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-petemaravich-97',
@@ -11719,15 +11719,15 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Pete Maravich',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 5 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 7 • 3 • – • 1 • 9 • 7 • 4 • ; •   • 1 • 9 • 7 '
-           '• 7 • – • 1 • 9 • 7 • 9 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • '
-           'e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   5x• N • '
+           'B • A •   All- Star• ( 1973– 1974; •   197 '
+           '• 7 • – 1979) • • •   Era- DefiningSup'
+           'e rstar •',
   'sec_pos': 'SG',
   'stats': {'3pt': 92, 'ath': 99, 'clu': 94, 'def': 95, 'ins': 99, 'ply': 96},
   'team': 'GSW',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 5 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 5xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clutch Shooter', 'HOF Middy Magician', 'HOF Deadeye', 'HOF Difficult Shots'],
   'id': 'go-paulpierce-97',
@@ -11736,13 +11736,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Paul Pierce',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 0 • 8 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 1 • 0 • x •   • A • l • l • - • S • t • a • r •   • • •   • C • o • l • d • '
-           '- • B • l • o • o • d • e • d •   • C • l • u • t • c • h •   • S • c • o • r • e • r •',
+  'quote': '2008NBAChampion• & •   Finals '
+           '•   MVP• • •   10xAll- Star• • •   Cold'
+           '- BloodedClutchScorer •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 97, 'clu': 98, 'def': 95, 'ins': 97, 'ply': 92},
   'team': 'BOS',
-  'theme': '• T • h • e •   • T • r • u • t • h •   • F • i • n • a • l • s •   • M • V • P •',
+  'theme': 'TheTruthFinalsMVP •',
   'tier': 'galaxy_opal'},
  {'badges': ['Gold Dimer', 'Gold Post Spin', 'Gold Dream Shake', 'Gold Facilitator'],
   'id': 'go-jokic-97',
@@ -11751,13 +11751,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Nikola Jokic',
   'ovr': 97,
   'pos': 'C',
-  'quote': '• 3 • x •   • N • B • A •   • M • V • P •   • - •   • 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • '
-           'p • i • o • n •   • - •   • G • r • e • a • t • e • s • t •   • P • a • s • s • i • n • g •   • B • i • g '
-           '•   • o • f •   • A • l • l •   • T • i • m • e •',
+  'quote': '3xNBAMVP• - •   2024NBACham'
+           'p ion• - •   GreatestPassingBig '
+           '•   ofAllTime •',
   'sec_pos': 'PF',
   'stats': {'3pt': 78, 'ath': 82, 'clu': 96, 'def': 86, 'ins': 97, 'ply': 99},
   'team': 'DEN',
-  'theme': '• 3 • x •   • M • V • P •   • M • a • e • s • t • r • o •',
+  'theme': '3xMVPMaestro •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Glove', 'HOF Clamps', 'HOF Interceptor', 'HOF Middy Magician'],
   'id': 'go-kawhi-97',
@@ -11766,13 +11766,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kawhi Leonard',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • x •   • D • P • O • Y •   • • •   • T • h • e •   • B • u • z • z • e '
-           '• r • - • B • e • a • t • i • n • g •   • C • o • r • n • e • r •   • J • u • m • p • e • r •',
+  'quote': '2xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   2xDPOY• • •   TheBuzze '
+           '• r • - BeatingCornerJumper •',
   'sec_pos': 'SG',
   'stats': {'3pt': 92, 'ath': 92, 'clu': 99, 'def': 99, 'ins': 94, 'ply': 85},
   'team': 'TOR',
-  'theme': '• T • h • e •   • C • l • a • w •   • L • o • c • k •',
+  'theme': 'TheClawLock •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Glove', 'HOF Clamps', 'HOF Interceptor', 'HOF Middy Magician'],
   'id': 'go-kawhileonard-97',
@@ -11781,13 +11781,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kawhi Leonard',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 2 • x •   • D • P • O • Y •   • • •   • T • h • e •   • B • u • z • z • e '
-           '• r • - • B • e • a • t • i • n • g •   • C • o • r • n • e • r •   • J • u • m • p • e • r •',
+  'quote': '2xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   2xDPOY• • •   TheBuzze '
+           '• r • - BeatingCornerJumper •',
   'sec_pos': 'SG',
   'stats': {'3pt': 96, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 98},
   'team': 'LAC',
-  'theme': '• T • h • e •   • C • l • a • w •   • L • o • c • k • d • o • w • n •',
+  'theme': 'TheClawLockdown •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clutch Performer', 'HOF Menace', 'HOF Fearless Finisher', 'HOF Clamps'],
   'id': 'go-butler-97',
@@ -11796,14 +11796,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jimmy Butler',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • F • i • n • a • l • s •   • L • e • a • d • e • r •   • • •   • 5 • x •   • '
-           'A • l • l • - • D • e • f • e • n • s • i • v • e •   • • •   • T • h • e •   • C • o • l • d • e • s • t '
-           '•   • P • l • a • y • o • f • f •   • E • n • f • o • r • c • e • r •   • i • n •   • t • h • e •   • E • '
-           'a • s • t •',
+  'quote': '2xNBAFinalsLeader• • •   5x• '
+           'A ll- Defensive• • •   TheColdest '
+           '•   PlayoffEnforcerinthe• E • '
+           'a st •',
   'sec_pos': 'SG',
   'stats': {'3pt': 85, 'ath': 92, 'clu': 99, 'def': 98, 'ins': 96, 'ply': 90},
   'team': 'MIA',
-  'theme': '• P • l • a • y • o • f • f •   • J • i • m • m • y •',
+  'theme': 'PlayoffJimmy •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clutch Performer', 'HOF Menace', 'HOF Fearless Finisher', 'HOF Clamps'],
   'id': 'go-jimmybutler-97',
@@ -11812,13 +11812,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jimmy Butler',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • F • i • n • a • l • s •   • L • e • a • d • e • r •   • • •   • 5 • x •   • '
-           'A • l • l • - • D • e • f • e • n • s • i • v • e •   • • •   • C • o • l • d • - • B • l • o • o • d • e '
-           '• d •   • P • l • a • y • o • f • f •   • E • n • f • o • r • c • e • r •',
+  'quote': '2xNBAFinalsLeader• • •   5x• '
+           'A ll- Defensive• • •   Cold- Bloode '
+           '• d •   PlayoffEnforcer •',
   'sec_pos': 'SG',
   'stats': {'3pt': 94, 'ath': 97, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 93},
   'team': 'MIA',
-  'theme': '• P • l • a • y • o • f • f •   • J • i • m • m • y •   • E • n • f • o • r • c • e • r •',
+  'theme': 'PlayoffJimmyEnforcer •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Stepback Maestro', 'HOF Space Creator', 'HOF Handles For Days', 'HOF Dimer'],
   'id': 'go-jamesharden-97',
@@ -11827,13 +11827,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'James Harden',
   'ovr': 97,
   'pos': 'SG',
-  'quote': '• 2 • 0 • 1 • 8 •   • N • B • A •   • M • V • P •   • • •   • 3 • x •   • S • c • o • r • i • n • g •   • '
-           'C • h • a • m • p • i • o • n •   • • •   • 1 • 0 • x •   • A • l • l • - • S • t • a • r •   • • •   • 6 '
-           '• 0 • - • P • t •   • T • r • i • p • l • e • - • D • o • u • b • l • e •',
+  'quote': '2018NBAMVP• • •   3xScoring• '
+           'C hampion• • •   10xAll- Star• • • 6 '
+           '• 0 • - PtTriple- Double •',
   'sec_pos': 'PG',
   'stats': {'3pt': 95, 'ath': 96, 'clu': 95, 'def': 93, 'ins': 96, 'ply': 93},
   'team': 'HOU',
-  'theme': '• T • h • e •   • S • t • e • p • b • a • c • k •   • M • V • P •',
+  'theme': 'TheStepbackMVP •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Quick First Step', 'HOF Dimer', 'HOF Acrobat', 'HOF Handles For Days'],
   'id': 'go-granthill-97',
@@ -11842,12 +11842,12 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Grant Hill',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• 7 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • l • l • - • N • B • A •   • • '
-           '•   • T • r • i • p • l • e • - • D • o • u • b • l • e •   • S • e • n • s • a • t • i • o • n •',
+  'quote': '7xAll- Star• • •   5xAll- NBA• • '
+           '•   Triple- DoubleSensation •',
   'sec_pos': 'PG',
   'stats': {'3pt': 96, 'ath': 99, 'clu': 99, 'def': 96, 'ins': 98, 'ply': 93},
   'team': 'DET',
-  'theme': '• P • o • i • n • t •   • F • o • r • w • a • r • d •   • P • h • e • n • o • m •',
+  'theme': 'PointForwardPhenom •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Glove', 'HOF Clamps', 'HOF Menace', 'HOF Interceptor'],
   'id': 'go-garypayton-97',
@@ -11856,13 +11856,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Gary Payton',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 0 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 9 • 6 •   • D • '
-           'P • O • Y •   • • •   • 9 • x •   • A • l • l • - • S • t • a • r •   • • •   • 9 • x •   • A • l • l • - '
-           '• D • e • f • e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •',
+  'quote': '2006NBAChampion• • •   1996• D • '
+           'P OY• • •   9xAll- Star• • •   9xAll- '
+           'DefensiveFirstTeam •',
   'sec_pos': 'SG',
   'stats': {'3pt': 98, 'ath': 96, 'clu': 93, 'def': 93, 'ins': 89, 'ply': 96},
   'team': 'SEA',
-  'theme': '• T • h • e •   • G • l • o • v • e •   • D • P • O • Y •   • G • u • a • r • d •',
+  'theme': 'TheGloveDPOYGuard •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-dwighthoward-97',
@@ -11871,14 +11871,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Dwight Howard',
   'ovr': 97,
   'pos': 'SG',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 8 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 0 • 7 • – • 2 • 0 • 1 • 4 • ) •   • • •   • E '
-           '• r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   8x• N • '
+           'B • A •   All- Star• ( 2007– 2014) • • • E '
+           'ra- DefiningSuperstar •',
   'sec_pos': 'PF',
   'stats': {'3pt': 99, 'ath': 99, 'clu': 99, 'def': 97, 'ins': 98, 'ply': 92},
   'team': 'BOS',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 8 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 8xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Deadeye', 'HOF Clutch Shooter'],
   'id': 'go-donovanmitchell-97',
@@ -11887,14 +11887,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Donovan Mitchell',
   'ovr': 97,
   'pos': 'C',
-  'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   • 7 • x •   • N • '
-           'B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 0 • – • 2 • 0 • 2 • 6 • ) •   • • •   • E '
-           '• r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+  'quote': 'HallofFameLegend• • •   7x• N • '
+           'B • A •   All- Star• ( 2020– 2026) • • • E '
+           'ra- DefiningSuperstar •',
   'sec_pos': 'PG',
   'stats': {'3pt': 75, 'ath': 99, 'clu': 94, 'def': 99, 'ins': 98, 'ply': 84},
   'team': 'CLE',
-  'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 7 • x •   • A • l • '
-           'l • - • S • t • a • r • ) •',
+  'theme': 'HallofFameLegend• ( 7xAl'
+           'l • - Star) •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Rim Protector', 'HOF Post Lock', 'HOF Chase Down Artist'],
   'id': 'go-dikembemutombo-97',
@@ -11903,13 +11903,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Dikembe Mutombo',
   'ovr': 97,
   'pos': 'C',
-  'quote': '• 4 • x •   • N • B • A •   • D • e • f • e • n • s • i • v • e •   • P • l • a • y • e • r •   • o • f '
-           '•   • t • h • e •   • Y • e • a • r •   • • •   • 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • '
-           'F • i • n • g • e • r •   • W • a • g •   • I • c • o • n •',
+  'quote': '4xNBADefensivePlayerof '
+           '•   theYear• • •   8xAll- Star• • • '
+           'F ingerWagIcon •',
   'sec_pos': 'PF',
   'stats': {'3pt': 50, 'ath': 91, 'clu': 89, 'def': 98, 'ins': 87, 'ply': 61},
   'team': 'DEN',
-  'theme': '• F • i • n • g • e • r •   • W • a • g •   • 4 • x •   • D • P • O • Y •',
+  'theme': 'FingerWag4xDPOY •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Floor General', 'HOF Dimer', 'HOF Middy Magician', 'HOF Glove'],
   'id': 'go-chrispaul-97',
@@ -11918,13 +11918,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Chris Paul',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 1 • 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • N • B • A •   • A • s • s • i • '
-           's • t • s •   • L • e • a • d • e • r •   • • •   • 6 • x •   • S • t • e • a • l • s •   • L • e • a • d '
-           '• e • r •   • • •   • P • o • i • n • t •   • G • o • d •',
+  'quote': '12xAll- Star• • •   5xNBAAssi'
+           's tsLeader• • •   6xStealsLead '
+           'er• • •   PointGod •',
   'sec_pos': 'SG',
   'stats': {'3pt': 93, 'ath': 89, 'clu': 97, 'def': 95, 'ins': 88, 'ply': 98},
   'team': 'SAS',
-  'theme': '• P • o • i • n • t •   • G • o • d •   • F • l • o • o • r •   • G • e • n • e • r • a • l •',
+  'theme': 'PointGodFloorGeneral •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Triple Threat', 'HOF Middy Magician', 'HOF Bully', 'HOF Catch & Shoot'],
   'id': 'go-carmeloanthony-97',
@@ -11933,13 +11933,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Carmelo Anthony',
   'ovr': 97,
   'pos': 'SF',
-  'quote': '• 1 • 0 • x •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 1 • 3 •   • S • c • o • r • i • n • '
-           'g •   • C • h • a • m • p • i • o • n •   • • •   • O • v • e • r •   • 2 • 8 • , • 0 • 0 • 0 •   • C • a '
-           '• r • e • e • r •   • P • o • i • n • t • s •',
+  'quote': '10xAll- Star• • •   2013Scorin'
+           'g •   Champion• • •   Over28, 000Ca '
+           'reerPoints •',
   'sec_pos': 'PF',
   'stats': {'3pt': 95, 'ath': 99, 'clu': 99, 'def': 97, 'ins': 99, 'ply': 97},
   'team': 'NYK',
-  'theme': '• O • l • y • m • p • i • c •   • G • o • l • d •   • & •   • 6 • 2 • - • P • t •   • M • S • G •',
+  'theme': 'OlympicGold• & •   62- PtMSG •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Special Delivery', 'HOF Needle Threader', 'HOF Floor General', 'HOF Dimer'],
   'id': 'go-bobcousy-97',
@@ -11948,13 +11948,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Bob Cousy',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 5 • 7 •   • M • V • P '
-           '•   • • •   • 1 • 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • 8 • x •   • N • B • A •   • A • '
-           's • s • i • s • t • s •   • L • e • a • d • e • r •',
+  'quote': '6xNBAChampion• • •   1957MVP '
+           '• • •   13xAll- Star• • •   8xNBA• A • '
+           's sistsLeader •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 95, 'clu': 97, 'def': 95, 'ins': 94, 'ply': 99},
   'team': 'BOS',
-  'theme': '• H • o • u • d • i • n • i •   • o • f •   • t • h • e •   • H • a • r • d • w • o • o • d •',
+  'theme': 'HoudinioftheHardwood •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Rebound Chaser', 'HOF Pogo Stick', 'HOF Post Lock'],
   'id': 'go-ad-97',
@@ -11963,13 +11963,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Anthony Davis',
   'ovr': 97,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • A • l • l • '
-           '- • D • e • f • e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • D • o • m '
-           '• i • n • a • n • t •   • R • i • m •   • P • r • o • t • e • c • t • o • r •',
+  'quote': '2020NBAChampion• • •   4xAll'
+           '- DefensiveFirstTeam• • •   Dom '
+           'inantRimProtector •',
   'sec_pos': 'PF',
   'stats': {'3pt': 80, 'ath': 94, 'clu': 94, 'def': 99, 'ins': 98, 'ply': 82},
   'team': 'LAL',
-  'theme': '• T • h • e •   • B • r • o • w •   • A • n • c • h • o • r •',
+  'theme': 'TheBrowAnchor •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Rebound Chaser', 'HOF Pogo Stick', 'HOF Post Lock'],
   'id': 'go-anthonydavis-97',
@@ -11978,13 +11978,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Anthony Davis',
   'ovr': 97,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • A • l • l • '
-           '- • D • e • f • e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 9 • x •   '
-           '• A • l • l • - • S • t • a • r •',
+  'quote': '2020NBAChampion• • •   4xAll'
+           '- DefensiveFirstTeam• • •   9x'
+           'All- Star •',
   'sec_pos': 'PF',
   'stats': {'3pt': 78, 'ath': 98, 'clu': 97, 'def': 98, 'ins': 99, 'ply': 86},
   'team': 'LAL',
-  'theme': '• T • h • e •   • B • r • o • w •   • D • e • f • e • n • s • i • v • e •   • W • a • l • l •',
+  'theme': 'TheBrowDefensiveWall •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Anchor', 'HOF Rim Protector', 'HOF Post Lock', 'HOF Rebound Chaser'],
   'id': 'go-alonzomourning-97',
@@ -11993,13 +11993,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Alonzo Mourning',
   'ovr': 97,
   'pos': 'C',
-  'quote': '• 2 • 0 • 0 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • D • P • O • '
-           'Y •   • • •   • 7 • x •   • A • l • l • - • S • t • a • r •   • • •   • D • e • f • e • n • s • i • v • e '
-           '•   • W • a • r • r • i • o • r •',
+  'quote': '2006NBAChampion• • •   2xDPO'
+           'Y • • •   7xAll- Star• • •   Defensive '
+           '•   Warrior •',
   'sec_pos': 'PF',
   'stats': {'3pt': 73, 'ath': 95, 'clu': 93, 'def': 99, 'ins': 99, 'ply': 90},
   'team': 'MIA',
-  'theme': '• 2 • x •   • D • P • O • Y •   • P • a • i • n • t •   • P • r • o • t • e • c • t • o • r •',
+  'theme': '2xDPOYPaintProtector •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Ankle Breaker', 'HOF Giant Slayer', 'HOF Acrobat', 'HOF Quick First Step'],
   'id': 'go-iverson-97',
@@ -12008,14 +12008,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Allen Iverson',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 0 • 1 •   • N • B • A •   • M • V • P •   • • •   • 4 • x •   • S • c • o • r • i • n • g •   • '
-           'C • h • a • m • p • i • o • n •   • • •   • C • u • l • t • u • r • a • l •   • I • c • o • n •   • w • i '
-           '• t • h •   • t • h • e •   • M • o • s • t •   • L • e • t • h • a • l •   • C • r • o • s • s • o • v • '
+  'quote': '2001NBAMVP• • •   4xScoring• '
+           'C hampion• • •   CulturalIconwi '
+           'ththeMostLethalCrossov'
            'e • r •',
   'sec_pos': 'SG',
   'stats': {'3pt': 90, 'ath': 99, 'clu': 98, 'def': 92, 'ins': 97, 'ply': 96},
   'team': 'PHI',
-  'theme': '• T • h • e •   • A • n • s • w • e • r •',
+  'theme': 'TheAnswer •',
   'tier': 'galaxy_opal'},
  {'badges': ['HOF Ankle Breaker', 'HOF Giant Slayer', 'HOF Acrobat', 'HOF Quick First Step'],
   'id': 'go-alleniverson-97',
@@ -12024,13 +12024,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Allen Iverson',
   'ovr': 97,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 0 • 1 •   • N • B • A •   • M • V • P •   • • •   • 4 • x •   • S • c • o • r • i • n • g •   • '
-           'C • h • a • m • p • i • o • n •   • • •   • C • u • l • t • u • r • a • l •   • I • c • o • n •   • w • i '
-           '• t • h •   • L • e • t • h • a • l •   • C • r • o • s • s • o • v • e • r •',
+  'quote': '2001NBAMVP• • •   4xScoring• '
+           'C hampion• • •   CulturalIconwi '
+           'thLethalCrossover •',
   'sec_pos': 'SG',
   'stats': {'3pt': 90, 'ath': 98, 'clu': 98, 'def': 92, 'ins': 96, 'ply': 96},
   'team': 'PHI',
-  'theme': '• T • h • e •   • A • n • s • w • e • r •   • C • r • o • s • s • o • v • e • r •',
+  'theme': 'TheAnswerCrossover •',
   'tier': 'galaxy_opal'},
  {'badges': ['Gold Deadeye', 'Gold Space Creator', 'Gold Posterizer', 'Gold Clutch Shooter'],
   'id': 'go-durant-96',
@@ -12039,13 +12039,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kevin Durant',
   'ovr': 96,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • - •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • - •   • U • n • s • t • o • p • p • a • b • l • e •   • 7 • - • F • o • o • t •   '
-           '• S • c • o • r • e • r •',
+  'quote': '2xNBAChampion• - •   2xFinal'
+           's •   MVP• - •   Unstoppable• 7 • - Foot'
+           'Scorer •',
   'sec_pos': 'PF',
   'stats': {'3pt': 90, 'ath': 95, 'clu': 97, 'def': 87, 'ins': 96, 'ply': 92},
   'team': 'PHX',
-  'theme': '• S • l • i • m •   • R • e • a • p • e • r •',
+  'theme': 'SlimReaper •',
   'tier': 'galaxy_opal'},
  {'badges': ['Gold Clamps', 'Gold Middy Magician', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'dia-sga-96',
@@ -12054,14 +12054,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Shai Gilgeous-Alexander',
   'ovr': 96,
   'pos': 'PG',
-  'quote': '• 2 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • C • l • '
-           'u • t • c • h •   • P • l • a • y • e • r •   • o • f •   • t • h • e •   • Y • e • a • r •   • F • i • n '
-           '• a • l • i • s • t •   • • •   • K • i • n • g •   • o • f •   • t • h • e •   • M • i • d • - • R • a • '
-           'n • g • e •   • D • r • i • v • e •',
+  'quote': '2xAll- NBAFirstTeam• • •   Cl'
+           'u tchPlayeroftheYearFin '
+           'alist• • •   KingoftheMid- Ra'
+           'n geDrive •',
   'sec_pos': 'SG',
   'stats': {'3pt': 90, 'ath': 93, 'clu': 97, 'def': 94, 'ins': 96, 'ply': 95},
   'team': 'OKC',
-  'theme': '• S • m • o • o • t • h •   • M • V • P •   • F • i • n • a • l • i • s • t •',
+  'theme': 'SmoothMVPFinalist •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-klaythompson-96',
@@ -12070,13 +12070,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Klay Thompson',
   'ovr': 96,
   'pos': 'SG',
-  'quote': '• 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 5 • – • 2 • 0 • 1 • 9 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '5xNBAAll- Star• ( 2015– 2019'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'PG',
   'stats': {'3pt': 96, 'ath': 88, 'clu': 95, 'def': 93, 'ins': 84, 'ply': 82},
   'team': 'DAL',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 5x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-karlanthonytowns-96',
@@ -12085,13 +12085,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Karl-Anthony Towns',
   'ovr': 96,
   'pos': 'PG',
-  'quote': '• 6 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 8 • – • 2 • 0 • 1 • 9 • '
-           '; •   • 2 • 0 • 2 • 2 • ; •   • 2 • 0 • 2 • 4 • – • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a '
-           '• n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+  'quote': '6xNBAAll- Star• ( 2018– 2019'
+           '; •   2022; •   2024– 2026) • • •   Domina '
+           'ntFranchiseCornerstone •',
   'sec_pos': 'C',
   'stats': {'3pt': 97, 'ath': 95, 'clu': 97, 'def': 90, 'ins': 92, 'ply': 99},
   'team': 'NYK',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 6 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 6x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-jaylenbrown-96',
@@ -12100,13 +12100,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jaylen Brown',
   'ovr': 96,
   'pos': 'SG',
-  'quote': '• 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 1 • ; •   • 2 • 0 • 2 • '
-           '3 • – • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s '
-           '• e •   • C • o • r • n • e • r • s • t • o • n • e •',
+  'quote': '5xNBAAll- Star• ( 2021; •   202'
+           '3 • – 2026) • • •   DominantFranchis '
+           '• e •   Cornerstone •',
   'sec_pos': 'C',
   'stats': {'3pt': 98, 'ath': 96, 'clu': 95, 'def': 94, 'ins': 94, 'ply': 93},
   'team': 'BOS',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 5x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Post Spin Technician', 'Gold Anchor', 'Gold Dream Shake', 'Gold Post Lock'],
   'id': 'dia-hakeem-96',
@@ -12115,13 +12115,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Hakeem Olajuwon',
   'ovr': 96,
   'pos': 'C',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • n • a • l • '
-           's •   • M • V • P •   • • •   • 1 • 9 • 9 • 4 •   • M • V • P •   • • •   • A • l • l • - • T • i • m • e '
-           '•   • N • B • A •   • B • l • o • c • k • s •   • L • e • a • d • e • r •',
+  'quote': '2xNBAChampion• • •   2xFinal'
+           's •   MVP• • •   1994MVP• • •   All- Time '
+           '•   NBABlocksLeader •',
   'sec_pos': 'PF',
   'stats': {'3pt': 62, 'ath': 92, 'clu': 96, 'def': 99, 'ins': 98, 'ply': 82},
   'team': 'HOU',
-  'theme': '• T • h • e •   • D • r • e • a • m •   • S • h • a • k • e •',
+  'theme': 'TheDreamShake •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-devinbooker-96',
@@ -12130,13 +12130,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Devin Booker',
   'ovr': 96,
   'pos': 'C',
-  'quote': '• 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 0 • – • 2 • 0 • 2 • 2 • '
-           '; •   • 2 • 0 • 2 • 4 • ; •   • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r '
-           '• a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+  'quote': '5xNBAAll- Star• ( 2020– 2022'
+           '; •   2024; •   2026) • • •   DominantFr '
+           'anchiseCornerstone •',
   'sec_pos': 'PF',
   'stats': {'3pt': 75, 'ath': 95, 'clu': 92, 'def': 99, 'ins': 99, 'ply': 89},
   'team': 'PHX',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 5x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-blakegriffin-96',
@@ -12145,13 +12145,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Blake Griffin',
   'ovr': 96,
   'pos': 'C',
-  'quote': '• 6 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 1 • – • 2 • 0 • 1 • 5 • '
-           '; •   • 2 • 0 • 1 • 9 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s '
-           '• e •   • C • o • r • n • e • r • s • t • o • n • e •',
+  'quote': '6xNBAAll- Star• ( 2011– 2015'
+           '; •   2019) • • •   DominantFranchis '
+           '• e •   Cornerstone •',
   'sec_pos': 'PG',
   'stats': {'3pt': 73, 'ath': 94, 'clu': 97, 'def': 99, 'ins': 99, 'ply': 85},
   'team': 'CLE',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 6 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 6x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-traeyoung-95',
@@ -12160,13 +12160,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Trae Young',
   'ovr': 95,
   'pos': 'SF',
-  'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 0 • ; •   • 2 • 0 • 2 • '
-           '2 • ; •   • 2 • 0 • 2 • 4 • – • 2 • 0 • 2 • 5 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r '
-           '• a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+  'quote': '4xNBAAll- Star• ( 2020; •   202'
+           '2 • ; •   2024– 2025) • • •   DominantFr '
+           'anchiseCornerstone •',
   'sec_pos': 'PG',
   'stats': {'3pt': 96, 'ath': 96, 'clu': 95, 'def': 96, 'ins': 99, 'ply': 95},
   'team': 'ATL',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 4x) •',
   'tier': 'diamond'},
  {'badges': ['Silver Slippery Off-Ball', 'Silver Dream Shake', 'Silver Clamps', 'Silver Clutch Shooter'],
   'id': 'dia-sga-95',
@@ -12175,13 +12175,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Shai Gilgeous-Alexander',
   'ovr': 95,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 2 • 4 • - • 2 • 5 •   • N • B • A •   • M • V • P •   • - •   • O • K • C •   • T • h • u • n • '
-           'd • e • r •   • A • l • l • - • T • i • m • e •   • G • r • e • a • t •   • - •   • M • a • s • t • e • r '
-           '• f • u • l •   • S • c • o • r • e • r •',
+  'quote': '2024- 25NBAMVP• - •   OKCThun'
+           'd erAll- TimeGreat• - •   Master '
+           'fulScorer •',
   'sec_pos': 'SG',
   'stats': {'3pt': 85, 'ath': 95, 'clu': 97, 'def': 90, 'ins': 95, 'ply': 93},
   'team': 'OKC',
-  'theme': '• M • V • P •   • T • a • k • e • o • v • e • r •',
+  'theme': 'MVPTakeover •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-shaigilgeousalexander-95',
@@ -12190,13 +12190,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Shai Gilgeous-Alexander',
   'ovr': 95,
   'pos': 'C',
-  'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 6 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '4xNBAAll- Star• ( 2023– 2026'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'SG',
   'stats': {'3pt': 74, 'ath': 97, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 83},
   'team': 'OKC',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 4x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-pennyhardaway-95',
@@ -12205,13 +12205,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Penny Hardaway',
   'ovr': 95,
   'pos': 'C',
-  'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 9 • 5 • – • 1 • 9 • 9 • 8 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '4xNBAAll- Star• ( 1995– 1998'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'SF',
   'stats': {'3pt': 72, 'ath': 92, 'clu': 96, 'def': 97, 'ins': 99, 'ply': 83},
   'team': 'SAS',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 4x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Ankle Breaker', 'Gold Handles For Days', 'Gold Circus Threes', 'Gold Layup Package'],
   'id': 'dia-kyrie-95',
@@ -12220,13 +12220,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Kyrie Irving',
   'ovr': 95,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 1 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 8 • x •   • A • l • l • '
-           '- • S • t • a • r •   • • •   • G • r • e • a • t • e • s • t •   • B • a • l • l • - • H • a • n • d • l '
-           '• i • n • g •   • P • a • c • k • a • g • e •   • i • n •   • H • i • s • t • o • r • y •',
+  'quote': '2016NBAChampion• • •   8xAll'
+           '- Star• • •   GreatestBall- Handl '
+           'ingPackageinHistory •',
   'sec_pos': 'SG',
   'stats': {'3pt': 96, 'ath': 91, 'clu': 98, 'def': 80, 'ins': 97, 'ply': 94},
   'team': 'DAL',
-  'theme': '• A • n • k • l • e •   • B • r • e • a • k • e • r •   • M • a • s • t • e • r •',
+  'theme': 'AnkleBreakerMaster •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-draymondgreen-95',
@@ -12235,13 +12235,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Draymond Green',
   'ovr': 95,
   'pos': 'PF',
-  'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 6 • – • 2 • 0 • 1 • 8 • '
-           '; •   • 2 • 0 • 2 • 2 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s '
-           '• e •   • C • o • r • n • e • r • s • t • o • n • e •',
+  'quote': '4xNBAAll- Star• ( 2016– 2018'
+           '; •   2022) • • •   DominantFranchis '
+           '• e •   Cornerstone •',
   'sec_pos': 'C',
   'stats': {'3pt': 93, 'ath': 99, 'clu': 99, 'def': 90, 'ins': 93, 'ply': 90},
   'team': 'GSW',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 4x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Deadeye', 'Gold Catch & Shoot', 'Gold Middy Magician', 'Gold Clutch Shooter'],
   'id': 'dia-dirk-95',
@@ -12250,13 +12250,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Dirk Nowitzki',
   'ovr': 95,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • • •   • 2 • 0 • 0 • 7 •   • M • V • P •   • • •   • O • v • e • r •   • 3 • 1 • , • '
-           '0 • 0 • 0 •   • C • a • r • e • e • r •   • P • o • i • n • t • s •',
+  'quote': '2011NBAChampion• & •   Finals '
+           '•   MVP• • •   2007MVP• • •   Over31, • '
+           '0 00CareerPoints •',
   'sec_pos': 'C',
   'stats': {'3pt': 96, 'ath': 82, 'clu': 98, 'def': 82, 'ins': 94, 'ply': 80},
   'team': 'DAL',
-  'theme': '• O • n • e • - • L • e • g •   • F • a • d • e • a • w • a • y •',
+  'theme': 'One- LegFadeaway •',
   'tier': 'diamond'},
  {'badges': ['Gold Posterizer', 'Gold Limitless Takeoff', 'Gold Clamps', 'Gold Agent 3'],
   'id': 'dia-ant-95',
@@ -12265,13 +12265,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Anthony Edwards',
   'ovr': 95,
   'pos': 'SG',
-  'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • W • e • s • t • e • r • n •   • C • o • n • f • '
-           'e • r • e • n • c • e •   • F • i • n • a • l • s •   • L • e • a • d • e • r •   • • •   • E • l • e • c '
-           '• t • r • i • f • y • i • n • g •   • A • e • r • i • a • l •   • D • u • n • k • e • r •',
+  'quote': '2xAll- Star• • •   WesternConf'
+           'e renceFinalsLeader• • •   Elec '
+           'trifyingAerialDunker •',
   'sec_pos': 'SF',
   'stats': {'3pt': 92, 'ath': 98, 'clu': 96, 'def': 94, 'ins': 97, 'ply': 88},
   'team': 'MIN',
-  'theme': '• A • n • t • - • M • a • n •   • P • o • s • t • e • r • i • z • e • r •',
+  'theme': 'Ant- ManPosterizer •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-anthonyedwards-95',
@@ -12280,13 +12280,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Anthony Edwards',
   'ovr': 95,
   'pos': 'PF',
-  'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 6 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '4xNBAAll- Star• ( 2023– 2026'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'SG',
   'stats': {'3pt': 80, 'ath': 97, 'clu': 95, 'def': 96, 'ins': 95, 'ply': 89},
   'team': 'MIN',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 4x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Needle Threader', 'Gold Dimer', 'Gold Limitless Range', 'Gold Floor General'],
   'id': 'dia-hali-94',
@@ -12295,13 +12295,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tyrese Haliburton',
   'ovr': 94,
   'pos': 'PG',
-  'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • N • B • A •   • A • s • s • i • s • t • s •   • '
-           'L • e • a • d • e • r •   • • •   • I • n • - • S • e • a • s • o • n •   • T • o • u • r • n • a • m • e '
-           '• n • t •   • S • u • p • e • r • s • t • a • r •',
+  'quote': '2xAll- Star• • •   NBAAssists• '
+           'L eader• • •   In- SeasonTourname '
+           'ntSuperstar •',
   'sec_pos': 'SG',
   'stats': {'3pt': 94, 'ath': 89, 'clu': 95, 'def': 80, 'ins': 88, 'ply': 99},
   'team': 'IND',
-  'theme': '• D • i • m • e • r •   • S • p • e • c • i • a • l • i • s • t •',
+  'theme': 'DimerSpecialist •',
   'tier': 'diamond'},
  {'badges': ['Silver Deadeye', 'Silver Hot Zone Hunter', 'Silver Posterizer'],
   'id': 'dia-tatum-94',
@@ -12310,13 +12310,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jayson Tatum',
   'ovr': 94,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • - •   • 5 • x •   • A • l • l • - • S • t • a • r •   • B • o • s • t • o • n •   • '
-           'L • e • g • e • n • d •',
+  'quote': '2024NBAChampion• & •   Finals '
+           '•   MVP• - •   5xAll- StarBoston• '
+           'L egend •',
   'sec_pos': 'PF',
   'stats': {'3pt': 88, 'ath': 90, 'clu': 94, 'def': 88, 'ins': 92, 'ply': 90},
   'team': 'BOS',
-  'theme': '• 2 • 0 • 2 • 4 •   • C • h • a • m • p • i • o • n •',
+  'theme': '2024Champion •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-jalenbrunson-94',
@@ -12325,13 +12325,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jalen Brunson',
   'ovr': 94,
   'pos': 'SF',
-  'quote': '• 3 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 4 • – • 2 • 0 • 2 • 6 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '3xNBAAll- Star• ( 2024– 2026'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'PF',
   'stats': {'3pt': 95, 'ath': 98, 'clu': 97, 'def': 95, 'ins': 94, 'ply': 90},
   'team': 'NYK',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 3 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 3x) •',
   'tier': 'diamond'},
  {'badges': ['Silver Giant Slayer', 'Silver Posterizer', 'Silver Anchor', 'Silver Brick Wall'],
   'id': 'dia-giannis-94',
@@ -12340,13 +12340,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Giannis Antetokounmpo',
   'ovr': 94,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a • l • s '
-           '•   • M • V • P •   • - •   • 2 • x •   • M • V • P •   • - •   • G • r • e • e • k •   • F • r • e • a • '
-           'k •   • D • o • m • i • n • a • n • t •   • F • o • r • c • e •',
+  'quote': '2021NBAChampion• & •   Finals '
+           '•   MVP• - •   2xMVP• - •   GreekFrea'
+           'k •   DominantForce •',
   'sec_pos': 'C',
   'stats': {'3pt': 55, 'ath': 99, 'clu': 91, 'def': 95, 'ins': 98, 'ply': 88},
   'team': 'MIL',
-  'theme': '• 2 • x •   • M • V • P •   • G • r • e • e • k •   • F • r • e • a • k •',
+  'theme': '2xMVPGreekFreak •',
   'tier': 'diamond'},
  {'badges': ['Gold Limitless Range', 'Gold Posterizer', 'Gold Acrobat', 'Gold Space Creator'],
   'id': 'dia-spida-94',
@@ -12355,13 +12355,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Donovan Mitchell',
   'ovr': 94,
   'pos': 'SG',
-  'quote': '• 5 • x •   • A • l • l • - • S • t • a • r •   • • •   • D • u • n • k •   • C • o • n • t • e • s • t '
-           '•   • C • h • a • m • p • i • o • n •   • • •   • 7 • 1 • - • P • o • i • n • t •   • S • c • o • r • i • '
-           'n • g •   • M • a • s • t • e • r • p • i • e • c • e •',
+  'quote': '5xAll- Star• • •   DunkContest '
+           '•   Champion• • •   71- PointScori'
+           'n • g •   Masterpiece •',
   'sec_pos': 'PG',
   'stats': {'3pt': 94, 'ath': 96, 'clu': 95, 'def': 84, 'ins': 95, 'ply': 90},
   'team': 'CLE',
-  'theme': '• 7 • 1 • - • P • t •   • E • x • p • l • o • s • i • o • n •',
+  'theme': '71- PtExplosion •',
   'tier': 'diamond'},
  {'badges': ['Gold Deadeye', 'Gold Catch & Shoot', 'Gold Green Machine', 'Gold Ankle Breaker'],
   'id': 'dia-booker-94',
@@ -12370,13 +12370,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Devin Booker',
   'ovr': 94,
   'pos': 'SG',
-  'quote': '• 4 • x •   • A • l • l • - • S • t • a • r •   • • •   • O • l • y • m • p • i • c •   • G • o • l • d '
-           '•   • M • e • d • a • l • i • s • t •   • • •   • S • c • o • r • e • d •   • 7 • 0 •   • P • o • i • n • '
-           't • s •   • i • n •   • S • i • n • g • l • e •   • G • a • m • e •',
+  'quote': '4xAll- Star• • •   OlympicGold '
+           '•   Medalist• • •   Scored70Poin'
+           't • s •   inSingleGame •',
   'sec_pos': 'PG',
   'stats': {'3pt': 95, 'ath': 89, 'clu': 96, 'def': 82, 'ins': 92, 'ply': 91},
   'team': 'PHX',
-  'theme': '• 7 • 0 • - • P • t •   • S • c • o • r • e • r •',
+  'theme': '70- PtScorer •',
   'tier': 'diamond'},
  {'badges': ['Gold Limitless Range', 'Gold Clutch Shooter', 'Gold Agent 3', 'Gold Deadeye'],
   'id': 'dia-dame-94',
@@ -12385,13 +12385,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Damian Lillard',
   'ovr': 94,
   'pos': 'PG',
-  'quote': '• 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • N • B • A •   • 7 • 5 • t • h •   • A • n • n • '
-           'i • v • e • r • s • a • r • y •   • T • e • a • m •   • • •   • 2 • x •   • 3 • P • T •   • C • o • n • t '
-           '• e • s • t •   • C • h • a • m • p • i • o • n •',
+  'quote': '8xAll- Star• • •   NBA75thAnn'
+           'i versaryTeam• • •   2x3PTCont '
+           'estChampion •',
   'sec_pos': 'SG',
   'stats': {'3pt': 97, 'ath': 91, 'clu': 99, 'def': 78, 'ins': 90, 'ply': 92},
   'team': 'MIL',
-  'theme': '• D • a • m • e •   • T • i • m • e •   • C • l • u • t • c • h •',
+  'theme': 'DameTimeClutch •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-bamadebayo-94',
@@ -12400,13 +12400,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Bam Adebayo',
   'ovr': 94,
   'pos': 'C',
-  'quote': '• 3 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 0 • ; •   • 2 • 0 • 2 • '
-           '3 • – • 2 • 0 • 2 • 4 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s '
-           '• e •   • C • o • r • n • e • r • s • t • o • n • e •',
+  'quote': '3xNBAAll- Star• ( 2020; •   202'
+           '3 • – 2024) • • •   DominantFranchis '
+           '• e •   Cornerstone •',
   'sec_pos': 'PG',
   'stats': {'3pt': 71, 'ath': 91, 'clu': 91, 'def': 96, 'ins': 99, 'ply': 83},
   'team': 'MIA',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 3 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 3x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-zionwilliamson-93',
@@ -12415,13 +12415,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Zion Williamson',
   'ovr': 93,
   'pos': 'SG',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 1 • ; •   • 2 • 0 • 2 • '
-           '3 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r '
-           '• n • e • r • s • t • o • n • e •',
+  'quote': '2xNBAAll- Star• ( 2021; •   202'
+           '3 • ) • • •   DominantFranchiseCor '
+           'nerstone •',
   'sec_pos': 'C',
   'stats': {'3pt': 92, 'ath': 94, 'clu': 94, 'def': 87, 'ins': 90, 'ply': 92},
   'team': 'NOP',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 2x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-victorwembanyama-93',
@@ -12430,13 +12430,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Victor Wembanyama',
   'ovr': 93,
   'pos': 'C',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 5 • – • 2 • 0 • 2 • 6 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '2xNBAAll- Star• ( 2025– 2026'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'SF',
   'stats': {'3pt': 69, 'ath': 96, 'clu': 94, 'def': 98, 'ins': 97, 'ply': 80},
   'team': 'SAS',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 2x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-tyresehaliburton-93',
@@ -12445,13 +12445,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Tyrese Haliburton',
   'ovr': 93,
   'pos': 'SG',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 4 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '2xNBAAll- Star• ( 2023– 2024'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'SF',
   'stats': {'3pt': 97, 'ath': 96, 'clu': 94, 'def': 93, 'ins': 91, 'ply': 93},
   'team': 'IND',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 2x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-jrueholiday-93',
@@ -12460,13 +12460,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jrue Holiday',
   'ovr': 93,
   'pos': 'SG',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 3 • ; •   • 2 • 0 • 2 • '
-           '3 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r '
-           '• n • e • r • s • t • o • n • e •',
+  'quote': '2xNBAAll- Star• ( 2013; •   202'
+           '3 • ) • • •   DominantFranchiseCor '
+           'nerstone •',
   'sec_pos': 'C',
   'stats': {'3pt': 92, 'ath': 96, 'clu': 95, 'def': 88, 'ins': 94, 'ply': 93},
   'team': 'BOS',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 2x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Posterizer', 'Gold Limitless Takeoff', 'Gold Quick First Step', 'Gold Dimer'],
   'id': 'dia-morant-93',
@@ -12475,13 +12475,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Ja Morant',
   'ovr': 93,
   'pos': 'PG',
-  'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • M • o • s • t •   • I • m • p • r • o • v • e • '
-           'd •   • P • l • a • y • e • r •   • • •   • U • n • r • i • v • a • l • e • d •   • V • e • r • t • i • c '
-           '• a • l •   • L • e • a • p •   • & •   • F • a • s • t • b • r • e • a • k •   • F • l • a • s • h •',
+  'quote': '2xAll- Star• • •   MostImprove'
+           'd •   Player• • •   UnrivaledVertic '
+           'alLeap• & •   FastbreakFlash •',
   'sec_pos': 'SG',
   'stats': {'3pt': 85, 'ath': 99, 'clu': 94, 'def': 82, 'ins': 98, 'ply': 95},
   'team': 'MEM',
-  'theme': '• G • r • a • v • i • t • y •   • D • e • f • i • e • r •',
+  'theme': 'GravityDefier •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-jamorant-93',
@@ -12490,13 +12490,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Ja Morant',
   'ovr': 93,
   'pos': 'PG',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 2 • – • 2 • 0 • 2 • 3 • '
-           ') •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n '
-           '• e • r • s • t • o • n • e •',
+  'quote': '2xNBAAll- Star• ( 2022– 2023'
+           ') • • •   DominantFranchiseCorn '
+           'erstone •',
   'sec_pos': 'PF',
   'stats': {'3pt': 92, 'ath': 92, 'clu': 94, 'def': 90, 'ins': 85, 'ply': 98},
   'team': 'MEM',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 2x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
   'id': 'dia-deaaronfox-93',
@@ -12505,13 +12505,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': "De'Aaron Fox",
   'ovr': 93,
   'pos': 'PG',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 3 • ; •   • 2 • 0 • 2 • '
-           '6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r '
-           '• n • e • r • s • t • o • n • e •',
+  'quote': '2xNBAAll- Star• ( 2023; •   202'
+           '6 • ) • • •   DominantFranchiseCor '
+           'nerstone •',
   'sec_pos': 'SF',
   'stats': {'3pt': 91, 'ath': 94, 'clu': 88, 'def': 87, 'ins': 87, 'ply': 97},
   'team': 'SAC',
-  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
+  'theme': 'FranchiseAll- Star• ( 2x) •',
   'tier': 'diamond'},
  {'badges': ['Gold Anchor', 'Gold Clamps', 'Gold Interceptor', 'Gold Rebound Chaser'],
   'id': 'dia-bam-93',
@@ -12520,13 +12520,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Bam Adebayo',
   'ovr': 93,
   'pos': 'C',
-  'quote': '• 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • l • l • - • D • e • f • e • n • '
-           's • i • v • e •   • T • e • a • m •   • • •   • V • e • r • s • a • t • i • l • e •   • 1 • - • t • h • r '
-           '• o • u • g • h • - • 5 •   • D • e • f • e • n • s • i • v • e •   • A • n • c • h • o • r •',
+  'quote': '3xAll- Star• • •   5xAll- Defen'
+           's iveTeam• • •   Versatile• 1 • - thr '
+           'ough- • 5 •   DefensiveAnchor •',
   'sec_pos': 'PF',
   'stats': {'3pt': 72, 'ath': 93, 'clu': 91, 'def': 98, 'ins': 93, 'ply': 88},
   'team': 'MIA',
-  'theme': '• D • P • O • Y •   • F • i • n • a • l • i • s • t •',
+  'theme': 'DPOYFinalist •',
   'tier': 'diamond'},
  {'badges': ['Silver Anchor', 'Silver Brick Wall', 'Silver Posterizer', 'Silver Intimidator'],
   'id': 'dia-adavis-93',
@@ -12535,13 +12535,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Anthony Davis',
   'ovr': 93,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • - •   • 8 • x •   • A • l • l • '
-           '- • S • t • a • r •   • - •   • E • l • i • t • e •   • T • w • o • - • W • a • y •   • S • u • p • e • r '
-           '• s • t • a • r •',
+  'quote': '2020NBAChampion• - •   8xAll'
+           '- Star• - •   EliteTwo- WaySuper '
+           'star •',
   'sec_pos': 'C',
   'stats': {'3pt': 62, 'ath': 96, 'clu': 90, 'def': 97, 'ins': 97, 'ply': 82},
   'team': 'LAL',
-  'theme': '• B • r • o • w •   • D • o • m • i • n • a • n • c • e •',
+  'theme': 'BrowDominance •',
   'tier': 'diamond'},
  {'badges': ['Gold Middy Magician', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'amy-brunson-92',
@@ -12550,13 +12550,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jalen Brunson',
   'ovr': 92,
   'pos': 'PG',
-  'quote': '• A • l • l • - • N • B • A •   • S • e • c • o • n • d •   • T • e • a • m •   • • •   • M • S • G •   • '
-           'P • l • a • y • o • f • f •   • H • e • r • o •   • • •   • M • a • s • t • e • r •   • o • f •   • t • h '
-           '• e •   • P • i • v • o • t •   • & •   • F • o • o • t • w • o • r • k •',
+  'quote': 'All- NBASecondTeam• • •   MSG• '
+           'P layoffHero• • •   Masterofth '
+           '• e •   Pivot• & •   Footwork •',
   'sec_pos': 'SG',
   'stats': {'3pt': 92, 'ath': 88, 'clu': 97, 'def': 82, 'ins': 94, 'ply': 93},
   'team': 'NYK',
-  'theme': '• G • a • r • d • e • n •   • M • V • P •',
+  'theme': 'GardenMVP •',
   'tier': 'amethyst'},
  {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'amy-manuginobili-91',
@@ -12565,13 +12565,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Manu Ginobili',
   'ovr': 91,
   'pos': 'SF',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 0 • 5 • ; •   • 2 • 0 • 1 • '
-           '1 • ) •   • • •   • H • i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i • n • g •   • D • y '
-           '• n • a • m • o •',
+  'quote': '2xNBAAll- Star• ( 2005; •   201'
+           '1 • ) • • •   HighImpactScoringDy '
+           'namo •',
   'sec_pos': 'PG',
   'stats': {'3pt': 86, 'ath': 95, 'clu': 94, 'def': 93, 'ins': 95, 'ply': 91},
   'team': 'CHI',
-  'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 2 • x • ) •',
+  'theme': 'All- StarPerformer• ( 2x) •',
   'tier': 'amethyst'},
  {'badges': ['Gold Posterizer', 'Gold Clamps', 'Gold Menace'],
   'id': 'amy-brown-91',
@@ -12580,13 +12580,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jaylen Brown',
   'ovr': 91,
   'pos': 'SG',
-  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • F • i • n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • A • '
-           'l • l • - • S • t • a • r •   • • •   • T • w • o • - • W • a • y •   • E • x • p • l • o • s • i • v • e '
-           '•   • W • i • n • g •',
+  'quote': '2024NBAFinalsMVP• • •   3x• A • '
+           'l • l • - Star• • •   Two- WayExplosive '
+           '•   Wing •',
   'sec_pos': 'SF',
   'stats': {'3pt': 88, 'ath': 96, 'clu': 93, 'def': 94, 'ins': 94, 'ply': 82},
   'team': 'BOS',
-  'theme': '• F • i • n • a • l • s •   • M • V • P •',
+  'theme': 'FinalsMVP •',
   'tier': 'amethyst'},
  {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'amy-billwalton-91',
@@ -12595,13 +12595,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Bill Walton',
   'ovr': 91,
   'pos': 'PF',
-  'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 7 • 7 • – • 1 • 9 • 7 • 8 • '
-           ') •   • • •   • H • i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i • n • g •   • D • y • n '
-           '• a • m • o •',
+  'quote': '2xNBAAll- Star• ( 1977– 1978'
+           ') • • •   HighImpactScoringDyn '
+           'amo •',
   'sec_pos': 'SF',
   'stats': {'3pt': 76, 'ath': 89, 'clu': 88, 'def': 90, 'ins': 92, 'ply': 81},
   'team': 'OKC',
-  'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 2 • x • ) •',
+  'theme': 'All- StarPerformer• ( 2x) •',
   'tier': 'amethyst'},
  {'badges': ['Gold Bully', 'Gold Posterizer', 'Gold Fast Twitch'],
   'id': 'amy-zion-90',
@@ -12610,13 +12610,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Zion Williamson',
   'ovr': 90,
   'pos': 'PF',
-  'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • U • n • s • t • o • p • p • a • b • l • e •   • '
-           'A • b • o • v • e • - • t • h • e • - • R • i • m •   • P • o • w • e • r •   • F • o • r • w • a • r • d '
+  'quote': '2xAll- Star• • •   Unstoppable• '
+           'A bove- the- RimPowerForward '
            '•',
   'sec_pos': 'C',
   'stats': {'3pt': 62, 'ath': 98, 'clu': 91, 'def': 84, 'ins': 98, 'ply': 85},
   'team': 'NOP',
-  'theme': '• P • a • i • n • t •   • B • u • l • l • d • o • z • e • r •',
+  'theme': 'PaintBulldozer •',
   'tier': 'amethyst'},
  {'badges': ['Gold Bully', 'Gold Space Creator', 'Gold Dimer'],
   'id': 'amy-paolo-90',
@@ -12625,13 +12625,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Paolo Banchero',
   'ovr': 90,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 4 •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 2 • 3 •   • R • o • o • k • i • '
-           'e •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • D • o • m • i • n • a • n • t •   • 6 • f '
-           '• t •   • 1 • 0 • i • n •   • P • l • a • y • m • a • k • e • r •',
+  'quote': '2024All- Star• • •   2023Rooki'
+           'e •   oftheYear• • •   Dominant6f '
+           '• t •   10inPlaymaker •',
   'sec_pos': 'SF',
   'stats': {'3pt': 84, 'ath': 91, 'clu': 92, 'def': 87, 'ins': 93, 'ply': 89},
   'team': 'ORL',
-  'theme': '• A • l • l • - • S • t • a • r •   • P • o • i • n • t •   • F • o • r • w • a • r • d •',
+  'theme': 'All- StarPointForward •',
   'tier': 'amethyst'},
  {'badges': ['Gold Catch & Shoot', 'Gold Deadeye', 'Gold Rebound Chaser'],
   'id': 'amy-kat-90',
@@ -12640,13 +12640,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Karl-Anthony Towns',
   'ovr': 90,
   'pos': 'C',
-  'quote': '• 4 • x •   • A • l • l • - • S • t • a • r •   • • •   • 3 • - • P • o • i • n • t •   • C • o • n • t • '
-           'e • s • t •   • C • h • a • m • p • i • o • n •   • • •   • P • u • r • e •   • E • l • i • t • e •   • S '
-           '• h • o • o • t • i • n • g •   • C • e • n • t • e • r •',
+  'quote': '4xAll- Star• • • 3 • - PointCont'
+           'e stChampion• • •   PureElite• S '
+           'hootingCenter •',
   'sec_pos': 'PF',
   'stats': {'3pt': 95, 'ath': 86, 'clu': 90, 'def': 84, 'ins': 94, 'ply': 80},
   'team': 'NYK',
-  'theme': '• 3 • P • T •   • C • o • n • t • e • s • t •   • C • h • a • m • p •   • B • i • g •',
+  'theme': '3PTContestChampBig •',
   'tier': 'amethyst'},
  {'badges': ['Gold Quick First Step', 'Gold Clutch Shooter', 'Gold Interceptor'],
   'id': 'amy-fox-90',
@@ -12655,13 +12655,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': "De'Aaron Fox",
   'ovr': 90,
   'pos': 'PG',
-  'quote': '• I • n • a • u • g • u • r • a • l •   • N • B • A •   • C • l • u • t • c • h •   • P • l • a • y • e • '
-           'r •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • F • a • s • t • e • s • t •   • S • p • e '
-           '• e • d •   • W • i • t • h •   • B • a • l • l •   • i • n •   • t • h • e •   • L • e • a • g • u • e •',
+  'quote': 'InauguralNBAClutchPlaye'
+           'r •   oftheYear• • •   FastestSpe '
+           'edWithBallintheLeague •',
   'sec_pos': 'SG',
   'stats': {'3pt': 88, 'ath': 99, 'clu': 98, 'def': 88, 'ins': 92, 'ply': 90},
   'team': 'SAC',
-  'theme': '• I • n • a • u • g • u • r • a • l •   • C • l • u • t • c • h •   • P • O • T • Y •',
+  'theme': 'InauguralClutchPOTY •',
   'tier': 'amethyst'},
  {'badges': ['Bronze Posterizer', 'Bronze Catch & Shoot', 'Bronze Clamps'],
   'id': 'amy-aedwards-90',
@@ -12670,13 +12670,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Anthony Edwards',
   'ovr': 90,
   'pos': 'SG',
-  'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • - •   • T • e • a • m •   • U • S • A •   • G • o • l • '
-           "d •   • M • e • d • a • l • i • s • t •   • - •   • M • i • n • n • e • s • o • t • a • ' • s •   • F • r "
-           '• a • n • c • h • i • s • e •   • S • t • a • r •',
+  'quote': '2xAll- Star• - •   TeamUSAGol'
+           "d •   Medalist• - •   Minnesota' • s •   Fr "
+           'anchiseStar •',
   'sec_pos': 'SF',
   'stats': {'3pt': 86, 'ath': 97, 'clu': 90, 'def': 86, 'ins': 90, 'ply': 84},
   'team': 'MIN',
-  'theme': '• A • n • t • - • M • a • n •   • R • i • s • i • n • g •',
+  'theme': 'Ant- ManRising •',
   'tier': 'amethyst'},
  {'badges': ['Gold Limitless Range', 'Gold Dimer', 'Gold Handles For Days'],
   'id': 'amy-trae-89',
@@ -12685,13 +12685,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Trae Young',
   'ovr': 89,
   'pos': 'PG',
-  'quote': '• 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • L • e • d •   • N • B • A •   • i • n •   • T • '
-           'o • t • a • l •   • P • o • i • n • t • s •   • & •   • A • s • s • i • s • t • s •   • • •   • L • o • g '
-           '• o •   • 3 • P • T •   • S • n • i • p • e • r •',
+  'quote': '3xAll- Star• • •   LedNBAin• T • '
+           'o talPoints• & •   Assists• • •   Log '
+           '• o •   3PTSniper •',
   'sec_pos': 'SG',
   'stats': {'3pt': 95, 'ath': 88, 'clu': 96, 'def': 70, 'ins': 84, 'ply': 98},
   'team': 'ATL',
-  'theme': '• I • c • e •   • T • r • a • e •   • D • e • e • p •   • 3 •',
+  'theme': 'IceTraeDeep• 3 •',
   'tier': 'amethyst'},
  {'badges': ['Bronze Facilitator', 'Bronze Post Spin', 'Bronze Fearless Finisher'],
   'id': 'amy-pawlo-89',
@@ -12700,13 +12700,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Paolo Banchero',
   'ovr': 89,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 2 •   • R • o • o • k • i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • - •   • '
-           "O • r • l • a • n • d • o • ' • s •   • F • u • t • u • r • e •   • F • r • a • n • c • h • i • s • e •   "
-           '• S • t • a • r •',
+  'quote': '2022RookieoftheYear• - • '
+           "O rlando' • s •   FutureFranchise"
+           'Star •',
   'sec_pos': 'SF',
   'stats': {'3pt': 79, 'ath': 90, 'clu': 88, 'def': 82, 'ins': 91, 'ply': 86},
   'team': 'ORL',
-  'theme': '• R • O • Y •   • P • r • o • d • i • g • y •',
+  'theme': 'ROYProdigy •',
   'tier': 'amethyst'},
  {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'amy-paolobanchero-89',
@@ -12715,12 +12715,12 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Paolo Banchero',
   'ovr': 89,
   'pos': 'PG',
-  'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 4 • ) •   • • •   • H • '
-           'i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i • n • g •   • D • y • n • a • m • o •',
+  'quote': '1xNBAAll- Star• ( 2024) • • • H • '
+           'i ghImpactScoringDynamo •',
   'sec_pos': 'PF',
   'stats': {'3pt': 90, 'ath': 89, 'clu': 86, 'def': 87, 'ins': 84, 'ply': 94},
   'team': 'ORL',
-  'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) •',
+  'theme': 'All- StarPerformer• ( 1x) •',
   'tier': 'amethyst'},
  {'badges': ['Gold Special Delivery', 'Gold Needle Threader', 'Gold Limitless Range'],
   'id': 'amy-lamelo-89',
@@ -12729,13 +12729,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'LaMelo Ball',
   'ovr': 89,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 2 • 2 •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 2 • 1 •   • R • o • o • k • i • '
-           'e •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • H • i • g • h • l • i • g • h • t •   • R '
-           '• e • e • l •   • P • a • s • s • i • n • g •   • V • i • s • i • o • n •',
+  'quote': '2022All- Star• • •   2021Rooki'
+           'e •   oftheYear• • •   Highlight• R '
+           'eelPassingVision •',
   'sec_pos': 'SG',
   'stats': {'3pt': 90, 'ath': 90, 'clu': 91, 'def': 78, 'ins': 86, 'ply': 97},
   'team': 'CHA',
-  'theme': '• F • l • a • s • h • y •   • P • a • s • s • e • r •',
+  'theme': 'FlashyPasser •',
   'tier': 'amethyst'},
  {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'amy-lameloball-89',
@@ -12744,12 +12744,12 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'LaMelo Ball',
   'ovr': 89,
   'pos': 'PG',
-  'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 2 • ) •   • • •   • H • '
-           'i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i • n • g •   • D • y • n • a • m • o •',
+  'quote': '1xNBAAll- Star• ( 2022) • • • H • '
+           'i ghImpactScoringDynamo •',
   'sec_pos': 'PF',
   'stats': {'3pt': 88, 'ath': 93, 'clu': 86, 'def': 81, 'ins': 83, 'ply': 89},
   'team': 'CHA',
-  'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) •',
+  'theme': 'All- StarPerformer• ( 1x) •',
   'tier': 'amethyst'},
  {'badges': ['Gold Clutch Shooter', 'Gold Difficult Shots', 'Gold Acrobat'],
   'id': 'amy-murray-89',
@@ -12758,13 +12758,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jamal Murray',
   'ovr': 89,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • M • u • l • t • i • p • '
-           'l • e •   • P • l • a • y • o • f • f •   • G • a • m • e • - • W • i • n • n • i • n • g •   • B • u • z '
-           '• z • e • r •   • B • e • a • t • e • r • s •',
+  'quote': '2023NBAChampion• • •   Multip'
+           'l • e •   PlayoffGame- WinningBuz '
+           'zerBeaters •',
   'sec_pos': 'SG',
   'stats': {'3pt': 92, 'ath': 89, 'clu': 99, 'def': 81, 'ins': 90, 'ply': 90},
   'team': 'DEN',
-  'theme': '• P • l • a • y • o • f • f •   • B • u • c • k • e • t •',
+  'theme': 'PlayoffBucket •',
   'tier': 'amethyst'},
  {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'amy-jamalmurray-89',
@@ -12773,12 +12773,12 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jamal Murray',
   'ovr': 89,
   'pos': 'PG',
-  'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 6 • ) •   • • •   • H • '
-           'i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i • n • g •   • D • y • n • a • m • o •',
+  'quote': '1xNBAAll- Star• ( 2026) • • • H • '
+           'i ghImpactScoringDynamo •',
   'sec_pos': 'PF',
   'stats': {'3pt': 91, 'ath': 92, 'clu': 90, 'def': 86, 'ins': 82, 'ply': 91},
   'team': 'DEN',
-  'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) •',
+  'theme': 'All- StarPerformer• ( 1x) •',
   'tier': 'amethyst'},
  {'badges': ['Bronze Dimer', 'Bronze Deadeye', 'Bronze Clutch Shooter'],
   'id': 'amy-jalen-89',
@@ -12787,13 +12787,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jalen Brunson',
   'ovr': 89,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 2 • 4 •   • A • l • l • - • S • t • a • r •   • S • t • a • r • t • e • r •   • - •   • N • e • '
-           'w •   • Y • o • r • k •   • K • n • i • c • k • s •   • F • r • a • n • c • h • i • s • e •   • C • o • r '
-           '• n • e • r • s • t • o • n • e •',
+  'quote': '2024All- StarStarter• - •   Ne'
+           'w •   YorkKnicksFranchiseCor '
+           'nerstone •',
   'sec_pos': 'SG',
   'stats': {'3pt': 84, 'ath': 84, 'clu': 94, 'def': 78, 'ins': 88, 'ply': 90},
   'team': 'NYK',
-  'theme': '• M • S • G •   • M • a • e • s • t • r • o •',
+  'theme': 'MSGMaestro •',
   'tier': 'amethyst'},
  {'badges': ['Gold Anchor', 'Gold Chase Down Artist', 'Gold Catch & Shoot'],
   'id': 'amy-chet-89',
@@ -12802,13 +12802,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Chet Holmgren',
   'ovr': 89,
   'pos': 'C',
-  'quote': '• A • l • l • - • R • o • o • k • i • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 7 • f • '
-           't •   • 1 • i • n •   • S • h • o • t • - • B • l • o • c • k • i • n • g •   • & •   • 3 • P • T •   • S '
-           '• h • o • o • t • i • n • g •   • P • h • e • n • o • m •',
+  'quote': 'All- RookieFirstTeam• • •   7f'
+           't •   1inShot- Blocking• & •   3PT• S '
+           'hootingPhenom •',
   'sec_pos': 'PF',
   'stats': {'3pt': 89, 'ath': 88, 'clu': 90, 'def': 96, 'ins': 89, 'ply': 80},
   'team': 'OKC',
-  'theme': '• S • h • o • t • - • B • l • o • c • k • i • n • g •   • P • h • e • n • o • m •',
+  'theme': 'Shot- BlockingPhenom •',
   'tier': 'amethyst'},
  {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
   'id': 'amy-chetholmgren-89',
@@ -12817,12 +12817,12 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Chet Holmgren',
   'ovr': 89,
   'pos': 'PF',
-  'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 6 • ) •   • • •   • H • '
-           'i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i • n • g •   • D • y • n • a • m • o •',
+  'quote': '1xNBAAll- Star• ( 2026) • • • H • '
+           'i ghImpactScoringDynamo •',
   'sec_pos': 'C',
   'stats': {'3pt': 76, 'ath': 89, 'clu': 89, 'def': 92, 'ins': 93, 'ply': 80},
   'team': 'OKC',
-  'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) •',
+  'theme': 'All- StarPerformer• ( 1x) •',
   'tier': 'amethyst'},
  {'badges': ['Bronze Anchor', 'Bronze Intimidator', 'Bronze Aerial Wizard'],
   'id': 'ruby-wemby-88',
@@ -12831,13 +12831,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Victor Wembanyama',
   'ovr': 88,
   'pos': 'C',
-  'quote': '• 2 • 0 • 2 • 4 •   • R • o • o • k • i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • - •   • '
-           'G • e • n • e • r • a • t • i • o • n • a • l •   • T • a • l • e • n • t •   • - •   • E • x • t • r • a '
-           '• t • e • r • r • e • s • t • r • i • a • l •   • B • l • o • c • k • e • r •',
+  'quote': '2024RookieoftheYear• - • '
+           'G enerationalTalent• - •   Extra '
+           'terrestrialBlocker •',
   'sec_pos': 'PF',
   'stats': {'3pt': 82, 'ath': 92, 'clu': 84, 'def': 97, 'ins': 90, 'ply': 84},
   'team': 'SAS',
-  'theme': '• A • l • i • e • n •   • P • r • o • d • i • g • y •',
+  'theme': 'AlienProdigy •',
   'tier': 'ruby'},
  {'badges': ['Bronze Lob City Passer', 'Bronze Agent 3', 'Bronze Dimer'],
   'id': 'ruby-trae-87',
@@ -12846,13 +12846,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Trae Young',
   'ovr': 87,
   'pos': 'PG',
-  'quote': '• 5 • x •   • A • l • l • - • S • t • a • r •   • - •   • E • l • i • t • e •   • L • o • b •   • P • a • '
-           's • s • e • r •   • & •   • D • e • e • p •   • T • h • r • e • e • - • P • o • i • n • t •   • T • h • r '
-           '• e • a • t •',
+  'quote': '5xAll- Star• - •   EliteLobPa'
+           's ser• & •   DeepThree- PointThr '
+           'eat •',
   'sec_pos': 'SG',
   'stats': {'3pt': 90, 'ath': 75, 'clu': 91, 'def': 60, 'ins': 72, 'ply': 95},
   'team': 'ATL',
-  'theme': '• I • c • e •   • T • r • a • e •   • M • a • e • s • t • r • o •',
+  'theme': 'IceTraeMaestro •',
   'tier': 'ruby'},
  {'badges': ['Bronze Giant Slayer', 'Bronze Posterizer', 'Bronze Brick Wall'],
   'id': 'ruby-zion-86',
@@ -12861,13 +12861,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Zion Williamson',
   'ovr': 86,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 1 •   • A • l • l • - • S • t • a • r •   • - •   • M • o • s • t •   • P • o • w • e • r • '
-           'f • u • l •   • Y • o • u • n • g •   • F • o • r • c • e •   • i • n •   • t • h • e •   • N • B • A •   '
-           '• P • a • i • n • t •',
+  'quote': '2021All- Star• - •   MostPower'
+           'f ulYoungForceintheNBA'
+           'Paint •',
   'sec_pos': 'C',
   'stats': {'3pt': 60, 'ath': 99, 'clu': 84, 'def': 83, 'ins': 96, 'ply': 80},
   'team': 'NOP',
-  'theme': '• Z • i • o • n •   • F • r • e • i • g • h • t •   • T • r • a • i • n •',
+  'theme': 'ZionFreightTrain •',
   'tier': 'ruby'},
  {'badges': ['Silver Clamps', 'Silver Glove', 'Silver Floor General'],
   'id': 'ruby-jrue-86',
@@ -12876,13 +12876,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Jrue Holiday',
   'ovr': 86,
   'pos': 'PG',
-  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • A • l • l • - • D • '
-           'e • f • e • n • s • i • v • e •   • T • e • a • m •   • • •   • M • o • s • t •   • R • e • s • p • e • c '
-           '• t • e • d •   • G • u • a • r • d •   • D • e • f • e • n • d • e • r •',
+  'quote': '2xNBAChampion• • •   6xAll- • D • '
+           'e fensiveTeam• • •   MostRespec '
+           'tedGuardDefender •',
   'sec_pos': 'SG',
   'stats': {'3pt': 87, 'ath': 88, 'clu': 92, 'def': 97, 'ins': 84, 'ply': 88},
   'team': 'BOS',
-  'theme': '• 2 • x •   • C • h • a • m • p • i • o • n •   • C • l • a • m • p •',
+  'theme': '2xChampionClamp •',
   'tier': 'ruby'},
  {'badges': ['Silver Clamps', 'Silver Interceptor', 'Silver Catch & Shoot'],
   'id': 'ruby-white-86',
@@ -12891,13 +12891,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Derrick White',
   'ovr': 86,
   'pos': 'SG',
-  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • A • l • l • '
-           '- • D • e • f • e • n • s • i • v • e •   • S • e • c • o • n • d •   • T • e • a • m •   • • •   • C • h '
-           '• a • m • p • i • o • n • s • h • i • p •   • G • l • u • e •   • G • u • a • r • d •',
+  'quote': '2024NBAChampion• • •   2xAll'
+           '- DefensiveSecondTeam• • •   Ch '
+           'ampionshipGlueGuard •',
   'sec_pos': 'PG',
   'stats': {'3pt': 89, 'ath': 87, 'clu': 91, 'def': 94, 'ins': 82, 'ply': 85},
   'team': 'BOS',
-  'theme': '• T • w • o • - • W • a • y •   • G • l • u • e •',
+  'theme': 'Two- WayGlue •',
   'tier': 'ruby'},
  {'badges': ['Silver Clamps', 'Silver Interceptor', 'Silver Catch & Shoot'],
   'id': 'ruby-derrickwhite-86',
@@ -12906,13 +12906,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Derrick White',
   'ovr': 86,
   'pos': 'SG',
-  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • A • l • l • '
-           '- • D • e • f • e • n • s • i • v • e •   • S • e • c • o • n • d •   • T • e • a • m •   • • •   • C • h '
-           '• a • m • p • i • o • n • s • h • i • p •   • G • l • u • e •   • G • u • a • r • d •',
+  'quote': '2024NBAChampion• • •   2xAll'
+           '- DefensiveSecondTeam• • •   Ch '
+           'ampionshipGlueGuard •',
   'sec_pos': 'PG',
   'stats': {'3pt': 90, 'ath': 86, 'clu': 85, 'def': 85, 'ins': 88, 'ply': 85},
   'team': 'BOS',
-  'theme': '• T • w • o • - • W • a • y •   • G • l • u • e •',
+  'theme': 'Two- WayGlue •',
   'tier': 'ruby'},
  {'badges': ['Silver Menace', 'Silver Glove', 'Silver Corner Specialist'],
   'id': 'ruby-anunoby-85',
@@ -12921,13 +12921,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'OG Anunoby',
   'ovr': 85,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 1 • 9 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • N • B • A •   • S • t • '
-           'e • a • l • s •   • L • e • a • d • e • r •   • • •   • L • o • c • k •   • D • o • w • n •   • P • e • r '
-           '• i • m • e • t • e • r •   • C • l • a • m • p •',
+  'quote': '2019NBAChampion• • •   NBASt'
+           'e alsLeader• • •   LockDownPer '
+           'imeterClamp •',
   'sec_pos': 'PF',
   'stats': {'3pt': 87, 'ath': 90, 'clu': 87, 'def': 95, 'ins': 86, 'ply': 78},
   'team': 'NYK',
-  'theme': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
+  'theme': 'DefensiveMenace •',
   'tier': 'ruby'},
  {'badges': ['Silver Menace', 'Silver Glove', 'Silver Corner Specialist'],
   'id': 'ruby-oganunoby-85',
@@ -12936,13 +12936,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'OG Anunoby',
   'ovr': 85,
   'pos': 'SF',
-  'quote': '• 2 • 0 • 1 • 9 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • N • B • A •   • S • t • '
-           'e • a • l • s •   • L • e • a • d • e • r •   • • •   • L • o • c • k •   • D • o • w • n •   • P • e • r '
-           '• i • m • e • t • e • r •   • C • l • a • m • p •',
+  'quote': '2019NBAChampion• • •   NBASt'
+           'e alsLeader• • •   LockDownPer '
+           'imeterClamp •',
   'sec_pos': 'PF',
   'stats': {'3pt': 82, 'ath': 89, 'clu': 88, 'def': 86, 'ins': 90, 'ply': 86},
   'team': 'NYK',
-  'theme': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
+  'theme': 'DefensiveMenace •',
   'tier': 'ruby'},
  {'badges': ['Silver Clamps', 'Silver Pick Dodger', 'Silver Corner Specialist'],
   'id': 'ruby-mikal-85',
@@ -12951,13 +12951,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Mikal Bridges',
   'ovr': 85,
   'pos': 'SF',
-  'quote': '• N • B • A •   • I • r • o • n •   • M • a • n •   • • •   • A • l • l • - • D • e • f • e • n • s • i • '
-           'v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 3 • - • a • n • d • - • D •   • P • e • r '
-           '• f • e • c • t • i • o • n •',
+  'quote': 'NBAIronMan• • •   All- Defensi'
+           'v • e •   FirstTeam• • • 3 • - and- • D •   Per '
+           'fection •',
   'sec_pos': 'SG',
   'stats': {'3pt': 88, 'ath': 89, 'clu': 88, 'def': 93, 'ins': 84, 'ply': 81},
   'team': 'NYK',
-  'theme': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
+  'theme': 'IronManLock •',
   'tier': 'ruby'},
  {'badges': ['Silver Clamps', 'Silver Pick Dodger', 'Silver Corner Specialist'],
   'id': 'ruby-mikalbridges-85',
@@ -12966,13 +12966,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Mikal Bridges',
   'ovr': 85,
   'pos': 'SF',
-  'quote': '• N • B • A •   • I • r • o • n •   • M • a • n •   • • •   • A • l • l • - • D • e • f • e • n • s • i • '
-           'v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 3 • - • a • n • d • - • D •   • P • e • r '
-           '• f • e • c • t • i • o • n •',
+  'quote': 'NBAIronMan• • •   All- Defensi'
+           'v • e •   FirstTeam• • • 3 • - and- • D •   Per '
+           'fection •',
   'sec_pos': 'SG',
   'stats': {'3pt': 86, 'ath': 87, 'clu': 85, 'def': 89, 'ins': 89, 'ply': 82},
   'team': 'NYK',
-  'theme': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
+  'theme': 'IronManLock •',
   'tier': 'ruby'},
  {'badges': ['Silver Posterizer', 'Silver Aerial Wizard', 'Silver Post Lock'],
   'id': 'ruby-gordon-85',
@@ -12981,14 +12981,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Aaron Gordon',
   'ovr': 85,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • L • e • g • e • n • d • '
-           'a • r • y •   • D • u • n • k •   • C • o • n • t • e • s • t •   • I • c • o • n •   • • •   • P • o • w '
-           '• e • r •   • D • u • n • k • e • r •   • & •   • D • e • f • e • n • s • i • v • e •   • A • n • c • h • '
+  'quote': '2023NBAChampion• • •   Legend'
+           'a ryDunkContestIcon• • •   Pow '
+           'erDunker• & •   DefensiveAnch'
            'o • r •',
   'sec_pos': 'SF',
   'stats': {'3pt': 76, 'ath': 97, 'clu': 88, 'def': 92, 'ins': 95, 'ply': 82},
   'team': 'DEN',
-  'theme': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+  'theme': 'DunkContestKing •',
   'tier': 'ruby'},
  {'badges': ['Silver Posterizer', 'Silver Aerial Wizard', 'Silver Post Lock'],
   'id': 'ruby-aarongordon-85',
@@ -12997,14 +12997,14 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Aaron Gordon',
   'ovr': 85,
   'pos': 'PF',
-  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • L • e • g • e • n • d • '
-           'a • r • y •   • D • u • n • k •   • C • o • n • t • e • s • t •   • I • c • o • n •   • • •   • P • o • w '
-           '• e • r •   • D • u • n • k • e • r •   • & •   • D • e • f • e • n • s • i • v • e •   • A • n • c • h • '
+  'quote': '2023NBAChampion• • •   Legend'
+           'a ryDunkContestIcon• • •   Pow '
+           'erDunker• & •   DefensiveAnch'
            'o • r •',
   'sec_pos': 'SF',
   'stats': {'3pt': 73, 'ath': 88, 'clu': 87, 'def': 90, 'ins': 90, 'ply': 75},
   'team': 'DEN',
-  'theme': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+  'theme': 'DunkContestKing •',
   'tier': 'ruby'},
  {'id': 'ruby-green-84',
   'name': 'Draymond Green',
@@ -13025,13 +13025,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Austin Reaves',
   'ovr': 84,
   'pos': 'SG',
-  'quote': '• F • a • n •   • F • a • v • o • r • i • t • e •   • P • l • a • y • m • a • k • e • r •   • • •   • H • '
-           'i • g • h •   • I • Q •   • P • i • c • k • - • a • n • d • - • R • o • l • l •   • B • a • l • l •   • H '
-           '• a • n • d • l • e • r •',
+  'quote': 'FanFavoritePlaymaker• • • H • '
+           'i ghIQPick- and- RollBall• H '
+           'andler •',
   'sec_pos': 'PG',
   'stats': {'3pt': 88, 'ath': 83, 'clu': 91, 'def': 79, 'ins': 85, 'ply': 87},
   'team': 'LAL',
-  'theme': '• C • r • a • f • t • y •   • P • l • a • y • m • a • k • e • r •',
+  'theme': 'CraftyPlaymaker •',
   'tier': 'ruby'},
  {'badges': ['Silver Dimer', 'Silver Space Creator', 'Silver Middy Magician'],
   'id': 'ruby-austinreaves-84',
@@ -13040,13 +13040,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Austin Reaves',
   'ovr': 84,
   'pos': 'SG',
-  'quote': '• F • a • n •   • F • a • v • o • r • i • t • e •   • P • l • a • y • m • a • k • e • r •   • • •   • H • '
-           'i • g • h •   • I • Q •   • P • i • c • k • - • a • n • d • - • R • o • l • l •   • B • a • l • l •   • H '
-           '• a • n • d • l • e • r •',
+  'quote': 'FanFavoritePlaymaker• • • H • '
+           'i ghIQPick- and- RollBall• H '
+           'andler •',
   'sec_pos': 'PG',
   'stats': {'3pt': 85, 'ath': 89, 'clu': 83, 'def': 81, 'ins': 85, 'ply': 84},
   'team': 'LAL',
-  'theme': '• C • r • a • f • t • y •   • P • l • a • y • m • a • k • e • r •',
+  'theme': 'CraftyPlaymaker •',
   'tier': 'ruby'},
  {'badges': ['Silver Clamps', 'Silver Catch & Shoot', 'Silver Acrobat'],
   'id': 'ruby-andreiguodala-84',
@@ -13055,12 +13055,12 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Andre Iguodala',
   'ovr': 84,
   'pos': 'C',
-  'quote': '• N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 2 • ) •   • • •   • T • o • u • g • '
-           'h •   • T • w • o • - • W • a • y •   • C • o • m • p • e • t • i • t • o • r •',
+  'quote': 'NBAAll- Star• ( 2012) • • •   Toug'
+           'h •   Two- WayCompetitor •',
   'sec_pos': 'SG',
   'stats': {'3pt': 65, 'ath': 87, 'clu': 83, 'def': 91, 'ins': 89, 'ply': 71},
   'team': 'WAS',
-  'theme': '• A • l • l • - • S • t • a • r •   • S • t • a • n • d • o • u • t •   • ( • 2 • 0 • 1 • 2 • ) •',
+  'theme': 'All- StarStandout• ( 2012) •',
   'tier': 'ruby'},
  {'id': 'gold-parker-83',
   'name': 'Tony Parker',
@@ -13249,13 +13249,13 @@ NBA_2K_MOBILE_CARDS: List[Dict[str, Any]] = [{'badges': ['HOF 100-Point Game', '
   'name': 'Alex Caruso',
   'ovr': 81,
   'pos': 'PG',
-  'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • A • l • l • '
-           '- • D • e • f • e • n • s • i • v • e •   • • •   • R • e • l • e • n • t • l • e • s • s •   • P • e • r '
-           '• i • m • e • t • e • r •   • P • e • s • t •',
+  'quote': '2020NBAChampion• • •   2xAll'
+           '- Defensive• • •   RelentlessPer '
+           'imeterPest •',
   'sec_pos': 'SG',
   'stats': {'3pt': 77, 'ath': 80, 'clu': 81, 'def': 79, 'ins': 75, 'ply': 80},
   'team': 'OKC',
-  'theme': '• S • t • e • a • l • s •   • S • p • e • c • i • a • l • i • s • t •',
+  'theme': 'StealsSpecialist •',
   'tier': 'gold'}]
 
 NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 100-Point Game',
@@ -13265,22 +13265,22 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'HOF Aerial Wizard'],
                   'id': 'excl-wilt-99',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/1/11/Wilt_Chamberlain_1960_%28cropped%29_%28cropped%29.jpg',
-                  'moment': '• H • o • l • d • i • n • g •   • t • h • e •   • H • a • n • d • - • W • r • i • t • t • '
-                            "e • n •   • ' • 1 • 0 • 0 • ' •   • P • a • p • e • r •   • S • i • g • n •   • i • n •   "
-                            '• H • e • r • s • h • e • y •   • A • r • e • n • a •   • L • o • c • k • e • r •   • R • '
-                            'o • o • m •',
+                  'moment': 'HoldingtheHand- Writt'
+                            "e • n • ' 100' •   PaperSignin"
+                            'HersheyArenaLocker• R • '
+                            'o om •',
                   'name': 'Wilt Chamberlain',
                   'ovr': 99,
                   'pos': 'C',
-                  'quote': '• S • c • o • r • e • d •   • 1 • 0 • 0 •   • P • o • i • n • t • s •   • i • n •   • a '
-                           '•   • S • i • n • g • l • e •   • G • a • m • e •   • ( • M • a • r • c • h •   • 2 • , '
-                           '•   • 1 • 9 • 6 • 2 • ) •   • • •   • U • n • b • r • o • k • e • n •   • R • e • c • o • '
-                           'r • d •   • i • n •   • S • p • o • r • t • s •   • H • i • s • t • o • r • y •',
+                  'quote': 'Scored100Pointsin• a '
+                           '•   SingleGame• ( March• 2 • , '
+                           '•   1962) • • •   UnbrokenReco'
+                           'r • d •   inSportsHistory •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
                   'team': 'PHI',
-                  'theme': "• 1 • 0 • 0 • - • P • o • i • n • t •   • G • a • m • e •   • ' • 1 • 0 • 0 • ' •   • S • "
-                           'i • g • n •',
+                  'theme': "100- PointGame• ' 100' • S • "
+                           'i gn •',
                   'tier': 'exclusive'},
  'excl-shaq-99': {'badges': ['HOF Diesel Dominance',
                              'HOF Dropstepper',
@@ -13289,22 +13289,22 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'HOF Posterizer'],
                   'id': 'excl-shaq-99',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/e5/TechCrunch_Disrupt_2023_-_Day_1_%28cropped%29.jpg',
-                  'moment': '• 2 • 0 • 0 • 0 •   • W • C • F •   • G • a • m • e •   • 7 •   • R • u • n • n • i • n • '
-                            'g •   • A • l • l • e • y • - • O • o • p •   • L • o • b •   • f • r • o • m •   • K • o '
-                            '• b • e •   • v • s •   • B • l • a • z • e • r • s •',
+                  'moment': '2000WCFGame• 7 •   Runnin'
+                            'g •   Alley- OopLobfromKo '
+                            'bevsBlazers •',
                   'name': "Shaquille O'Neal",
                   'ovr': 99,
                   'pos': 'C',
-                  'quote': '• 3 • - • P • e • a • t •   • F • i • n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • '
-                           '0 • 0 •   • M • V • P •   • • •   • M • o • s • t •   • D • o • m • i • n • a • n • t •   '
-                           '• F • o • r • c • e •   • E • v • e • r •   • • •   • S • h • a • t • t • e • r • i • n • '
-                           'g •   • B • a • c • k • b • o • a • r • d • s •   • & •   • T • r • o • p • h • y •   • L '
-                           '• i • f • t • s •',
+                  'quote': '• 3 • - PeatFinalsMVP• • •   20'
+                           '0 • 0 •   MVP• • •   MostDominant'
+                           'ForceEver• • •   Shatterin'
+                           'g •   Backboards• & •   Trophy• L '
+                           'ifts •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 82},
                   'team': 'LAL',
-                  'theme': '• 3 • - • P • e • a • t •   • F • i • n • a • l • s •   • M • V • P •   • & •   • R • i • '
-                           'm •   • W • r • e • c • k • e • r •',
+                  'theme': '• 3 • - PeatFinalsMVP• & •   Ri'
+                           'm •   Wrecker •',
                   'tier': 'exclusive'},
  'excl-jordan-99': {'badges': ['HOF Last Shot',
                                'HOF Clamps',
@@ -13313,23 +13313,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                'HOF Clutch God'],
                     'id': 'excl-jordan-99',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/43/Steve_Lipfosky_--_Michael_Jordan_%281997%29.jpg',
-                    'moment': "• 1 • 9 • 9 • 8 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • ' • T • h "
-                              "• e •   • L • a • s • t •   • S • h • o • t • ' •   • O • v • e • r •   • B • r • y • o "
-                              '• n •   • R • u • s • s • e • l • l •   • f • o • r •   • 6 • t • h •   • R • i • n • g '
+                    'moment': "1998FinalsGame• 6 • ' Th "
+                              "• e •   LastShot' •   OverBryo "
+                              '• n •   Russellfor6thRing '
                               '•',
                     'name': 'Michael Jordan',
                     'ovr': 99,
                     'pos': 'SG',
-                    'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • F '
-                             '• i • n • a • l • s •   • M • V • P •   • • •   • 5 • x •   • M • V • P •   • • •   • 1 '
-                             "• 9 • 9 • 8 •   • F • i • n • a • l • s •   • ' • T • h • e •   • L • a • s • t •   • S "
-                             "• h • o • t • ' •   • H • i • s • t • o • r • i • c •   • F • a • r • e • w • e • l • l "
+                    'quote': '6xNBAChampion• • •   6x• F '
+                             'inalsMVP• • •   5xMVP• • • 1 '
+                             "998Finals• ' TheLast• S "
+                             "hot' •   HistoricFarewell "
                              '•',
                     'sec_pos': 'SF',
                     'stats': {'3pt': 93, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 96},
                     'team': 'CHI',
-                    'theme': "• 1 • 9 • 9 • 8 •   • F • i • n • a • l • s •   • ' • T • h • e •   • L • a • s • t •   "
-                             "• S • h • o • t • ' •",
+                    'theme': "1998Finals• ' TheLast"
+                             "Shot' •",
                     'tier': 'exclusive'},
  'excl-magic-99': {'badges': ['HOF Junior Skyhook',
                               'HOF Showtime Maestro',
@@ -13338,63 +13338,63 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                               'HOF Floor General'],
                    'id': 'excl-magic-99',
                    'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/e8/Pat_Riley_and_Earvin_%22Magic%22_Johnsonat_the_Century_Plaza_%28cropped%29.jpg',
-                   'moment': "• 1 • 9 • 8 • 7 •   • F • i • n • a • l • s •   • G • a • m • e •   • 4 •   • ' • J • u "
-                             "• n • i • o • r • , •   • J • u • n • i • o • r • ' •   • S • k • y • h • o • o • k •   "
-                             '• G • a • m • e • - • W • i • n • n • e • r •   • a • t •   • B • o • s • t • o • n •   '
-                             '• G • a • r • d • e • n •',
+                   'moment': "1987FinalsGame• 4 • ' Ju "
+                             "nior, •   Junior' •   Skyhook"
+                             'Game- WinneratBoston'
+                             'Garden •',
                    'name': 'Magic Johnson',
                    'ovr': 99,
                    'pos': 'PG',
-                   'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • '
-                            'i • n • a • l • s •   • M • V • P •   • • •   • 1 • 9 • 8 • 0 •   • F • i • n • a • l • s '
-                            '•   • 4 • 2 • - • P • t •   • G • a • m • e •   • 6 •   • a • s •   • R • o • o • k • i • '
-                            'e •   • C • e • n • t • e • r •   • • •   • S • h • o • w • t • i • m • e •   • M • a • e '
-                            '• s • t • r • o •',
+                   'quote': '5xNBAChampion• • •   3x• F • '
+                            'i nalsMVP• • •   1980Finals '
+                            '•   42- PtGame• 6 •   asRooki'
+                            'e •   Center• • •   ShowtimeMae '
+                            'stro •',
                    'sec_pos': 'SF',
                    'stats': {'3pt': 86, 'ath': 95, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 99},
                    'team': 'LAL',
-                   'theme': '• 1 • 9 • 8 • 0 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • & •   • B • '
-                            'a • b • y •   • S • k • y • h • o • o • k •',
+                   'theme': '1980FinalsGame• 6 • & • B • '
+                            'a bySkyhook •',
                    'tier': 'exclusive'},
  'excl-lebron-99': {'badges': ['HOF The Block', 'HOF Chase Down Artist', 'HOF Dimer', 'HOF Bully', 'HOF Floor General'],
                     'id': 'excl-lebron-99',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/2/25/Lebron_wizards_2017_%28cropped%29.jpg',
-                    'moment': "• 2 • 0 • 1 • 6 •   • F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • ' • T • h "
-                              "• e •   • B • l • o • c • k • ' •   • o • n •   • A • n • d • r • e •   • I • g • u • o "
-                              '• d • a • l • a •   • & •   • C • h • a • m • p • i • o • n • s • h • i • p •   • T • e '
-                              '• a • r • s •',
+                    'moment': "2016FinalsGame• 7 • ' Th "
+                              "• e •   Block' •   onAndreIguo "
+                              'dala• & •   ChampionshipTe '
+                              'ars •',
                     'name': 'LeBron James',
                     'ovr': 99,
                     'pos': 'SF',
-                    'quote': '• 2 • 0 • 1 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i '
-                             "• n • a • l • s •   • M • V • P •   • • •   • ' • C • l • e • v • e • l • a • n • d • , "
-                             "•   • T • h • i • s •   • i • s •   • F • o • r •   • Y • o • u • ! • ' •   • • •   • L "
-                             '• e • g • e • n • d • a • r • y •   • G • a • m • e •   • 7 •   • C • h • a • s • e • - '
-                             '• D • o • w • n •   • B • l • o • c • k •',
+                    'quote': '2016NBAChampion• & •   Fi '
+                             "nalsMVP• • • ' Cleveland, "
+                             "•   ThisisForYou! • ' • • • L "
+                             'egendaryGame• 7 •   Chase- '
+                             'DownBlock •',
                     'sec_pos': 'PF',
                     'stats': {'3pt': 91, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 99},
                     'team': 'CLE',
-                    'theme': "• 2 • 0 • 1 • 6 •   • F • i • n • a • l • s •   • ' • T • h • e •   • B • l • o • c • k "
-                             "• ' •   • & •   • R • i • n • g •",
+                    'theme': "2016Finals• ' TheBlock "
+                             "• ' • & •   Ring •",
                     'tier': 'exclusive'},
  'excl-kobe-99': {'badges': ['HOF 81-Piece', 'HOF Mamba Mentality', 'HOF Deadeye', 'HOF Clamps', 'HOF Difficult Shots'],
                   'id': 'excl-kobe-99',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/43/Kobe_Bryant_Jumper_07_%28cropped%29.jpg',
-                  'moment': '• 8 • 1 • - • P • o • i • n • t •   • H • i • s • t • o • r • i • c •   • M • a • s • t • '
-                            'e • r • p • i • e • c • e •   • v • s •   • R • a • p • t • o • r • s •   • & •   • I • n '
-                            '• d • e • x •   • F • i • n • g • e • r •   • t • o •   • t • h • e •   • S • k • y •',
+                  'moment': '81- PointHistoricMast'
+                            'e rpiecevsRaptors• & •   In '
+                            'dexFingertotheSky •',
                   'name': 'Kobe Bryant',
                   'ovr': 99,
                   'pos': 'SG',
-                  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • '
-                           'i • n • a • l • s •   • M • V • P •   • • •   • 8 • 1 • - • P • o • i • n • t •   • M • a '
-                           '• s • t • e • r • p • i • e • c • e •   • v • s •   • R • a • p • t • o • r • s •   • • '
-                           "•   • ' • M • a • m • b • a •   • O • u • t • ' •   • F • a • r • e • w • e • l • l •",
+                  'quote': '5xNBAChampion• • •   2x• F • '
+                           'i nalsMVP• • •   81- PointMa '
+                           'sterpiecevsRaptors• • '
+                           "• ' MambaOut' •   Farewell •",
                   'sec_pos': 'SF',
                   'stats': {'3pt': 94, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 94},
                   'team': 'LAL',
-                  'theme': '• 8 • 1 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • & '
-                           '•   • M • a • m • b • a •   • O • u • t •',
+                  'theme': '81- PointMasterpiece• & '
+                           '•   MambaOut •',
                   'tier': 'exclusive'},
  'excl-kareem-99': {'badges': ['HOF Unstoppable Skyhook',
                                'HOF Post Hook',
@@ -13403,21 +13403,21 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                'HOF Dropstepper'],
                     'id': 'excl-kareem-99',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/a/a0/Kareem_Abdul-Jabbar_May_2014.jpg',
-                    'moment': '• 1 • 9 • 7 • 4 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • I • c • o '
-                              '• n • i • c •   • S • k • y • h • o • o • k •   • B • u • z • z • e • r • - • B • e • a '
-                              '• t • e • r •   • O • v • e • r •   • B • o • s • t • o • n •',
+                    'moment': '1974FinalsGame• 6 •   Ico '
+                              'nicSkyhookBuzzer- Bea '
+                              'terOverBoston •',
                     'name': 'Kareem Abdul-Jabbar',
                     'ovr': 99,
                     'pos': 'C',
-                    'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • M '
-                             '• V • P •   • • •   • 1 • 9 • x •   • A • l • l • - • S • t • a • r •   • • •   • A • l '
-                             '• l • - • T • i • m • e •   • S • c • o • r • i • n • g •   • K • i • n • g •   • f • o '
-                             '• r •   • 3 • 9 •   • Y • e • a • r • s •',
+                    'quote': '6xNBAChampion• • •   6x• M '
+                             'VP• • •   19xAll- Star• • •   Al '
+                             '• l • - TimeScoringKingfo '
+                             '• r •   39Years •',
                     'sec_pos': 'PF',
                     'stats': {'3pt': 60, 'ath': 96, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 88},
                     'team': 'LAL',
-                    'theme': '• U • n • s • t • o • p • p • a • b • l • e •   • S • k • y • h • o • o • k •   • M • a '
-                             '• s • t • e • r •',
+                    'theme': 'UnstoppableSkyhookMa '
+                             'ster •',
                     'tier': 'exclusive'},
  'excl-duncan-98': {'badges': ['HOF Quadruple Double',
                                'HOF Post Lock',
@@ -13426,41 +13426,41 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                'HOF Break Starter'],
                     'id': 'excl-duncan-98',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/c/cb/Tim_Duncan_Walks_Verizon_Center%27s_Floor_%28cropped%29_%28cropped%29.jpg',
-                    'moment': '• 2 • 0 • 0 • 3 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 2 • 1 •   '
-                              '• P • T • S • , •   • 2 • 0 •   • R • E • B • , •   • 1 • 0 •   • A • S • T • , •   • 8 '
-                              '•   • B • L • K •   • C • h • a • m • p • i • o • n • s • h • i • p •   • H • u • g •',
+                    'moment': '2003FinalsGame• 6 •   21'
+                              'PTS, •   20REB, •   10AST, • 8 '
+                              '•   BLKChampionshipHug •',
                     'name': 'Tim Duncan',
                     'ovr': 98,
                     'pos': 'PF',
-                    'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F '
-                             '• i • n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • 2 '
-                             '• 0 • 0 • 3 •   • F • i • n • a • l • s •   • Q • u • a • d • r • u • p • l • e • - • D '
-                             '• o • u • b • l • e •   • C • h • a • m • p • i • o • n • s • h • i • p •   • G • a • m '
+                    'quote': '5xNBAChampion• • •   3x• F '
+                             'inalsMVP• • •   2xMVP• • • 2 '
+                             '003FinalsQuadruple- • D '
+                             'oubleChampionshipGam '
                              '• e •',
                     'sec_pos': 'C',
                     'stats': {'3pt': 68, 'ath': 91, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 89},
-                    'theme': '• 2 • 0 • 0 • 3 •   • F • i • n • a • l • s •   • Q • u • a • d • r • u • p • l • e • - '
-                             '• D • o • u • b • l • e •',
+                    'theme': '2003FinalsQuadruple- '
+                             'Double •',
                     'tier': 'exclusive',
                     'team': 'NBA'},
  'excl-curry-98': {'badges': ['HOF Night Night', 'HOF Limitless Range', 'HOF Chef', 'HOF Agent 3', 'HOF Circus Threes'],
                    'id': 'excl-curry-98',
                    'image_url': 'https://upload.wikimedia.org/wikipedia/commons/8/84/Booker_and_Curry%2C_Paris_2024_Olympic_Games.jpg',
-                   'moment': "• 2 • 0 • 2 • 2 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • ' • N • i "
-                             "• g • h • t •   • N • i • g • h • t • ' •   • G • e • s • t • u • r • e •   • P • o • i "
-                             '• n • t • i • n • g •   • t • o •   • R • i • n • g •   • F • i • n • g • e • r •',
+                   'moment': "2022FinalsGame• 6 • ' Ni "
+                             "ghtNight' •   GesturePoi "
+                             'ntingtoRingFinger •',
                    'name': 'Stephen Curry',
                    'ovr': 98,
                    'pos': 'PG',
-                   'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 2 • 2 '
-                            '•   • F • i • n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • '
-                            "•   • ' • N • i • g • h • t •   • N • i • g • h • t • ' •   • C • e • l • e • b • r • a • "
-                            't • i • o • n •   • i • n •   • B • o • s • t • o • n •   • G • a • r • d • e • n •',
+                   'quote': '4xNBAChampion• • •   2022 '
+                            '•   FinalsMVP• • •   2xMVP• • '
+                            "• ' NightNight' •   Celebra"
+                            't ioninBostonGarden •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 99, 'ath': 94, 'clu': 99, 'def': 88, 'ins': 91, 'ply': 98},
                    'team': 'GSW',
-                   'theme': "• 2 • 0 • 2 • 2 •   • F • i • n • a • l • s •   • ' • N • i • g • h • t •   • N • i • g • "
-                            "h • t • ' •   • & •   • 3 • P • T •   • K • i • n • g •",
+                   'theme': "2022Finals• ' NightNig"
+                            "h • t • ' • & •   3PTKing •",
                    'tier': 'exclusive'},
  'excl-bird-98': {'badges': ['HOF Finger In The Air',
                              'HOF Clutch Shooter',
@@ -13469,23 +13469,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'HOF Dimer'],
                   'id': 'excl-bird-98',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/December_1983_One_on_One_Dr_J_vs_Larry_Bird_advertisement_by_Electronic_Arts_%28cropped%29_%28cropped%29.jpg',
-                  'moment': '• 1 • 9 • 8 • 6 •   • 3 • P • T •   • C • o • n • t • e • s • t •   • L • a • s • t •   • '
-                            'S • h • o • t •   • F • i • n • g • e • r •   • i • n •   • t • h • e •   • A • i • r •   '
-                            '• B • e • f • o • r • e •   • i • t •   • D • r • o • p • p • e • d •   • & •   • J • a • '
-                            'c • k • e • t •   • O • n •',
+                  'moment': '19863PTContestLast• '
+                            'S hotFingerintheAir'
+                            'BeforeitDropped• & •   Ja'
+                            'c ketOn •',
                   'name': 'Larry Bird',
                   'ovr': 98,
                   'pos': 'SF',
-                  'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • '
-                           'i • n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • C • o • n • s • e • c • u • t '
-                           "• i • v • e •   • M • V • P •   • • •   • ' • W • h • o • ' • s •   • C • o • m • i • n • "
-                           "g •   • i • n •   • S • e • c • o • n • d • ? • ' •   • 3 • P • T •   • L • e • g • e • n "
+                  'quote': '3xNBAChampion• • •   2x• F • '
+                           'i nalsMVP• • •   3xConsecut '
+                           "iveMVP• • • ' Who' • s •   Comin"
+                           "g •   inSecond? • ' •   3PTLegen "
                            '• d •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 99, 'ath': 90, 'clu': 99, 'def': 95, 'ins': 95, 'ply': 98},
                   'team': 'BOS',
-                  'theme': '• 3 • - • P • e • a • t •   • M • V • P •   • & •   • F • i • n • g • e • r •   • I • n '
-                           '•   • T • h • e •   • A • i • r •',
+                  'theme': '• 3 • - PeatMVP• & •   FingerIn '
+                           '•   TheAir •',
                   'tier': 'exclusive'},
  'excl-durant-98': {'badges': ['HOF Finals MVP Dagger',
                                'HOF Guard Up',
@@ -13494,21 +13494,21 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                'HOF Blinders'],
                     'id': 'excl-durant-98',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/4a/Jonas_Maciulis_attacks_the_basket_%28cropped%29.jpg',
-                    'moment': '• 2 • 0 • 1 • 7 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • C • o • l '
-                              '• d • - • B • l • o • o • d • e • d •   • P • u • l • l • - • U • p •   • 3 •   • O • v '
-                              '• e • r •   • L • e • B • r • o • n •   • J • a • m • e • s •',
+                    'moment': '2017FinalsGame• 3 •   Col '
+                              '• d • - BloodedPull- Up• 3 •   Ov '
+                              'erLeBronJames •',
                     'name': 'Kevin Durant',
                     'ovr': 98,
                     'pos': 'SF',
-                    'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F '
-                             '• i • n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • 1 • 7 •   • & •   • 2 • 0 • 1 '
-                             '• 8 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • P • u • l • l • - • U '
-                             '• p •   • D • a • g • g • e • r • s •   • O • v • e • r •   • L • e • B • r • o • n •',
+                    'quote': '2xNBAChampion• • •   2x• F '
+                             'inalsMVP• • •   2017• & •   201 '
+                             '• 8 •   FinalsGame• 3 •   Pull- • U '
+                             '• p •   DaggersOverLeBron •',
                     'sec_pos': 'PF',
                     'stats': {'3pt': 98, 'ath': 96, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 92},
                     'team': 'GSW',
-                    'theme': '• B • a • c • k • - • t • o • - • B • a • c • k •   • F • i • n • a • l • s •   • M • V '
-                             '• P •   • D • a • g • g • e • r • s •',
+                    'theme': 'Back- to- BackFinalsMV '
+                             '• P •   Daggers •',
                     'tier': 'exclusive'},
  'excl-hakeem-98': {'badges': ['HOF The Dream Shake',
                                'HOF Post Spin Technician',
@@ -13517,23 +13517,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                'HOF Dropstepper'],
                     'id': 'excl-hakeem-98',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/b/bd/Hakeem.jpg',
-                    'moment': '• 1 • 9 • 9 • 4 •   • F • i • n • a • l • s •   • D • r • e • a • m •   • S • h • a • k '
-                              '• e •   • C • l • i • n • i • c •   • O • v • e • r •   • P • a • t • r • i • c • k •   '
-                              '• E • w • i • n • g •   • & •   • D • a • v • i • d •   • R • o • b • i • n • s • o • n '
+                    'moment': '1994FinalsDreamShak '
+                              '• e •   ClinicOverPatrick'
+                              'Ewing• & •   DavidRobinson '
                               '•',
                     'name': 'Hakeem Olajuwon',
                     'ovr': 98,
                     'pos': 'C',
-                    'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • a '
-                             '• l • s •   • M • V • P •   • • •   • 1 • 9 • 9 • 4 •   • M • V • P •   • & •   • D • P '
-                             '• O • Y •   • T • r • i • p • l • e •   • C • r • o • w • n •   • • •   • G • r • e • a '
-                             '• t • e • s • t •   • F • o • o • t • w • o • r • k •   • i • n •   • H • i • s • t • o '
-                             '• r • y •',
+                    'quote': '2xNBAChampion• & •   Fina '
+                             'lsMVP• • •   1994MVP• & •   DP '
+                             'OYTripleCrown• • •   Grea '
+                             'testFootworkinHisto '
+                             'ry •',
                     'sec_pos': 'PF',
                     'stats': {'3pt': 65, 'ath': 94, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
                     'team': 'HOU',
-                    'theme': '• 1 • 9 • 9 • 4 •   • M • V • P •   • & •   • D • r • e • a • m •   • S • h • a • k • e '
-                             '•   • S • w • e • e • p •',
+                    'theme': '1994MVP• & •   DreamShake '
+                             '•   Sweep •',
                     'tier': 'exclusive'},
  'excl-russell-98': {'badges': ['HOF 11 Rings Anchor',
                                 'HOF Rim Protector',
@@ -13542,23 +13542,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                 'HOF Fast Break Starter'],
                      'id': 'excl-russell-98',
                      'image_url': 'https://upload.wikimedia.org/wikipedia/commons/d/d3/Bill_russell_dribbling_%28cropped%29.jpg',
-                     'moment': '• 1 • 9 • 6 • 2 •   • F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • 3 • 0 '
-                               '•   • P • o • i • n • t • s •   • & •   • 4 • 0 •   • R • e • b • o • u • n • d • s '
-                               '•   • C • h • a • m • p • i • o • n • s • h • i • p •   • C • l • i • n • c • h • e • '
+                     'moment': '1962FinalsGame• 7 •   30 '
+                               '•   Points• & •   40Rebounds '
+                               '•   ChampionshipClinche'
                                'r •',
                      'name': 'Bill Russell',
                      'ovr': 98,
                      'pos': 'C',
-                     'quote': '• 1 • 1 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • i • n •   • 1 • 3 '
-                              '•   • S • e • a • s • o • n • s •   • • •   • 5 • x •   • M • V • P •   • • •   • T • h '
-                              '• e •   • G • r • e • a • t • e • s • t •   • D • e • f • e • n • s • i • v • e •   • L '
-                              '• e • a • d • e • r •   • & •   • W • i • n • n • e • r •   • i • n •   • H • i • s • t '
-                              '• o • r • y •',
+                     'quote': '11xNBAChampionin13 '
+                              '•   Seasons• • •   5xMVP• • •   Th '
+                              '• e •   GreatestDefensive• L '
+                              'eader• & •   WinnerinHist '
+                              'ory •',
                      'sec_pos': 'PF',
                      'stats': {'3pt': 50, 'ath': 97, 'clu': 99, 'def': 99, 'ins': 96, 'ply': 88},
                      'team': 'BOS',
-                     'theme': '• 1 • 1 • x •   • C • h • a • m • p • i • o • n •   • G • o • l • d •   • S • t • a • n '
-                              '• d • a • r • d •',
+                     'theme': '11xChampionGoldStan '
+                              'dard •',
                      'tier': 'exclusive'},
  'excl-oscar-97': {'badges': ['HOF Triple-Double King',
                               'HOF Dimer',
@@ -13567,21 +13567,21 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                               'HOF Break Starter'],
                    'id': 'excl-oscar-97',
                    'image_url': 'https://upload.wikimedia.org/wikipedia/commons/a/a1/Oscar_Robertson_1960.jpeg',
-                   'moment': '• 1 • 9 • 7 • 1 •   • F • i • n • a • l • s •   • C • h • a • m • p • i • o • n • s • h '
-                             '• i • p •   • C • e • l • e • b • r • a • t • i • o • n •   • W • i • t • h •   • K • a '
-                             '• r • e • e • m •   • i • n •   • M • i • l • w • a • u • k • e • e •',
+                   'moment': '1971FinalsChampionsh '
+                             'ipCelebrationWithKa '
+                             'reeminMilwaukee •',
                    'name': 'Oscar Robertson',
                    'ovr': 97,
                    'pos': 'PG',
-                   'quote': '• 1 • 9 • 7 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • '
-                            '6 • 4 •   • M • V • P •   • • •   • A • v • e • r • a • g • e • d •   • 3 • 0 • . • 8 •   '
-                            '• P • T • S • , •   • 1 • 2 • . • 5 •   • R • E • B • , •   • 1 • 1 • . • 4 •   • A • S • '
-                            'T •   • i • n •   • S • i • n • g • l • e •   • S • e • a • s • o • n •',
+                   'quote': '1971NBAChampion• • •   19'
+                            '6 • 4 •   MVP• • •   Averaged30. • 8 •   '
+                            'PTS, •   12. • 5 •   REB, •   11. • 4 •   AS'
+                            'T •   inSingleSeason •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 86, 'ath': 94, 'clu': 98, 'def': 93, 'ins': 96, 'ply': 99},
                    'team': 'MIL',
-                   'theme': '• 1 • 9 • 7 • 1 •   • C • h • a • m • p • i • o • n • s • h • i • p •   • & •   • T • r • '
-                            'i • p • l • e • - • D • o • u • b • l • e •   • K • i • n • g •',
+                   'theme': '1971Championship• & •   Tr'
+                            'i ple- DoubleKing •',
                    'tier': 'exclusive'},
  'excl-jokic-97': {'badges': ['HOF Sombor Shuffle Ring',
                               'HOF Needle Threader',
@@ -13590,21 +13590,21 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                               'HOF Masher'],
                    'id': 'excl-jokic-97',
                    'image_url': 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Nikola_Jokic_free_throw_%28cropped%29.jpg',
-                   'moment': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n • s • h • i • p •   '
-                             '• P • a • r • a • d • e •   • T • r • o • p • h • y •   • L • i • f • t •   • & •   • C '
-                             '• e • l • e • b • r • a • t • o • r • y •   • L • a • u • g • h •',
+                   'moment': '2023NBAChampionship'
+                             'ParadeTrophyLift• & • C '
+                             'elebratoryLaugh •',
                    'name': 'Nikola Jokic',
                    'ovr': 97,
                    'pos': 'C',
-                   'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • '
-                            'n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • H • i • s '
-                            '• t • o • r • i • c •   • 3 • 0 • - • 2 • 0 • - • 1 • 0 •   • F • i • n • a • l • s •   • '
-                            'R • u • n •   • & •   • S • o • m • b • o • r •   • S • h • u • f • f • l • e •',
+                   'quote': '2023NBAChampion• & •   Fi'
+                            'n alsMVP• • •   3xMVP• • •   His '
+                            'toric30- 20- 10Finals• '
+                            'R un• & •   SomborShuffle •',
                    'sec_pos': 'PF',
                    'stats': {'3pt': 91, 'ath': 83, 'clu': 98, 'def': 86, 'ins': 98, 'ply': 99},
                    'team': 'DEN',
-                   'theme': '• 2 • 0 • 2 • 3 •   • F • i • n • a • l • s •   • M • V • P •   • P • a • r • a • d • e '
-                            '•   • & •   • R • i • n • g •',
+                   'theme': '2023FinalsMVPParade '
+                            '• & •   Ring •',
                    'tier': 'exclusive'},
  'excl-garnett-97': {'badges': ['HOF Anything Is Possible',
                                 'HOF Anchor',
@@ -13613,22 +13613,22 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                 'HOF Clamps'],
                      'id': 'excl-garnett-97',
                      'image_url': 'https://upload.wikimedia.org/wikipedia/commons/6/60/Kevin_Garnett_2008-01-13.jpg',
-                     'moment': '• 2 • 0 • 0 • 8 •   • N • B • A •   • F • i • n • a • l • s •   • G • a • m • e •   • '
-                               "6 •   • C • o • n • f • e • t • t • i •   • H • u • g •   • & •   • ' • A • N • Y • T "
-                               "• H • I • N • G •   • I • S •   • P • O • S • S • I • B • L • E • ! • ' •   • R • o • "
+                     'moment': '2008NBAFinalsGame• '
+                               "6 •   ConfettiHug• & • ' ANYT "
+                               "HINGISPOSSIBLE! • ' •   Ro"
                                'a • r •',
                      'name': 'Kevin Garnett',
                      'ovr': 97,
                      'pos': 'PF',
-                     'quote': '• 2 • 0 • 0 • 8 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 '
-                              "• 0 • 4 •   • M • V • P •   • • •   • 2 • 0 • 0 • 8 •   • D • P • O • Y •   • • •   • ' "
-                              "• A • N • Y • T • H • I • N • G •   • I • S •   • P • O • S • S • I • B • L • E • ! • ' "
-                              '•   • H • i • s • t • o • r • i • c •   • P • o • s • t • - • G • a • m • e •   • S • c '
-                              '• r • e • a • m •',
+                     'quote': '2008NBAChampion• • •   20 '
+                              "04MVP• • •   2008DPOY• • • ' "
+                              "ANYTHINGISPOSSIBLE! • ' "
+                              '•   HistoricPost- GameSc '
+                              'ream •',
                      'sec_pos': 'C',
                      'stats': {'3pt': 78, 'ath': 96, 'clu': 98, 'def': 99, 'ins': 97, 'ply': 88},
-                     'theme': "• ' • A • N • Y • T • H • I • N • G •   • I • S •   • P • O • S • S • I • B • L • E • ! "
-                              "• ' •   • 2 • 0 • 0 • 8 •   • R • i • n • g •",
+                     'theme': "• ' ANYTHINGISPOSSIBLE! "
+                              "• ' •   2008Ring •",
                      'tier': 'exclusive',
                      'team': 'NBA'},
  'excl-jerrywest-97': {'badges': ['HOF The Logo 60-Footer',
@@ -13638,23 +13638,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                   'HOF Middy Magician'],
                        'id': 'excl-jerrywest-97',
                        'image_url': 'https://upload.wikimedia.org/wikipedia/commons/5/5a/Jerry_West_1972.jpeg',
-                       'moment': '• 1 • 9 • 7 • 0 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • 6 • 0 '
-                                 '• - • F • o • o • t •   • B • u • z • z • e • r • - • B • e • a • t • i • n • g •   '
-                                 '• H • a • l • f • - • C • o • u • r • t •   • M • i • r • a • c • l • e •   • S • h '
-                                 '• o • t •',
+                       'moment': '1970FinalsGame• 3 •   60 '
+                                 '• - FootBuzzer- Beating'
+                                 'Half- CourtMiracleSh '
+                                 'ot •',
                        'name': 'Jerry West',
                        'ovr': 97,
                        'pos': 'PG',
-                       'quote': '• 1 • 9 • 7 • 2 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • '
-                                '9 • 6 • 9 •   • F • i • n • a • l • s •   • M • V • P •   • ( • O • n • l • y •   • o '
-                                '• n •   • l • o • s • i • n • g •   • t • e • a • m • ) •   • • •   • 6 • 0 • - • F • '
-                                'o • o • t •   • G • a • m • e •   • 3 •   • B • u • z • z • e • r •   • B • e • a • t '
-                                '• e • r •',
+                       'quote': '1972NBAChampion• • • 1 • '
+                                '9 69FinalsMVP• ( Only• o '
+                                '• n •   losingteam) • • •   60- • F • '
+                                'o otGame• 3 •   BuzzerBeat '
+                                'er •',
                        'sec_pos': 'SG',
                        'stats': {'3pt': 96, 'ath': 93, 'clu': 99, 'def': 94, 'ins': 95, 'ply': 97},
                        'team': 'LAL',
-                       'theme': '• T • h • e •   • N • B • A •   • L • o • g • o •   • & •   • 6 • 0 • - • F • t •   • '
-                                'B • u • z • z • e • r •   • B • e • a • t • e • r •',
+                       'theme': 'TheNBALogo• & •   60- Ft• '
+                                'B uzzerBeater •',
                        'tier': 'exclusive'},
  'excl-giannis-97': {'badges': ['HOF 50-Point Clincher',
                                 'HOF Posterizer',
@@ -13663,22 +13663,22 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                 'HOF Chase Down Artist'],
                      'id': 'excl-giannis-97',
                      'image_url': 'https://upload.wikimedia.org/wikipedia/commons/7/7f/Giannis_Antetokoummpo_%2831669417562%29.jpg',
-                     'moment': '• 2 • 0 • 2 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 5 • 0 • '
-                               '- • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • & •   • T '
-                               '• r • o • p • h • y •   • K • i • s • s •   • i • n •   • M • i • l • w • a • u • k • '
+                     'moment': '2021FinalsGame• 6 •   50'
+                               '- PointMasterpiece• & • T '
+                               'rophyKissinMilwauk'
                                'e • e •',
                      'name': 'Giannis Antetokounmpo',
                      'ovr': 97,
                      'pos': 'PF',
-                     'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i '
-                              '• n • a • l • s •   • M • V • P •   • • •   • 5 • 0 •   • P • o • i • n • t • s • , •   '
-                              '• 1 • 4 •   • R • e • b • o • u • n • d • s • , •   • 5 •   • B • l • o • c • k • s •   '
-                              '• i • n •   • G • a • m • e •   • 6 •   • C • l • i • n • c • h • e • r •',
+                     'quote': '2021NBAChampion• & •   Fi '
+                              'nalsMVP• • •   50Points, •   '
+                              '14Rebounds, • 5 •   Blocks'
+                              'inGame• 6 •   Clincher •',
                      'sec_pos': 'C',
                      'stats': {'3pt': 76, 'ath': 99, 'clu': 97, 'def': 99, 'ins': 99, 'ply': 91},
                      'team': 'MIL',
-                     'theme': '• 2 • 0 • 2 • 1 •   • F • i • n • a • l • s •   • 5 • 0 • - • P • o • i • n • t •   • M '
-                              '• a • s • t • e • r • p • i • e • c • e •',
+                     'theme': '2021Finals50- Point• M '
+                              'asterpiece •',
                      'tier': 'exclusive'},
  'excl-dirk-97': {'badges': ['HOF One-Leg Fadeaway',
                              'HOF Deadeye',
@@ -13687,22 +13687,22 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'HOF Clutch Shooter'],
                   'id': 'excl-dirk-97',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/5/54/Dirk_Nowitzki_al_rimbalzo.jpg',
-                  'moment': '• 2 • 0 • 1 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 2 •   • L • e • f • '
-                            't • - • H • a • n • d • e • d •   • G • a • m • e • - • W • i • n • n • i • n • g •   • D '
-                            '• r • i • v • i • n • g •   • L • a • y • u • p •   • & •   • T • r • o • p • h • y •   • '
-                            'T • e • a • r • s •',
+                  'moment': '2011FinalsGame• 2 •   Lef'
+                            't • - HandedGame- Winning• D '
+                            'rivingLayup• & •   Trophy• '
+                            'T ears •',
                   'name': 'Dirk Nowitzki',
                   'ovr': 97,
                   'pos': 'PF',
-                  'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • '
-                           'n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • 0 • 7 •   • M • V • P •   • • •   • O '
-                           '• v • e • r • c • o • m • i • n • g •   • M • i • a • m • i •   • H • e • a • t •   • B • '
-                           'i • g •   • 3 •   • W • i • t • h •   • I • c • o • n • i • c •   • F • a • d • e • a • w '
-                           '• a • y •',
+                  'quote': '2011NBAChampion• & •   Fi'
+                           'n alsMVP• • •   2007MVP• • • O '
+                           'vercomingMiamiHeat• B • '
+                           'i • g • 3 •   WithIconicFadeaw '
+                           'ay •',
                   'sec_pos': 'C',
                   'stats': {'3pt': 97, 'ath': 84, 'clu': 99, 'def': 84, 'ins': 96, 'ply': 82},
-                  'theme': '• 2 • 0 • 1 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 2 •   • F • a • d • '
-                           'e • a • w • a • y •   • & •   • R • i • n • g •',
+                  'theme': '2011FinalsGame• 2 •   Fad'
+                           'e away• & •   Ring •',
                   'tier': 'exclusive',
                   'team': 'NBA'},
  'excl-iverson-97': {'badges': ['HOF The Stepover',
@@ -13712,61 +13712,61 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                 'HOF Quick First Step'],
                      'id': 'excl-iverson-97',
                      'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f4/Allen_Iverson_08_B.jpg',
-                     'moment': '• 2 • 0 • 0 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 1 •   • C • o • '
-                               'r • n • e • r •   • S • t • e • p • - • B • a • c • k •   • J • u • m • p • e • r •   '
-                               '• & •   • S • t • e • p • o • v • e • r •   • O • v • e • r •   • T • y • r • o • n • '
-                               'n •   • L • u • e •',
+                     'moment': '2001FinalsGame• 1 •   Co'
+                               'r nerStep- BackJumper'
+                               '• & •   StepoverOverTyron'
+                               'n •   Lue •',
                      'name': 'Allen Iverson',
                      'ovr': 97,
                      'pos': 'PG',
-                     'quote': '• 2 • 0 • 0 • 1 •   • N • B • A •   • M • V • P •   • • •   • 4 • 8 • - • P • o • i • n '
-                              '• t •   • G • a • m • e •   • 1 •   • a • t •   • S • t • a • p • l • e • s •   • C • e '
-                              '• n • t • e • r •   • • •   • T • h • e •   • I • c • o • n • i • c •   • S • t • e • p '
-                              '• o • v • e • r •   • O • v • e • r •   • T • y • r • o • n • n •   • L • u • e •',
+                     'quote': '2001NBAMVP• • •   48- Poin '
+                              '• t •   Game• 1 •   atStaplesCe '
+                              'nter• • •   TheIconicStep '
+                              'overOverTyronnLue •',
                      'sec_pos': 'SG',
                      'stats': {'3pt': 91, 'ath': 99, 'clu': 99, 'def': 93, 'ins': 97, 'ply': 97},
                      'team': 'PHI',
-                     'theme': '• 2 • 0 • 0 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 1 •   • T • h • e '
-                              '•   • S • t • e • p • o • v • e • r •',
+                     'theme': '2001FinalsGame• 1 •   The '
+                              '•   Stepover •',
                      'tier': 'exclusive'},
  'excl-tmac-96': {'badges': ['HOF 13 in 33s', 'HOF Limitless Range', 'HOF Posterizer', 'HOF Blindside', 'HOF Deadeye'],
                   'id': 'excl-tmac-96',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f9/Tracy_McGrady_1.jpg',
-                  'moment': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • '
-                            's •   • M • i • r • a • c • l • e •   • G • a • m • e • - • W • i • n • n • i • n • g •   '
-                            '• P • u • l • l • - • U • p •   • 3 •   • v • s •   • S • a • n •   • A • n • t • o • n • '
-                            'i • o •   • S • p • u • r • s •',
+                  'moment': '13Pointsin33Second'
+                            's •   MiracleGame- Winning'
+                            'Pull- Up• 3 •   vsSanAnton'
+                            'i • o •   Spurs •',
                   'name': 'Tracy McGrady',
                   'ovr': 96,
                   'pos': 'SG',
-                  'quote': '• 2 • x •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • '
-                           '7 • x •   • A • l • l • - • S • t • a • r •   • • •   • H • i • s • t • o • r • i • c •   '
-                           '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • '
-                           's •   • C • o • m • e • b • a • c • k •   • v • s •   • S • p • u • r • s •',
+                  'quote': '2xScoringChampion• • • '
+                           '7 • x •   All- Star• • •   Historic'
+                           '13Pointsin33Second'
+                           's •   ComebackvsSpurs •',
                   'sec_pos': 'SF',
                   'stats': {'3pt': 98, 'ath': 97, 'clu': 99, 'def': 91, 'ins': 97, 'ply': 94},
                   'team': 'HOU',
-                  'theme': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • '
-                           's •   • M • i • r • a • c • l • e •',
+                  'theme': '13Pointsin33Second'
+                           's •   Miracle •',
                   'tier': 'exclusive'},
  'excl-pippen-96': {'badges': ['HOF Ewing Poster Slam', 'HOF Clamps', 'HOF Glove', 'HOF Interceptor', 'HOF Dimer'],
                     'id': 'excl-pippen-96',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/e/e4/Lipofsky_Pippen.jpg',
-                    'moment': '• 1 • 9 • 9 • 4 •   • E • C • S • F •   • G • a • m • e •   • 6 •   • T • o • m • a • h '
-                              '• a • w • k •   • P • o • s • t • e • r •   • S • l • a • m •   • O • v • e • r •   • P '
-                              '• a • t • r • i • c • k •   • E • w • i • n • g •   • & •   • S • t • r • u • t •',
+                    'moment': '1994ECSFGame• 6 •   Tomah '
+                              'awkPosterSlamOver• P '
+                              'atrickEwing• & •   Strut •',
                     'name': 'Scottie Pippen',
                     'ovr': 96,
                     'pos': 'SF',
-                    'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • A '
-                             '• l • l • - • S • t • a • r •   • • •   • 8 • x •   • A • l • l • - • D • e • f • e • n '
-                             '• s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 1 • 9 • 9 • 4 '
-                             '•   • I • c • o • n • i • c •   • P • o • s • t • e • r •   • S • l • a • m •',
+                    'quote': '6xNBAChampion• • •   7x• A '
+                             'll- Star• • •   8xAll- Defen '
+                             'siveFirstTeam• • •   1994 '
+                             '•   IconicPosterSlam •',
                     'sec_pos': 'SG',
                     'stats': {'3pt': 88, 'ath': 97, 'clu': 97, 'def': 99, 'ins': 95, 'ply': 94},
                     'team': 'CHI',
-                    'theme': '• 1 • 9 • 9 • 4 •   • E • w • i • n • g •   • P • o • s • t • e • r •   • D • u • n • k '
-                             '•   • & •   • P • o • i • n • t •',
+                    'theme': '1994EwingPosterDunk '
+                             '• & •   Point •',
                     'tier': 'exclusive'},
  'excl-luka-96': {'badges': ['HOF 60-21-10 Miracle',
                              'HOF Stepback Maestro',
@@ -13775,23 +13775,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'HOF Ankle Breaker'],
                   'id': 'excl-luka-96',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/b/be/Luka_Don%C4%8Di%C4%87_and_Marines%2C_2026_%28cropped%29.jpg',
-                  'moment': '• I • n • t • e • n • t • i • o • n • a • l •   • M • i • s • s • e • d •   • F • r • e • '
-                            'e •   • T • h • r • o • w •   • P • u • t • b • a • c • k •   • B • u • z • z • e • r • - '
-                            '• B • e • a • t • e • r •   • & •   • D • a • n • c • i • n • g •   • J • i • g •   • v • '
-                            's •   • K • n • i • c • k • s •',
+                  'moment': 'IntentionalMissedFre'
+                            'e •   ThrowPutbackBuzzer- '
+                            'Beater• & •   DancingJig• v • '
+                            's •   Knicks •',
                   'name': 'Luka Doncic',
                   'ovr': 96,
                   'pos': 'PG',
-                  'quote': '• 5 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • '
-                           '• •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 6 • 0 '
-                           '•   • P • T • S • , •   • 2 • 1 •   • R • E • B • , •   • 1 • 0 •   • A • S • T •   • M • '
-                           'i • s • s • e • d •   • F • r • e • e •   • T • h • r • o • w •   • P • u • t • b • a • c '
+                  'quote': '5xAll- NBAFirstTeam• '
+                           '• •   ScoringChampion• • •   60 '
+                           '•   PTS, •   21REB, •   10AST• M • '
+                           'i ssedFreeThrowPutbac '
                            '• k •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 95, 'ath': 89, 'clu': 99, 'def': 84, 'ins': 97, 'ply': 99},
                   'team': 'DAL',
-                  'theme': '• 6 • 0 • - • 2 • 1 • - • 1 • 0 •   • H • i • s • t • o • r • i • c •   • P • u • t • b • '
-                           'a • c • k •   • M • i • r • a • c • l • e •',
+                  'theme': '60- 21- 10HistoricPutb'
+                           'a ckMiracle •',
                   'tier': 'exclusive'},
  'excl-embiid-96': {'badges': ['HOF 70-Point Masterpiece',
                                'HOF Post Spin Technician',
@@ -13800,21 +13800,21 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                'HOF Backdown Punisher'],
                     'id': 'excl-embiid-96',
                     'image_url': 'https://upload.wikimedia.org/wikipedia/commons/1/13/Joel_Embiid_2019.jpg',
-                    'moment': '• 7 • 0 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • C '
-                              '• e • l • e • b • r • a • t • i • o • n •   • & •   • R • o • a • r •   • v • s •   • S '
-                              '• a • n •   • A • n • t • o • n • i • o •   • S • p • u • r • s •',
+                    'moment': '70- PointMasterpiece• C '
+                              'elebration• & •   Roarvs• S '
+                              'anAntonioSpurs •',
                     'name': 'Joel Embiid',
                     'ovr': 96,
                     'pos': 'C',
-                    'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • M • V • P •   • • •   • 2 • x •   • S • c • o • r '
-                             '• i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 7 • 0 •   • P • o • i • n '
-                             '• t • s • , •   • 1 • 8 •   • R • e • b • o • u • n • d • s •   • v • s •   • S • p • u '
-                             '• r • s •   • ( • J • a • n • u • a • r • y •   • 2 • 0 • 2 • 4 • ) •',
+                    'quote': '2023NBAMVP• • •   2xScor '
+                             'ingChampion• • •   70Poin '
+                             'ts, •   18ReboundsvsSpu '
+                             'rs• ( January2024) •',
                     'sec_pos': 'PF',
                     'stats': {'3pt': 89, 'ath': 92, 'clu': 97, 'def': 96, 'ins': 99, 'ply': 86},
                     'team': 'PHI',
-                    'theme': '• 7 • 0 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • & '
-                             '•   • M • V • P •   • F • l • e • x •',
+                    'theme': '70- PointMasterpiece• & '
+                             '•   MVPFlex •',
                     'tier': 'exclusive'},
  'excl-isiah-96': {'badges': ['HOF 25-Point Sprain',
                               'HOF Quick First Step',
@@ -13823,23 +13823,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                               'HOF Clutch Shooter'],
                    'id': 'excl-isiah-96',
                    'image_url': 'https://upload.wikimedia.org/wikipedia/commons/5/50/Isiah-thomas_detroit-v-new-york_1985.jpg',
-                   'moment': '• 1 • 9 • 8 • 8 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 2 • 5 • - '
-                             '• P • o • i • n • t •   • S • i • n • g • l • e •   • Q • u • a • r • t • e • r •   • o '
-                             '• n •   • H • e • a • v • i • l • y •   • S • p • r • a • i • n • e • d •   • A • n • k '
-                             '• l • e •',
+                   'moment': '1988FinalsGame• 6 •   25- '
+                             'PointSingleQuarter• o '
+                             '• n •   HeavilySprainedAnk '
+                             'le •',
                    'name': 'Isiah Thomas',
                    'ovr': 96,
                    'pos': 'PG',
-                   'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 9 • 0 '
-                            '•   • F • i • n • a • l • s •   • M • V • P •   • • •   • 2 • 5 •   • P • o • i • n • t • '
-                            's •   • i • n •   • 3 • r • d •   • Q • u • a • r • t • e • r •   • o • f •   • 1 • 9 • 8 '
-                            '• 8 •   • F • i • n • a • l • s •   • o • n •   • S • e • v • e • r • e •   • S • p • r • '
-                            'a • i • n •',
+                   'quote': '2xNBAChampion• • •   1990 '
+                            '•   FinalsMVP• • •   25Point'
+                            's •   in3rdQuarterof198 '
+                            '• 8 •   FinalsonSevereSpr'
+                            'a in •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 87, 'ath': 95, 'clu': 99, 'def': 94, 'ins': 94, 'ply': 98},
                    'team': 'DET',
-                   'theme': '• 1 • 9 • 8 • 8 •   • F • i • n • a • l • s •   • 2 • 5 • - • P • t •   • S • p • r • a • '
-                            'i • n • e • d •   • A • n • k • l • e •   • Q • u • a • r • t • e • r •',
+                   'theme': '1988Finals25- PtSpra'
+                            'i nedAnkleQuarter •',
                    'tier': 'exclusive'},
  'excl-wade-96': {'badges': ['HOF This Is My House',
                              'HOF Acrobat',
@@ -13848,21 +13848,21 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'HOF Fast Break Starter'],
                   'id': 'excl-wade-96',
                   'image_url': 'https://upload.wikimedia.org/wikipedia/commons/8/88/Dwyane_Wade_2012.jpg',
-                  'moment': '• 2 • 0 • 0 • 6 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • C • o • m • '
-                            'e • b • a • c • k •   • R • o • a • r •   • & •   • J • u • m • p • i • n • g •   • o • n '
-                            "•   • S • c • o • r • e • r • ' • s •   • T • a • b • l • e •",
+                  'moment': '2006FinalsGame• 3 •   Com'
+                            'e backRoar• & •   Jumpingon '
+                            "•   Scorer' • s •   Table •",
                   'name': 'Dwyane Wade',
                   'ovr': 96,
                   'pos': 'SG',
-                  'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • 6 '
-                           '•   • F • i • n • a • l • s •   • M • V • P •   • ( • 3 • 4 • . • 7 •   • P • P • G •   • '
-                           "c • o • m • e • b • a • c • k •   • f • r • o • m •   • 0 • - • 2 • ) •   • • •   • ' • T "
-                           "• h • i • s •   • i • s •   • M • y •   • H • o • u • s • e • ! • ' •",
+                  'quote': '3xNBAChampion• • •   2006 '
+                           '•   FinalsMVP• ( 34. • 7 •   PPG• '
+                           "c omebackfrom• 0 • - • 2 • ) • • • ' • T "
+                           "hisisMyHouse! • ' •",
                   'sec_pos': 'PG',
                   'stats': {'3pt': 84, 'ath': 98, 'clu': 98, 'def': 97, 'ins': 98, 'ply': 95},
                   'team': 'MIA',
-                  'theme': "• 2 • 0 • 0 • 6 •   • F • i • n • a • l • s •   • M • V • P •   • & •   • ' • T • h • i • "
-                           "s •   • I • s •   • M • y •   • H • o • u • s • e • ' •",
+                  'theme': "2006FinalsMVP• & • ' Thi"
+                           "s •   IsMyHouse' •",
                   'tier': 'exclusive'},
  'excl-cp3-96': {'badges': ['HOF Point God 41-Piece',
                             'HOF Floor General',
@@ -13871,22 +13871,22 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                             'HOF Glove'],
                  'id': 'excl-cp3-96',
                  'image_url': 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Chris_Paul_%282022_All-Star_Weekend%29_%28cropped%29.jpg',
-                 'moment': '• 2 • 0 • 2 • 1 •   • W • C • F •   • G • a • m • e •   • 6 •   • 4 • 1 • - • P • o • i • '
-                           'n • t •   • S • e • c • o • n • d •   • H • a • l • f •   • E • r • u • p • t • i • o • n '
-                           '•   • a • t •   • S • t • a • p • l • e • s •   • C • e • n • t • e • r •',
+                 'moment': '2021WCFGame• 6 •   41- Poi'
+                           'n • t •   SecondHalfEruption '
+                           '•   atStaplesCenter •',
                  'name': 'Chris Paul',
                  'ovr': 96,
                  'pos': 'PG',
-                 'quote': '• 1 • 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • s • s • i • s '
-                          '• t • s •   • L • e • a • d • e • r •   • • •   • 6 • x •   • S • t • e • a • l • s •   • L '
-                          '• e • a • d • e • r •   • • •   • 4 • 1 •   • P • o • i • n • t • s •   • i • n •   • G • a '
-                          '• m • e •   • 6 •   • t • o •   • R • e • a • c • h •   • N • B • A •   • F • i • n • a • l '
+                 'quote': '12xAll- Star• • •   5xAssis '
+                          'tsLeader• • •   6xSteals• L '
+                          'eader• • •   41PointsinGa '
+                          'me• 6 •   toReachNBAFinal '
                           '• s •',
                  'sec_pos': 'SG',
                  'stats': {'3pt': 94, 'ath': 90, 'clu': 98, 'def': 96, 'ins': 89, 'ply': 99},
                  'team': 'PHX',
-                 'theme': '• 2 • 0 • 2 • 1 •   • W • C • F •   • 4 • 1 • - • P • o • i • n • t •   • M • a • s • t • e '
-                          '• r • p • i • e • c • e •',
+                 'theme': '2021WCF41- PointMaste '
+                          'rpiece •',
                  'tier': 'exclusive'},
  'excl-barkley-96': {'badges': ['HOF 44-Point Game 7',
                                 'HOF Bully',
@@ -13895,42 +13895,42 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                 'HOF Fast Twitch'],
                      'id': 'excl-barkley-96',
                      'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f6/Charles_Barkley_representing_the_1992_Dream_Team.jpg',
-                     'moment': '• 1 • 9 • 9 • 3 •   • W • e • s • t • e • r • n •   • C • o • n • f • e • r • e • n • '
-                               'c • e •   • F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • 4 • 4 • - • P • o '
-                               '• i • n • t •   • 2 • 4 • - • R • e • b • o • u • n • d •   • R • o • a • r •   • v • '
-                               's •   • S • o • n • i • c • s •',
+                     'moment': '1993WesternConferen'
+                               'c • e •   FinalsGame• 7 •   44- Po '
+                               'int24- ReboundRoar• v • '
+                               's •   Sonics •',
                      'name': 'Charles Barkley',
                      'ovr': 96,
                      'pos': 'PF',
-                     'quote': '• 1 • 9 • 9 • 3 •   • N • B • A •   • M • V • P •   • • •   • 1 • 1 • x •   • A • l • l '
-                              '• - • S • t • a • r •   • • •   • 1 • 9 • 9 • 3 •   • W • C • F •   • G • a • m • e •   '
-                              '• 7 •   • 4 • 4 •   • P • T • S • , •   • 2 • 4 •   • R • E • B •   • M • a • s • t • e '
-                              '• r • c • l • a • s • s •',
+                     'quote': '1993NBAMVP• • •   11xAll '
+                              '• - Star• • •   1993WCFGame'
+                              '• 7 •   44PTS, •   24REBMaste '
+                              'rclass •',
                      'sec_pos': 'SF',
                      'stats': {'3pt': 76, 'ath': 97, 'clu': 98, 'def': 92, 'ins': 99, 'ply': 90},
                      'team': 'PHX',
-                     'theme': '• 1 • 9 • 9 • 3 •   • M • V • P •   • & •   • 4 • 4 • - • P • t •   • G • a • m • e •   '
-                              '• 7 •   • T • a • k • e • o • v • e • r •',
+                     'theme': '1993MVP• & •   44- PtGame'
+                              '• 7 •   Takeover •',
                      'tier': 'exclusive'},
  'excl-tatum-95': {'badges': ['HOF We Did It Ring', 'HOF Clamps', 'HOF Agent 3', 'HOF Catch & Shoot', 'HOF Posterizer'],
                    'id': 'excl-tatum-95',
                    'image_url': 'https://upload.wikimedia.org/wikipedia/commons/c/c8/Jayson_Tatum_Parade_2024.jpg',
-                   'moment': '• 2 • 0 • 2 • 4 •   • N • B • A •   • F • i • n • a • l • s •   • G • a • m • e •   • 5 '
-                             "•   • C • l • i • n • c • h • e • r •   • ' • W • e •   • D • i • d •   • I • t • ! • ' "
-                             '•   • T • r • o • p • h • y •   • S • c • r • e • a • m •   • & •   • C • o • n • f • e '
-                             '• t • t • i •',
+                   'moment': '2024NBAFinalsGame• 5 '
+                             "•   Clincher• ' WeDidIt! • ' "
+                             '•   TrophyScream• & •   Confe '
+                             'tti •',
                    'name': 'Jayson Tatum',
                    'ovr': 95,
                    'pos': 'SF',
-                   'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x '
-                            '•   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • '
-                            'E • a • s • t • e • r • n •   • C • o • n • f • e • r • e • n • c • e •   • F • i • n • a '
-                            "• l • s •   • M • V • P •   • • •   • ' • W • e •   • D • i • d •   • I • t • ! • ' •",
+                   'quote': '2024NBAChampion• • •   3x '
+                            '•   All- NBAFirstTeam• • • '
+                            'E asternConferenceFina '
+                            "lsMVP• • • ' WeDidIt! • ' •",
                    'sec_pos': 'PF',
                    'stats': {'3pt': 96, 'ath': 95, 'clu': 97, 'def': 95, 'ins': 95, 'ply': 91},
                    'team': 'BOS',
-                   'theme': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n • s • h • i • p •   • '
-                            "' • W • e •   • D • i • d •   • I • t • ! • ' •",
+                   'theme': '2024NBAChampionship• '
+                            "' WeDidIt! • ' •",
                    'tier': 'exclusive'},
  'excl-wilkins-95': {'badges': ['HOF Human Highlight Film',
                                 'HOF Posterizer',
@@ -13939,21 +13939,21 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                 'HOF Fast Twitch'],
                      'id': 'excl-wilkins-95',
                      'image_url': 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Dominique_Wilkins_%2851914585633%29.jpg',
-                     'moment': '• 1 • 9 • 8 • 8 •   • S • l • a • m •   • D • u • n • k •   • C • o • n • t • e • s • '
-                               't •   • T • w • o • - • H • a • n • d • e • d •   • B • a • c • k • s • c • r • a • t '
-                               '• c • h • e • r •   • W • i • n • d • m • i • l • l •   • S • l • a • m •',
+                     'moment': '1988SlamDunkContes'
+                               't •   Two- HandedBackscrat '
+                               'cherWindmillSlam •',
                      'name': 'Dominique Wilkins',
                      'ovr': 95,
                      'pos': 'SF',
-                     'quote': '• 2 • x •   • S • l • a • m •   • D • u • n • k •   • C • h • a • m • p • i • o • n •   '
-                              '• • •   • 1 • 9 • 8 • 6 •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o '
-                              '• n •   • • •   • 9 • x •   • A • l • l • - • S • t • a • r •   • • •   • T • h • e •   '
-                              '• H • u • m • a • n •   • H • i • g • h • l • i • g • h • t •   • F • i • l • m •',
+                     'quote': '2xSlamDunkChampion'
+                              '• • •   1986ScoringChampio '
+                              '• n • • •   9xAll- Star• • •   The'
+                              'HumanHighlightFilm •',
                      'sec_pos': 'SG',
                      'stats': {'3pt': 84, 'ath': 99, 'clu': 96, 'def': 90, 'ins': 98, 'ply': 88},
                      'team': 'ATL',
-                     'theme': '• 1 • 9 • 8 • 8 •   • D • u • n • k •   • C • o • n • t • e • s • t •   • W • i • n • d '
-                              '• m • i • l • l •   • D • u • e • l •',
+                     'theme': '1988DunkContestWind '
+                              'millDuel •',
                      'tier': 'exclusive'},
  'excl-vince-94': {'badges': ['HOF Half-Man Half-Amazing',
                               'HOF Posterizer',
@@ -13962,23 +13962,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                               'HOF Acrobat'],
                    'id': 'excl-vince-94',
                    'image_url': 'https://upload.wikimedia.org/wikipedia/commons/2/25/Vince_Carter_%28cropped%29.jpg',
-                   'moment': '• 2 • 0 • 0 • 0 •   • S • l • a • m •   • D • u • n • k •   • C • o • n • t • e • s • t '
-                             '•   • H • o • n • e • y •   • D • i • p •   • E • l • b • o • w • - • I • n • - • T • h '
-                             '• e • - • R • i • m •   • & •   • 3 • 6 • 0 •   • W • i • n • d • m • i • l • l •   • S '
-                             '• l • a • m •',
+                   'moment': '2000SlamDunkContest '
+                             '•   HoneyDipElbow- In- Th '
+                             '• e • - Rim• & •   360Windmill• S '
+                             'lam •',
                    'name': 'Vince Carter',
                    'ovr': 94,
                    'pos': 'SG',
-                   'quote': '• 2 • 0 • 0 • 0 •   • S • l • a • m •   • D • u • n • k •   • C • h • a • m • p • i • o • '
-                            "n •   • • •   • ' • I • t • ' • s •   • O • v • e • r • ! • ' •   • C • e • l • e • b • r "
-                            '• a • t • i • o • n •   • • •   • G • r • e • a • t • e • s • t •   • D • u • n • k •   • '
-                            'C • o • n • t • e • s • t •   • P • e • r • f • o • r • m • a • n • c • e •   • i • n •   '
-                            '• H • i • s • t • o • r • y •',
+                   'quote': '2000SlamDunkChampio'
+                            "n • • • ' It' • s •   Over! • ' •   Celebr "
+                            'ation• • •   GreatestDunk• '
+                            'C ontestPerformancein'
+                            'History •',
                    'sec_pos': 'SF',
                    'stats': {'3pt': 93, 'ath': 99, 'clu': 96, 'def': 88, 'ins': 99, 'ply': 91},
                    'team': 'TOR',
-                   'theme': '• 2 • 0 • 0 • 0 •   • D • u • n • k •   • C • o • n • t • e • s • t •   • A • r • m • - • '
-                            'I • n • - • R • i • m •   • G • O • A • T •',
+                   'theme': '2000DunkContestArm- • '
+                            'I • n • - RimGOAT •',
                    'tier': 'exclusive'},
  'excl-bam-93': {'badges': ['HOF Game-Saving Block',
                             'HOF Anchor',
@@ -13987,23 +13987,23 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                             'HOF Rebound Chaser'],
                  'id': 'excl-bam-93',
                  'image_url': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Adebayo_Hachimura_%28cropped%29.jpg',
-                 'moment': '• 2 • 0 • 2 • 0 •   • E • C • F •   • G • a • m • e •   • 1 •   • G • a • m • e • - • S • '
-                           'a • v • i • n • g •   • L • e • f • t • - • H • a • n • d • e • d •   • R • i • m •   • R '
-                           '• e • j • e • c • t • i • o • n •   • o • n •   • J • a • y • s • o • n •   • T • a • t • '
+                 'moment': '2020ECFGame• 1 •   Game- • S • '
+                           'a vingLeft- HandedRim• R '
+                           'ejectiononJaysonTat'
                            'u • m •',
                  'name': 'Bam Adebayo',
                  'ovr': 93,
                  'pos': 'C',
-                 'quote': '• 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • l • l • - • D • e '
-                          '• f • e • n • s • i • v • e •   • • •   • 2 • 0 • 2 • 0 •   • E • a • s • t • e • r • n •   '
-                          '• C • o • n • f • e • r • e • n • c • e •   • F • i • n • a • l • s •   • G • a • m • e •   '
-                          "• 1 •   • B • l • o • c • k •   • o • n •   • T • a • t • u • m • ' • s •   • D • u • n • k "
+                 'quote': '3xAll- Star• • •   5xAll- De '
+                          'fensive• • •   2020Eastern'
+                          'ConferenceFinalsGame'
+                          "• 1 •   BlockonTatum' • s •   Dunk "
                           '•',
                  'sec_pos': 'PF',
                  'stats': {'3pt': 74, 'ath': 94, 'clu': 96, 'def': 99, 'ins': 94, 'ply': 89},
                  'team': 'MIA',
-                 'theme': '• 2 • 0 • 2 • 0 •   • E • C • F •   • G • a • m • e •   • 1 •   • G • a • m • e • - • S • a '
-                          '• v • i • n • g •   • B • l • o • c • k •',
+                 'theme': '2020ECFGame• 1 •   Game- Sa '
+                          'vingBlock •',
                  'tier': 'exclusive'},
  'dm-wiltchamberlain-99': {'badges': ['HOF Posterizer',
                                       'HOF Anchor',
@@ -14016,14 +14016,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                            'name': 'Wilt Chamberlain',
                            'ovr': 99,
                            'pos': 'C',
-                           'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x '
-                                    '•   • M • V • P •   • • •   • S • c • o • r • e • d •   • 1 • 0 • 0 •   • P • o • '
-                                    'i • n • t • s •   • i • n •   • S • i • n • g • l • e •   • G • a • m • e •   • • '
-                                    '•   • R • e • b • o • u • n • d • i • n • g •   • K • i • n • g •',
+                           'quote': '2xNBAChampion• • •   4x '
+                                    '•   MVP• • •   Scored100Po'
+                                    'i ntsinSingleGame• • '
+                                    '•   ReboundingKing •',
                            'sec_pos': 'PF',
                            'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
                            'team': 'PHI',
-                           'theme': '• 1 • 0 • 0 • - • P • o • i • n • t •   • D • o • m • i • n • a • t • o • r •',
+                           'theme': '100- PointDominator •',
                            'tier': 'dark_matter'},
  'dm-wemby-99': {'badges': ['HOF Anchor',
                             'HOF Interceptor',
@@ -14036,14 +14036,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Victor Wembanyama',
                  'ovr': 99,
                  'pos': 'C',
-                 'quote': '• 7 • f • t •   • 4 • i • n •   • G • e • n • e • r • a • t • i • o • n • a • l •   • P • h '
-                          '• e • n • o • m •   • • •   • N • B • A •   • B • l • o • c • k •   • L • e • a • d • e • r '
-                          '•   • • •   • R • o • o • k • i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • A '
-                          '• l • i • e • n •',
+                 'quote': '7ft4inGenerationalPh '
+                          'enom• • •   NBABlockLeader '
+                          '• • •   RookieoftheYear• A '
+                          'lien •',
                  'sec_pos': 'PF',
                  'stats': {'3pt': 92, 'ath': 96, 'clu': 95, 'def': 99, 'ins': 97, 'ply': 88},
                  'team': 'SAS',
-                 'theme': '• A • l • i • e • n •   • I • n • v • i • n • c • i • b • l • e •',
+                 'theme': 'AlienInvincible •',
                  'tier': 'dark_matter'},
  'dm-victorwembanyama-99': {'badges': ['HOF Anchor',
                                        'HOF Interceptor',
@@ -14056,14 +14056,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                             'name': 'Victor Wembanyama',
                             'ovr': 99,
                             'pos': 'C',
-                            'quote': '• 7 • f • t •   • 4 • i • n •   • G • e • n • e • r • a • t • i • o • n • a • l '
-                                     '•   • P • h • e • n • o • m •   • • •   • N • B • A •   • B • l • o • c • k •   '
-                                     '• L • e • a • d • e • r •   • • •   • R • o • o • k • i • e •   • o • f •   • t '
-                                     '• h • e •   • Y • e • a • r •   • A • l • i • e • n •',
+                            'quote': '7ft4inGenerational '
+                                     '•   Phenom• • •   NBABlock'
+                                     'Leader• • •   Rookieof• t '
+                                     'heYearAlien •',
                             'sec_pos': 'PF',
                             'stats': {'3pt': 75, 'ath': 98, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 92},
                             'team': 'SAS',
-                            'theme': '• A • l • i • e • n •   • I • n • v • i • n • c • i • b • l • e •',
+                            'theme': 'AlienInvincible •',
                             'tier': 'dark_matter'},
  'dm-timduncan-99': {'badges': ['HOF Post Lock',
                                 'HOF Anchor',
@@ -14076,14 +14076,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Tim Duncan',
                      'ovr': 99,
                      'pos': 'PF',
-                     'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F '
-                              '• i • n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • G '
-                              '• r • e • a • t • e • s • t •   • P • o • w • e • r •   • F • o • r • w • a • r • d •   '
-                              '• o • f •   • A • l • l •   • T • i • m • e •',
+                     'quote': '5xNBAChampion• • •   3x• F '
+                              'inalsMVP• • •   2xMVP• • • G '
+                              'reatestPowerForward'
+                              'ofAllTime •',
                      'sec_pos': 'C',
                      'stats': {'3pt': 68, 'ath': 91, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 89},
                      'team': 'SAS',
-                     'theme': '• T • h • e •   • B • i • g •   • F • u • n • d • a • m • e • n • t • a • l •',
+                     'theme': 'TheBigFundamental •',
                      'tier': 'dark_matter'},
  'dm-curry-99': {'badges': ['HOF Limitless Range',
                             'HOF Chef',
@@ -14096,14 +14096,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Stephen Curry',
                  'ovr': 99,
                  'pos': 'PG',
-                 'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • F • i • n • a • l '
-                          '• s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • ( • O • n • l • y •   • U • n '
-                          '• a • n • i • m • o • u • s • ) •   • • •   • G • r • e • a • t • e • s • t •   • S • h • o '
-                          '• o • t • e • r •   • E • v • e • r •',
+                 'quote': '4xNBAChampion• • •   Final '
+                          '• s •   MVP• • •   2xMVP• ( OnlyUn '
+                          'animous) • • •   GreatestSho '
+                          'oterEver •',
                  'sec_pos': 'SG',
                  'stats': {'3pt': 99, 'ath': 93, 'clu': 99, 'def': 85, 'ins': 89, 'ply': 98},
                  'team': 'GSW',
-                 'theme': '• U • n • a • n • i • m • o • u • s •   • M • V • P •',
+                 'theme': 'UnanimousMVP •',
                  'tier': 'dark_matter'},
  'dm-stephencurry-99': {'badges': ['HOF Limitless Range',
                                    'HOF Chef',
@@ -14116,14 +14116,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Stephen Curry',
                         'ovr': 99,
                         'pos': 'PG',
-                        'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • F • i • n '
-                                 '• a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • G • r '
-                                 '• e • a • t • e • s • t •   • 3 • P • T •   • S • h • o • o • t • e • r •   • i • n '
-                                 '•   • H • i • s • t • o • r • y •',
+                        'quote': '4xNBAChampion• • •   Fin '
+                                 'alsMVP• • •   2xMVP• • •   Gr '
+                                 'eatest3PTShooterin '
+                                 '•   History •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 99, 'ath': 94, 'clu': 99, 'def': 88, 'ins': 91, 'ply': 98},
                         'team': 'GSW',
-                        'theme': '• U • n • a • n • i • m • o • u • s •   • M • V • P •',
+                        'theme': 'UnanimousMVP •',
                         'tier': 'dark_matter'},
  'dm-shaq-99': {'badges': ['HOF Dropstepper',
                            'HOF Posterizer',
@@ -14136,14 +14136,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': "Shaquille O'Neal",
                 'ovr': 99,
                 'pos': 'C',
-                'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i '
-                         '• n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • 0 • 0 •   • M • V • P •   • • •   • M '
-                         '• o • s • t •   • D • o • m • i • n • a • n • t •   • P • h • y • s • i • c • a • l •   • F '
-                         '• o • r • c • e •   • i • n •   • H • i • s • t • o • r • y •',
+                'quote': '4xNBAChampion• • •   3xFi '
+                         'nalsMVP• • •   2000MVP• • • M '
+                         'ostDominantPhysical• F '
+                         'orceinHistory •',
                 'sec_pos': 'PF',
                 'stats': {'3pt': 55, 'ath': 98, 'clu': 96, 'def': 97, 'ins': 99, 'ply': 78},
                 'team': 'LAL',
-                'theme': '• D • i • e • s • e • l •   • D • o • m • i • n • a • n • c • e •',
+                'theme': 'DieselDominance •',
                 'tier': 'dark_matter'},
  'dm-shaquilleoneal-99': {'badges': ['HOF Dropstepper',
                                      'HOF Posterizer',
@@ -14156,15 +14156,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': "Shaquille O'Neal",
                           'ovr': 99,
                           'pos': 'C',
-                          'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x '
-                                   '•   • F • i • n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • 0 • 0 •   • M • '
-                                   'V • P •   • • •   • M • o • s • t •   • D • o • m • i • n • a • n • t •   • P • h '
-                                   '• y • s • i • c • a • l •   • F • o • r • c • e •   • i • n •   • H • i • s • t • '
-                                   'o • r • y •',
+                          'quote': '4xNBAChampion• • •   3x '
+                                   '•   FinalsMVP• • •   2000• M • '
+                                   'V • P • • •   MostDominantPh '
+                                   'ysicalForceinHist'
+                                   'o ry •',
                           'sec_pos': 'PF',
                           'stats': {'3pt': 55, 'ath': 99, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 82},
                           'team': 'LAL',
-                          'theme': '• D • i • e • s • e • l •   • D • o • m • i • n • a • n • c • e •',
+                          'theme': 'DieselDominance •',
                           'tier': 'dark_matter'},
  'dm-jordan-99': {'badges': ['HOF Clamps',
                              'HOF Limitless Takeoff',
@@ -14177,14 +14177,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Michael Jordan',
                   'ovr': 99,
                   'pos': 'SG',
-                  'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • F • '
-                           'i • n • a • l • s •   • M • V • P •   • • •   • 5 • x •   • R • e • g • u • l • a • r •   '
-                           '• S • e • a • s • o • n •   • M • V • P •   • • •   • T • h • e •   • U • n • d • i • s • '
-                           'p • u • t • e • d •   • G • O • A • T •',
+                  'quote': '6xNBAChampion• • •   6x• F • '
+                           'i nalsMVP• • •   5xRegular'
+                           'SeasonMVP• • •   TheUndis'
+                           'p utedGOAT •',
                   'sec_pos': 'SF',
                   'stats': {'3pt': 90, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 92},
                   'team': 'CHI',
-                  'theme': '• G • . • O • . • A • . • T • . •   • E • d • i • t • i • o • n •',
+                  'theme': '• G • . • O • . • A • . • T • . •   Edition •',
                   'tier': 'dark_matter'},
  'dm-mj-99': {'badges': ['HOF Clamps',
                          'HOF Limitless Takeoff',
@@ -14197,14 +14197,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
               'name': 'Michael Jordan',
               'ovr': 99,
               'pos': 'SG',
-              'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • F • i • '
-                       'n • a • l • s •   • M • V • P •   • • •   • 5 • x •   • R • e • g • u • l • a • r •   • S • e '
-                       '• a • s • o • n •   • M • V • P •   • • •   • T • h • e •   • U • n • d • i • s • p • u • t • '
-                       'e • d •   • G • O • A • T •',
+              'quote': '6xNBAChampion• • •   6xFi'
+                       'n alsMVP• • •   5xRegularSe '
+                       'asonMVP• • •   TheUndisput'
+                       'e • d •   GOAT •',
               'sec_pos': 'SF',
               'stats': {'3pt': 90, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 92},
               'team': 'CHI',
-              'theme': '• G • . • O • . • A • . • T • . •   • E • d • i • t • i • o • n •',
+              'theme': '• G • . • O • . • A • . • T • . •   Edition •',
               'tier': 'dark_matter'},
  'dm-michaeljordan-99': {'badges': ['HOF Clamps',
                                     'HOF Limitless Takeoff',
@@ -14217,14 +14217,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Michael Jordan',
                          'ovr': 99,
                          'pos': 'SG',
-                         'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   '
-                                  '• F • i • n • a • l • s •   • M • V • P •   • • •   • 5 • x •   • R • e • g • u • l '
-                                  '• a • r •   • S • e • a • s • o • n •   • M • V • P •   • • •   • T • h • e •   • U '
-                                  '• n • d • i • s • p • u • t • e • d •   • G • O • A • T •',
+                         'quote': '6xNBAChampion• • •   6x'
+                                  'FinalsMVP• • •   5xRegul '
+                                  'arSeasonMVP• • •   The• U '
+                                  'ndisputedGOAT •',
                          'sec_pos': 'SF',
                          'stats': {'3pt': 93, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 96},
                          'team': 'CHI',
-                         'theme': '• G • . • O • . • A • . • T • . •   • E • d • i • t • i • o • n •',
+                         'theme': '• G • . • O • . • A • . • T • . •   Edition •',
                          'tier': 'dark_matter'},
  'dm-magic-99': {'badges': ['HOF Needle Threader',
                             'HOF Dimer',
@@ -14237,14 +14237,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Magic Johnson',
                  'ovr': 99,
                  'pos': 'PG',
-                 'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • i '
-                          '• n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • L • e • a '
-                          '• d • e • r •   • o • f •   • t • h • e •   • L • e • g • e • n • d • a • r • y •   • S • h '
-                          '• o • w • t • i • m • e •   • L • a • k • e • r • s •',
+                 'quote': '5xNBAChampion• • •   3xFi '
+                          'nalsMVP• • •   3xMVP• • •   Lea '
+                          'deroftheLegendarySh '
+                          'owtimeLakers •',
                  'sec_pos': 'SF',
                  'stats': {'3pt': 84, 'ath': 94, 'clu': 98, 'def': 92, 'ins': 96, 'ply': 99},
                  'team': 'LAL',
-                 'theme': '• S • h • o • w • t • i • m • e •   • M • a • e • s • t • r • o •',
+                 'theme': 'ShowtimeMaestro •',
                  'tier': 'dark_matter'},
  'dm-magicjohnson-99': {'badges': ['HOF Needle Threader',
                                    'HOF Dimer',
@@ -14257,14 +14257,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Magic Johnson',
                         'ovr': 99,
                         'pos': 'PG',
-                        'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   '
-                                 '• F • i • n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • '
-                                 '•   • L • e • a • d • e • r •   • o • f •   • t • h • e •   • S • h • o • w • t • i '
-                                 '• m • e •   • L • a • k • e • r • s •',
+                        'quote': '5xNBAChampion• • •   3x'
+                                 'FinalsMVP• • •   3xMVP• • '
+                                 '•   LeaderoftheShowti '
+                                 'meLakers •',
                         'sec_pos': 'SF',
                         'stats': {'3pt': 86, 'ath': 95, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 99},
                         'team': 'LAL',
-                        'theme': '• S • h • o • w • t • i • m • e •   • M • a • e • s • t • r • o •',
+                        'theme': 'ShowtimeMaestro •',
                         'tier': 'dark_matter'},
  'dm-lebron-99': {'badges': ['HOF Chase Down Artist', 'HOF Dimer', 'HOF Bully', 'HOF Fast Twitch', 'HOF Unpluckable'],
                   'id': 'dm-lebron-99',
@@ -14273,14 +14273,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'LeBron James',
                   'ovr': 99,
                   'pos': 'SF',
-                  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • F • '
-                           'i • n • a • l • s •   • M • V • P •   • • •   • A • l • l • - • T • i • m • e •   • N • B '
-                           '• A •   • S • c • o • r • i • n • g •   • L • e • a • d • e • r •   • • •   • P • o • i • '
-                           'n • t •   • F • o • r • w • a • r • d •   • M • a • s • t • e • r •',
+                  'quote': '4xNBAChampion• • •   4x• F • '
+                           'i nalsMVP• • •   All- TimeNB '
+                           '• A •   ScoringLeader• • •   Poi'
+                           'n • t •   ForwardMaster •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 88, 'ath': 99, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 99},
                   'team': 'MIA',
-                  'theme': '• I • n • v • i • n • c • i • b • l • e •   • K • i • n • g •',
+                  'theme': 'InvincibleKing •',
                   'tier': 'dark_matter'},
  'dm-lebronjames-99': {'badges': ['HOF Chase Down Artist',
                                   'HOF Dimer',
@@ -14293,14 +14293,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'LeBron James',
                        'ovr': 99,
                        'pos': 'SF',
-                       'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • '
-                                'F • i • n • a • l • s •   • M • V • P •   • • •   • A • l • l • - • T • i • m • e •   '
-                                '• N • B • A •   • S • c • o • r • i • n • g •   • L • e • a • d • e • r •   • • •   • '
-                                '2 • 2 • x •   • A • l • l • - • S • t • a • r •',
+                       'quote': '4xNBAChampion• • •   4x• '
+                                'F inalsMVP• • •   All- Time'
+                                'NBAScoringLeader• • • '
+                                '2 2xAll- Star •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 91, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 99},
                        'team': 'LAL',
-                       'theme': '• A • l • l • - • T • i • m • e •   • S • c • o • r • i • n • g •   • K • i • n • g •',
+                       'theme': 'All- TimeScoringKing •',
                        'tier': 'dark_matter'},
  'dm-bird-99': {'badges': ['HOF Clutch Shooter', 'HOF Catch & Shoot', 'HOF Deadeye', 'HOF Dimer', 'HOF Interceptor'],
                 'id': 'dm-bird-99',
@@ -14309,14 +14309,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Larry Bird',
                 'ovr': 99,
                 'pos': 'PF',
-                'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i '
-                         '• n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • C • o • n • s • e • c • u • t • i '
-                         '• v • e •   • M • V • P •   • • •   • U • l • t • i • m • a • t • e •   • C • o • l • d • - '
-                         '• B • l • o • o • d • e • d •   • C • l • u • t • c • h •   • S • h • o • o • t • e • r •',
+                'quote': '3xNBAChampion• • •   2xFi '
+                         'nalsMVP• • •   3xConsecuti '
+                         'veMVP• • •   UltimateCold- '
+                         'BloodedClutchShooter •',
                 'sec_pos': 'SF',
                 'stats': {'3pt': 98, 'ath': 89, 'clu': 99, 'def': 94, 'ins': 94, 'ply': 97},
                 'team': 'BOS',
-                'theme': '• B • o • s • t • o • n •   • L • e • g • e • n • d •',
+                'theme': 'BostonLegend •',
                 'tier': 'dark_matter'},
  'dm-larrybird-99': {'badges': ['HOF Clutch Shooter',
                                 'HOF Catch & Shoot',
@@ -14329,14 +14329,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Larry Bird',
                      'ovr': 99,
                      'pos': 'SF',
-                     'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F '
-                              '• i • n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • C • o • n • s • e • c • u '
-                              '• t • i • v • e •   • M • V • P •   • • •   • C • o • l • d • - • B • l • o • o • d • e '
-                              '• d •   • C • l • u • t • c • h •   • L • e • g • e • n • d •',
+                     'quote': '3xNBAChampion• • •   2x• F '
+                              'inalsMVP• • •   3xConsecu '
+                              'tiveMVP• • •   Cold- Bloode '
+                              '• d •   ClutchLegend •',
                      'sec_pos': 'PF',
                      'stats': {'3pt': 99, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 97},
                      'team': 'BOS',
-                     'theme': '• B • o • s • t • o • n •   • L • e • g • e • n • d •',
+                     'theme': 'BostonLegend •',
                      'tier': 'dark_matter'},
  'dm-kobe-99': {'badges': ['HOF Mamba Mentality', 'HOF Blinders', 'HOF Deadeye', 'HOF Clamps', 'HOF Difficult Shots'],
                 'id': 'dm-kobe-99',
@@ -14345,14 +14345,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Kobe Bryant',
                 'ovr': 99,
                 'pos': 'SG',
-                'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i '
-                         '• n • a • l • s •   • M • V • P •   • • •   • 1 • 8 • x •   • A • l • l • - • S • t • a • r '
-                         '•   • • •   • R • e • l • e • n • t • l • e • s • s •   • M • a • m • b • a •   • M • e • n '
-                         '• t • a • l • i • t • y •',
+                'quote': '5xNBAChampion• • •   2xFi '
+                         'nalsMVP• • •   18xAll- Star '
+                         '• • •   RelentlessMambaMen '
+                         'tality •',
                 'sec_pos': 'SF',
                 'stats': {'3pt': 92, 'ath': 98, 'clu': 99, 'def': 98, 'ins': 98, 'ply': 90},
                 'team': 'LAL',
-                'theme': '• 8 • 1 • - • P • t •   • M • a • s • t • e • r • p • i • e • c • e •',
+                'theme': '81- PtMasterpiece •',
                 'tier': 'dark_matter'},
  'dm-kobebryant-99': {'badges': ['HOF Mamba Mentality',
                                  'HOF Blinders',
@@ -14365,14 +14365,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Kobe Bryant',
                       'ovr': 99,
                       'pos': 'SG',
-                      'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • '
-                               'F • i • n • a • l • s •   • M • V • P •   • • •   • 1 • 8 • x •   • A • l • l • - • S '
-                               '• t • a • r •   • • •   • R • e • l • e • n • t • l • e • s • s •   • M • a • m • b • '
-                               'a •   • M • e • n • t • a • l • i • t • y •',
+                      'quote': '5xNBAChampion• • •   2x• '
+                               'F inalsMVP• • •   18xAll- • S '
+                               'tar• • •   RelentlessMamb'
+                               'a •   Mentality •',
                       'sec_pos': 'SF',
                       'stats': {'3pt': 94, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 94},
                       'team': 'LAL',
-                      'theme': '• 8 • 1 • - • P • t •   • M • a • m • b • a •',
+                      'theme': '81- PtMamba •',
                       'tier': 'dark_matter'},
  'dm-kd-99': {'badges': ['HOF Guard Up', 'HOF Deadeye', 'HOF Green Machine', 'HOF Blinders', 'HOF Slippery Off-Ball'],
               'id': 'dm-kd-99',
@@ -14381,14 +14381,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
               'name': 'Kevin Durant',
               'ovr': 99,
               'pos': 'SF',
-              'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i • '
-                       'n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • 1 • 4 •   • M • V • P •   • • •   • U • n '
-                       '• b • l • o • c • k • a • b • l • e •   • 7 • f • t •   • 3 • - • L • e • v • e • l •   • S • '
-                       'c • o • r • i • n • g •   • M • a • c • h • i • n • e •',
+              'quote': '2xNBAChampion• • •   2xFi'
+                       'n alsMVP• • •   2014MVP• • •   Un '
+                       'blockable7ft• 3 • - Level• S • '
+                       'c oringMachine •',
               'sec_pos': 'PF',
               'stats': {'3pt': 98, 'ath': 96, 'clu': 99, 'def': 93, 'ins': 97, 'ply': 90},
               'team': 'GSW',
-              'theme': '• S • l • i • m •   • R • e • a • p • e • r •   • 3 • - • L • e • v • e • l •',
+              'theme': 'SlimReaper• 3 • - Level •',
               'tier': 'dark_matter'},
  'dm-kareemabduljabbar-99': {'badges': ['HOF Post Spin Technician',
                                         'HOF Anchor',
@@ -14401,14 +14401,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'name': 'Kareem Abdul-Jabbar',
                              'ovr': 99,
                              'pos': 'C',
-                             'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x '
-                                      '•   • M • V • P •   • • •   • 1 • 9 • x •   • A • l • l • - • S • t • a • r •   '
-                                      '• • •   • U • n • s • t • o • p • p • a • b • l • e •   • S • k • y • h • o • o '
-                                      '• k •   • M • a • s • t • e • r •',
+                             'quote': '6xNBAChampion• • •   6x '
+                                      '•   MVP• • •   19xAll- Star'
+                                      '• • •   UnstoppableSkyhoo '
+                                      '• k •   Master •',
                              'sec_pos': 'PF',
                              'stats': {'3pt': 58, 'ath': 95, 'clu': 99, 'def': 98, 'ins': 99, 'ply': 89},
                              'team': 'LAL',
-                             'theme': '• S • k • y • h • o • o • k •   • M • a • s • t • e • r •',
+                             'theme': 'SkyhookMaster •',
                              'tier': 'dark_matter'},
  'dm-hakeemolajuwon-99': {'badges': ['HOF Post Spin Technician',
                                      'HOF Anchor',
@@ -14421,14 +14421,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Hakeem Olajuwon',
                           'ovr': 99,
                           'pos': 'C',
-                          'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x '
-                                   '•   • F • i • n • a • l • s •   • M • V • P •   • • •   • 1 • 9 • 9 • 4 •   • M • '
-                                   'V • P •   • • •   • A • l • l • - • T • i • m • e •   • N • B • A •   • B • l • o '
-                                   '• c • k • s •   • L • e • a • d • e • r •',
+                          'quote': '2xNBAChampion• • •   2x '
+                                   '•   FinalsMVP• • •   1994• M • '
+                                   'V • P • • •   All- TimeNBABlo '
+                                   'cksLeader •',
                           'sec_pos': 'PF',
                           'stats': {'3pt': 65, 'ath': 94, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 85},
                           'team': 'HOU',
-                          'theme': '• T • h • e •   • D • r • e • a • m •   • S • h • a • k • e •',
+                          'theme': 'TheDreamShake •',
                           'tier': 'dark_matter'},
  'dm-giannis-99': {'badges': ['HOF Posterizer', 'HOF Bully', 'HOF Anchor', 'HOF Chase Down Artist', 'HOF Fast Twitch'],
                    'id': 'dm-giannis-99',
@@ -14437,14 +14437,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Giannis Antetokounmpo',
                    'ovr': 99,
                    'pos': 'PF',
-                   'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • '
-                            'n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • 2 • 0 • 2 '
-                            '• 0 •   • D • P • O • Y •   • • •   • U • n • s • t • o • p • p • a • b • l • e •   • E • '
-                            'u • r • o • - • S • t • e • p •   • M • o • n • s • t • e • r •',
+                   'quote': '2021NBAChampion• & •   Fi'
+                            'n alsMVP• • •   2xMVP• • •   202 '
+                            '• 0 •   DPOY• • •   Unstoppable• E • '
+                            'u ro- StepMonster •',
                    'sec_pos': 'C',
                    'stats': {'3pt': 75, 'ath': 99, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 90},
                    'team': 'MIL',
-                   'theme': '• G • r • e • e • k •   • F • r • e • a • k •   • M • V • P •',
+                   'theme': 'GreekFreakMVP •',
                    'tier': 'dark_matter'},
  'dm-billrussell-99': {'badges': ['HOF Anchor',
                                   'HOF Rim Protector',
@@ -14457,14 +14457,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Bill Russell',
                        'ovr': 99,
                        'pos': 'C',
-                       'quote': '• 1 • 1 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 5 • x '
-                                '•   • M • V • P •   • • •   • U • l • t • i • m • a • t • e •   • D • e • f • e • n • '
-                                's • i • v • e •   • A • n • c • h • o • r •   • a • n • d •   • W • i • n • n • i • n '
-                                '• g •   • I • c • o • n •',
+                       'quote': '11xNBAChampion• • •   5x '
+                                '•   MVP• • •   UltimateDefen'
+                                's iveAnchorandWinnin '
+                                '• g •   Icon •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 50, 'ath': 96, 'clu': 98, 'def': 99, 'ins': 94, 'ply': 86},
                        'team': 'BOS',
-                       'theme': '• 1 • 1 • x •   • C • h • a • m • p • i • o • n •   • A • n • c • h • o • r •',
+                       'theme': '11xChampionAnchor •',
                        'tier': 'dark_matter'},
  'dm-lebron-98': {'badges': ['HOF Chase Down Artist', 'HOF Dimer', 'HOF Bully', 'HOF Fast Twitch', 'HOF Unpluckable'],
                   'id': 'dm-lebron-99',
@@ -14473,14 +14473,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'LeBron James',
                   'ovr': 99,
                   'pos': 'SF',
-                  'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • F • '
-                           'i • n • a • l • s •   • M • V • P •   • • •   • A • l • l • - • T • i • m • e •   • N • B '
-                           '• A •   • S • c • o • r • i • n • g •   • L • e • a • d • e • r •   • • •   • P • o • i • '
-                           'n • t •   • F • o • r • w • a • r • d •   • M • a • s • t • e • r •',
+                  'quote': '4xNBAChampion• • •   4x• F • '
+                           'i nalsMVP• • •   All- TimeNB '
+                           '• A •   ScoringLeader• • •   Poi'
+                           'n • t •   ForwardMaster •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 88, 'ath': 99, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 99},
                   'team': 'MIA',
-                  'theme': '• I • n • v • i • n • c • i • b • l • e •   • K • i • n • g •',
+                  'theme': 'InvincibleKing •',
                   'tier': 'dark_matter'},
  'go-waltfrazier-98': {'badges': ['HOF Glove', 'HOF Dimer', 'HOF Clamps', 'HOF Floor General'],
                        'id': 'go-waltfrazier-98',
@@ -14489,14 +14489,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Walt Frazier',
                        'ovr': 98,
                        'pos': 'PG',
-                       'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   • '
-                                'A • l • l • - • S • t • a • r •   • • •   • 1 • 9 • 7 • 0 •   • G • a • m • e •   • 7 '
-                                '•   • 3 • 6 •   • P • T • S •   • & •   • 1 • 9 •   • A • S • T •   • M • a • s • t • '
-                                'e • r • p • i • e • c • e •',
+                       'quote': '2xNBAChampion• • •   7x• '
+                                'A ll- Star• • •   1970Game• 7 '
+                                '•   36PTS• & •   19ASTMast'
+                                'e rpiece •',
                        'sec_pos': 'SG',
                        'stats': {'3pt': 99, 'ath': 99, 'clu': 99, 'def': 95, 'ins': 94, 'ply': 99},
                        'team': 'NYK',
-                       'theme': '• C • l • y • d • e •   • 1 • 9 • 7 • 0 •   • F • i • n • a • l • s •   • 3 • 6 • - • '
+                       'theme': 'Clyde1970Finals36- • '
                                 '1 • 9 •',
                        'tier': 'galaxy_opal'},
  'go-tmac-98': {'badges': ['HOF Limitless Range', 'HOF Posterizer', 'HOF Blindside', 'HOF Deadeye'],
@@ -14506,14 +14506,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Tracy McGrady',
                 'ovr': 98,
                 'pos': 'SG',
-                'quote': '• 2 • x •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 7 '
-                         '• x •   • A • l • l • - • S • t • a • r •   • • •   • S • c • o • r • e • d •   • 1 • 3 •   '
-                         '• P • o • i • n • t • s •   • i • n •   • 3 • 5 •   • S • e • c • o • n • d • s •   • i • n '
-                         '•   • H • i • s • t • o • r • i • c •   • C • o • m • e • b • a • c • k •',
+                'quote': '2xScoringChampion• • • 7 '
+                         '• x •   All- Star• • •   Scored13'
+                         'Pointsin35Secondsin '
+                         '•   HistoricComeback •',
                 'sec_pos': 'SF',
                 'stats': {'3pt': 97, 'ath': 97, 'clu': 99, 'def': 90, 'ins': 97, 'ply': 94},
                 'team': 'ORL',
-                'theme': '• 1 • 3 •   • i • n •   • 3 • 5 • s •',
+                'theme': '13in35s •',
                 'tier': 'galaxy_opal'},
  'go-tracymcgrady-98': {'badges': ['HOF Limitless Range', 'HOF Posterizer', 'HOF Blindside', 'HOF Deadeye'],
                         'id': 'go-tracymcgrady-98',
@@ -14522,15 +14522,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Tracy McGrady',
                         'ovr': 98,
                         'pos': 'SG',
-                        'quote': '• 2 • x •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • '
-                                 '•   • 7 • x •   • A • l • l • - • S • t • a • r •   • • •   • H • i • s • t • o • r '
-                                 '• i • c •   • 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e '
-                                 '• c • o • n • d • s •   • C • o • m • e • b • a • c • k •',
+                        'quote': '2xScoringChampion• • '
+                                 '•   7xAll- Star• • •   Histor '
+                                 'ic13Pointsin33Se '
+                                 'condsComeback •',
                         'sec_pos': 'SF',
                         'stats': {'3pt': 98, 'ath': 97, 'clu': 99, 'def': 91, 'ins': 97, 'ply': 94},
                         'team': 'HOU',
-                        'theme': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n '
-                                 '• d • s •',
+                        'theme': '13Pointsin33Secon '
+                                 'ds •',
                         'tier': 'galaxy_opal'},
  'go-duncan-98': {'badges': ['HOF Post Lock', 'HOF Anchor', 'HOF Rebound Chaser', 'HOF Dropstepper'],
                   'id': 'go-duncan-98',
@@ -14539,14 +14539,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Tim Duncan',
                   'ovr': 98,
                   'pos': 'PF',
-                  'quote': '• 5 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   • F • '
-                           'i • n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V • P •   • • •   • T • h '
-                           '• e •   • G • r • e • a • t • e • s • t •   • P • o • w • e • r •   • F • o • r • w • a • '
-                           'r • d •   • o • f •   • A • l • l •   • T • i • m • e •',
+                  'quote': '5xNBAChampion• • •   3x• F • '
+                           'i nalsMVP• • •   2xMVP• • •   Th '
+                           '• e •   GreatestPowerForwa'
+                           'r • d •   ofAllTime •',
                   'sec_pos': 'C',
                   'stats': {'3pt': 65, 'ath': 89, 'clu': 97, 'def': 99, 'ins': 98, 'ply': 86},
                   'team': 'SAS',
-                  'theme': '• T • h • e •   • B • i • g •   • F • u • n • d • a • m • e • n • t • a • l •',
+                  'theme': 'TheBigFundamental •',
                   'tier': 'galaxy_opal'},
  'go-stevenash-98': {'badges': ['HOF Dimer', 'HOF Needle Threader', 'HOF Catch & Shoot', 'HOF Handles For Days'],
                      'id': 'go-stevenash-98',
@@ -14555,14 +14555,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Steve Nash',
                      'ovr': 98,
                      'pos': 'PG',
-                     'quote': '• 2 • x •   • R • e • g • u • l • a • r •   • S • e • a • s • o • n •   • M • V • P •   '
-                              '• • •   • 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • N • B • A '
-                              '•   • A • s • s • i • s • t • s •   • L • e • a • d • e • r •   • • •   • 5 • 0 • - • 4 '
-                              '• 0 • - • 9 • 0 •   • M • a • s • t • e • r •',
+                     'quote': '2xRegularSeasonMVP'
+                              '• • •   8xAll- Star• • •   5xNBA '
+                              '•   AssistsLeader• • •   50- • 4 '
+                              '• 0 • - 90Master •',
                      'sec_pos': 'SG',
                      'stats': {'3pt': 95, 'ath': 90, 'clu': 96, 'def': 78, 'ins': 84, 'ply': 99},
                      'team': 'PHX',
-                     'theme': '• 7 •   • S • e • c • o • n • d • s •   • o • r •   • L • e • s • s •   • M • V • P •',
+                     'theme': '• 7 •   SecondsorLessMVP •',
                      'tier': 'galaxy_opal'},
  'go-scottiepippen-98': {'badges': ['HOF Clamps', 'HOF Glove', 'HOF Interceptor', 'HOF Dimer'],
                          'id': 'go-scottiepippen-98',
@@ -14571,14 +14571,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Scottie Pippen',
                          'ovr': 98,
                          'pos': 'SF',
-                         'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 7 • x •   '
-                                  '• A • l • l • - • S • t • a • r •   • • •   • 8 • x •   • A • l • l • - • D • e • f '
-                                  '• e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • A • n • c '
-                                  '• h • o • r •',
+                         'quote': '6xNBAChampion• • •   7x'
+                                  'All- Star• • •   8xAll- Def '
+                                  'ensiveFirstTeamAnc '
+                                  'hor •',
                          'sec_pos': 'SG',
                          'stats': {'3pt': 93, 'ath': 97, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 97},
                          'team': 'CHI',
-                         'theme': '• 6 • x •   • C • h • a • m • p • i • o • n •   • L • o • c • k • d • o • w • n •',
+                         'theme': '6xChampionLockdown •',
                          'tier': 'galaxy_opal'},
  'go-paulgeorge-98': {'badges': ['HOF Anchor', 'HOF Deadeye', 'HOF Clutch Shooter'],
                       'id': 'go-paulgeorge-98',
@@ -14587,16 +14587,16 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Paul George',
                       'ovr': 98,
                       'pos': 'C',
-                      'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                               '•   • 9 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • '
-                               '3 • – • 2 • 0 • 1 • 4 • ; •   • 2 • 0 • 1 • 6 • – • 2 • 0 • 1 • 9 • ; •   • 2 • 0 • 2 '
-                               '• 1 • ; •   • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 4 • ) •   • • •   • E • r • a • - • D • '
-                               'e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+                      'quote': 'HallofFameLegend• • '
+                               '•   9xNBAAll- Star• ( 201'
+                               '3 • – 2014; •   2016– 2019; •   202 '
+                               '• 1 • ; •   2023– 2024) • • •   Era- • D • '
+                               'e finingSuperstar •',
                       'sec_pos': 'PG',
                       'stats': {'3pt': 77, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 89},
                       'team': 'DEN',
-                      'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • '
-                               '9 • x •   • A • l • l • - • S • t • a • r • ) •',
+                      'theme': 'HallofFameLegend• ( • '
+                               '9 • x •   All- Star) •',
                       'tier': 'galaxy_opal'},
  'go-patrickewing-98': {'badges': ['HOF Anchor', 'HOF Deadeye', 'HOF Clutch Shooter'],
                         'id': 'go-patrickewing-98',
@@ -14605,15 +14605,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Patrick Ewing',
                         'ovr': 98,
                         'pos': 'C',
-                        'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                                 '•   • 1 • 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 '
-                                 '• 8 • 6 • ; •   • 1 • 9 • 8 • 8 • – • 1 • 9 • 9 • 7 • ) •   • • •   • E • r • a • - '
-                                 '• D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+                        'quote': 'HallofFameLegend• • '
+                                 '•   11xNBAAll- Star• ( 19 '
+                                 '86; •   1988– 1997) • • •   Era- '
+                                 'DefiningSuperstar •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 78, 'ath': 99, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 90},
                         'team': 'CHA',
-                        'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( '
-                                 '• 1 • 1 • x •   • A • l • l • - • S • t • a • r • ) •',
+                        'theme': 'HallofFameLegend• ( '
+                                 '11xAll- Star) •',
                         'tier': 'galaxy_opal'},
  'go-oscarrobertson-98': {'badges': ['HOF Dimer', 'HOF Triple Threat', 'HOF Floor General', 'HOF Break Starter'],
                           'id': 'go-oscarrobertson-98',
@@ -14622,15 +14622,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Oscar Robertson',
                           'ovr': 98,
                           'pos': 'PG',
-                          'quote': '• 1 • 9 • 7 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • '
-                                   '1 • 9 • 6 • 4 •   • M • V • P •   • • •   • F • i • r • s • t •   • P • l • a • y '
-                                   '• e • r •   • t • o •   • A • v • e • r • a • g • e •   • a •   • T • r • i • p • '
-                                   'l • e • - • D • o • u • b • l • e •',
+                          'quote': '1971NBAChampion• • • '
+                                   '1 964MVP• • •   FirstPlay '
+                                   'ertoAverage• a •   Trip'
+                                   'l • e • - Double •',
                           'sec_pos': 'SG',
                           'stats': {'3pt': 95, 'ath': 99, 'clu': 98, 'def': 92, 'ins': 93, 'ply': 98},
                           'team': 'MIL',
-                          'theme': '• T • h • e •   • B • i • g •   • O •   • T • r • i • p • l • e • - • D • o • u • '
-                                   'b • l • e •',
+                          'theme': 'TheBig• O •   Triple- Dou'
+                                   'b le •',
                           'tier': 'galaxy_opal'},
  'go-jokic-98': {'badges': ['HOF Needle Threader', 'HOF Touch Passer', 'HOF Post Playmaker', 'HOF Masher'],
                  'id': 'go-jokic-98',
@@ -14639,14 +14639,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Nikola Jokic',
                  'ovr': 98,
                  'pos': 'C',
-                 'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n '
-                          '• a • l • s •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • G • r • e • a '
-                          '• t • e • s • t •   • P • a • s • s • i • n • g •   • B • i • g •   • M • a • n •   • i • n '
-                          '•   • H • i • s • t • o • r • y •',
+                 'quote': '2023NBAChampion• & •   Fin '
+                          'alsMVP• • •   3xMVP• • •   Grea '
+                          'testPassingBigManin '
+                          '•   History •',
                  'sec_pos': 'PF',
                  'stats': {'3pt': 90, 'ath': 82, 'clu': 98, 'def': 85, 'ins': 98, 'ply': 99},
                  'team': 'DEN',
-                 'theme': '• P • o • i • n • t •   • C • e • n • t • e • r •   • G • e • n • i • u • s •',
+                 'theme': 'PointCenterGenius •',
                  'tier': 'galaxy_opal'},
  'go-nikolajokic-98': {'badges': ['HOF Needle Threader', 'HOF Touch Passer', 'HOF Post Playmaker', 'HOF Masher'],
                        'id': 'go-nikolajokic-98',
@@ -14655,14 +14655,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Nikola Jokic',
                        'ovr': 98,
                        'pos': 'C',
-                       'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • '
-                                'i • n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • H '
-                                '• i • s • t • o • r • i • c •   • T • r • i • p • l • e • - • D • o • u • b • l • e '
-                                '•   • M • a • c • h • i • n • e •',
+                       'quote': '2023NBAChampion• & • F • '
+                                'i nalsMVP• • •   3xMVP• • • H '
+                                'istoricTriple- Double '
+                                '•   Machine •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 91, 'ath': 83, 'clu': 98, 'def': 86, 'ins': 98, 'ply': 99},
                        'team': 'DEN',
-                       'theme': '• 3 • x •   • M • V • P •   • P • o • i • n • t •   • C • e • n • t • e • r •',
+                       'theme': '3xMVPPointCenter •',
                        'tier': 'galaxy_opal'},
  'go-mosesmalone-98': {'badges': ['HOF Rebound Chaser', 'HOF Boxout Beast', 'HOF Putback Boss', 'HOF Dropstepper'],
                        'id': 'go-mosesmalone-98',
@@ -14671,13 +14671,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Moses Malone',
                        'ovr': 98,
                        'pos': 'C',
-                       'quote': '• 1 • 9 • 8 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • '
-                                'i • n • a • l • s •   • M • V • P •   • • •   • 3 • x •   • M • V • P •   • • •   • 1 '
-                                '• 2 • x •   • A • l • l • - • S • t • a • r •',
+                       'quote': '1983NBAChampion• & • F • '
+                                'i nalsMVP• • •   3xMVP• • • 1 '
+                                '2xAll- Star •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 73, 'ath': 99, 'clu': 95, 'def': 99, 'ins': 99, 'ply': 91},
                        'team': 'PHI',
-                       'theme': '• C • h • a • i • r • m • a • n •   • o • f •   • t • h • e •   • B • o • a • r • d • '
+                       'theme': 'ChairmanoftheBoard'
                                 's •',
                        'tier': 'galaxy_opal'},
  'go-luka-98': {'badges': ['HOF Stepback Maestro', 'HOF Dimer', 'HOF Space Creator', 'HOF Ankle Breaker'],
@@ -14687,14 +14687,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Luka Doncic',
                 'ovr': 98,
                 'pos': 'PG',
-                'quote': '• 5 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • '
-                         '•   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • M • a • s '
-                         '• t • e • r •   • o • f •   • t • h • e •   • U • n • s • t • o • p • p • a • b • l • e •   '
-                         '• S • t • e • p • - • B • a • c • k •   • T • h • r • e • e •',
+                'quote': '5xAll- NBAFirstTeam• • '
+                         '•   ScoringChampion• • •   Mas '
+                         'teroftheUnstoppable'
+                         'Step- BackThree •',
                 'sec_pos': 'SG',
                 'stats': {'3pt': 94, 'ath': 88, 'clu': 98, 'def': 84, 'ins': 96, 'ply': 99},
                 'team': 'DAL',
-                'theme': '• T • r • i • p • l • e •   • D • o • u • b • l • e •   • K • i • n • g •',
+                'theme': 'TripleDoubleKing •',
                 'tier': 'galaxy_opal'},
  'go-lukadoncic-98': {'badges': ['HOF Stepback Maestro', 'HOF Dimer', 'HOF Space Creator', 'HOF Ankle Breaker'],
                       'id': 'go-lukadoncic-98',
@@ -14703,15 +14703,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Luka Doncic',
                       'ovr': 98,
                       'pos': 'PG',
-                      'quote': '• 5 • x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m '
-                               '•   • • •   • S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • '
-                               '•   • M • a • s • t • e • r •   • o • f •   • S • t • e • p • - • B • a • c • k •   • '
-                               'D • a • g • g • e • r • s •',
+                      'quote': '5xAll- NBAFirstTeam '
+                               '• • •   ScoringChampion• • '
+                               '•   MasterofStep- Back• '
+                               'D aggers •',
                       'sec_pos': 'SG',
                       'stats': {'3pt': 95, 'ath': 89, 'clu': 99, 'def': 84, 'ins': 97, 'ply': 99},
                       'team': 'DAL',
-                      'theme': '• 6 • 0 • - • P • t •   • T • r • i • p • l • e • - • D • o • u • b • l • e •   • K • '
-                               'i • n • g •',
+                      'theme': '60- PtTriple- Double• K • '
+                               'i ng •',
                       'tier': 'galaxy_opal'},
  'go-kyrieirving-98': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                        'id': 'go-kyrieirving-98',
@@ -14720,16 +14720,16 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Kyrie Irving',
                        'ovr': 98,
                        'pos': 'PF',
-                       'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                                '•   • 9 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • '
-                                '3 • – • 2 • 0 • 1 • 5 • ; •   • 2 • 0 • 1 • 7 • – • 2 • 0 • 1 • 9 • ; •   • 2 • 0 • 2 '
-                                '• 1 • ; •   • 2 • 0 • 2 • 3 • ; •   • 2 • 0 • 2 • 5 • ) •   • • •   • E • r • a • - • '
-                                'D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+                       'quote': 'HallofFameLegend• • '
+                                '•   9xNBAAll- Star• ( 201'
+                                '3 • – 2015; •   2017– 2019; •   202 '
+                                '• 1 • ; •   2023; •   2025) • • •   Era- • '
+                                'D efiningSuperstar •',
                        'sec_pos': 'PG',
                        'stats': {'3pt': 86, 'ath': 96, 'clu': 94, 'def': 97, 'ins': 99, 'ply': 89},
                        'team': 'DAL',
-                       'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • '
-                                '9 • x •   • A • l • l • - • S • t • a • r • ) •',
+                       'theme': 'HallofFameLegend• ( • '
+                                '9 • x •   All- Star) •',
                        'tier': 'galaxy_opal'},
  'go-kevingarnett-98': {'badges': ['HOF Anchor', 'HOF Post Lock', 'HOF Rebound Chaser', 'HOF Clamps'],
                         'id': 'go-kevingarnett-98',
@@ -14738,13 +14738,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Kevin Garnett',
                         'ovr': 98,
                         'pos': 'PF',
-                        'quote': '• 2 • 0 • 0 • 8 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 '
-                                 '• 0 • 0 • 4 •   • M • V • P •   • • •   • 2 • 0 • 0 • 8 •   • D • P • O • Y •   • • '
-                                 '•   • 1 • 5 • x •   • A • l • l • - • S • t • a • r •',
+                        'quote': '2008NBAChampion• • • 2 '
+                                 '004MVP• • •   2008DPOY• • '
+                                 '•   15xAll- Star •',
                         'sec_pos': 'C',
                         'stats': {'3pt': 85, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 94},
                         'team': 'BOS',
-                        'theme': '• T • h • e •   • B • i • g •   • T • i • c • k • e • t •',
+                        'theme': 'TheBigTicket •',
                         'tier': 'galaxy_opal'},
  'go-kevindurant-98': {'badges': ['HOF Guard Up', 'HOF Deadeye', 'HOF Green Machine', 'HOF Blinders'],
                        'id': 'go-kevindurant-98',
@@ -14753,13 +14753,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Kevin Durant',
                        'ovr': 98,
                        'pos': 'SF',
-                       'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n • '
-                                'a • l • s •   • M • V • P •   • • •   • 2 • 0 • 1 • 4 •   • M • V • P •   • • •   • 1 '
-                                '• 6 • x •   • A • l • l • - • S • t • a • r •',
+                       'quote': '2xNBAChampion• & •   Fin'
+                                'a lsMVP• • •   2014MVP• • • 1 '
+                                '6xAll- Star •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 98, 'ath': 96, 'clu': 99, 'def': 94, 'ins': 98, 'ply': 92},
                        'team': 'PHX',
-                       'theme': '• S • l • i • m •   • R • e • a • p • e • r •   • 3 • - • L • e • v • e • l •',
+                       'theme': 'SlimReaper• 3 • - Level •',
                        'tier': 'galaxy_opal'},
  'go-karlmalone-98': {'badges': ['HOF Backdown Punisher', 'HOF Dropstepper', 'HOF Post Lock', 'HOF Rebound Chaser'],
                       'id': 'go-karlmalone-98',
@@ -14768,14 +14768,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Karl Malone',
                       'ovr': 98,
                       'pos': 'PF',
-                      'quote': '• 2 • x •   • M • V • P •   • • •   • 1 • 4 • x •   • A • l • l • - • S • t • a • r '
-                               '•   • • •   • O • v • e • r •   • 3 • 6 • , • 0 • 0 • 0 •   • C • a • r • e • e • r '
-                               '•   • P • o • i • n • t • s •   • • •   • 1 • 1 • x •   • A • l • l • - • N • B • A '
-                               '•   • F • i • r • s • t •   • T • e • a • m •',
+                      'quote': '2xMVP• • •   14xAll- Star '
+                               '• • •   Over36, 000Career '
+                               '•   Points• • •   11xAll- NBA '
+                               '•   FirstTeam •',
                       'sec_pos': 'C',
                       'stats': {'3pt': 83, 'ath': 99, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 91},
                       'team': 'UTA',
-                      'theme': '• T • h • e •   • M • a • i • l • m • a • n •   • P • i • c • k •   • & •   • R • o • '
+                      'theme': 'TheMailmanPick• & •   Ro'
                                'l • l •',
                       'tier': 'galaxy_opal'},
  'go-juliuserving-98': {'badges': ['HOF Posterizer', 'HOF Limitless Takeoff', 'HOF Acrobat', 'HOF Aerial Wizard'],
@@ -14785,14 +14785,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Julius Erving',
                         'ovr': 98,
                         'pos': 'SF',
-                        'quote': '• 1 • 9 • 8 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 '
-                                 '• 9 • 8 • 1 •   • M • V • P •   • • •   • 1 • 1 • x •   • N • B • A •   • A • l • l '
-                                 '• - • S • t • a • r •   • • •   • C • r • a • d • l • e •   • D • u • n • k •   • L '
-                                 '• e • g • e • n • d •',
+                        'quote': '1983NBAChampion• • • 1 '
+                                 '981MVP• • •   11xNBAAll '
+                                 '• - Star• • •   CradleDunk• L '
+                                 'egend •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 96, 'ath': 96, 'clu': 95, 'def': 99, 'ins': 99, 'ply': 97},
                         'team': 'PHI',
-                        'theme': '• D • r • . •   • J •   • A • b • o • v • e •   • t • h • e •   • R • i • m •',
+                        'theme': 'Dr. • J •   AbovetheRim •',
                         'tier': 'galaxy_opal'},
  'go-johnstockton-98': {'badges': ['HOF Needle Threader', 'HOF Dimer', 'HOF Glove', 'HOF Floor General'],
                         'id': 'go-johnstockton-98',
@@ -14801,14 +14801,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'John Stockton',
                         'ovr': 98,
                         'pos': 'PG',
-                        'quote': '• A • l • l • - • T • i • m • e •   • N • B • A •   • A • s • s • i • s • t • s •   '
-                                 '• & •   • S • t • e • a • l • s •   • L • e • a • d • e • r •   • • •   • 1 • 0 • x '
-                                 '•   • A • l • l • - • S • t • a • r •   • • •   • F • l • o • o • r •   • G • e • n '
-                                 '• e • r • a • l •   • L • e • g • e • n • d •',
+                        'quote': 'All- TimeNBAAssists'
+                                 '• & •   StealsLeader• • •   10x '
+                                 '•   All- Star• • •   FloorGen '
+                                 'eralLegend •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 90, 'ath': 91, 'clu': 95, 'def': 96, 'ins': 86, 'ply': 99},
                         'team': 'UTA',
-                        'theme': '• A • l • l • - • T • i • m • e •   • A • s • s • i • s • t •   • K • i • n • g •',
+                        'theme': 'All- TimeAssistKing •',
                         'tier': 'galaxy_opal'},
  'go-embiid-98': {'badges': ['HOF Post Spin Technician', 'HOF Dream Shake', 'HOF Anchor', 'HOF Backdown Punisher'],
                   'id': 'go-embiid-98',
@@ -14817,13 +14817,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Joel Embiid',
                   'ovr': 98,
                   'pos': 'C',
-                  'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • M • V • P •   • • •   • 2 • x •   • S • c • o • r • '
-                           'i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 7 • 0 • - • P • o • i • n • t '
-                           '•   • G • a • m • e •   • L • e • g • e • n • d •',
+                  'quote': '2023NBAMVP• • •   2xScor'
+                           'i ngChampion• • •   70- Point '
+                           '•   GameLegend •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 88, 'ath': 90, 'clu': 96, 'def': 96, 'ins': 99, 'ply': 84},
                   'team': 'PHI',
-                  'theme': '• P • r • o • c • e • s • s •   • M • V • P •',
+                  'theme': 'ProcessMVP •',
                   'tier': 'galaxy_opal'},
  'go-joelembiid-98': {'badges': ['HOF Post Spin Technician', 'HOF Dream Shake', 'HOF Anchor', 'HOF Backdown Punisher'],
                       'id': 'go-joelembiid-98',
@@ -14832,13 +14832,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Joel Embiid',
                       'ovr': 98,
                       'pos': 'C',
-                      'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • M • V • P •   • • •   • 2 • x •   • S • c • o • '
-                               'r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 7 • 0 • - • P • o • i '
-                               '• n • t •   • G • a • m • e •   • L • e • g • e • n • d •',
+                      'quote': '2023NBAMVP• • •   2xSco'
+                               'r ingChampion• • •   70- Poi '
+                               'ntGameLegend •',
                       'sec_pos': 'PF',
                       'stats': {'3pt': 73, 'ath': 96, 'clu': 95, 'def': 99, 'ins': 99, 'ply': 85},
                       'team': 'PHI',
-                      'theme': '• 7 • 0 • - • P • t •   • M • V • P •   • P • r • o • c • e • s • s •',
+                      'theme': '70- PtMVPProcess •',
                       'tier': 'galaxy_opal'},
  'go-jerrywest-98': {'badges': ['HOF Clutch Shooter', 'HOF Deadeye', 'HOF Dimer', 'HOF Middy Magician'],
                      'id': 'go-jerrywest-98',
@@ -14847,14 +14847,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Jerry West',
                      'ovr': 98,
                      'pos': 'PG',
-                     'quote': '• 1 • 9 • 7 • 2 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 '
-                              '• 6 • 9 •   • F • i • n • a • l • s •   • M • V • P •   • • •   • 1 • 4 • x •   • A • l '
-                              '• l • - • S • t • a • r •   • • •   • T • h • e •   • I • c • o • n • i • c •   • N • B '
-                              '• A •   • S • i • l • h • o • u • e • t • t • e •',
+                     'quote': '1972NBAChampion• • •   19 '
+                              '69FinalsMVP• • •   14xAl '
+                              '• l • - Star• • •   TheIconicNB '
+                              '• A •   Silhouette •',
                      'sec_pos': 'SG',
                      'stats': {'3pt': 96, 'ath': 99, 'clu': 97, 'def': 95, 'ins': 95, 'ply': 99},
                      'team': 'LAL',
-                     'theme': '• T • h • e •   • N • B • A •   • L • o • g • o •',
+                     'theme': 'TheNBALogo •',
                      'tier': 'galaxy_opal'},
  'go-tatum-98': {'badges': ['HOF Clamps', 'HOF Agent 3', 'HOF Catch & Shoot', 'HOF Posterizer'],
                  'id': 'go-tatum-98',
@@ -14863,14 +14863,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Jayson Tatum',
                  'ovr': 98,
                  'pos': 'SF',
-                 'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • x •   '
-                          '• A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • E • a '
-                          '• s • t • e • r • n •   • C • o • n • f • e • r • e • n • c • e •   • F • i • n • a • l • s '
-                          '•   • M • V • P •',
+                 'quote': '2024NBAChampion• • •   3x'
+                          'All- NBAFirstTeam• • •   Ea '
+                          'sternConferenceFinals '
+                          '•   MVP •',
                  'sec_pos': 'PF',
                  'stats': {'3pt': 95, 'ath': 94, 'clu': 96, 'def': 95, 'ins': 95, 'ply': 90},
                  'team': 'BOS',
-                 'theme': '• F • i • n • a • l • s •   • C • h • a • m • p • i • o • n •',
+                 'theme': 'FinalsChampion •',
                  'tier': 'galaxy_opal'},
  'go-jaysontatum-98': {'badges': ['HOF Clamps', 'HOF Agent 3', 'HOF Catch & Shoot', 'HOF Posterizer'],
                        'id': 'go-jaysontatum-98',
@@ -14879,14 +14879,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Jayson Tatum',
                        'ovr': 98,
                        'pos': 'SF',
-                       'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 3 • '
-                                'x •   • A • l • l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • '
-                                '•   • E • a • s • t • e • r • n •   • C • o • n • f • e • r • e • n • c • e •   • F • '
-                                'i • n • a • l • s •   • M • V • P •',
+                       'quote': '2024NBAChampion• • • 3 • '
+                                'x •   All- NBAFirstTeam• • '
+                                '•   EasternConference• F • '
+                                'i nalsMVP •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 99, 'ath': 99, 'clu': 98, 'def': 99, 'ins': 99, 'ply': 98},
                        'team': 'BOS',
-                       'theme': '• 2 • 0 • 2 • 4 •   • C • h • a • m • p • i • o • n •   • W • i • n • g •',
+                       'theme': '2024ChampionWing •',
                        'tier': 'galaxy_opal'},
  'go-jasonkidd-98': {'badges': ['HOF Floor General', 'HOF Break Starter', 'HOF Glove', 'HOF Needle Threader'],
                      'id': 'go-jasonkidd-98',
@@ -14895,14 +14895,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Jason Kidd',
                      'ovr': 98,
                      'pos': 'PG',
-                     'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 0 '
-                              '• x •   • A • l • l • - • S • t • a • r •   • • •   • 2 • n • d •   • A • l • l • - • T '
-                              '• i • m • e •   • i • n •   • N • B • A •   • A • s • s • i • s • t • s •   • & •   • S '
-                              '• t • e • a • l • s •',
+                     'quote': '2011NBAChampion• • •   10 '
+                              '• x •   All- Star• • •   2ndAll- • T '
+                              'imeinNBAAssists• & • S '
+                              'teals •',
                      'sec_pos': 'SG',
                      'stats': {'3pt': 84, 'ath': 93, 'clu': 94, 'def': 97, 'ins': 86, 'ply': 98},
                      'team': 'NJN',
-                     'theme': '• T • r • i • p • l • e • - • D • o • u • b • l • e •   • G • e • n • e • r • a • l •',
+                     'theme': 'Triple- DoubleGeneral •',
                      'tier': 'galaxy_opal'},
  'go-isiahthomas-98': {'badges': ['HOF Quick First Step', 'HOF Handles For Days', 'HOF Dimer', 'HOF Clutch Shooter'],
                        'id': 'go-isiahthomas-98',
@@ -14911,14 +14911,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Isiah Thomas',
                        'ovr': 98,
                        'pos': 'PG',
-                       'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 9 • '
-                                '0 •   • F • i • n • a • l • s •   • M • V • P •   • • •   • 1 • 2 • x •   • A • l • l '
-                                '• - • S • t • a • r •   • • •   • 2 • 5 • - • P • t •   • S • p • r • a • i • n • e • '
-                                'd •   • A • n • k • l • e •   • Q • u • a • r • t • e • r •',
+                       'quote': '2xNBAChampion• • •   199'
+                                '0 •   FinalsMVP• • •   12xAll '
+                                '• - Star• • •   25- PtSpraine'
+                                'd •   AnkleQuarter •',
                        'sec_pos': 'SG',
                        'stats': {'3pt': 95, 'ath': 97, 'clu': 93, 'def': 95, 'ins': 93, 'ply': 99},
                        'team': 'DET',
-                       'theme': '• B • a • d •   • B • o • y • s •   • G • e • n • e • r • a • l •',
+                       'theme': 'BadBoysGeneral •',
                        'tier': 'galaxy_opal'},
  'go-giannisantetokounmpo-98': {'badges': ['HOF Posterizer', 'HOF Bully', 'HOF Anchor', 'HOF Chase Down Artist'],
                                 'id': 'go-giannisantetokounmpo-98',
@@ -14927,14 +14927,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                 'name': 'Giannis Antetokounmpo',
                                 'ovr': 98,
                                 'pos': 'PF',
-                                'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & '
-                                         '•   • F • i • n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • M • V '
-                                         '• P •   • • •   • 2 • 0 • 2 • 0 •   • D • P • O • Y •',
+                                'quote': '2021NBAChampion• & '
+                                         '•   FinalsMVP• • •   2xMV '
+                                         '• P • • •   2020DPOY •',
                                 'sec_pos': 'C',
                                 'stats': {'3pt': 86, 'ath': 99, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 89},
                                 'team': 'MIL',
-                                'theme': '• G • r • e • e • k •   • F • r • e • a • k •   • D • o • m • i • n • a • n '
-                                         '• c • e •',
+                                'theme': 'GreekFreakDominan '
+                                         'ce •',
                                 'tier': 'galaxy_opal'},
  'go-elginbaylor-98': {'badges': ['HOF Acrobat', 'HOF Aerial Wizard', 'HOF Middy Magician', 'HOF Fearless Finisher'],
                        'id': 'go-elginbaylor-98',
@@ -14943,14 +14943,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Elgin Baylor',
                        'ovr': 98,
                        'pos': 'SF',
-                       'quote': '• 1 • 1 • x •   • A • l • l • - • S • t • a • r •   • • •   • 1 • 0 • x •   • A • l • '
-                                'l • - • N • B • A •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 6 • 1 • - '
-                                '• P • o • i • n • t •   • N • B • A •   • F • i • n • a • l • s •   • G • a • m • e '
-                                '•   • R • e • c • o • r • d •',
+                       'quote': '11xAll- Star• • •   10xAl'
+                                'l • - NBAFirstTeam• • •   61- '
+                                'PointNBAFinalsGame '
+                                '•   Record •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 98, 'ath': 99, 'clu': 99, 'def': 98, 'ins': 98, 'ply': 95},
                        'team': 'LAL',
-                       'theme': '• A • c • r • o • b • a • t • i • c •   • P • i • o • n • e • e • r •',
+                       'theme': 'AcrobaticPioneer •',
                        'tier': 'galaxy_opal'},
  'go-dwyanewade-98': {'badges': ['HOF Acrobat', 'HOF Fearless Finisher', 'HOF Clamps', 'HOF Fast Break Starter'],
                       'id': 'go-dwyanewade-98',
@@ -14959,14 +14959,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Dwyane Wade',
                       'ovr': 98,
                       'pos': 'SG',
-                      'quote': '• 3 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • '
-                               '6 •   • F • i • n • a • l • s •   • M • V • P •   • • •   • 1 • 3 • x •   • A • l • l '
-                               '• - • S • t • a • r •   • • •   • M • i • a • m • i •   • H • e • a • t •   • I • c • '
+                      'quote': '3xNBAChampion• • •   200'
+                               '6 •   FinalsMVP• • •   13xAll '
+                               '• - Star• • •   MiamiHeatIc'
                                'o • n •',
                       'sec_pos': 'PG',
                       'stats': {'3pt': 98, 'ath': 99, 'clu': 98, 'def': 93, 'ins': 99, 'ply': 95},
                       'team': 'MIA',
-                      'theme': '• F • l • a • s • h •   • F • i • n • a • l • s •   • M • V • P •',
+                      'theme': 'FlashFinalsMVP •',
                       'tier': 'galaxy_opal'},
  'go-dominiquewilkins-98': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                             'id': 'go-dominiquewilkins-98',
@@ -14975,15 +14975,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                             'name': 'Dominique Wilkins',
                             'ovr': 98,
                             'pos': 'SG',
-                            'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   '
-                                     '• • •   • 9 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 '
-                                     '• 9 • 8 • 6 • – • 1 • 9 • 9 • 4 • ) •   • • •   • E • r • a • - • D • e • f • i '
-                                     '• n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+                            'quote': 'HallofFameLegend'
+                                     '• • •   9xNBAAll- Star• ( • 1 '
+                                     '986– 1994) • • •   Era- Defi '
+                                     'ningSuperstar •',
                             'sec_pos': 'C',
                             'stats': {'3pt': 99, 'ath': 99, 'clu': 98, 'def': 95, 'ins': 99, 'ply': 98},
                             'team': 'ATL',
-                            'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   '
-                                     '• ( • 9 • x •   • A • l • l • - • S • t • a • r • ) •',
+                            'theme': 'HallofFameLegend'
+                                     '• ( 9xAll- Star) •',
                             'tier': 'galaxy_opal'},
  'go-dirknowitzki-98': {'badges': ['HOF Deadeye', 'HOF Catch & Shoot', 'HOF Middy Magician', 'HOF Clutch Shooter'],
                         'id': 'go-dirknowitzki-98',
@@ -14992,14 +14992,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Dirk Nowitzki',
                         'ovr': 98,
                         'pos': 'PF',
-                        'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F '
-                                 '• i • n • a • l • s •   • M • V • P •   • • •   • 2 • 0 • 0 • 7 •   • M • V • P •   '
-                                 '• • •   • 1 • 4 • x •   • A • l • l • - • S • t • a • r •   • • •   • 3 • 1 • K •   '
-                                 '• P • o • i • n • t • s •',
+                        'quote': '2011NBAChampion• & • F '
+                                 'inalsMVP• • •   2007MVP'
+                                 '• • •   14xAll- Star• • •   31K'
+                                 'Points •',
                         'sec_pos': 'C',
                         'stats': {'3pt': 86, 'ath': 99, 'clu': 97, 'def': 99, 'ins': 98, 'ply': 92},
                         'team': 'DAL',
-                        'theme': '• O • n • e • - • L • e • g •   • F • a • d • e • a • w • a • y •   • R • i • n • g '
+                        'theme': 'One- LegFadeawayRing '
                                  '•',
                         'tier': 'galaxy_opal'},
  'go-davidrobinson-98': {'badges': ['HOF Anchor', 'HOF Rim Protector', 'HOF Post Lock', 'HOF Chase Down Artist'],
@@ -15009,15 +15009,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'David Robinson',
                          'ovr': 98,
                          'pos': 'C',
-                         'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 9 '
-                                  '• 5 •   • M • V • P •   • • •   • 1 • 9 • 9 • 2 •   • D • P • O • Y •   • • •   • Q '
-                                  '• u • a • d • r • u • p • l • e • - • D • o • u • b • l • e •   • L • e • g • e • n '
+                         'quote': '2xNBAChampion• • •   199 '
+                                  '• 5 •   MVP• • •   1992DPOY• • • Q '
+                                  'uadruple- DoubleLegen '
                                   '• d •',
                          'sec_pos': 'PF',
                          'stats': {'3pt': 73, 'ath': 99, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 85},
                          'team': 'SAS',
-                         'theme': '• T • h • e •   • A • d • m • i • r • a • l •   • Q • u • a • d • r • u • p • l • e '
-                                  '• - • D • o • u • b • l • e •',
+                         'theme': 'TheAdmiralQuadruple '
+                                  '• - Double •',
                          'tier': 'galaxy_opal'},
  'go-damianlillard-98': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                          'id': 'go-damianlillard-98',
@@ -15026,16 +15026,16 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Damian Lillard',
                          'ovr': 98,
                          'pos': 'SG',
-                         'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                                  '•   • 9 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 '
-                                  '• 4 • – • 2 • 0 • 1 • 5 • ; •   • 2 • 0 • 1 • 8 • – • 2 • 0 • 2 • 1 • ; •   • 2 • 0 '
-                                  '• 2 • 3 • – • 2 • 0 • 2 • 5 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i '
-                                  '• n • g •   • S • u • p • e • r • s • t • a • r •',
+                         'quote': 'HallofFameLegend• • '
+                                  '•   9xNBAAll- Star• ( 201 '
+                                  '• 4 • – 2015; •   2018– 2021; •   20 '
+                                  '23– 2025) • • •   Era- Defini '
+                                  'ngSuperstar •',
                          'sec_pos': 'C',
                          'stats': {'3pt': 96, 'ath': 93, 'clu': 98, 'def': 82, 'ins': 92, 'ply': 93},
                          'team': 'MIL',
-                         'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( '
-                                  '• 9 • x •   • A • l • l • - • S • t • a • r • ) •',
+                         'theme': 'HallofFameLegend• ( '
+                                  '9xAll- Star) •',
                          'tier': 'galaxy_opal'},
  'go-clydedrexler-98': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                         'id': 'go-clydedrexler-98',
@@ -15044,16 +15044,16 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Clyde Drexler',
                         'ovr': 98,
                         'pos': 'PF',
-                        'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                                 '•   • 1 • 0 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 '
-                                 '• 8 • 6 • ; •   • 1 • 9 • 8 • 8 • – • 1 • 9 • 9 • 4 • ; •   • 1 • 9 • 9 • 6 • – • 1 '
-                                 '• 9 • 9 • 7 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i • n • g •   • S '
-                                 '• u • p • e • r • s • t • a • r •',
+                        'quote': 'HallofFameLegend• • '
+                                 '•   10xNBAAll- Star• ( 19 '
+                                 '86; •   1988– 1994; •   1996– • 1 '
+                                 '997) • • •   Era- Defining• S '
+                                 'uperstar •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 84, 'ath': 98, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 88},
                         'team': 'GSW',
-                        'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( '
-                                 '• 1 • 0 • x •   • A • l • l • - • S • t • a • r • ) •',
+                        'theme': 'HallofFameLegend• ( '
+                                 '10xAll- Star) •',
                         'tier': 'galaxy_opal'},
  'go-charlesbarkley-98': {'badges': ['HOF Bully', 'HOF Rebound Chaser', 'HOF Posterizer', 'HOF Fast Twitch'],
                           'id': 'go-charlesbarkley-98',
@@ -15062,13 +15062,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Charles Barkley',
                           'ovr': 98,
                           'pos': 'PF',
-                          'quote': '• 1 • 9 • 9 • 3 •   • M • V • P •   • • •   • 1 • 1 • x •   • A • l • l • - • S • '
-                                   't • a • r •   • • •   • U • n • s • t • o • p • p • a • b • l • e •   • P • o • w '
-                                   '• e • r •   • F • o • r • w • a • r • d •   • F • o • r • c • e •',
+                          'quote': '1993MVP• • •   11xAll- • S • '
+                                   't ar• • •   UnstoppablePow '
+                                   'erForwardForce •',
                           'sec_pos': 'SF',
                           'stats': {'3pt': 81, 'ath': 97, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 88},
                           'team': 'PHX',
-                          'theme': '• R • o • u • n • d •   • M • o • u • n • d •   • o • f •   • R • e • b • o • u • '
+                          'theme': 'RoundMoundofRebou'
                                    'n • d •',
                           'tier': 'galaxy_opal'},
  'go-willisreed-97': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
@@ -15078,15 +15078,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Willis Reed',
                       'ovr': 97,
                       'pos': 'SG',
-                      'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                               '•   • 7 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 6 • '
-                               '5 • – • 1 • 9 • 7 • 1 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i • n • g '
-                               '•   • S • u • p • e • r • s • t • a • r •',
+                      'quote': 'HallofFameLegend• • '
+                               '•   7xNBAAll- Star• ( 196'
+                               '5 • – 1971) • • •   Era- Defining '
+                               '•   Superstar •',
                       'sec_pos': 'SF',
                       'stats': {'3pt': 97, 'ath': 99, 'clu': 99, 'def': 91, 'ins': 94, 'ply': 95},
                       'team': 'WAS',
-                      'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • '
-                               '7 • x •   • A • l • l • - • S • t • a • r • ) •',
+                      'theme': 'HallofFameLegend• ( • '
+                               '7 • x •   All- Star) •',
                       'tier': 'galaxy_opal'},
  'go-vincecarter-97': {'badges': ['HOF Posterizer', 'HOF Limitless Takeoff', 'HOF Aerial Wizard', 'HOF Acrobat'],
                        'id': 'go-vincecarter-97',
@@ -15095,13 +15095,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Vince Carter',
                        'ovr': 97,
                        'pos': 'SG',
-                       'quote': '• 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 0 • 0 •   • D • u • '
-                                'n • k •   • C • o • n • t • e • s • t •   • G • O • A • T •   • • •   • 2 • 2 •   • N '
-                                '• B • A •   • S • e • a • s • o • n • s •   • L • e • g • e • n • d •',
+                       'quote': '8xAll- Star• • •   2000Du'
+                                'n • k •   ContestGOAT• • •   22• N '
+                                'BASeasonsLegend •',
                        'sec_pos': 'SF',
                        'stats': {'3pt': 92, 'ath': 98, 'clu': 95, 'def': 87, 'ins': 98, 'ply': 90},
                        'team': 'TOR',
-                       'theme': '• H • a • l • f • - • M • a • n •   • H • a • l • f • - • A • m • a • z • i • n • g •',
+                       'theme': 'Half- ManHalf- Amazing •',
                        'tier': 'galaxy_opal'},
  'go-tonyparker-97': {'badges': ['HOF Giant Slayer', 'HOF Quick First Step', 'HOF Acrobat', 'HOF Middy Magician'],
                       'id': 'go-tonyparker-97',
@@ -15110,15 +15110,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Tony Parker',
                       'ovr': 97,
                       'pos': 'PG',
-                      'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • 0 • 0 • '
-                               '7 •   • F • i • n • a • l • s •   • M • V • P •   • • •   • 6 • x •   • A • l • l • - '
-                               '• S • t • a • r •   • • •   • T • e • a • r • d • r • o • p •   • F • l • o • a • t • '
-                               'e • r •   • K • i • n • g •',
+                      'quote': '4xNBAChampion• • •   200'
+                               '7 •   FinalsMVP• • •   6xAll- '
+                               'Star• • •   TeardropFloat'
+                               'e • r •   King •',
                       'sec_pos': 'SG',
                       'stats': {'3pt': 97, 'ath': 99, 'clu': 98, 'def': 95, 'ins': 90, 'ply': 96},
                       'team': 'SAS',
-                      'theme': '• 2 • 0 • 0 • 7 •   • F • i • n • a • l • s •   • M • V • P •   • T • e • a • r • d • '
-                               'r • o • p •',
+                      'theme': '2007FinalsMVPTeard'
+                               'r op •',
                       'tier': 'galaxy_opal'},
  'go-timhardaway-97': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                        'id': 'go-timhardaway-97',
@@ -15127,15 +15127,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Tim Hardaway',
                        'ovr': 97,
                        'pos': 'PF',
-                       'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                                '•   • 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 9 • '
-                                '1 • – • 1 • 9 • 9 • 3 • ; •   • 1 • 9 • 9 • 7 • – • 1 • 9 • 9 • 8 • ) •   • • •   • E '
-                                '• r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+                       'quote': 'HallofFameLegend• • '
+                                '•   5xNBAAll- Star• ( 199'
+                                '1 • – 1993; •   1997– 1998) • • • E '
+                                'ra- DefiningSuperstar •',
                        'sec_pos': 'PG',
                        'stats': {'3pt': 83, 'ath': 98, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 90},
                        'team': 'MIN',
-                       'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • '
-                                '5 • x •   • A • l • l • - • S • t • a • r • ) •',
+                       'theme': 'HallofFameLegend• ( • '
+                                '5 • x •   All- Star) •',
                        'tier': 'galaxy_opal'},
  'go-curry-97': {'badges': ['Gold Limitless Range', 'Gold Catch & Shoot', 'Gold Agent 3', 'Gold Clutch Shooter'],
                  'id': 'go-curry-97',
@@ -15144,13 +15144,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Stephen Curry',
                  'ovr': 97,
                  'pos': 'PG',
-                 'quote': '• 4 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • - •   • 2 • x •   • M • V '
-                          '• P •   • - •   • A • l • l • - • T • i • m • e •   • 3 • P • T •   • R • e • c • o • r • d '
-                          '•   • H • o • l • d • e • r •',
+                 'quote': '4xNBAChampion• - •   2xMV '
+                          '• P • - •   All- Time3PTRecord '
+                          '•   Holder •',
                  'sec_pos': 'SG',
                  'stats': {'3pt': 99, 'ath': 93, 'clu': 99, 'def': 82, 'ins': 84, 'ply': 96},
                  'team': 'GSW',
-                 'theme': '• G • r • e • a • t • e • s • t •   • S • h • o • o • t • e • r •   • E • v • e • r •',
+                 'theme': 'GreatestShooterEver •',
                  'tier': 'galaxy_opal'},
  'go-russellwestbrook-97': {'badges': ['HOF Fast Twitch', 'HOF Posterizer', 'HOF Break Starter', 'HOF Bully'],
                             'id': 'go-russellwestbrook-97',
@@ -15159,15 +15159,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                             'name': 'Russell Westbrook',
                             'ovr': 97,
                             'pos': 'PG',
-                            'quote': '• 2 • 0 • 1 • 7 •   • N • B • A •   • M • V • P •   • • •   • 9 • x •   • A • l '
-                                     '• l • - • S • t • a • r •   • • •   • A • l • l • - • T • i • m • e •   • N • B '
-                                     '• A •   • T • r • i • p • l • e • - • D • o • u • b • l • e •   • R • e • c • o '
-                                     '• r • d •   • L • e • a • d • e • r •',
+                            'quote': '2017NBAMVP• • •   9xAl '
+                                     '• l • - Star• • •   All- TimeNB '
+                                     '• A •   Triple- DoubleReco '
+                                     'rdLeader •',
                             'sec_pos': 'SG',
                             'stats': {'3pt': 98, 'ath': 99, 'clu': 97, 'def': 95, 'ins': 91, 'ply': 98},
                             'team': 'OKC',
-                            'theme': '• T • r • i • p • l • e • - • D • o • u • b • l • e •   • S • e • a • s • o • n '
-                                     '•   • M • V • P •',
+                            'theme': 'Triple- DoubleSeason '
+                                     '•   MVP •',
                             'tier': 'galaxy_opal'},
  'go-rickbarry-97': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                      'id': 'go-rickbarry-97',
@@ -15176,15 +15176,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Rick Barry',
                      'ovr': 97,
                      'pos': 'SF',
-                     'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • •   '
-                              '• 8 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 6 • 6 • – '
-                              '• 1 • 9 • 6 • 7 • ; •   • 1 • 9 • 7 • 3 • – • 1 • 9 • 7 • 8 • ) •   • • •   • E • r • a '
-                              '• - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a • r •',
+                     'quote': 'HallofFameLegend• • •   '
+                              '8xNBAAll- Star• ( 1966– '
+                              '1967; •   1973– 1978) • • •   Era '
+                              '• - DefiningSuperstar •',
                      'sec_pos': 'PF',
                      'stats': {'3pt': 92, 'ath': 97, 'clu': 96, 'def': 99, 'ins': 99, 'ply': 97},
                      'team': 'ATL',
-                     'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 8 '
-                              '• x •   • A • l • l • - • S • t • a • r • ) •',
+                     'theme': 'HallofFameLegend• ( • 8 '
+                              '• x •   All- Star) •',
                      'tier': 'galaxy_opal'},
  'go-reggiemiller-97': {'badges': ['HOF Limitless Range', 'HOF Catch & Shoot', 'HOF Clutch Shooter', 'HOF Deadeye'],
                         'id': 'go-reggiemiller-97',
@@ -15193,14 +15193,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Reggie Miller',
                         'ovr': 97,
                         'pos': 'SG',
-                        'quote': '• 5 • x •   • A • l • l • - • S • t • a • r •   • • •   • 3 • - • P • o • i • n • t '
-                                 '•   • P • i • o • n • e • e • r •   • • •   • L • e • g • e • n • d • a • r • y •   '
-                                 '• M • S • G •   • P • l • a • y • o • f • f •   • H • e • a • r • t • b • r • e • a '
-                                 '• k • e • r •',
+                        'quote': '5xAll- Star• • • 3 • - Point '
+                                 '•   Pioneer• • •   Legendary'
+                                 'MSGPlayoffHeartbrea '
+                                 'ker •',
                         'sec_pos': 'SF',
                         'stats': {'3pt': 96, 'ath': 89, 'clu': 98, 'def': 85, 'ins': 87, 'ply': 84},
                         'team': 'IND',
-                        'theme': '• 8 •   • P • o • i • n • t • s •   • i • n •   • 9 •   • S • e • c • o • n • d • s '
+                        'theme': '• 8 •   Pointsin• 9 •   Seconds '
                                  '•',
                         'tier': 'galaxy_opal'},
  'go-rayallen-97': {'badges': ['HOF Corner Specialist',
@@ -15213,14 +15213,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Ray Allen',
                     'ovr': 97,
                     'pos': 'SG',
-                    'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 0 • x •   '
-                             '• A • l • l • - • S • t • a • r •   • • •   • L • e • g • e • n • d • a • r • y •   • 2 '
-                             '• 0 • 1 • 3 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • T • i • e •   '
+                    'quote': '2xNBAChampion• • •   10x'
+                             'All- Star• • •   Legendary• 2 '
+                             '013FinalsGame• 6 •   Tie'
                              '• 3 •',
                     'sec_pos': 'SF',
                     'stats': {'3pt': 97, 'ath': 91, 'clu': 97, 'def': 86, 'ins': 88, 'ply': 87},
                     'team': 'MIA',
-                    'theme': '• G • a • m • e •   • 6 •   • C • o • r • n • e • r •   • M • i • r • a • c • l • e •',
+                    'theme': 'Game• 6 •   CornerMiracle •',
                     'tier': 'galaxy_opal'},
  'go-petemaravich-97': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                         'id': 'go-petemaravich-97',
@@ -15229,16 +15229,16 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Pete Maravich',
                         'ovr': 97,
                         'pos': 'SF',
-                        'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                                 '•   • 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 7 '
-                                 '• 3 • – • 1 • 9 • 7 • 4 • ; •   • 1 • 9 • 7 • 7 • – • 1 • 9 • 7 • 9 • ) •   • • •   '
-                                 '• E • r • a • - • D • e • f • i • n • i • n • g •   • S • u • p • e • r • s • t • a '
+                        'quote': 'HallofFameLegend• • '
+                                 '•   5xNBAAll- Star• ( 197 '
+                                 '• 3 • – 1974; •   1977– 1979) • • •   '
+                                 'Era- DefiningSupersta '
                                  '• r •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 92, 'ath': 99, 'clu': 94, 'def': 95, 'ins': 99, 'ply': 96},
                         'team': 'GSW',
-                        'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( '
-                                 '• 5 • x •   • A • l • l • - • S • t • a • r • ) •',
+                        'theme': 'HallofFameLegend• ( '
+                                 '5xAll- Star) •',
                         'tier': 'galaxy_opal'},
  'go-paulpierce-97': {'badges': ['HOF Clutch Shooter', 'HOF Middy Magician', 'HOF Deadeye', 'HOF Difficult Shots'],
                       'id': 'go-paulpierce-97',
@@ -15247,14 +15247,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Paul Pierce',
                       'ovr': 97,
                       'pos': 'SF',
-                      'quote': '• 2 • 0 • 0 • 8 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • '
-                               'i • n • a • l • s •   • M • V • P •   • • •   • 1 • 0 • x •   • A • l • l • - • S • t '
-                               '• a • r •   • • •   • C • o • l • d • - • B • l • o • o • d • e • d •   • C • l • u • '
-                               't • c • h •   • S • c • o • r • e • r •',
+                      'quote': '2008NBAChampion• & • F • '
+                               'i nalsMVP• • •   10xAll- St '
+                               'ar• • •   Cold- BloodedClu'
+                               't chScorer •',
                       'sec_pos': 'SG',
                       'stats': {'3pt': 95, 'ath': 97, 'clu': 98, 'def': 95, 'ins': 97, 'ply': 92},
                       'team': 'BOS',
-                      'theme': '• T • h • e •   • T • r • u • t • h •   • F • i • n • a • l • s •   • M • V • P •',
+                      'theme': 'TheTruthFinalsMVP •',
                       'tier': 'galaxy_opal'},
  'go-jokic-97': {'badges': ['Gold Dimer', 'Gold Post Spin', 'Gold Dream Shake', 'Gold Facilitator'],
                  'id': 'go-jokic-97',
@@ -15263,13 +15263,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Nikola Jokic',
                  'ovr': 97,
                  'pos': 'C',
-                 'quote': '• 3 • x •   • N • B • A •   • M • V • P •   • - •   • 2 • 0 • 2 • 4 •   • N • B • A •   • C '
-                          '• h • a • m • p • i • o • n •   • - •   • G • r • e • a • t • e • s • t •   • P • a • s • s '
-                          '• i • n • g •   • B • i • g •   • o • f •   • A • l • l •   • T • i • m • e •',
+                 'quote': '3xNBAMVP• - •   2024NBA• C '
+                          'hampion• - •   GreatestPass '
+                          'ingBigofAllTime •',
                  'sec_pos': 'PF',
                  'stats': {'3pt': 78, 'ath': 82, 'clu': 96, 'def': 86, 'ins': 97, 'ply': 99},
                  'team': 'DEN',
-                 'theme': '• 3 • x •   • M • V • P •   • M • a • e • s • t • r • o •',
+                 'theme': '3xMVPMaestro •',
                  'tier': 'galaxy_opal'},
  'go-kawhi-97': {'badges': ['HOF Glove', 'HOF Clamps', 'HOF Interceptor', 'HOF Middy Magician'],
                  'id': 'go-kawhi-97',
@@ -15278,14 +15278,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Kawhi Leonard',
                  'ovr': 97,
                  'pos': 'SF',
-                 'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • i '
-                          '• n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • D • P • O • Y •   • • •   • T • h '
-                          '• e •   • B • u • z • z • e • r • - • B • e • a • t • i • n • g •   • C • o • r • n • e • r '
-                          '•   • J • u • m • p • e • r •',
+                 'quote': '2xNBAChampion• • •   2xFi '
+                          'nalsMVP• • •   2xDPOY• • •   Th '
+                          '• e •   Buzzer- BeatingCorner '
+                          '•   Jumper •',
                  'sec_pos': 'SG',
                  'stats': {'3pt': 92, 'ath': 92, 'clu': 99, 'def': 99, 'ins': 94, 'ply': 85},
                  'team': 'TOR',
-                 'theme': '• T • h • e •   • C • l • a • w •   • L • o • c • k •',
+                 'theme': 'TheClawLock •',
                  'tier': 'galaxy_opal'},
  'go-kawhileonard-97': {'badges': ['HOF Glove', 'HOF Clamps', 'HOF Interceptor', 'HOF Middy Magician'],
                         'id': 'go-kawhileonard-97',
@@ -15294,14 +15294,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Kawhi Leonard',
                         'ovr': 97,
                         'pos': 'SF',
-                        'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   '
-                                 '• F • i • n • a • l • s •   • M • V • P •   • • •   • 2 • x •   • D • P • O • Y •   '
-                                 '• • •   • T • h • e •   • B • u • z • z • e • r • - • B • e • a • t • i • n • g •   '
-                                 '• C • o • r • n • e • r •   • J • u • m • p • e • r •',
+                        'quote': '2xNBAChampion• • •   2x'
+                                 'FinalsMVP• • •   2xDPOY'
+                                 '• • •   TheBuzzer- Beating'
+                                 'CornerJumper •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 96, 'ath': 99, 'clu': 99, 'def': 99, 'ins': 99, 'ply': 98},
                         'team': 'LAC',
-                        'theme': '• T • h • e •   • C • l • a • w •   • L • o • c • k • d • o • w • n •',
+                        'theme': 'TheClawLockdown •',
                         'tier': 'galaxy_opal'},
  'go-butler-97': {'badges': ['HOF Clutch Performer', 'HOF Menace', 'HOF Fearless Finisher', 'HOF Clamps'],
                   'id': 'go-butler-97',
@@ -15310,14 +15310,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Jimmy Butler',
                   'ovr': 97,
                   'pos': 'SF',
-                  'quote': '• 2 • x •   • N • B • A •   • F • i • n • a • l • s •   • L • e • a • d • e • r •   • • '
-                           '•   • 5 • x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • • •   • T • h • '
-                           'e •   • C • o • l • d • e • s • t •   • P • l • a • y • o • f • f •   • E • n • f • o • r '
-                           '• c • e • r •   • i • n •   • t • h • e •   • E • a • s • t •',
+                  'quote': '2xNBAFinalsLeader• • '
+                           '•   5xAll- Defensive• • •   Th'
+                           'e •   ColdestPlayoffEnfor '
+                           'cerintheEast •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 85, 'ath': 92, 'clu': 99, 'def': 98, 'ins': 96, 'ply': 90},
                   'team': 'MIA',
-                  'theme': '• P • l • a • y • o • f • f •   • J • i • m • m • y •',
+                  'theme': 'PlayoffJimmy •',
                   'tier': 'galaxy_opal'},
  'go-jimmybutler-97': {'badges': ['HOF Clutch Performer', 'HOF Menace', 'HOF Fearless Finisher', 'HOF Clamps'],
                        'id': 'go-jimmybutler-97',
@@ -15326,14 +15326,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Jimmy Butler',
                        'ovr': 97,
                        'pos': 'SF',
-                       'quote': '• 2 • x •   • N • B • A •   • F • i • n • a • l • s •   • L • e • a • d • e • r •   • '
-                                '• •   • 5 • x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • • •   • C '
-                                '• o • l • d • - • B • l • o • o • d • e • d •   • P • l • a • y • o • f • f •   • E • '
-                                'n • f • o • r • c • e • r •',
+                       'quote': '2xNBAFinalsLeader• '
+                                '• •   5xAll- Defensive• • • C '
+                                'old- BloodedPlayoff• E • '
+                                'n forcer •',
                        'sec_pos': 'SG',
                        'stats': {'3pt': 94, 'ath': 97, 'clu': 98, 'def': 98, 'ins': 99, 'ply': 93},
                        'team': 'MIA',
-                       'theme': '• P • l • a • y • o • f • f •   • J • i • m • m • y •   • E • n • f • o • r • c • e • '
+                       'theme': 'PlayoffJimmyEnforce'
                                 'r •',
                        'tier': 'galaxy_opal'},
  'go-jamesharden-97': {'badges': ['HOF Stepback Maestro', 'HOF Space Creator', 'HOF Handles For Days', 'HOF Dimer'],
@@ -15343,14 +15343,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'James Harden',
                        'ovr': 97,
                        'pos': 'SG',
-                       'quote': '• 2 • 0 • 1 • 8 •   • N • B • A •   • M • V • P •   • • •   • 3 • x •   • S • c • o • '
-                                'r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 0 • x •   • A • l '
-                                '• l • - • S • t • a • r •   • • •   • 6 • 0 • - • P • t •   • T • r • i • p • l • e • '
-                                '- • D • o • u • b • l • e •',
+                       'quote': '2018NBAMVP• • •   3xSco'
+                                'r ingChampion• • •   10xAl '
+                                '• l • - Star• • •   60- PtTriple'
+                                '- Double •',
                        'sec_pos': 'PG',
                        'stats': {'3pt': 95, 'ath': 96, 'clu': 95, 'def': 93, 'ins': 96, 'ply': 93},
                        'team': 'HOU',
-                       'theme': '• T • h • e •   • S • t • e • p • b • a • c • k •   • M • V • P •',
+                       'theme': 'TheStepbackMVP •',
                        'tier': 'galaxy_opal'},
  'go-granthill-97': {'badges': ['HOF Quick First Step', 'HOF Dimer', 'HOF Acrobat', 'HOF Handles For Days'],
                      'id': 'go-granthill-97',
@@ -15359,13 +15359,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Grant Hill',
                      'ovr': 97,
                      'pos': 'SF',
-                     'quote': '• 7 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • l • l • - • N '
-                              '• B • A •   • • •   • T • r • i • p • l • e • - • D • o • u • b • l • e •   • S • e • n '
-                              '• s • a • t • i • o • n •',
+                     'quote': '7xAll- Star• • •   5xAll- • N '
+                              'BA• • •   Triple- DoubleSen '
+                              'sation •',
                      'sec_pos': 'PG',
                      'stats': {'3pt': 96, 'ath': 99, 'clu': 99, 'def': 96, 'ins': 98, 'ply': 93},
                      'team': 'DET',
-                     'theme': '• P • o • i • n • t •   • F • o • r • w • a • r • d •   • P • h • e • n • o • m •',
+                     'theme': 'PointForwardPhenom •',
                      'tier': 'galaxy_opal'},
  'go-garypayton-97': {'badges': ['HOF Glove', 'HOF Clamps', 'HOF Menace', 'HOF Interceptor'],
                       'id': 'go-garypayton-97',
@@ -15374,14 +15374,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Gary Payton',
                       'ovr': 97,
                       'pos': 'PG',
-                      'quote': '• 2 • 0 • 0 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • '
-                               '9 • 9 • 6 •   • D • P • O • Y •   • • •   • 9 • x •   • A • l • l • - • S • t • a • r '
-                               '•   • • •   • 9 • x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • F • '
-                               'i • r • s • t •   • T • e • a • m •',
+                      'quote': '2006NBAChampion• • • 1 • '
+                               '9 96DPOY• • •   9xAll- Star '
+                               '• • •   9xAll- Defensive• F • '
+                               'i rstTeam •',
                       'sec_pos': 'SG',
                       'stats': {'3pt': 98, 'ath': 96, 'clu': 93, 'def': 93, 'ins': 89, 'ply': 96},
                       'team': 'SEA',
-                      'theme': '• T • h • e •   • G • l • o • v • e •   • D • P • O • Y •   • G • u • a • r • d •',
+                      'theme': 'TheGloveDPOYGuard •',
                       'tier': 'galaxy_opal'},
  'go-dwighthoward-97': {'badges': ['HOF Clamps', 'HOF Deadeye', 'HOF Clutch Shooter'],
                         'id': 'go-dwighthoward-97',
@@ -15390,15 +15390,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Dwight Howard',
                         'ovr': 97,
                         'pos': 'SG',
-                        'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • • '
-                                 '•   • 8 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 0 '
-                                 '• 7 • – • 2 • 0 • 1 • 4 • ) •   • • •   • E • r • a • - • D • e • f • i • n • i • n '
-                                 '• g •   • S • u • p • e • r • s • t • a • r •',
+                        'quote': 'HallofFameLegend• • '
+                                 '•   8xNBAAll- Star• ( 200 '
+                                 '• 7 • – 2014) • • •   Era- Definin '
+                                 '• g •   Superstar •',
                         'sec_pos': 'PF',
                         'stats': {'3pt': 99, 'ath': 99, 'clu': 99, 'def': 97, 'ins': 98, 'ply': 92},
                         'team': 'BOS',
-                        'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( '
-                                 '• 8 • x •   • A • l • l • - • S • t • a • r • ) •',
+                        'theme': 'HallofFameLegend• ( '
+                                 '8xAll- Star) •',
                         'tier': 'galaxy_opal'},
  'go-donovanmitchell-97': {'badges': ['HOF Anchor', 'HOF Deadeye', 'HOF Clutch Shooter'],
                            'id': 'go-donovanmitchell-97',
@@ -15407,15 +15407,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                            'name': 'Donovan Mitchell',
                            'ovr': 97,
                            'pos': 'C',
-                           'quote': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • '
-                                    '• •   • 7 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 '
-                                    '• 2 • 0 • – • 2 • 0 • 2 • 6 • ) •   • • •   • E • r • a • - • D • e • f • i • n • '
-                                    'i • n • g •   • S • u • p • e • r • s • t • a • r •',
+                           'quote': 'HallofFameLegend• '
+                                    '• •   7xNBAAll- Star• ( 20 '
+                                    '20– 2026) • • •   Era- Defin'
+                                    'i ngSuperstar •',
                            'sec_pos': 'PG',
                            'stats': {'3pt': 75, 'ath': 99, 'clu': 94, 'def': 99, 'ins': 98, 'ply': 84},
                            'team': 'CLE',
-                           'theme': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • '
-                                    '( • 7 • x •   • A • l • l • - • S • t • a • r • ) •',
+                           'theme': 'HallofFameLegend• '
+                                    '( 7xAll- Star) •',
                            'tier': 'galaxy_opal'},
  'go-dikembemutombo-97': {'badges': ['HOF Anchor', 'HOF Rim Protector', 'HOF Post Lock', 'HOF Chase Down Artist'],
                           'id': 'go-dikembemutombo-97',
@@ -15424,14 +15424,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Dikembe Mutombo',
                           'ovr': 97,
                           'pos': 'C',
-                          'quote': '• 4 • x •   • N • B • A •   • D • e • f • e • n • s • i • v • e •   • P • l • a • '
-                                   'y • e • r •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • 8 • x •   '
-                                   '• A • l • l • - • S • t • a • r •   • • •   • F • i • n • g • e • r •   • W • a • '
-                                   'g •   • I • c • o • n •',
+                          'quote': '4xNBADefensivePla'
+                                   'y eroftheYear• • •   8x'
+                                   'All- Star• • •   FingerWa'
+                                   'g •   Icon •',
                           'sec_pos': 'PF',
                           'stats': {'3pt': 50, 'ath': 91, 'clu': 89, 'def': 98, 'ins': 87, 'ply': 61},
                           'team': 'DEN',
-                          'theme': '• F • i • n • g • e • r •   • W • a • g •   • 4 • x •   • D • P • O • Y •',
+                          'theme': 'FingerWag4xDPOY •',
                           'tier': 'galaxy_opal'},
  'go-chrispaul-97': {'badges': ['HOF Floor General', 'HOF Dimer', 'HOF Middy Magician', 'HOF Glove'],
                      'id': 'go-chrispaul-97',
@@ -15440,14 +15440,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Chris Paul',
                      'ovr': 97,
                      'pos': 'PG',
-                     'quote': '• 1 • 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • N • B • A •   '
-                              '• A • s • s • i • s • t • s •   • L • e • a • d • e • r •   • • •   • 6 • x •   • S • t '
-                              '• e • a • l • s •   • L • e • a • d • e • r •   • • •   • P • o • i • n • t •   • G • o '
+                     'quote': '12xAll- Star• • •   5xNBA'
+                              'AssistsLeader• • •   6xSt '
+                              'ealsLeader• • •   PointGo '
                               '• d •',
                      'sec_pos': 'SG',
                      'stats': {'3pt': 93, 'ath': 89, 'clu': 97, 'def': 95, 'ins': 88, 'ply': 98},
                      'team': 'SAS',
-                     'theme': '• P • o • i • n • t •   • G • o • d •   • F • l • o • o • r •   • G • e • n • e • r • a '
+                     'theme': 'PointGodFloorGenera '
                               '• l •',
                      'tier': 'galaxy_opal'},
  'go-carmeloanthony-97': {'badges': ['HOF Triple Threat', 'HOF Middy Magician', 'HOF Bully', 'HOF Catch & Shoot'],
@@ -15457,15 +15457,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Carmelo Anthony',
                           'ovr': 97,
                           'pos': 'SF',
-                          'quote': '• 1 • 0 • x •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 1 • 3 •   • '
-                                   'S • c • o • r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • O • v '
-                                   '• e • r •   • 2 • 8 • , • 0 • 0 • 0 •   • C • a • r • e • e • r •   • P • o • i • '
-                                   'n • t • s •',
+                          'quote': '10xAll- Star• • •   2013• '
+                                   'S coringChampion• • •   Ov '
+                                   'er28, 000CareerPoi'
+                                   'n ts •',
                           'sec_pos': 'PF',
                           'stats': {'3pt': 95, 'ath': 99, 'clu': 99, 'def': 97, 'ins': 99, 'ply': 97},
                           'team': 'NYK',
-                          'theme': '• O • l • y • m • p • i • c •   • G • o • l • d •   • & •   • 6 • 2 • - • P • t '
-                                   '•   • M • S • G •',
+                          'theme': 'OlympicGold• & •   62- Pt '
+                                   '•   MSG •',
                           'tier': 'galaxy_opal'},
  'go-bobcousy-97': {'badges': ['HOF Special Delivery', 'HOF Needle Threader', 'HOF Floor General', 'HOF Dimer'],
                     'id': 'go-bobcousy-97',
@@ -15474,13 +15474,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Bob Cousy',
                     'ovr': 97,
                     'pos': 'PG',
-                    'quote': '• 6 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 1 • 9 • 5 • 7 '
-                             '•   • M • V • P •   • • •   • 1 • 3 • x •   • A • l • l • - • S • t • a • r •   • • •   '
-                             '• 8 • x •   • N • B • A •   • A • s • s • i • s • t • s •   • L • e • a • d • e • r •',
+                    'quote': '6xNBAChampion• • •   1957 '
+                             '•   MVP• • •   13xAll- Star• • •   '
+                             '8xNBAAssistsLeader •',
                     'sec_pos': 'SG',
                     'stats': {'3pt': 95, 'ath': 95, 'clu': 97, 'def': 95, 'ins': 94, 'ply': 99},
                     'team': 'BOS',
-                    'theme': '• H • o • u • d • i • n • i •   • o • f •   • t • h • e •   • H • a • r • d • w • o • o '
+                    'theme': 'HoudinioftheHardwoo '
                              '• d •',
                     'tier': 'galaxy_opal'},
  'go-ad-97': {'badges': ['HOF Anchor', 'HOF Rebound Chaser', 'HOF Pogo Stick', 'HOF Post Lock'],
@@ -15490,14 +15490,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
               'name': 'Anthony Davis',
               'ovr': 97,
               'pos': 'C',
-              'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 • x •   • '
-                       'A • l • l • - • D • e • f • e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m '
-                       '•   • • •   • D • o • m • i • n • a • n • t •   • R • i • m •   • P • r • o • t • e • c • t • '
+              'quote': '2020NBAChampion• • •   4x• '
+                       'A ll- DefensiveFirstTeam '
+                       '• • •   DominantRimProtect'
                        'o • r •',
               'sec_pos': 'PF',
               'stats': {'3pt': 80, 'ath': 94, 'clu': 94, 'def': 99, 'ins': 98, 'ply': 82},
               'team': 'LAL',
-              'theme': '• T • h • e •   • B • r • o • w •   • A • n • c • h • o • r •',
+              'theme': 'TheBrowAnchor •',
               'tier': 'galaxy_opal'},
  'go-anthonydavis-97': {'badges': ['HOF Anchor', 'HOF Rebound Chaser', 'HOF Pogo Stick', 'HOF Post Lock'],
                         'id': 'go-anthonydavis-97',
@@ -15506,14 +15506,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Anthony Davis',
                         'ovr': 97,
                         'pos': 'C',
-                        'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 4 '
-                                 '• x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • F • i • r • s • t '
-                                 '•   • T • e • a • m •   • • •   • 9 • x •   • A • l • l • - • S • t • a • r •',
+                        'quote': '2020NBAChampion• • • 4 '
+                                 '• x •   All- DefensiveFirst '
+                                 '•   Team• • •   9xAll- Star •',
                         'sec_pos': 'PF',
                         'stats': {'3pt': 78, 'ath': 98, 'clu': 97, 'def': 98, 'ins': 99, 'ply': 86},
                         'team': 'LAL',
-                        'theme': '• T • h • e •   • B • r • o • w •   • D • e • f • e • n • s • i • v • e •   • W • a '
-                                 '• l • l •',
+                        'theme': 'TheBrowDefensiveWa '
+                                 'll •',
                         'tier': 'galaxy_opal'},
  'go-alonzomourning-97': {'badges': ['HOF Anchor', 'HOF Rim Protector', 'HOF Post Lock', 'HOF Rebound Chaser'],
                           'id': 'go-alonzomourning-97',
@@ -15522,14 +15522,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Alonzo Mourning',
                           'ovr': 97,
                           'pos': 'C',
-                          'quote': '• 2 • 0 • 0 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • '
-                                   '2 • x •   • D • P • O • Y •   • • •   • 7 • x •   • A • l • l • - • S • t • a • r '
-                                   '•   • • •   • D • e • f • e • n • s • i • v • e •   • W • a • r • r • i • o • r •',
+                          'quote': '2006NBAChampion• • • '
+                                   '2 • x •   DPOY• • •   7xAll- Star '
+                                   '• • •   DefensiveWarrior •',
                           'sec_pos': 'PF',
                           'stats': {'3pt': 73, 'ath': 95, 'clu': 93, 'def': 99, 'ins': 99, 'ply': 90},
                           'team': 'MIA',
-                          'theme': '• 2 • x •   • D • P • O • Y •   • P • a • i • n • t •   • P • r • o • t • e • c • '
-                                   't • o • r •',
+                          'theme': '2xDPOYPaintProtec'
+                                   't or •',
                           'tier': 'galaxy_opal'},
  'go-iverson-97': {'badges': ['HOF Ankle Breaker', 'HOF Giant Slayer', 'HOF Acrobat', 'HOF Quick First Step'],
                    'id': 'go-iverson-97',
@@ -15538,14 +15538,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Allen Iverson',
                    'ovr': 97,
                    'pos': 'PG',
-                   'quote': '• 2 • 0 • 0 • 1 •   • N • B • A •   • M • V • P •   • • •   • 4 • x •   • S • c • o • r • '
-                            'i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • C • u • l • t • u • r • a • l '
-                            '•   • I • c • o • n •   • w • i • t • h •   • t • h • e •   • M • o • s • t •   • L • e • '
-                            't • h • a • l •   • C • r • o • s • s • o • v • e • r •',
+                   'quote': '2001NBAMVP• • •   4xScor'
+                            'i ngChampion• • •   Cultural '
+                            '•   IconwiththeMostLe'
+                            't halCrossover •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 90, 'ath': 99, 'clu': 98, 'def': 92, 'ins': 97, 'ply': 96},
                    'team': 'PHI',
-                   'theme': '• T • h • e •   • A • n • s • w • e • r •',
+                   'theme': 'TheAnswer •',
                    'tier': 'galaxy_opal'},
  'go-alleniverson-97': {'badges': ['HOF Ankle Breaker', 'HOF Giant Slayer', 'HOF Acrobat', 'HOF Quick First Step'],
                         'id': 'go-alleniverson-97',
@@ -15554,14 +15554,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Allen Iverson',
                         'ovr': 97,
                         'pos': 'PG',
-                        'quote': '• 2 • 0 • 0 • 1 •   • N • B • A •   • M • V • P •   • • •   • 4 • x •   • S • c • o '
-                                 '• r • i • n • g •   • C • h • a • m • p • i • o • n •   • • •   • C • u • l • t • u '
-                                 '• r • a • l •   • I • c • o • n •   • w • i • t • h •   • L • e • t • h • a • l •   '
-                                 '• C • r • o • s • s • o • v • e • r •',
+                        'quote': '2001NBAMVP• • •   4xSco '
+                                 'ringChampion• • •   Cultu '
+                                 'ralIconwithLethal'
+                                 'Crossover •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 90, 'ath': 98, 'clu': 98, 'def': 92, 'ins': 96, 'ply': 96},
                         'team': 'PHI',
-                        'theme': '• T • h • e •   • A • n • s • w • e • r •   • C • r • o • s • s • o • v • e • r •',
+                        'theme': 'TheAnswerCrossover •',
                         'tier': 'galaxy_opal'},
  'go-durant-96': {'badges': ['Gold Deadeye', 'Gold Space Creator', 'Gold Posterizer', 'Gold Clutch Shooter'],
                   'id': 'go-durant-96',
@@ -15570,13 +15570,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Kevin Durant',
                   'ovr': 96,
                   'pos': 'SF',
-                  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • - •   • 2 • x •   • F • '
-                           'i • n • a • l • s •   • M • V • P •   • - •   • U • n • s • t • o • p • p • a • b • l • e '
-                           '•   • 7 • - • F • o • o • t •   • S • c • o • r • e • r •',
+                  'quote': '2xNBAChampion• - •   2x• F • '
+                           'i nalsMVP• - •   Unstoppable '
+                           '• 7 • - FootScorer •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 90, 'ath': 95, 'clu': 97, 'def': 87, 'ins': 96, 'ply': 92},
                   'team': 'PHX',
-                  'theme': '• S • l • i • m •   • R • e • a • p • e • r •',
+                  'theme': 'SlimReaper •',
                   'tier': 'galaxy_opal'},
  'dia-sga-96': {'badges': ['Silver Slippery Off-Ball', 'Silver Dream Shake', 'Silver Clamps', 'Silver Clutch Shooter'],
                 'id': 'dia-sga-95',
@@ -15585,13 +15585,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Shai Gilgeous-Alexander',
                 'ovr': 95,
                 'pos': 'PG',
-                'quote': '• 2 • 0 • 2 • 4 • - • 2 • 5 •   • N • B • A •   • M • V • P •   • - •   • O • K • C •   • T '
-                         '• h • u • n • d • e • r •   • A • l • l • - • T • i • m • e •   • G • r • e • a • t •   • - '
-                         '•   • M • a • s • t • e • r • f • u • l •   • S • c • o • r • e • r •',
+                'quote': '2024- 25NBAMVP• - •   OKC• T '
+                         'hunderAll- TimeGreat• - '
+                         '•   MasterfulScorer •',
                 'sec_pos': 'SG',
                 'stats': {'3pt': 85, 'ath': 95, 'clu': 97, 'def': 90, 'ins': 95, 'ply': 93},
                 'team': 'OKC',
-                'theme': '• M • V • P •   • T • a • k • e • o • v • e • r •',
+                'theme': 'MVPTakeover •',
                 'tier': 'diamond'},
  'dia-klaythompson-96': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                          'id': 'dia-klaythompson-96',
@@ -15600,13 +15600,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Klay Thompson',
                          'ovr': 96,
                          'pos': 'SG',
-                         'quote': '• 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 5 '
-                                  '• – • 2 • 0 • 1 • 9 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a '
-                                  '• n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                         'quote': '5xNBAAll- Star• ( 2015 '
+                                  '• – 2019) • • •   DominantFra '
+                                  'nchiseCornerstone •',
                          'sec_pos': 'PG',
                          'stats': {'3pt': 96, 'ath': 88, 'clu': 95, 'def': 93, 'ins': 84, 'ply': 82},
                          'team': 'DAL',
-                         'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 '
+                         'theme': 'FranchiseAll- Star• ( • 5 '
                                   '• x • ) •',
                          'tier': 'diamond'},
  'dia-karlanthonytowns-96': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
@@ -15616,15 +15616,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'name': 'Karl-Anthony Towns',
                              'ovr': 96,
                              'pos': 'PG',
-                             'quote': '• 6 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 '
-                                      '• 8 • – • 2 • 0 • 1 • 9 • ; •   • 2 • 0 • 2 • 2 • ; •   • 2 • 0 • 2 • 4 • – • 2 '
-                                      '• 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n '
-                                      '• c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                             'quote': '6xNBAAll- Star• ( 201 '
+                                      '• 8 • – 2019; •   2022; •   2024– • 2 '
+                                      '026) • • •   DominantFran '
+                                      'chiseCornerstone •',
                              'sec_pos': 'C',
                              'stats': {'3pt': 97, 'ath': 95, 'clu': 97, 'def': 90, 'ins': 92, 'ply': 99},
                              'team': 'NYK',
-                             'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( '
-                                      '• 6 • x • ) •',
+                             'theme': 'FranchiseAll- Star• ( '
+                                      '6x) •',
                              'tier': 'diamond'},
  'dia-jaylenbrown-96': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                         'id': 'dia-jaylenbrown-96',
@@ -15633,14 +15633,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Jaylen Brown',
                         'ovr': 96,
                         'pos': 'SG',
-                        'quote': '• 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 1 '
-                                 '• ; •   • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a '
-                                 '• n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t '
-                                 '• o • n • e •',
+                        'quote': '5xNBAAll- Star• ( 2021 '
+                                 '• ; •   2023– 2026) • • •   Domina '
+                                 'ntFranchiseCornerst '
+                                 'one •',
                         'sec_pos': 'C',
                         'stats': {'3pt': 98, 'ath': 96, 'clu': 95, 'def': 94, 'ins': 94, 'ply': 93},
                         'team': 'BOS',
-                        'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 '
+                        'theme': 'FranchiseAll- Star• ( • 5 '
                                  '• x • ) •',
                         'tier': 'diamond'},
  'dia-hakeem-96': {'badges': ['Gold Post Spin Technician', 'Gold Anchor', 'Gold Dream Shake', 'Gold Post Lock'],
@@ -15650,14 +15650,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Hakeem Olajuwon',
                    'ovr': 96,
                    'pos': 'C',
-                   'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x •   • F • '
-                            'i • n • a • l • s •   • M • V • P •   • • •   • 1 • 9 • 9 • 4 •   • M • V • P •   • • •   '
-                            '• A • l • l • - • T • i • m • e •   • N • B • A •   • B • l • o • c • k • s •   • L • e • '
-                            'a • d • e • r •',
+                   'quote': '2xNBAChampion• • •   2x• F • '
+                            'i nalsMVP• • •   1994MVP• • •   '
+                            'All- TimeNBABlocksLe'
+                            'a der •',
                    'sec_pos': 'PF',
                    'stats': {'3pt': 62, 'ath': 92, 'clu': 96, 'def': 99, 'ins': 98, 'ply': 82},
                    'team': 'HOU',
-                   'theme': '• T • h • e •   • D • r • e • a • m •   • S • h • a • k • e •',
+                   'theme': 'TheDreamShake •',
                    'tier': 'diamond'},
  'dia-devinbooker-96': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                         'id': 'dia-devinbooker-96',
@@ -15666,14 +15666,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Devin Booker',
                         'ovr': 96,
                         'pos': 'C',
-                        'quote': '• 5 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 0 '
-                                 '• – • 2 • 0 • 2 • 2 • ; •   • 2 • 0 • 2 • 4 • ; •   • 2 • 0 • 2 • 6 • ) •   • • •   '
-                                 '• D • o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o '
-                                 '• r • n • e • r • s • t • o • n • e •',
+                        'quote': '5xNBAAll- Star• ( 2020 '
+                                 '• – 2022; •   2024; •   2026) • • •   '
+                                 'DominantFranchiseCo '
+                                 'rnerstone •',
                         'sec_pos': 'PF',
                         'stats': {'3pt': 75, 'ath': 95, 'clu': 92, 'def': 99, 'ins': 99, 'ply': 89},
                         'team': 'PHX',
-                        'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 '
+                        'theme': 'FranchiseAll- Star• ( • 5 '
                                  '• x • ) •',
                         'tier': 'diamond'},
  'dia-blakegriffin-96': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
@@ -15683,14 +15683,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Blake Griffin',
                          'ovr': 96,
                          'pos': 'C',
-                         'quote': '• 6 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 1 '
-                                  '• – • 2 • 0 • 1 • 5 • ; •   • 2 • 0 • 1 • 9 • ) •   • • •   • D • o • m • i • n • a '
-                                  '• n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t '
-                                  '• o • n • e •',
+                         'quote': '6xNBAAll- Star• ( 2011 '
+                                  '• – 2015; •   2019) • • •   Domina '
+                                  'ntFranchiseCornerst '
+                                  'one •',
                          'sec_pos': 'PG',
                          'stats': {'3pt': 73, 'ath': 94, 'clu': 97, 'def': 99, 'ins': 99, 'ply': 85},
                          'team': 'CLE',
-                         'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 6 '
+                         'theme': 'FranchiseAll- Star• ( • 6 '
                                   '• x • ) •',
                          'tier': 'diamond'},
  'dia-traeyoung-95': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
@@ -15700,14 +15700,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                       'name': 'Trae Young',
                       'ovr': 95,
                       'pos': 'SF',
-                      'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 0 • '
-                               '; •   • 2 • 0 • 2 • 2 • ; •   • 2 • 0 • 2 • 4 • – • 2 • 0 • 2 • 5 • ) •   • • •   • D '
-                               '• o • m • i • n • a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • '
-                               'n • e • r • s • t • o • n • e •',
+                      'quote': '4xNBAAll- Star• ( 2020'
+                               '; •   2022; •   2024– 2025) • • • D '
+                               'ominantFranchiseCor'
+                               'n erstone •',
                       'sec_pos': 'PG',
                       'stats': {'3pt': 96, 'ath': 96, 'clu': 95, 'def': 96, 'ins': 99, 'ply': 95},
                       'team': 'ATL',
-                      'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • '
+                      'theme': 'FranchiseAll- Star• ( • 4 • '
                                'x • ) •',
                       'tier': 'diamond'},
  'dia-sga-95': {'badges': ['Silver Slippery Off-Ball', 'Silver Dream Shake', 'Silver Clamps', 'Silver Clutch Shooter'],
@@ -15717,13 +15717,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Shai Gilgeous-Alexander',
                 'ovr': 95,
                 'pos': 'PG',
-                'quote': '• 2 • 0 • 2 • 4 • - • 2 • 5 •   • N • B • A •   • M • V • P •   • - •   • O • K • C •   • T '
-                         '• h • u • n • d • e • r •   • A • l • l • - • T • i • m • e •   • G • r • e • a • t •   • - '
-                         '•   • M • a • s • t • e • r • f • u • l •   • S • c • o • r • e • r •',
+                'quote': '2024- 25NBAMVP• - •   OKC• T '
+                         'hunderAll- TimeGreat• - '
+                         '•   MasterfulScorer •',
                 'sec_pos': 'SG',
                 'stats': {'3pt': 85, 'ath': 95, 'clu': 97, 'def': 90, 'ins': 95, 'ply': 93},
                 'team': 'OKC',
-                'theme': '• M • V • P •   • T • a • k • e • o • v • e • r •',
+                'theme': 'MVPTakeover •',
                 'tier': 'diamond'},
  'dia-shaigilgeousalexander-95': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                                   'id': 'dia-shaigilgeousalexander-95',
@@ -15732,15 +15732,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                                   'name': 'Shai Gilgeous-Alexander',
                                   'ovr': 95,
                                   'pos': 'C',
-                                  'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • '
-                                           '0 • 2 • 3 • – • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n '
-                                           '• t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • '
-                                           's • t • o • n • e •',
+                                  'quote': '4xNBAAll- Star• ( • 2 • '
+                                           '0 23– 2026) • • •   Dominan '
+                                           '• t •   FranchiseCorner'
+                                           's tone •',
                                   'sec_pos': 'SG',
                                   'stats': {'3pt': 74, 'ath': 97, 'clu': 94, 'def': 99, 'ins': 99, 'ply': 83},
                                   'team': 'OKC',
-                                  'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r '
-                                           '•   • ( • 4 • x • ) •',
+                                  'theme': 'FranchiseAll- Star '
+                                           '• ( 4x) •',
                                   'tier': 'diamond'},
  'dia-pennyhardaway-95': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                           'id': 'dia-pennyhardaway-95',
@@ -15749,13 +15749,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Penny Hardaway',
                           'ovr': 95,
                           'pos': 'C',
-                          'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 9 • '
-                                   '5 • – • 1 • 9 • 9 • 8 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r '
-                                   '• a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                          'quote': '4xNBAAll- Star• ( 199'
+                                   '5 • – 1998) • • •   DominantFr '
+                                   'anchiseCornerstone •',
                           'sec_pos': 'SF',
                           'stats': {'3pt': 72, 'ath': 92, 'clu': 96, 'def': 97, 'ins': 99, 'ply': 83},
                           'team': 'SAS',
-                          'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • '
+                          'theme': 'FranchiseAll- Star• ( • '
                                    '4 • x • ) •',
                           'tier': 'diamond'},
  'dia-kyrie-95': {'badges': ['Gold Ankle Breaker', 'Gold Handles For Days', 'Gold Circus Threes', 'Gold Layup Package'],
@@ -15765,14 +15765,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Kyrie Irving',
                   'ovr': 95,
                   'pos': 'PG',
-                  'quote': '• 2 • 0 • 1 • 6 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 8 • x '
-                           '•   • A • l • l • - • S • t • a • r •   • • •   • G • r • e • a • t • e • s • t •   • B • '
-                           'a • l • l • - • H • a • n • d • l • i • n • g •   • P • a • c • k • a • g • e •   • i • n '
-                           '•   • H • i • s • t • o • r • y •',
+                  'quote': '2016NBAChampion• • •   8x '
+                           '•   All- Star• • •   Greatest• B • '
+                           'a ll- HandlingPackagein '
+                           '•   History •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 96, 'ath': 91, 'clu': 98, 'def': 80, 'ins': 97, 'ply': 94},
                   'team': 'DAL',
-                  'theme': '• A • n • k • l • e •   • B • r • e • a • k • e • r •   • M • a • s • t • e • r •',
+                  'theme': 'AnkleBreakerMaster •',
                   'tier': 'diamond'},
  'dia-draymondgreen-95': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                           'id': 'dia-draymondgreen-95',
@@ -15781,14 +15781,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Draymond Green',
                           'ovr': 95,
                           'pos': 'PF',
-                          'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • '
-                                   '6 • – • 2 • 0 • 1 • 8 • ; •   • 2 • 0 • 2 • 2 • ) •   • • •   • D • o • m • i • n '
-                                   '• a • n • t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • '
-                                   's • t • o • n • e •',
+                          'quote': '4xNBAAll- Star• ( 201'
+                                   '6 • – 2018; •   2022) • • •   Domin '
+                                   'antFranchiseCorner'
+                                   's tone •',
                           'sec_pos': 'C',
                           'stats': {'3pt': 93, 'ath': 99, 'clu': 99, 'def': 90, 'ins': 93, 'ply': 90},
                           'team': 'GSW',
-                          'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • '
+                          'theme': 'FranchiseAll- Star• ( • '
                                    '4 • x • ) •',
                           'tier': 'diamond'},
  'dia-dirk-95': {'badges': ['Gold Deadeye', 'Gold Catch & Shoot', 'Gold Middy Magician', 'Gold Clutch Shooter'],
@@ -15798,14 +15798,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Dirk Nowitzki',
                  'ovr': 95,
                  'pos': 'PF',
-                 'quote': '• 2 • 0 • 1 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • n '
-                          '• a • l • s •   • M • V • P •   • • •   • 2 • 0 • 0 • 7 •   • M • V • P •   • • •   • O • v '
-                          '• e • r •   • 3 • 1 • , • 0 • 0 • 0 •   • C • a • r • e • e • r •   • P • o • i • n • t • s '
+                 'quote': '2011NBAChampion• & •   Fin '
+                          'alsMVP• • •   2007MVP• • •   Ov '
+                          'er31, 000CareerPoints '
                           '•',
                  'sec_pos': 'C',
                  'stats': {'3pt': 96, 'ath': 82, 'clu': 98, 'def': 82, 'ins': 94, 'ply': 80},
                  'team': 'DAL',
-                 'theme': '• O • n • e • - • L • e • g •   • F • a • d • e • a • w • a • y •',
+                 'theme': 'One- LegFadeaway •',
                  'tier': 'diamond'},
  'dia-ant-95': {'badges': ['Gold Posterizer', 'Gold Limitless Takeoff', 'Gold Clamps', 'Gold Agent 3'],
                 'id': 'dia-ant-95',
@@ -15814,14 +15814,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Anthony Edwards',
                 'ovr': 95,
                 'pos': 'SG',
-                'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • W • e • s • t • e • r • n •   • C '
-                         '• o • n • f • e • r • e • n • c • e •   • F • i • n • a • l • s •   • L • e • a • d • e • r '
-                         '•   • • •   • E • l • e • c • t • r • i • f • y • i • n • g •   • A • e • r • i • a • l •   '
-                         '• D • u • n • k • e • r •',
+                'quote': '2xAll- Star• • •   Western• C '
+                         'onferenceFinalsLeader '
+                         '• • •   ElectrifyingAerial'
+                         'Dunker •',
                 'sec_pos': 'SF',
                 'stats': {'3pt': 92, 'ath': 98, 'clu': 96, 'def': 94, 'ins': 97, 'ply': 88},
                 'team': 'MIN',
-                'theme': '• A • n • t • - • M • a • n •   • P • o • s • t • e • r • i • z • e • r •',
+                'theme': 'Ant- ManPosterizer •',
                 'tier': 'diamond'},
  'dia-anthonyedwards-95': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                            'id': 'dia-anthonyedwards-95',
@@ -15830,13 +15830,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                            'name': 'Anthony Edwards',
                            'ovr': 95,
                            'pos': 'PF',
-                           'quote': '• 4 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • '
-                                    '3 • – • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r '
-                                    '• a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                           'quote': '4xNBAAll- Star• ( 202'
+                                    '3 • – 2026) • • •   DominantFr '
+                                    'anchiseCornerstone •',
                            'sec_pos': 'SG',
                            'stats': {'3pt': 80, 'ath': 97, 'clu': 95, 'def': 96, 'ins': 95, 'ply': 89},
                            'team': 'MIN',
-                           'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • '
+                           'theme': 'FranchiseAll- Star• ( • '
                                     '4 • x • ) •',
                            'tier': 'diamond'},
  'dia-hali-94': {'badges': ['Gold Needle Threader', 'Gold Dimer', 'Gold Limitless Range', 'Gold Floor General'],
@@ -15846,13 +15846,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Tyrese Haliburton',
                  'ovr': 94,
                  'pos': 'PG',
-                 'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • N • B • A •   • A • s • s • i • s '
-                          '• t • s •   • L • e • a • d • e • r •   • • •   • I • n • - • S • e • a • s • o • n •   • T '
-                          '• o • u • r • n • a • m • e • n • t •   • S • u • p • e • r • s • t • a • r •',
+                 'quote': '2xAll- Star• • •   NBAAssis '
+                          'tsLeader• • •   In- Season• T '
+                          'ournamentSuperstar •',
                  'sec_pos': 'SG',
                  'stats': {'3pt': 94, 'ath': 89, 'clu': 95, 'def': 80, 'ins': 88, 'ply': 99},
                  'team': 'IND',
-                 'theme': '• D • i • m • e • r •   • S • p • e • c • i • a • l • i • s • t •',
+                 'theme': 'DimerSpecialist •',
                  'tier': 'diamond'},
  'dia-tatum-94': {'badges': ['Silver Deadeye', 'Silver Hot Zone Hunter', 'Silver Posterizer'],
                   'id': 'dia-tatum-94',
@@ -15861,13 +15861,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Jayson Tatum',
                   'ovr': 94,
                   'pos': 'SF',
-                  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i • '
-                           'n • a • l • s •   • M • V • P •   • - •   • 5 • x •   • A • l • l • - • S • t • a • r •   '
-                           '• B • o • s • t • o • n •   • L • e • g • e • n • d •',
+                  'quote': '2024NBAChampion• & •   Fi'
+                           'n alsMVP• - •   5xAll- Star'
+                           'BostonLegend •',
                   'sec_pos': 'PF',
                   'stats': {'3pt': 88, 'ath': 90, 'clu': 94, 'def': 88, 'ins': 92, 'ply': 90},
                   'team': 'BOS',
-                  'theme': '• 2 • 0 • 2 • 4 •   • C • h • a • m • p • i • o • n •',
+                  'theme': '2024Champion •',
                   'tier': 'diamond'},
  'dia-jalenbrunson-94': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                          'id': 'dia-jalenbrunson-94',
@@ -15876,13 +15876,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Jalen Brunson',
                          'ovr': 94,
                          'pos': 'SF',
-                         'quote': '• 3 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 4 '
-                                  '• – • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a '
-                                  '• n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                         'quote': '3xNBAAll- Star• ( 2024 '
+                                  '• – 2026) • • •   DominantFra '
+                                  'nchiseCornerstone •',
                          'sec_pos': 'PF',
                          'stats': {'3pt': 95, 'ath': 98, 'clu': 97, 'def': 95, 'ins': 94, 'ply': 90},
                          'team': 'NYK',
-                         'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 3 '
+                         'theme': 'FranchiseAll- Star• ( • 3 '
                                   '• x • ) •',
                          'tier': 'diamond'},
  'dia-giannis-94': {'badges': ['Silver Giant Slayer', 'Silver Posterizer', 'Silver Anchor', 'Silver Brick Wall'],
@@ -15892,14 +15892,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Giannis Antetokounmpo',
                     'ovr': 94,
                     'pos': 'PF',
-                    'quote': '• 2 • 0 • 2 • 1 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • & •   • F • i '
-                             '• n • a • l • s •   • M • V • P •   • - •   • 2 • x •   • M • V • P •   • - •   • G • r '
-                             '• e • e • k •   • F • r • e • a • k •   • D • o • m • i • n • a • n • t •   • F • o • r '
-                             '• c • e •',
+                    'quote': '2021NBAChampion• & •   Fi '
+                             'nalsMVP• - •   2xMVP• - •   Gr '
+                             'eekFreakDominantFor '
+                             'ce •',
                     'sec_pos': 'C',
                     'stats': {'3pt': 55, 'ath': 99, 'clu': 91, 'def': 95, 'ins': 98, 'ply': 88},
                     'team': 'MIL',
-                    'theme': '• 2 • x •   • M • V • P •   • G • r • e • e • k •   • F • r • e • a • k •',
+                    'theme': '2xMVPGreekFreak •',
                     'tier': 'diamond'},
  'dia-spida-94': {'badges': ['Gold Limitless Range', 'Gold Posterizer', 'Gold Acrobat', 'Gold Space Creator'],
                   'id': 'dia-spida-94',
@@ -15908,13 +15908,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Donovan Mitchell',
                   'ovr': 94,
                   'pos': 'SG',
-                  'quote': '• 5 • x •   • A • l • l • - • S • t • a • r •   • • •   • D • u • n • k •   • C • o • n • '
-                           't • e • s • t •   • C • h • a • m • p • i • o • n •   • • •   • 7 • 1 • - • P • o • i • n '
-                           '• t •   • S • c • o • r • i • n • g •   • M • a • s • t • e • r • p • i • e • c • e •',
+                  'quote': '5xAll- Star• • •   DunkCon'
+                           't estChampion• • •   71- Poin '
+                           '• t •   ScoringMasterpiece •',
                   'sec_pos': 'PG',
                   'stats': {'3pt': 94, 'ath': 96, 'clu': 95, 'def': 84, 'ins': 95, 'ply': 90},
                   'team': 'CLE',
-                  'theme': '• 7 • 1 • - • P • t •   • E • x • p • l • o • s • i • o • n •',
+                  'theme': '71- PtExplosion •',
                   'tier': 'diamond'},
  'dia-booker-94': {'badges': ['Gold Deadeye', 'Gold Catch & Shoot', 'Gold Green Machine', 'Gold Ankle Breaker'],
                    'id': 'dia-booker-94',
@@ -15923,14 +15923,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Devin Booker',
                    'ovr': 94,
                    'pos': 'SG',
-                   'quote': '• 4 • x •   • A • l • l • - • S • t • a • r •   • • •   • O • l • y • m • p • i • c •   • '
-                            'G • o • l • d •   • M • e • d • a • l • i • s • t •   • • •   • S • c • o • r • e • d •   '
-                            '• 7 • 0 •   • P • o • i • n • t • s •   • i • n •   • S • i • n • g • l • e •   • G • a • '
+                   'quote': '4xAll- Star• • •   Olympic• '
+                            'G oldMedalist• • •   Scored'
+                            '70PointsinSingleGa'
                             'm • e •',
                    'sec_pos': 'PG',
                    'stats': {'3pt': 95, 'ath': 89, 'clu': 96, 'def': 82, 'ins': 92, 'ply': 91},
                    'team': 'PHX',
-                   'theme': '• 7 • 0 • - • P • t •   • S • c • o • r • e • r •',
+                   'theme': '70- PtScorer •',
                    'tier': 'diamond'},
  'dia-dame-94': {'badges': ['Gold Limitless Range', 'Gold Clutch Shooter', 'Gold Agent 3', 'Gold Deadeye'],
                  'id': 'dia-dame-94',
@@ -15939,13 +15939,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Damian Lillard',
                  'ovr': 94,
                  'pos': 'PG',
-                 'quote': '• 8 • x •   • A • l • l • - • S • t • a • r •   • • •   • N • B • A •   • 7 • 5 • t • h •   '
-                          '• A • n • n • i • v • e • r • s • a • r • y •   • T • e • a • m •   • • •   • 2 • x •   • 3 '
-                          '• P • T •   • C • o • n • t • e • s • t •   • C • h • a • m • p • i • o • n •',
+                 'quote': '8xAll- Star• • •   NBA75th'
+                          'AnniversaryTeam• • •   2x• 3 '
+                          'PTContestChampion •',
                  'sec_pos': 'SG',
                  'stats': {'3pt': 97, 'ath': 91, 'clu': 99, 'def': 78, 'ins': 90, 'ply': 92},
                  'team': 'MIL',
-                 'theme': '• D • a • m • e •   • T • i • m • e •   • C • l • u • t • c • h •',
+                 'theme': 'DameTimeClutch •',
                  'tier': 'diamond'},
  'dia-bamadebayo-94': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                        'id': 'dia-bamadebayo-94',
@@ -15954,14 +15954,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Bam Adebayo',
                        'ovr': 94,
                        'pos': 'C',
-                       'quote': '• 3 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 0 • '
-                                '; •   • 2 • 0 • 2 • 3 • – • 2 • 0 • 2 • 4 • ) •   • • •   • D • o • m • i • n • a • n '
-                                '• t •   • F • r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • '
+                       'quote': '3xNBAAll- Star• ( 2020'
+                                '; •   2023– 2024) • • •   Dominan '
+                                '• t •   FranchiseCornersto'
                                 'n • e •',
                        'sec_pos': 'PG',
                        'stats': {'3pt': 71, 'ath': 91, 'clu': 91, 'def': 96, 'ins': 99, 'ply': 83},
                        'team': 'MIA',
-                       'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 3 • '
+                       'theme': 'FranchiseAll- Star• ( • 3 • '
                                 'x • ) •',
                        'tier': 'diamond'},
  'dia-zionwilliamson-93': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
@@ -15971,13 +15971,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                            'name': 'Zion Williamson',
                            'ovr': 93,
                            'pos': 'SG',
-                           'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • '
-                                    '1 • ; •   • 2 • 0 • 2 • 3 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F '
-                                    '• r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                           'quote': '2xNBAAll- Star• ( 202'
+                                    '1 • ; •   2023) • • •   Dominant• F '
+                                    'ranchiseCornerstone •',
                            'sec_pos': 'C',
                            'stats': {'3pt': 92, 'ath': 94, 'clu': 94, 'def': 87, 'ins': 90, 'ply': 92},
                            'team': 'NOP',
-                           'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • '
+                           'theme': 'FranchiseAll- Star• ( • '
                                     '2 • x • ) •',
                            'tier': 'diamond'},
  'dia-victorwembanyama-93': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
@@ -15987,15 +15987,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'name': 'Victor Wembanyama',
                              'ovr': 93,
                              'pos': 'C',
-                             'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 '
-                                      '• 5 • – • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F '
-                                      '• r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e '
+                             'quote': '2xNBAAll- Star• ( 202 '
+                                      '• 5 • – 2026) • • •   Dominant• F '
+                                      'ranchiseCornerstone '
                                       '•',
                              'sec_pos': 'SF',
                              'stats': {'3pt': 69, 'ath': 96, 'clu': 94, 'def': 98, 'ins': 97, 'ply': 80},
                              'team': 'SAS',
-                             'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( '
-                                      '• 2 • x • ) •',
+                             'theme': 'FranchiseAll- Star• ( '
+                                      '2x) •',
                              'tier': 'diamond'},
  'dia-tyresehaliburton-93': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                              'id': 'dia-tyresehaliburton-93',
@@ -16004,15 +16004,15 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                              'name': 'Tyrese Haliburton',
                              'ovr': 93,
                              'pos': 'SG',
-                             'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 '
-                                      '• 3 • – • 2 • 0 • 2 • 4 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F '
-                                      '• r • a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e '
+                             'quote': '2xNBAAll- Star• ( 202 '
+                                      '• 3 • – 2024) • • •   Dominant• F '
+                                      'ranchiseCornerstone '
                                       '•',
                              'sec_pos': 'SF',
                              'stats': {'3pt': 97, 'ath': 96, 'clu': 94, 'def': 93, 'ins': 91, 'ply': 93},
                              'team': 'IND',
-                             'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( '
-                                      '• 2 • x • ) •',
+                             'theme': 'FranchiseAll- Star• ( '
+                                      '2x) •',
                              'tier': 'diamond'},
  'dia-jrueholiday-93': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                         'id': 'dia-jrueholiday-93',
@@ -16021,13 +16021,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Jrue Holiday',
                         'ovr': 93,
                         'pos': 'SG',
-                        'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 3 '
-                                 '• ; •   • 2 • 0 • 2 • 3 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r '
-                                 '• a • n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                        'quote': '2xNBAAll- Star• ( 2013 '
+                                 '• ; •   2023) • • •   DominantFr '
+                                 'anchiseCornerstone •',
                         'sec_pos': 'C',
                         'stats': {'3pt': 92, 'ath': 96, 'clu': 95, 'def': 88, 'ins': 94, 'ply': 93},
                         'team': 'BOS',
-                        'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 '
+                        'theme': 'FranchiseAll- Star• ( • 2 '
                                  '• x • ) •',
                         'tier': 'diamond'},
  'dia-morant-93': {'badges': ['Gold Posterizer', 'Gold Limitless Takeoff', 'Gold Quick First Step', 'Gold Dimer'],
@@ -16037,14 +16037,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Ja Morant',
                    'ovr': 93,
                    'pos': 'PG',
-                   'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • M • o • s • t •   • I • m • p • '
-                            'r • o • v • e • d •   • P • l • a • y • e • r •   • • •   • U • n • r • i • v • a • l • e '
-                            '• d •   • V • e • r • t • i • c • a • l •   • L • e • a • p •   • & •   • F • a • s • t • '
-                            'b • r • e • a • k •   • F • l • a • s • h •',
+                   'quote': '2xAll- Star• • •   MostImp'
+                            'r ovedPlayer• • •   Unrivale '
+                            '• d •   VerticalLeap• & •   Fast'
+                            'b reakFlash •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 85, 'ath': 99, 'clu': 94, 'def': 82, 'ins': 98, 'ply': 95},
                    'team': 'MEM',
-                   'theme': '• G • r • a • v • i • t • y •   • D • e • f • i • e • r •',
+                   'theme': 'GravityDefier •',
                    'tier': 'diamond'},
  'dia-jamorant-93': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
                      'id': 'dia-jamorant-93',
@@ -16053,13 +16053,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Ja Morant',
                      'ovr': 93,
                      'pos': 'PG',
-                     'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 2 • – '
-                              '• 2 • 0 • 2 • 3 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a • n • c '
-                              '• h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                     'quote': '2xNBAAll- Star• ( 2022– '
+                              '2023) • • •   DominantFranc '
+                              'hiseCornerstone •',
                      'sec_pos': 'PF',
                      'stats': {'3pt': 92, 'ath': 92, 'clu': 94, 'def': 90, 'ins': 85, 'ply': 98},
                      'team': 'MEM',
-                     'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x '
+                     'theme': 'FranchiseAll- Star• ( 2x '
                               '• ) •',
                      'tier': 'diamond'},
  'dia-deaaronfox-93': {'badges': ['Gold Clamps', 'Gold Deadeye', 'Gold Quick First Step'],
@@ -16069,13 +16069,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': "De'Aaron Fox",
                        'ovr': 93,
                        'pos': 'PG',
-                       'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 3 • '
-                                '; •   • 2 • 0 • 2 • 6 • ) •   • • •   • D • o • m • i • n • a • n • t •   • F • r • a '
-                                '• n • c • h • i • s • e •   • C • o • r • n • e • r • s • t • o • n • e •',
+                       'quote': '2xNBAAll- Star• ( 2023'
+                                '; •   2026) • • •   DominantFra '
+                                'nchiseCornerstone •',
                        'sec_pos': 'SF',
                        'stats': {'3pt': 91, 'ath': 94, 'clu': 88, 'def': 87, 'ins': 87, 'ply': 97},
                        'team': 'SAC',
-                       'theme': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • '
+                       'theme': 'FranchiseAll- Star• ( • 2 • '
                                 'x • ) •',
                        'tier': 'diamond'},
  'dia-bam-93': {'badges': ['Gold Anchor', 'Gold Clamps', 'Gold Interceptor', 'Gold Rebound Chaser'],
@@ -16085,14 +16085,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Bam Adebayo',
                 'ovr': 93,
                 'pos': 'C',
-                'quote': '• 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • 5 • x •   • A • l • l • - • D • e '
-                         '• f • e • n • s • i • v • e •   • T • e • a • m •   • • •   • V • e • r • s • a • t • i • l '
-                         '• e •   • 1 • - • t • h • r • o • u • g • h • - • 5 •   • D • e • f • e • n • s • i • v • e '
-                         '•   • A • n • c • h • o • r •',
+                'quote': '3xAll- Star• • •   5xAll- De '
+                         'fensiveTeam• • •   Versatil '
+                         '• e • 1 • - through- • 5 •   Defensive '
+                         '•   Anchor •',
                 'sec_pos': 'PF',
                 'stats': {'3pt': 72, 'ath': 93, 'clu': 91, 'def': 98, 'ins': 93, 'ply': 88},
                 'team': 'MIA',
-                'theme': '• D • P • O • Y •   • F • i • n • a • l • i • s • t •',
+                'theme': 'DPOYFinalist •',
                 'tier': 'diamond'},
  'dia-adavis-93': {'badges': ['Silver Anchor', 'Silver Brick Wall', 'Silver Posterizer', 'Silver Intimidator'],
                    'id': 'dia-adavis-93',
@@ -16101,13 +16101,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Anthony Davis',
                    'ovr': 93,
                    'pos': 'PF',
-                   'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • - •   • 8 • x '
-                            '•   • A • l • l • - • S • t • a • r •   • - •   • E • l • i • t • e •   • T • w • o • - • '
-                            'W • a • y •   • S • u • p • e • r • s • t • a • r •',
+                   'quote': '2020NBAChampion• - •   8x '
+                            '•   All- Star• - •   EliteTwo- • '
+                            'W aySuperstar •',
                    'sec_pos': 'C',
                    'stats': {'3pt': 62, 'ath': 96, 'clu': 90, 'def': 97, 'ins': 97, 'ply': 82},
                    'team': 'LAL',
-                   'theme': '• B • r • o • w •   • D • o • m • i • n • a • n • c • e •',
+                   'theme': 'BrowDominance •',
                    'tier': 'diamond'},
  'amy-brunson-92': {'badges': ['Gold Middy Magician', 'Gold Fearless Finisher', 'Gold Dimer'],
                     'id': 'amy-brunson-92',
@@ -16116,14 +16116,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Jalen Brunson',
                     'ovr': 92,
                     'pos': 'PG',
-                    'quote': '• A • l • l • - • N • B • A •   • S • e • c • o • n • d •   • T • e • a • m •   • • •   '
-                             '• M • S • G •   • P • l • a • y • o • f • f •   • H • e • r • o •   • • •   • M • a • s '
-                             '• t • e • r •   • o • f •   • t • h • e •   • P • i • v • o • t •   • & •   • F • o • o '
-                             '• t • w • o • r • k •',
+                    'quote': 'All- NBASecondTeam• • •   '
+                             'MSGPlayoffHero• • •   Mas '
+                             'terofthePivot• & •   Foo '
+                             'twork •',
                     'sec_pos': 'SG',
                     'stats': {'3pt': 92, 'ath': 88, 'clu': 97, 'def': 82, 'ins': 94, 'ply': 93},
                     'team': 'NYK',
-                    'theme': '• G • a • r • d • e • n •   • M • V • P •',
+                    'theme': 'GardenMVP •',
                     'tier': 'amethyst'},
  'amy-manuginobili-91': {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
                          'id': 'amy-manuginobili-91',
@@ -16132,13 +16132,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Manu Ginobili',
                          'ovr': 91,
                          'pos': 'SF',
-                         'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 0 • 5 '
-                                  '• ; •   • 2 • 0 • 1 • 1 • ) •   • • •   • H • i • g • h •   • I • m • p • a • c • t '
-                                  '•   • S • c • o • r • i • n • g •   • D • y • n • a • m • o •',
+                         'quote': '2xNBAAll- Star• ( 2005 '
+                                  '• ; •   2011) • • •   HighImpact '
+                                  '•   ScoringDynamo •',
                          'sec_pos': 'PG',
                          'stats': {'3pt': 86, 'ath': 95, 'clu': 94, 'def': 93, 'ins': 95, 'ply': 91},
                          'team': 'CHI',
-                         'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 2 '
+                         'theme': 'All- StarPerformer• ( • 2 '
                                   '• x • ) •',
                          'tier': 'amethyst'},
  'amy-brown-91': {'badges': ['Gold Posterizer', 'Gold Clamps', 'Gold Menace'],
@@ -16148,13 +16148,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Jaylen Brown',
                   'ovr': 91,
                   'pos': 'SG',
-                  'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • F • i • n • a • l • s •   • M • V • P •   • • •   • '
-                           '3 • x •   • A • l • l • - • S • t • a • r •   • • •   • T • w • o • - • W • a • y •   • E '
-                           '• x • p • l • o • s • i • v • e •   • W • i • n • g •',
+                  'quote': '2024NBAFinalsMVP• • • '
+                           '3 • x •   All- Star• • •   Two- Way• E '
+                           'xplosiveWing •',
                   'sec_pos': 'SF',
                   'stats': {'3pt': 88, 'ath': 96, 'clu': 93, 'def': 94, 'ins': 94, 'ply': 82},
                   'team': 'BOS',
-                  'theme': '• F • i • n • a • l • s •   • M • V • P •',
+                  'theme': 'FinalsMVP •',
                   'tier': 'amethyst'},
  'amy-billwalton-91': {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
                        'id': 'amy-billwalton-91',
@@ -16163,13 +16163,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Bill Walton',
                        'ovr': 91,
                        'pos': 'PF',
-                       'quote': '• 2 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 1 • 9 • 7 • 7 • '
-                                '– • 1 • 9 • 7 • 8 • ) •   • • •   • H • i • g • h •   • I • m • p • a • c • t •   • S '
-                                '• c • o • r • i • n • g •   • D • y • n • a • m • o •',
+                       'quote': '2xNBAAll- Star• ( 1977'
+                                '– 1978) • • •   HighImpact• S '
+                                'coringDynamo •',
                        'sec_pos': 'SF',
                        'stats': {'3pt': 76, 'ath': 89, 'clu': 88, 'def': 90, 'ins': 92, 'ply': 81},
                        'team': 'OKC',
-                       'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 2 • '
+                       'theme': 'All- StarPerformer• ( • 2 • '
                                 'x • ) •',
                        'tier': 'amethyst'},
  'amy-zion-90': {'badges': ['Gold Bully', 'Gold Posterizer', 'Gold Fast Twitch'],
@@ -16179,13 +16179,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Zion Williamson',
                  'ovr': 90,
                  'pos': 'PF',
-                 'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • • •   • U • n • s • t • o • p • p • a • b '
-                          '• l • e •   • A • b • o • v • e • - • t • h • e • - • R • i • m •   • P • o • w • e • r •   '
-                          '• F • o • r • w • a • r • d •',
+                 'quote': '2xAll- Star• • •   Unstoppab '
+                          'leAbove- the- RimPower'
+                          'Forward •',
                  'sec_pos': 'C',
                  'stats': {'3pt': 62, 'ath': 98, 'clu': 91, 'def': 84, 'ins': 98, 'ply': 85},
                  'team': 'NOP',
-                 'theme': '• P • a • i • n • t •   • B • u • l • l • d • o • z • e • r •',
+                 'theme': 'PaintBulldozer •',
                  'tier': 'amethyst'},
  'amy-paolo-90': {'badges': ['Gold Bully', 'Gold Space Creator', 'Gold Dimer'],
                   'id': 'amy-paolo-90',
@@ -16194,14 +16194,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Paolo Banchero',
                   'ovr': 90,
                   'pos': 'PF',
-                  'quote': '• 2 • 0 • 2 • 4 •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 2 • 3 •   • R • '
-                           'o • o • k • i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • D • o • m '
-                           '• i • n • a • n • t •   • 6 • f • t •   • 1 • 0 • i • n •   • P • l • a • y • m • a • k • '
+                  'quote': '2024All- Star• • •   2023• R • '
+                           'o okieoftheYear• • •   Dom '
+                           'inant6ft10inPlaymak'
                            'e • r •',
                   'sec_pos': 'SF',
                   'stats': {'3pt': 84, 'ath': 91, 'clu': 92, 'def': 87, 'ins': 93, 'ply': 89},
                   'team': 'ORL',
-                  'theme': '• A • l • l • - • S • t • a • r •   • P • o • i • n • t •   • F • o • r • w • a • r • d •',
+                  'theme': 'All- StarPointForward •',
                   'tier': 'amethyst'},
  'amy-kat-90': {'badges': ['Gold Catch & Shoot', 'Gold Deadeye', 'Gold Rebound Chaser'],
                 'id': 'amy-kat-90',
@@ -16210,13 +16210,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': 'Karl-Anthony Towns',
                 'ovr': 90,
                 'pos': 'C',
-                'quote': '• 4 • x •   • A • l • l • - • S • t • a • r •   • • •   • 3 • - • P • o • i • n • t •   • C '
-                         '• o • n • t • e • s • t •   • C • h • a • m • p • i • o • n •   • • •   • P • u • r • e •   '
-                         '• E • l • i • t • e •   • S • h • o • o • t • i • n • g •   • C • e • n • t • e • r •',
+                'quote': '4xAll- Star• • • 3 • - Point• C '
+                         'ontestChampion• • •   Pure'
+                         'EliteShootingCenter •',
                 'sec_pos': 'PF',
                 'stats': {'3pt': 95, 'ath': 86, 'clu': 90, 'def': 84, 'ins': 94, 'ply': 80},
                 'team': 'NYK',
-                'theme': '• 3 • P • T •   • C • o • n • t • e • s • t •   • C • h • a • m • p •   • B • i • g •',
+                'theme': '3PTContestChampBig •',
                 'tier': 'amethyst'},
  'amy-fox-90': {'badges': ['Gold Quick First Step', 'Gold Clutch Shooter', 'Gold Interceptor'],
                 'id': 'amy-fox-90',
@@ -16225,14 +16225,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                 'name': "De'Aaron Fox",
                 'ovr': 90,
                 'pos': 'PG',
-                'quote': '• I • n • a • u • g • u • r • a • l •   • N • B • A •   • C • l • u • t • c • h •   • P • l '
-                         '• a • y • e • r •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • F • a • s • t '
-                         '• e • s • t •   • S • p • e • e • d •   • W • i • t • h •   • B • a • l • l •   • i • n •   '
-                         '• t • h • e •   • L • e • a • g • u • e •',
+                'quote': 'InauguralNBAClutchPl '
+                         'ayeroftheYear• • •   Fast '
+                         'estSpeedWithBallin'
+                         'theLeague •',
                 'sec_pos': 'SG',
                 'stats': {'3pt': 88, 'ath': 99, 'clu': 98, 'def': 88, 'ins': 92, 'ply': 90},
                 'team': 'SAC',
-                'theme': '• I • n • a • u • g • u • r • a • l •   • C • l • u • t • c • h •   • P • O • T • Y •',
+                'theme': 'InauguralClutchPOTY •',
                 'tier': 'amethyst'},
  'amy-aedwards-90': {'badges': ['Bronze Posterizer', 'Bronze Catch & Shoot', 'Bronze Clamps'],
                      'id': 'amy-aedwards-90',
@@ -16241,13 +16241,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'Anthony Edwards',
                      'ovr': 90,
                      'pos': 'SG',
-                     'quote': '• 2 • x •   • A • l • l • - • S • t • a • r •   • - •   • T • e • a • m •   • U • S • A '
-                              '•   • G • o • l • d •   • M • e • d • a • l • i • s • t •   • - •   • M • i • n • n • e '
-                              "• s • o • t • a • ' • s •   • F • r • a • n • c • h • i • s • e •   • S • t • a • r •",
+                     'quote': '2xAll- Star• - •   TeamUSA '
+                              '•   GoldMedalist• - •   Minne '
+                              "sota' • s •   FranchiseStar •",
                      'sec_pos': 'SF',
                      'stats': {'3pt': 86, 'ath': 97, 'clu': 90, 'def': 86, 'ins': 90, 'ply': 84},
                      'team': 'MIN',
-                     'theme': '• A • n • t • - • M • a • n •   • R • i • s • i • n • g •',
+                     'theme': 'Ant- ManRising •',
                      'tier': 'amethyst'},
  'amy-trae-89': {'badges': ['Gold Limitless Range', 'Gold Dimer', 'Gold Handles For Days'],
                  'id': 'amy-trae-89',
@@ -16256,13 +16256,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Trae Young',
                  'ovr': 89,
                  'pos': 'PG',
-                 'quote': '• 3 • x •   • A • l • l • - • S • t • a • r •   • • •   • L • e • d •   • N • B • A •   • i '
-                          '• n •   • T • o • t • a • l •   • P • o • i • n • t • s •   • & •   • A • s • s • i • s • t '
-                          '• s •   • • •   • L • o • g • o •   • 3 • P • T •   • S • n • i • p • e • r •',
+                 'quote': '3xAll- Star• • •   LedNBA• i '
+                          '• n •   TotalPoints• & •   Assist '
+                          '• s • • •   Logo3PTSniper •',
                  'sec_pos': 'SG',
                  'stats': {'3pt': 95, 'ath': 88, 'clu': 96, 'def': 70, 'ins': 84, 'ply': 98},
                  'team': 'ATL',
-                 'theme': '• I • c • e •   • T • r • a • e •   • D • e • e • p •   • 3 •',
+                 'theme': 'IceTraeDeep• 3 •',
                  'tier': 'amethyst'},
  'amy-pawlo-89': {'badges': ['Gold Bully', 'Gold Space Creator', 'Gold Dimer'],
                   'id': 'amy-paolo-90',
@@ -16271,14 +16271,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Paolo Banchero',
                   'ovr': 90,
                   'pos': 'PF',
-                  'quote': '• 2 • 0 • 2 • 4 •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 2 • 3 •   • R • '
-                           'o • o • k • i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • D • o • m '
-                           '• i • n • a • n • t •   • 6 • f • t •   • 1 • 0 • i • n •   • P • l • a • y • m • a • k • '
+                  'quote': '2024All- Star• • •   2023• R • '
+                           'o okieoftheYear• • •   Dom '
+                           'inant6ft10inPlaymak'
                            'e • r •',
                   'sec_pos': 'SF',
                   'stats': {'3pt': 84, 'ath': 91, 'clu': 92, 'def': 87, 'ins': 93, 'ply': 89},
                   'team': 'ORL',
-                  'theme': '• A • l • l • - • S • t • a • r •   • P • o • i • n • t •   • F • o • r • w • a • r • d •',
+                  'theme': 'All- StarPointForward •',
                   'tier': 'amethyst'},
  'amy-paolobanchero-89': {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
                           'id': 'amy-paolobanchero-89',
@@ -16287,13 +16287,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Paolo Banchero',
                           'ovr': 89,
                           'pos': 'PG',
-                          'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • '
-                                   '4 • ) •   • • •   • H • i • g • h •   • I • m • p • a • c • t •   • S • c • o • r '
-                                   '• i • n • g •   • D • y • n • a • m • o •',
+                          'quote': '1xNBAAll- Star• ( 202'
+                                   '4 • ) • • •   HighImpactScor '
+                                   'ingDynamo •',
                           'sec_pos': 'PF',
                           'stats': {'3pt': 90, 'ath': 89, 'clu': 86, 'def': 87, 'ins': 84, 'ply': 94},
                           'team': 'ORL',
-                          'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • '
+                          'theme': 'All- StarPerformer• ( • '
                                    '1 • x • ) •',
                           'tier': 'amethyst'},
  'amy-lamelo-89': {'badges': ['Gold Special Delivery', 'Gold Needle Threader', 'Gold Limitless Range'],
@@ -16303,14 +16303,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'LaMelo Ball',
                    'ovr': 89,
                    'pos': 'PG',
-                   'quote': '• 2 • 0 • 2 • 2 •   • A • l • l • - • S • t • a • r •   • • •   • 2 • 0 • 2 • 1 •   • R • '
-                            'o • o • k • i • e •   • o • f •   • t • h • e •   • Y • e • a • r •   • • •   • H • i • g '
-                            '• h • l • i • g • h • t •   • R • e • e • l •   • P • a • s • s • i • n • g •   • V • i • '
-                            's • i • o • n •',
+                   'quote': '2022All- Star• • •   2021• R • '
+                            'o okieoftheYear• • •   Hig '
+                            'hlightReelPassingVi'
+                            's ion •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 90, 'ath': 90, 'clu': 91, 'def': 78, 'ins': 86, 'ply': 97},
                    'team': 'CHA',
-                   'theme': '• F • l • a • s • h • y •   • P • a • s • s • e • r •',
+                   'theme': 'FlashyPasser •',
                    'tier': 'amethyst'},
  'amy-lameloball-89': {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
                        'id': 'amy-lameloball-89',
@@ -16319,13 +16319,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'LaMelo Ball',
                        'ovr': 89,
                        'pos': 'PG',
-                       'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 2 • '
-                                ') •   • • •   • H • i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i • n '
-                                '• g •   • D • y • n • a • m • o •',
+                       'quote': '1xNBAAll- Star• ( 2022'
+                                ') • • •   HighImpactScorin '
+                                '• g •   Dynamo •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 88, 'ath': 93, 'clu': 86, 'def': 81, 'ins': 83, 'ply': 89},
                        'team': 'CHA',
-                       'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • '
+                       'theme': 'All- StarPerformer• ( • 1 • '
                                 'x • ) •',
                        'tier': 'amethyst'},
  'amy-murray-89': {'badges': ['Gold Clutch Shooter', 'Gold Difficult Shots', 'Gold Acrobat'],
@@ -16335,13 +16335,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Jamal Murray',
                    'ovr': 89,
                    'pos': 'PG',
-                   'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • M • u • '
-                            'l • t • i • p • l • e •   • P • l • a • y • o • f • f •   • G • a • m • e • - • W • i • n '
-                            '• n • i • n • g •   • B • u • z • z • e • r •   • B • e • a • t • e • r • s •',
+                   'quote': '2023NBAChampion• • •   Mu'
+                            'l tiplePlayoffGame- Win '
+                            'ningBuzzerBeaters •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 92, 'ath': 89, 'clu': 99, 'def': 81, 'ins': 90, 'ply': 90},
                    'team': 'DEN',
-                   'theme': '• P • l • a • y • o • f • f •   • B • u • c • k • e • t •',
+                   'theme': 'PlayoffBucket •',
                    'tier': 'amethyst'},
  'amy-jamalmurray-89': {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
                         'id': 'amy-jamalmurray-89',
@@ -16350,13 +16350,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Jamal Murray',
                         'ovr': 89,
                         'pos': 'PG',
-                        'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 6 '
-                                 '• ) •   • • •   • H • i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i '
-                                 '• n • g •   • D • y • n • a • m • o •',
+                        'quote': '1xNBAAll- Star• ( 2026 '
+                                 '• ) • • •   HighImpactScori '
+                                 'ngDynamo •',
                         'sec_pos': 'PF',
                         'stats': {'3pt': 91, 'ath': 92, 'clu': 90, 'def': 86, 'ins': 82, 'ply': 91},
                         'team': 'DEN',
-                        'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 '
+                        'theme': 'All- StarPerformer• ( • 1 '
                                  '• x • ) •',
                         'tier': 'amethyst'},
  'amy-jalen-89': {'badges': ['Gold Middy Magician', 'Gold Fearless Finisher', 'Gold Dimer'],
@@ -16366,14 +16366,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Jalen Brunson',
                   'ovr': 92,
                   'pos': 'PG',
-                  'quote': '• A • l • l • - • N • B • A •   • S • e • c • o • n • d •   • T • e • a • m •   • • •   • '
-                           'M • S • G •   • P • l • a • y • o • f • f •   • H • e • r • o •   • • •   • M • a • s • t '
-                           '• e • r •   • o • f •   • t • h • e •   • P • i • v • o • t •   • & •   • F • o • o • t • '
-                           'w • o • r • k •',
+                  'quote': 'All- NBASecondTeam• • • '
+                           'M SGPlayoffHero• • •   Mast '
+                           'erofthePivot• & •   Foot'
+                           'w ork •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 92, 'ath': 88, 'clu': 97, 'def': 82, 'ins': 94, 'ply': 93},
                   'team': 'NYK',
-                  'theme': '• G • a • r • d • e • n •   • M • V • P •',
+                  'theme': 'GardenMVP •',
                   'tier': 'amethyst'},
  'amy-chet-89': {'badges': ['Gold Anchor', 'Gold Chase Down Artist', 'Gold Catch & Shoot'],
                  'id': 'amy-chet-89',
@@ -16382,13 +16382,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                  'name': 'Chet Holmgren',
                  'ovr': 89,
                  'pos': 'C',
-                 'quote': '• A • l • l • - • R • o • o • k • i • e •   • F • i • r • s • t •   • T • e • a • m •   • • '
-                          '•   • 7 • f • t •   • 1 • i • n •   • S • h • o • t • - • B • l • o • c • k • i • n • g •   '
-                          '• & •   • 3 • P • T •   • S • h • o • o • t • i • n • g •   • P • h • e • n • o • m •',
+                 'quote': 'All- RookieFirstTeam• • '
+                          '•   7ft1inShot- Blocking'
+                          '• & •   3PTShootingPhenom •',
                  'sec_pos': 'PF',
                  'stats': {'3pt': 89, 'ath': 88, 'clu': 90, 'def': 96, 'ins': 89, 'ply': 80},
                  'team': 'OKC',
-                 'theme': '• S • h • o • t • - • B • l • o • c • k • i • n • g •   • P • h • e • n • o • m •',
+                 'theme': 'Shot- BlockingPhenom •',
                  'tier': 'amethyst'},
  'amy-chetholmgren-89': {'badges': ['Gold Catch & Shoot', 'Gold Fearless Finisher', 'Gold Dimer'],
                          'id': 'amy-chetholmgren-89',
@@ -16397,13 +16397,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Chet Holmgren',
                          'ovr': 89,
                          'pos': 'PF',
-                         'quote': '• 1 • x •   • N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 2 • 6 '
-                                  '• ) •   • • •   • H • i • g • h •   • I • m • p • a • c • t •   • S • c • o • r • i '
-                                  '• n • g •   • D • y • n • a • m • o •',
+                         'quote': '1xNBAAll- Star• ( 2026 '
+                                  '• ) • • •   HighImpactScori '
+                                  'ngDynamo •',
                          'sec_pos': 'C',
                          'stats': {'3pt': 76, 'ath': 89, 'clu': 89, 'def': 92, 'ins': 93, 'ply': 80},
                          'team': 'OKC',
-                         'theme': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 '
+                         'theme': 'All- StarPerformer• ( • 1 '
                                   '• x • ) •',
                          'tier': 'amethyst'},
  'ruby-wemby-88': {'badges': ['Bronze Anchor', 'Bronze Intimidator', 'Bronze Aerial Wizard'],
@@ -16413,14 +16413,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Victor Wembanyama',
                    'ovr': 88,
                    'pos': 'C',
-                   'quote': '• 2 • 0 • 2 • 4 •   • R • o • o • k • i • e •   • o • f •   • t • h • e •   • Y • e • a • '
-                            'r •   • - •   • G • e • n • e • r • a • t • i • o • n • a • l •   • T • a • l • e • n • t '
-                            '•   • - •   • E • x • t • r • a • t • e • r • r • e • s • t • r • i • a • l •   • B • l • '
-                            'o • c • k • e • r •',
+                   'quote': '2024RookieoftheYea'
+                            'r • - •   GenerationalTalent '
+                            '• - •   ExtraterrestrialBl'
+                            'o cker •',
                    'sec_pos': 'PF',
                    'stats': {'3pt': 82, 'ath': 92, 'clu': 84, 'def': 97, 'ins': 90, 'ply': 84},
                    'team': 'SAS',
-                   'theme': '• A • l • i • e • n •   • P • r • o • d • i • g • y •',
+                   'theme': 'AlienProdigy •',
                    'tier': 'ruby'},
  'ruby-trae-87': {'badges': ['Bronze Lob City Passer', 'Bronze Agent 3', 'Bronze Dimer'],
                   'id': 'ruby-trae-87',
@@ -16429,13 +16429,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Trae Young',
                   'ovr': 87,
                   'pos': 'PG',
-                  'quote': '• 5 • x •   • A • l • l • - • S • t • a • r •   • - •   • E • l • i • t • e •   • L • o • '
-                           'b •   • P • a • s • s • e • r •   • & •   • D • e • e • p •   • T • h • r • e • e • - • P '
-                           '• o • i • n • t •   • T • h • r • e • a • t •',
+                  'quote': '5xAll- Star• - •   EliteLo'
+                           'b •   Passer• & •   DeepThree- • P '
+                           'ointThreat •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 90, 'ath': 75, 'clu': 91, 'def': 60, 'ins': 72, 'ply': 95},
                   'team': 'ATL',
-                  'theme': '• I • c • e •   • T • r • a • e •   • M • a • e • s • t • r • o •',
+                  'theme': 'IceTraeMaestro •',
                   'tier': 'ruby'},
  'ruby-zion-86': {'badges': ['Bronze Giant Slayer', 'Bronze Posterizer', 'Bronze Brick Wall'],
                   'id': 'ruby-zion-86',
@@ -16444,13 +16444,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Zion Williamson',
                   'ovr': 86,
                   'pos': 'PF',
-                  'quote': '• 2 • 0 • 2 • 1 •   • A • l • l • - • S • t • a • r •   • - •   • M • o • s • t •   • P • '
-                           'o • w • e • r • f • u • l •   • Y • o • u • n • g •   • F • o • r • c • e •   • i • n •   '
-                           '• t • h • e •   • N • B • A •   • P • a • i • n • t •',
+                  'quote': '2021All- Star• - •   Most• P • '
+                           'o werfulYoungForcein'
+                           'theNBAPaint •',
                   'sec_pos': 'C',
                   'stats': {'3pt': 60, 'ath': 99, 'clu': 84, 'def': 83, 'ins': 96, 'ply': 80},
                   'team': 'NOP',
-                  'theme': '• Z • i • o • n •   • F • r • e • i • g • h • t •   • T • r • a • i • n •',
+                  'theme': 'ZionFreightTrain •',
                   'tier': 'ruby'},
  'ruby-jrue-86': {'badges': ['Silver Clamps', 'Silver Glove', 'Silver Floor General'],
                   'id': 'ruby-jrue-86',
@@ -16459,14 +16459,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Jrue Holiday',
                   'ovr': 86,
                   'pos': 'PG',
-                  'quote': '• 2 • x •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 6 • x •   • A • '
-                           'l • l • - • D • e • f • e • n • s • i • v • e •   • T • e • a • m •   • • •   • M • o • s '
-                           '• t •   • R • e • s • p • e • c • t • e • d •   • G • u • a • r • d •   • D • e • f • e • '
-                           'n • d • e • r •',
+                  'quote': '2xNBAChampion• • •   6x• A • '
+                           'l • l • - DefensiveTeam• • •   Mos '
+                           '• t •   RespectedGuardDefe'
+                           'n der •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 87, 'ath': 88, 'clu': 92, 'def': 97, 'ins': 84, 'ply': 88},
                   'team': 'BOS',
-                  'theme': '• 2 • x •   • C • h • a • m • p • i • o • n •   • C • l • a • m • p •',
+                  'theme': '2xChampionClamp •',
                   'tier': 'ruby'},
  'ruby-white-86': {'badges': ['Silver Clamps', 'Silver Interceptor', 'Silver Catch & Shoot'],
                    'id': 'ruby-white-86',
@@ -16475,14 +16475,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Derrick White',
                    'ovr': 86,
                    'pos': 'SG',
-                   'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x '
-                            '•   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • S • e • c • o • n • d •   • '
-                            'T • e • a • m •   • • •   • C • h • a • m • p • i • o • n • s • h • i • p •   • G • l • u '
-                            '• e •   • G • u • a • r • d •',
+                   'quote': '2024NBAChampion• • •   2x '
+                            '•   All- DefensiveSecond• '
+                            'T eam• • •   ChampionshipGlu '
+                            '• e •   Guard •',
                    'sec_pos': 'PG',
                    'stats': {'3pt': 89, 'ath': 87, 'clu': 91, 'def': 94, 'ins': 82, 'ply': 85},
                    'team': 'BOS',
-                   'theme': '• T • w • o • - • W • a • y •   • G • l • u • e •',
+                   'theme': 'Two- WayGlue •',
                    'tier': 'ruby'},
  'ruby-derrickwhite-86': {'badges': ['Silver Clamps', 'Silver Interceptor', 'Silver Catch & Shoot'],
                           'id': 'ruby-derrickwhite-86',
@@ -16491,14 +16491,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Derrick White',
                           'ovr': 86,
                           'pos': 'SG',
-                          'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • '
-                                   '2 • x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • S • e • c • o '
-                                   '• n • d •   • T • e • a • m •   • • •   • C • h • a • m • p • i • o • n • s • h • '
-                                   'i • p •   • G • l • u • e •   • G • u • a • r • d •',
+                          'quote': '2024NBAChampion• • • '
+                                   '2 • x •   All- DefensiveSeco '
+                                   'ndTeam• • •   Championsh'
+                                   'i • p •   GlueGuard •',
                           'sec_pos': 'PG',
                           'stats': {'3pt': 90, 'ath': 86, 'clu': 85, 'def': 85, 'ins': 88, 'ply': 85},
                           'team': 'BOS',
-                          'theme': '• T • w • o • - • W • a • y •   • G • l • u • e •',
+                          'theme': 'Two- WayGlue •',
                           'tier': 'ruby'},
  'ruby-anunoby-85': {'badges': ['Silver Menace', 'Silver Glove', 'Silver Corner Specialist'],
                      'id': 'ruby-anunoby-85',
@@ -16507,13 +16507,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'OG Anunoby',
                      'ovr': 85,
                      'pos': 'SF',
-                     'quote': '• 2 • 0 • 1 • 9 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • N • B '
-                              '• A •   • S • t • e • a • l • s •   • L • e • a • d • e • r •   • • •   • L • o • c • k '
-                              '•   • D • o • w • n •   • P • e • r • i • m • e • t • e • r •   • C • l • a • m • p •',
+                     'quote': '2019NBAChampion• • •   NB '
+                              '• A •   StealsLeader• • •   Lock '
+                              '•   DownPerimeterClamp •',
                      'sec_pos': 'PF',
                      'stats': {'3pt': 87, 'ath': 90, 'clu': 87, 'def': 95, 'ins': 86, 'ply': 78},
                      'team': 'NYK',
-                     'theme': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
+                     'theme': 'DefensiveMenace •',
                      'tier': 'ruby'},
  'ruby-oganunoby-85': {'badges': ['Silver Menace', 'Silver Glove', 'Silver Corner Specialist'],
                        'id': 'ruby-oganunoby-85',
@@ -16522,14 +16522,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'OG Anunoby',
                        'ovr': 85,
                        'pos': 'SF',
-                       'quote': '• 2 • 0 • 1 • 9 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • N • '
-                                'B • A •   • S • t • e • a • l • s •   • L • e • a • d • e • r •   • • •   • L • o • c '
-                                '• k •   • D • o • w • n •   • P • e • r • i • m • e • t • e • r •   • C • l • a • m • '
+                       'quote': '2019NBAChampion• • • N • '
+                                'B • A •   StealsLeader• • •   Loc '
+                                '• k •   DownPerimeterClam'
                                 'p •',
                        'sec_pos': 'PF',
                        'stats': {'3pt': 82, 'ath': 89, 'clu': 88, 'def': 86, 'ins': 90, 'ply': 86},
                        'team': 'NYK',
-                       'theme': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
+                       'theme': 'DefensiveMenace •',
                        'tier': 'ruby'},
  'ruby-mikal-85': {'badges': ['Silver Clamps', 'Silver Pick Dodger', 'Silver Corner Specialist'],
                    'id': 'ruby-mikal-85',
@@ -16538,13 +16538,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Mikal Bridges',
                    'ovr': 85,
                    'pos': 'SF',
-                   'quote': '• N • B • A •   • I • r • o • n •   • M • a • n •   • • •   • A • l • l • - • D • e • f • '
-                            'e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 3 • - • a '
-                            '• n • d • - • D •   • P • e • r • f • e • c • t • i • o • n •',
+                   'quote': 'NBAIronMan• • •   All- Def'
+                            'e nsiveFirstTeam• • • 3 • - • a '
+                            'nd- • D •   Perfection •',
                    'sec_pos': 'SG',
                    'stats': {'3pt': 88, 'ath': 89, 'clu': 88, 'def': 93, 'ins': 84, 'ply': 81},
                    'team': 'NYK',
-                   'theme': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
+                   'theme': 'IronManLock •',
                    'tier': 'ruby'},
  'ruby-mikalbridges-85': {'badges': ['Silver Clamps', 'Silver Pick Dodger', 'Silver Corner Specialist'],
                           'id': 'ruby-mikalbridges-85',
@@ -16553,13 +16553,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Mikal Bridges',
                           'ovr': 85,
                           'pos': 'SF',
-                          'quote': '• N • B • A •   • I • r • o • n •   • M • a • n •   • • •   • A • l • l • - • D • '
-                                   'e • f • e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • • '
-                                   '•   • 3 • - • a • n • d • - • D •   • P • e • r • f • e • c • t • i • o • n •',
+                          'quote': 'NBAIronMan• • •   All- • D • '
+                                   'e fensiveFirstTeam• • '
+                                   '• 3 • - and- • D •   Perfection •',
                           'sec_pos': 'SG',
                           'stats': {'3pt': 86, 'ath': 87, 'clu': 85, 'def': 89, 'ins': 89, 'ply': 82},
                           'team': 'NYK',
-                          'theme': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
+                          'theme': 'IronManLock •',
                           'tier': 'ruby'},
  'ruby-gordon-85': {'badges': ['Silver Posterizer', 'Silver Aerial Wizard', 'Silver Post Lock'],
                     'id': 'ruby-gordon-85',
@@ -16568,14 +16568,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Aaron Gordon',
                     'ovr': 85,
                     'pos': 'PF',
-                    'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • L • e '
-                             '• g • e • n • d • a • r • y •   • D • u • n • k •   • C • o • n • t • e • s • t •   • I '
-                             '• c • o • n •   • • •   • P • o • w • e • r •   • D • u • n • k • e • r •   • & •   • D '
-                             '• e • f • e • n • s • i • v • e •   • A • n • c • h • o • r •',
+                    'quote': '2023NBAChampion• • •   Le '
+                             'gendaryDunkContest• I '
+                             'con• • •   PowerDunker• & • D '
+                             'efensiveAnchor •',
                     'sec_pos': 'SF',
                     'stats': {'3pt': 76, 'ath': 97, 'clu': 88, 'def': 92, 'ins': 95, 'ply': 82},
                     'team': 'DEN',
-                    'theme': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+                    'theme': 'DunkContestKing •',
                     'tier': 'ruby'},
  'ruby-aarongordon-85': {'badges': ['Silver Posterizer', 'Silver Aerial Wizard', 'Silver Post Lock'],
                          'id': 'ruby-aarongordon-85',
@@ -16584,14 +16584,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                          'name': 'Aaron Gordon',
                          'ovr': 85,
                          'pos': 'PF',
-                         'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • L '
-                                  '• e • g • e • n • d • a • r • y •   • D • u • n • k •   • C • o • n • t • e • s • t '
-                                  '•   • I • c • o • n •   • • •   • P • o • w • e • r •   • D • u • n • k • e • r •   '
-                                  '• & •   • D • e • f • e • n • s • i • v • e •   • A • n • c • h • o • r •',
+                         'quote': '2023NBAChampion• • • L '
+                                  'egendaryDunkContest '
+                                  '•   Icon• • •   PowerDunker'
+                                  '• & •   DefensiveAnchor •',
                          'sec_pos': 'SF',
                          'stats': {'3pt': 73, 'ath': 88, 'clu': 87, 'def': 90, 'ins': 90, 'ply': 75},
                          'team': 'DEN',
-                         'theme': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+                         'theme': 'DunkContestKing •',
                          'tier': 'ruby'},
  'ruby-green-84': {'id': 'ruby-green-84',
                    'name': 'Draymond Green',
@@ -16612,13 +16612,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Austin Reaves',
                     'ovr': 84,
                     'pos': 'SG',
-                    'quote': '• F • a • n •   • F • a • v • o • r • i • t • e •   • P • l • a • y • m • a • k • e • r '
-                             '•   • • •   • H • i • g • h •   • I • Q •   • P • i • c • k • - • a • n • d • - • R • o '
-                             '• l • l •   • B • a • l • l •   • H • a • n • d • l • e • r •',
+                    'quote': 'FanFavoritePlaymaker '
+                             '• • •   HighIQPick- and- Ro '
+                             'llBallHandler •',
                     'sec_pos': 'PG',
                     'stats': {'3pt': 88, 'ath': 83, 'clu': 91, 'def': 79, 'ins': 85, 'ply': 87},
                     'team': 'LAL',
-                    'theme': '• C • r • a • f • t • y •   • P • l • a • y • m • a • k • e • r •',
+                    'theme': 'CraftyPlaymaker •',
                     'tier': 'ruby'},
  'ruby-austinreaves-84': {'badges': ['Silver Dimer', 'Silver Space Creator', 'Silver Middy Magician'],
                           'id': 'ruby-austinreaves-84',
@@ -16627,13 +16627,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                           'name': 'Austin Reaves',
                           'ovr': 84,
                           'pos': 'SG',
-                          'quote': '• F • a • n •   • F • a • v • o • r • i • t • e •   • P • l • a • y • m • a • k • '
-                                   'e • r •   • • •   • H • i • g • h •   • I • Q •   • P • i • c • k • - • a • n • d '
-                                   '• - • R • o • l • l •   • B • a • l • l •   • H • a • n • d • l • e • r •',
+                          'quote': 'FanFavoritePlaymak'
+                                   'e • r • • •   HighIQPick- and '
+                                   '• - RollBallHandler •',
                           'sec_pos': 'PG',
                           'stats': {'3pt': 85, 'ath': 89, 'clu': 83, 'def': 81, 'ins': 85, 'ply': 84},
                           'team': 'LAL',
-                          'theme': '• C • r • a • f • t • y •   • P • l • a • y • m • a • k • e • r •',
+                          'theme': 'CraftyPlaymaker •',
                           'tier': 'ruby'},
  'ruby-andreiguodala-84': {'badges': ['Silver Clamps', 'Silver Catch & Shoot', 'Silver Acrobat'],
                            'id': 'ruby-andreiguodala-84',
@@ -16642,14 +16642,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                            'name': 'Andre Iguodala',
                            'ovr': 84,
                            'pos': 'C',
-                           'quote': '• N • B • A •   • A • l • l • - • S • t • a • r •   • ( • 2 • 0 • 1 • 2 • ) •   • '
-                                    '• •   • T • o • u • g • h •   • T • w • o • - • W • a • y •   • C • o • m • p • e '
-                                    '• t • i • t • o • r •',
+                           'quote': 'NBAAll- Star• ( 2012) • '
+                                    '• •   ToughTwo- WayCompe '
+                                    'titor •',
                            'sec_pos': 'SG',
                            'stats': {'3pt': 65, 'ath': 87, 'clu': 83, 'def': 91, 'ins': 89, 'ply': 71},
                            'team': 'WAS',
-                           'theme': '• A • l • l • - • S • t • a • r •   • S • t • a • n • d • o • u • t •   • ( • 2 • '
-                                    '0 • 1 • 2 • ) •',
+                           'theme': 'All- StarStandout• ( • 2 • '
+                                    '0 12) •',
                            'tier': 'ruby'},
  'gold-parker-83': {'id': 'gold-parker-83',
                     'name': 'Tony Parker',
@@ -16838,14 +16838,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                         'name': 'Alex Caruso',
                         'ovr': 81,
                         'pos': 'PG',
-                        'quote': '• 2 • 0 • 2 • 0 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 '
-                                 '• x •   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • • •   • R • e • l '
-                                 '• e • n • t • l • e • s • s •   • P • e • r • i • m • e • t • e • r •   • P • e • s '
+                        'quote': '2020NBAChampion• • • 2 '
+                                 '• x •   All- Defensive• • •   Rel '
+                                 'entlessPerimeterPes '
                                  '• t •',
                         'sec_pos': 'SG',
                         'stats': {'3pt': 77, 'ath': 80, 'clu': 81, 'def': 79, 'ins': 75, 'ply': 80},
                         'team': 'OKC',
-                        'theme': '• S • t • e • a • l • s •   • S • p • e • c • i • a • l • i • s • t •',
+                        'theme': 'StealsSpecialist •',
                         'tier': 'gold'},
  'gold-naz-82': {'id': 'gold-caruso-81',
                  'name': 'Alex Caruso',
@@ -16974,13 +16974,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Austin Reaves',
                   'ovr': 84,
                   'pos': 'SG',
-                  'quote': '• F • a • n •   • F • a • v • o • r • i • t • e •   • P • l • a • y • m • a • k • e • r '
-                           '•   • • •   • H • i • g • h •   • I • Q •   • P • i • c • k • - • a • n • d • - • R • o • '
-                           'l • l •   • B • a • l • l •   • H • a • n • d • l • e • r •',
+                  'quote': 'FanFavoritePlaymaker '
+                           '• • •   HighIQPick- and- Ro'
+                           'l • l •   BallHandler •',
                   'sec_pos': 'PG',
                   'stats': {'3pt': 88, 'ath': 83, 'clu': 91, 'def': 79, 'ins': 85, 'ply': 87},
                   'team': 'LAL',
-                  'theme': '• C • r • a • f • t • y •   • P • l • a • y • m • a • k • e • r •',
+                  'theme': 'CraftyPlaymaker •',
                   'tier': 'ruby'},
  'ruby-coby-85': {'badges': ['Silver Clamps', 'Silver Pick Dodger', 'Silver Corner Specialist'],
                   'id': 'ruby-mikal-85',
@@ -16989,13 +16989,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Mikal Bridges',
                   'ovr': 85,
                   'pos': 'SF',
-                  'quote': '• N • B • A •   • I • r • o • n •   • M • a • n •   • • •   • A • l • l • - • D • e • f • '
-                           'e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 3 • - • a '
-                           '• n • d • - • D •   • P • e • r • f • e • c • t • i • o • n •',
+                  'quote': 'NBAIronMan• • •   All- Def'
+                           'e nsiveFirstTeam• • • 3 • - • a '
+                           'nd- • D •   Perfection •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 88, 'ath': 89, 'clu': 88, 'def': 93, 'ins': 84, 'ply': 81},
                   'team': 'NYK',
-                  'theme': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
+                  'theme': 'IronManLock •',
                   'tier': 'ruby'},
  'ruby-gobert-86': {'badges': ['Silver Posterizer', 'Silver Aerial Wizard', 'Silver Post Lock'],
                     'id': 'ruby-gordon-85',
@@ -17004,14 +17004,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Aaron Gordon',
                     'ovr': 85,
                     'pos': 'PF',
-                    'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • L • e '
-                             '• g • e • n • d • a • r • y •   • D • u • n • k •   • C • o • n • t • e • s • t •   • I '
-                             '• c • o • n •   • • •   • P • o • w • e • r •   • D • u • n • k • e • r •   • & •   • D '
-                             '• e • f • e • n • s • i • v • e •   • A • n • c • h • o • r •',
+                    'quote': '2023NBAChampion• • •   Le '
+                             'gendaryDunkContest• I '
+                             'con• • •   PowerDunker• & • D '
+                             'efensiveAnchor •',
                     'sec_pos': 'SF',
                     'stats': {'3pt': 76, 'ath': 97, 'clu': 88, 'def': 92, 'ins': 95, 'ply': 82},
                     'team': 'DEN',
-                    'theme': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+                    'theme': 'DunkContestKing •',
                     'tier': 'ruby'},
  'ruby-herro-86': {'badges': ['Silver Clamps', 'Silver Interceptor', 'Silver Catch & Shoot'],
                    'id': 'ruby-white-86',
@@ -17020,14 +17020,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Derrick White',
                    'ovr': 86,
                    'pos': 'SG',
-                   'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x '
-                            '•   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • S • e • c • o • n • d •   • '
-                            'T • e • a • m •   • • •   • C • h • a • m • p • i • o • n • s • h • i • p •   • G • l • u '
-                            '• e •   • G • u • a • r • d •',
+                   'quote': '2024NBAChampion• • •   2x '
+                            '•   All- DefensiveSecond• '
+                            'T eam• • •   ChampionshipGlu '
+                            '• e •   Guard •',
                    'sec_pos': 'PG',
                    'stats': {'3pt': 89, 'ath': 87, 'clu': 91, 'def': 94, 'ins': 82, 'ply': 85},
                    'team': 'BOS',
-                   'theme': '• T • w • o • - • W • a • y •   • G • l • u • e •',
+                   'theme': 'Two- WayGlue •',
                    'tier': 'ruby'},
  'ruby-ingram-86': {'badges': ['Silver Menace', 'Silver Glove', 'Silver Corner Specialist'],
                     'id': 'ruby-anunoby-85',
@@ -17036,13 +17036,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'OG Anunoby',
                     'ovr': 85,
                     'pos': 'SF',
-                    'quote': '• 2 • 0 • 1 • 9 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • N • B '
-                             '• A •   • S • t • e • a • l • s •   • L • e • a • d • e • r •   • • •   • L • o • c • k '
-                             '•   • D • o • w • n •   • P • e • r • i • m • e • t • e • r •   • C • l • a • m • p •',
+                    'quote': '2019NBAChampion• • •   NB '
+                             '• A •   StealsLeader• • •   Lock '
+                             '•   DownPerimeterClamp •',
                     'sec_pos': 'PF',
                     'stats': {'3pt': 87, 'ath': 90, 'clu': 87, 'def': 95, 'ins': 86, 'ply': 78},
                     'team': 'NYK',
-                    'theme': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
+                    'theme': 'DefensiveMenace •',
                     'tier': 'ruby'},
  'ruby-lauri-85': {'badges': ['Silver Posterizer', 'Silver Aerial Wizard', 'Silver Post Lock'],
                    'id': 'ruby-gordon-85',
@@ -17051,14 +17051,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Aaron Gordon',
                    'ovr': 85,
                    'pos': 'PF',
-                   'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • L • e • '
-                            'g • e • n • d • a • r • y •   • D • u • n • k •   • C • o • n • t • e • s • t •   • I • c '
-                            '• o • n •   • • •   • P • o • w • e • r •   • D • u • n • k • e • r •   • & •   • D • e • '
-                            'f • e • n • s • i • v • e •   • A • n • c • h • o • r •',
+                   'quote': '2023NBAChampion• • •   Le'
+                            'g endaryDunkContestIc '
+                            'on• • •   PowerDunker• & •   De'
+                            'f ensiveAnchor •',
                    'sec_pos': 'SF',
                    'stats': {'3pt': 76, 'ath': 97, 'clu': 88, 'def': 92, 'ins': 95, 'ply': 82},
                    'team': 'DEN',
-                   'theme': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+                   'theme': 'DunkContestKing •',
                    'tier': 'ruby'},
  'ruby-lavine-86': {'badges': ['Silver Clamps', 'Silver Interceptor', 'Silver Catch & Shoot'],
                     'id': 'ruby-white-86',
@@ -17067,14 +17067,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Derrick White',
                     'ovr': 86,
                     'pos': 'SG',
-                    'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x '
-                             '•   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • S • e • c • o • n • d •   '
-                             '• T • e • a • m •   • • •   • C • h • a • m • p • i • o • n • s • h • i • p •   • G • l '
-                             '• u • e •   • G • u • a • r • d •',
+                    'quote': '2024NBAChampion• • •   2x '
+                             '•   All- DefensiveSecond'
+                             'Team• • •   ChampionshipGl '
+                             'ueGuard •',
                     'sec_pos': 'PG',
                     'stats': {'3pt': 89, 'ath': 87, 'clu': 91, 'def': 94, 'ins': 82, 'ply': 85},
                     'team': 'BOS',
-                    'theme': '• T • w • o • - • W • a • y •   • G • l • u • e •',
+                    'theme': 'Two- WayGlue •',
                     'tier': 'ruby'},
  'ruby-maxey-87': {'badges': ['Silver Clamps', 'Silver Interceptor', 'Silver Catch & Shoot'],
                    'id': 'ruby-white-86',
@@ -17083,14 +17083,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                    'name': 'Derrick White',
                    'ovr': 86,
                    'pos': 'SG',
-                   'quote': '• 2 • 0 • 2 • 4 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • 2 • x '
-                            '•   • A • l • l • - • D • e • f • e • n • s • i • v • e •   • S • e • c • o • n • d •   • '
-                            'T • e • a • m •   • • •   • C • h • a • m • p • i • o • n • s • h • i • p •   • G • l • u '
-                            '• e •   • G • u • a • r • d •',
+                   'quote': '2024NBAChampion• • •   2x '
+                            '•   All- DefensiveSecond• '
+                            'T eam• • •   ChampionshipGlu '
+                            '• e •   Guard •',
                    'sec_pos': 'PG',
                    'stats': {'3pt': 89, 'ath': 87, 'clu': 91, 'def': 94, 'ins': 82, 'ply': 85},
                    'team': 'BOS',
-                   'theme': '• T • w • o • - • W • a • y •   • G • l • u • e •',
+                   'theme': 'Two- WayGlue •',
                    'tier': 'ruby'},
  'ruby-porzingis-87': {'badges': ['Silver Posterizer', 'Silver Aerial Wizard', 'Silver Post Lock'],
                        'id': 'ruby-gordon-85',
@@ -17099,14 +17099,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                        'name': 'Aaron Gordon',
                        'ovr': 85,
                        'pos': 'PF',
-                       'quote': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • L • '
-                                'e • g • e • n • d • a • r • y •   • D • u • n • k •   • C • o • n • t • e • s • t •   '
-                                '• I • c • o • n •   • • •   • P • o • w • e • r •   • D • u • n • k • e • r •   • & '
-                                '•   • D • e • f • e • n • s • i • v • e •   • A • n • c • h • o • r •',
+                       'quote': '2023NBAChampion• • • L • '
+                                'e gendaryDunkContest'
+                                'Icon• • •   PowerDunker• & '
+                                '•   DefensiveAnchor •',
                        'sec_pos': 'SF',
                        'stats': {'3pt': 76, 'ath': 97, 'clu': 88, 'def': 92, 'ins': 95, 'ply': 82},
                        'team': 'DEN',
-                       'theme': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+                       'theme': 'DunkContestKing •',
                        'tier': 'ruby'},
  'ruby-scottie-86': {'badges': ['Silver Menace', 'Silver Glove', 'Silver Corner Specialist'],
                      'id': 'ruby-anunoby-85',
@@ -17115,13 +17115,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                      'name': 'OG Anunoby',
                      'ovr': 85,
                      'pos': 'SF',
-                     'quote': '• 2 • 0 • 1 • 9 •   • N • B • A •   • C • h • a • m • p • i • o • n •   • • •   • N • B '
-                              '• A •   • S • t • e • a • l • s •   • L • e • a • d • e • r •   • • •   • L • o • c • k '
-                              '•   • D • o • w • n •   • P • e • r • i • m • e • t • e • r •   • C • l • a • m • p •',
+                     'quote': '2019NBAChampion• • •   NB '
+                              '• A •   StealsLeader• • •   Lock '
+                              '•   DownPerimeterClamp •',
                      'sec_pos': 'PF',
                      'stats': {'3pt': 87, 'ath': 90, 'clu': 87, 'def': 95, 'ins': 86, 'ply': 78},
                      'team': 'NYK',
-                     'theme': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
+                     'theme': 'DefensiveMenace •',
                      'tier': 'ruby'},
  'ruby-wagner-86': {'badges': ['Silver Clamps', 'Silver Pick Dodger', 'Silver Corner Specialist'],
                     'id': 'ruby-mikal-85',
@@ -17130,13 +17130,13 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Mikal Bridges',
                     'ovr': 85,
                     'pos': 'SF',
-                    'quote': '• N • B • A •   • I • r • o • n •   • M • a • n •   • • •   • A • l • l • - • D • e • f '
-                             '• e • n • s • i • v • e •   • F • i • r • s • t •   • T • e • a • m •   • • •   • 3 • - '
-                             '• a • n • d • - • D •   • P • e • r • f • e • c • t • i • o • n •',
+                    'quote': 'NBAIronMan• • •   All- Def '
+                             'ensiveFirstTeam• • • 3 • - '
+                             'and- • D •   Perfection •',
                     'sec_pos': 'SG',
                     'stats': {'3pt': 88, 'ath': 89, 'clu': 88, 'def': 93, 'ins': 84, 'ply': 81},
                     'team': 'NYK',
-                    'theme': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
+                    'theme': 'IronManLock •',
                     'tier': 'ruby'},
  'amy-sabonis-90': {'badges': ['Gold Catch & Shoot', 'Gold Deadeye', 'Gold Rebound Chaser'],
                     'id': 'amy-kat-90',
@@ -17145,14 +17145,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                     'name': 'Karl-Anthony Towns',
                     'ovr': 90,
                     'pos': 'C',
-                    'quote': '• 4 • x •   • A • l • l • - • S • t • a • r •   • • •   • 3 • - • P • o • i • n • t •   '
-                             '• C • o • n • t • e • s • t •   • C • h • a • m • p • i • o • n •   • • •   • P • u • r '
-                             '• e •   • E • l • i • t • e •   • S • h • o • o • t • i • n • g •   • C • e • n • t • e '
+                    'quote': '4xAll- Star• • • 3 • - Point'
+                             'ContestChampion• • •   Pur '
+                             '• e •   EliteShootingCente '
                              '• r •',
                     'sec_pos': 'PF',
                     'stats': {'3pt': 95, 'ath': 86, 'clu': 90, 'def': 84, 'ins': 94, 'ply': 80},
                     'team': 'NYK',
-                    'theme': '• 3 • P • T •   • C • o • n • t • e • s • t •   • C • h • a • m • p •   • B • i • g •',
+                    'theme': '3PTContestChampBig •',
                     'tier': 'amethyst'},
  'amy-tymax-90': {'badges': ['Gold Middy Magician', 'Gold Fearless Finisher', 'Gold Dimer'],
                   'id': 'amy-brunson-92',
@@ -17161,14 +17161,14 @@ NBA_CARDS_BY_ID: Dict[str, Dict[str, Any]] = {'excl-wilt-99': {'badges': ['HOF 1
                   'name': 'Jalen Brunson',
                   'ovr': 92,
                   'pos': 'PG',
-                  'quote': '• A • l • l • - • N • B • A •   • S • e • c • o • n • d •   • T • e • a • m •   • • •   • '
-                           'M • S • G •   • P • l • a • y • o • f • f •   • H • e • r • o •   • • •   • M • a • s • t '
-                           '• e • r •   • o • f •   • t • h • e •   • P • i • v • o • t •   • & •   • F • o • o • t • '
-                           'w • o • r • k •',
+                  'quote': 'All- NBASecondTeam• • • '
+                           'M SGPlayoffHero• • •   Mast '
+                           'erofthePivot• & •   Foot'
+                           'w ork •',
                   'sec_pos': 'SG',
                   'stats': {'3pt': 92, 'ath': 88, 'clu': 97, 'def': 82, 'ins': 94, 'ply': 93},
                   'team': 'NYK',
-                  'theme': '• G • a • r • d • e • n •   • M • V • P •',
+                  'theme': 'GardenMVP •',
                   'tier': 'amethyst'}}
 
 NBA_LEGACY_CARD_MAPPINGS: Dict[str, str] = {'gold-naz-82': 'gold-caruso-81',
@@ -17700,292 +17700,292 @@ def format_stat_bar(val: int) -> str:
     filled = min(10, max(1, round(val / 10)))
     return "█" * filled + "░" * (10 - filled)
 
-NBA_REAL_MOMENTS: Dict[str, str] = {'excl-wilt-99': '• H • o • l • d • i • n • g •   • t • h • e •   • H • a • n • d • - • W • r • i • t • t • e • n •   '
-                 "• ' • 1 • 0 • 0 • ' •   • P • a • p • e • r •   • S • i • g • n •   • i • n •   • H • e • r • s • h "
-                 '• e • y •   • A • r • e • n • a •   • L • o • c • k • e • r •   • R • o • o • m •',
- 'excl-shaq-99': '• 2 • 0 • 0 • 0 •   • W • C • F •   • G • a • m • e •   • 7 •   • R • u • n • n • i • n • g •   • A '
-                 '• l • l • e • y • - • O • o • p •   • L • o • b •   • f • r • o • m •   • K • o • b • e •   • v • s '
-                 '•   • B • l • a • z • e • r • s •',
- 'excl-jordan-99': "• 1 • 9 • 9 • 8 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • ' • T • h • e •   • "
-                   "L • a • s • t •   • S • h • o • t • ' •   • O • v • e • r •   • B • r • y • o • n •   • R • u • s "
-                   '• s • e • l • l •   • f • o • r •   • 6 • t • h •   • R • i • n • g •',
- 'excl-magic-99': "• 1 • 9 • 8 • 7 •   • F • i • n • a • l • s •   • G • a • m • e •   • 4 •   • ' • J • u • n • i • o "
-                  "• r • , •   • J • u • n • i • o • r • ' •   • S • k • y • h • o • o • k •   • G • a • m • e • - • W "
-                  '• i • n • n • e • r •   • a • t •   • B • o • s • t • o • n •   • G • a • r • d • e • n •',
- 'excl-lebron-99': "• 2 • 0 • 1 • 6 •   • F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • ' • T • h • e •   • "
-                   "B • l • o • c • k • ' •   • o • n •   • A • n • d • r • e •   • I • g • u • o • d • a • l • a •   "
-                   '• & •   • C • h • a • m • p • i • o • n • s • h • i • p •   • T • e • a • r • s •',
- 'excl-kobe-99': '• 8 • 1 • - • P • o • i • n • t •   • H • i • s • t • o • r • i • c •   • M • a • s • t • e • r • p '
-                 '• i • e • c • e •   • v • s •   • R • a • p • t • o • r • s •   • & •   • I • n • d • e • x •   • F '
-                 '• i • n • g • e • r •   • t • o •   • t • h • e •   • S • k • y •',
- 'excl-kareem-99': '• 1 • 9 • 7 • 4 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • I • c • o • n • i • '
-                   'c •   • S • k • y • h • o • o • k •   • B • u • z • z • e • r • - • B • e • a • t • e • r •   • O '
-                   '• v • e • r •   • B • o • s • t • o • n •',
- 'excl-duncan-98': '• 2 • 0 • 0 • 3 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 2 • 1 •   • P • T • '
-                   'S • , •   • 2 • 0 •   • R • E • B • , •   • 1 • 0 •   • A • S • T • , •   • 8 •   • B • L • K •   '
-                   '• C • h • a • m • p • i • o • n • s • h • i • p •   • H • u • g •',
- 'excl-curry-98': "• 2 • 0 • 2 • 2 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • ' • N • i • g • h • t "
-                  "•   • N • i • g • h • t • ' •   • G • e • s • t • u • r • e •   • P • o • i • n • t • i • n • g •   "
-                  '• t • o •   • R • i • n • g •   • F • i • n • g • e • r •',
- 'excl-bird-98': '• 1 • 9 • 8 • 6 •   • 3 • P • T •   • C • o • n • t • e • s • t •   • L • a • s • t •   • S • h • o '
-                 '• t •   • F • i • n • g • e • r •   • i • n •   • t • h • e •   • A • i • r •   • B • e • f • o • r '
-                 '• e •   • i • t •   • D • r • o • p • p • e • d •   • & •   • J • a • c • k • e • t •   • O • n •',
- 'excl-durant-98': '• 2 • 0 • 1 • 7 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • C • o • l • d • - • '
-                   'B • l • o • o • d • e • d •   • P • u • l • l • - • U • p •   • 3 •   • O • v • e • r •   • L • e '
-                   '• B • r • o • n •   • J • a • m • e • s •',
- 'excl-hakeem-98': '• 1 • 9 • 9 • 4 •   • F • i • n • a • l • s •   • D • r • e • a • m •   • S • h • a • k • e •   • '
-                   'C • l • i • n • i • c •   • O • v • e • r •   • P • a • t • r • i • c • k •   • E • w • i • n • g '
-                   '•   • & •   • D • a • v • i • d •   • R • o • b • i • n • s • o • n •',
- 'excl-russell-98': '• 1 • 9 • 6 • 2 •   • F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • 3 • 0 •   • P • o • '
-                    'i • n • t • s •   • & •   • 4 • 0 •   • R • e • b • o • u • n • d • s •   • C • h • a • m • p • i '
-                    '• o • n • s • h • i • p •   • C • l • i • n • c • h • e • r •',
- 'excl-oscar-97': '• 1 • 9 • 7 • 1 •   • F • i • n • a • l • s •   • C • h • a • m • p • i • o • n • s • h • i • p •   '
-                  '• C • e • l • e • b • r • a • t • i • o • n •   • W • i • t • h •   • K • a • r • e • e • m •   • i '
-                  '• n •   • M • i • l • w • a • u • k • e • e •',
- 'excl-jokic-97': '• 2 • 0 • 2 • 3 •   • N • B • A •   • C • h • a • m • p • i • o • n • s • h • i • p •   • P • a • r '
-                  '• a • d • e •   • T • r • o • p • h • y •   • L • i • f • t •   • & •   • C • e • l • e • b • r • a '
-                  '• t • o • r • y •   • L • a • u • g • h •',
- 'excl-garnett-97': '• 2 • 0 • 0 • 8 •   • N • B • A •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • C • '
-                    "o • n • f • e • t • t • i •   • H • u • g •   • & •   • ' • A • N • Y • T • H • I • N • G •   • I "
-                    "• S •   • P • O • S • S • I • B • L • E • ! • ' •   • R • o • a • r •",
- 'excl-jerrywest-97': '• 1 • 9 • 7 • 0 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • 6 • 0 • - • F • o '
-                      '• o • t •   • B • u • z • z • e • r • - • B • e • a • t • i • n • g •   • H • a • l • f • - • C '
-                      '• o • u • r • t •   • M • i • r • a • c • l • e •   • S • h • o • t •',
- 'excl-giannis-97': '• 2 • 0 • 2 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 5 • 0 • - • P • o • '
-                    'i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • & •   • T • r • o • p • h • y •   '
-                    '• K • i • s • s •   • i • n •   • M • i • l • w • a • u • k • e • e •',
- 'excl-dirk-97': '• 2 • 0 • 1 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 2 •   • L • e • f • t • - • H '
-                 '• a • n • d • e • d •   • G • a • m • e • - • W • i • n • n • i • n • g •   • D • r • i • v • i • n '
-                 '• g •   • L • a • y • u • p •   • & •   • T • r • o • p • h • y •   • T • e • a • r • s •',
- 'excl-iverson-97': '• 2 • 0 • 0 • 1 •   • F • i • n • a • l • s •   • G • a • m • e •   • 1 •   • C • o • r • n • e • '
-                    'r •   • S • t • e • p • - • B • a • c • k •   • J • u • m • p • e • r •   • & •   • S • t • e • p '
-                    '• o • v • e • r •   • O • v • e • r •   • T • y • r • o • n • n •   • L • u • e •',
- 'excl-tmac-96': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • s •   • M '
-                 '• i • r • a • c • l • e •   • G • a • m • e • - • W • i • n • n • i • n • g •   • P • u • l • l • - '
-                 '• U • p •   • 3 •   • v • s •   • S • a • n •   • A • n • t • o • n • i • o •   • S • p • u • r • s '
+NBA_REAL_MOMENTS: Dict[str, str] = {'excl-wilt-99': 'HoldingtheHand- Written'
+                 "• ' 100' •   PaperSigninHersh "
+                 'eyArenaLockerRoom •',
+ 'excl-shaq-99': '2000WCFGame• 7 •   Running• A '
+                 'lley- OopLobfromKobevs '
+                 '•   Blazers •',
+ 'excl-jordan-99': "1998FinalsGame• 6 • ' The• "
+                   "L astShot' •   OverBryonRus "
+                   'sellfor6thRing •',
+ 'excl-magic-99': "1987FinalsGame• 4 • ' Junio "
+                  "• r • , •   Junior' •   SkyhookGame- • W "
+                  'inneratBostonGarden •',
+ 'excl-lebron-99': "2016FinalsGame• 7 • ' The• "
+                   "B lock' •   onAndreIguodala"
+                   '• & •   ChampionshipTears •',
+ 'excl-kobe-99': '81- PointHistoricMasterp '
+                 'iecevsRaptors• & •   Index• F '
+                 'ingertotheSky •',
+ 'excl-kareem-99': '1974FinalsGame• 6 •   Iconi'
+                   'c •   SkyhookBuzzer- Beater• O '
+                   'verBoston •',
+ 'excl-duncan-98': '2003FinalsGame• 6 •   21PT'
+                   'S • , •   20REB, •   10AST, • 8 •   BLK'
+                   'ChampionshipHug •',
+ 'excl-curry-98': "2022FinalsGame• 6 • ' Night "
+                  "•   Night' •   GesturePointing"
+                  'toRingFinger •',
+ 'excl-bird-98': '19863PTContestLastSho '
+                 '• t •   FingerintheAirBefor '
+                 '• e •   itDropped• & •   JacketOn •',
+ 'excl-durant-98': '2017FinalsGame• 3 •   Cold- • '
+                   'B loodedPull- Up• 3 •   OverLe '
+                   'BronJames •',
+ 'excl-hakeem-98': '1994FinalsDreamShake• '
+                   'C linicOverPatrickEwing '
+                   '• & •   DavidRobinson •',
+ 'excl-russell-98': '1962FinalsGame• 7 •   30Po'
+                    'i nts• & •   40ReboundsChampi '
+                    'onshipClincher •',
+ 'excl-oscar-97': '1971FinalsChampionship'
+                  'CelebrationWithKareem• i '
+                  '• n •   Milwaukee •',
+ 'excl-jokic-97': '2023NBAChampionshipPar '
+                  'adeTrophyLift• & •   Celebra '
+                  'toryLaugh •',
+ 'excl-garnett-97': '2008NBAFinalsGame• 6 • C • '
+                    "o nfettiHug• & • ' ANYTHING• I "
+                    "• S •   POSSIBLE! • ' •   Roar •",
+ 'excl-jerrywest-97': '1970FinalsGame• 3 •   60- Fo '
+                      'otBuzzer- BeatingHalf- • C '
+                      'ourtMiracleShot •',
+ 'excl-giannis-97': '2021FinalsGame• 6 •   50- Po'
+                    'i ntMasterpiece• & •   Trophy'
+                    'KissinMilwaukee •',
+ 'excl-dirk-97': '2011FinalsGame• 2 •   Left- • H '
+                 'andedGame- WinningDrivin '
+                 '• g •   Layup• & •   TrophyTears •',
+ 'excl-iverson-97': '2001FinalsGame• 1 •   Corne'
+                    'r •   Step- BackJumper• & •   Step '
+                    'overOverTyronnLue •',
+ 'excl-tmac-96': '13Pointsin33Seconds• M '
+                 'iracleGame- WinningPull- '
+                 'Up• 3 •   vsSanAntonioSpurs '
                  '•',
- 'excl-pippen-96': '• 1 • 9 • 9 • 4 •   • E • C • S • F •   • G • a • m • e •   • 6 •   • T • o • m • a • h • a • w • '
-                   'k •   • P • o • s • t • e • r •   • S • l • a • m •   • O • v • e • r •   • P • a • t • r • i • c '
-                   '• k •   • E • w • i • n • g •   • & •   • S • t • r • u • t •',
- 'excl-luka-96': '• I • n • t • e • n • t • i • o • n • a • l •   • M • i • s • s • e • d •   • F • r • e • e •   • T '
-                 '• h • r • o • w •   • P • u • t • b • a • c • k •   • B • u • z • z • e • r • - • B • e • a • t • e '
-                 '• r •   • & •   • D • a • n • c • i • n • g •   • J • i • g •   • v • s •   • K • n • i • c • k • s '
+ 'excl-pippen-96': '1994ECSFGame• 6 •   Tomahaw'
+                   'k •   PosterSlamOverPatric '
+                   '• k •   Ewing• & •   Strut •',
+ 'excl-luka-96': 'IntentionalMissedFree• T '
+                 'hrowPutbackBuzzer- Beate '
+                 '• r • & •   DancingJigvsKnicks '
                  '•',
- 'excl-embiid-96': '• 7 • 0 • - • P • o • i • n • t •   • M • a • s • t • e • r • p • i • e • c • e •   • C • e • l • '
-                   'e • b • r • a • t • i • o • n •   • & •   • R • o • a • r •   • v • s •   • S • a • n •   • A • n '
-                   '• t • o • n • i • o •   • S • p • u • r • s •',
- 'excl-isiah-96': '• 1 • 9 • 8 • 8 •   • F • i • n • a • l • s •   • G • a • m • e •   • 6 •   • 2 • 5 • - • P • o • i '
-                  '• n • t •   • S • i • n • g • l • e •   • Q • u • a • r • t • e • r •   • o • n •   • H • e • a • v '
-                  '• i • l • y •   • S • p • r • a • i • n • e • d •   • A • n • k • l • e •',
- 'excl-wade-96': '• 2 • 0 • 0 • 6 •   • F • i • n • a • l • s •   • G • a • m • e •   • 3 •   • C • o • m • e • b • a '
-                 '• c • k •   • R • o • a • r •   • & •   • J • u • m • p • i • n • g •   • o • n •   • S • c • o • r '
-                 "• e • r • ' • s •   • T • a • b • l • e •",
- 'excl-cp3-96': '• 2 • 0 • 2 • 1 •   • W • C • F •   • G • a • m • e •   • 6 •   • 4 • 1 • - • P • o • i • n • t •   • '
-                'S • e • c • o • n • d •   • H • a • l • f •   • E • r • u • p • t • i • o • n •   • a • t •   • S • t '
-                '• a • p • l • e • s •   • C • e • n • t • e • r •',
- 'excl-barkley-96': '• 1 • 9 • 9 • 3 •   • W • e • s • t • e • r • n •   • C • o • n • f • e • r • e • n • c • e •   • '
-                    'F • i • n • a • l • s •   • G • a • m • e •   • 7 •   • 4 • 4 • - • P • o • i • n • t •   • 2 • 4 '
-                    '• - • R • e • b • o • u • n • d •   • R • o • a • r •   • v • s •   • S • o • n • i • c • s •',
- 'excl-tatum-95': '• 2 • 0 • 2 • 4 •   • N • B • A •   • F • i • n • a • l • s •   • G • a • m • e •   • 5 •   • C • l '
-                  "• i • n • c • h • e • r •   • ' • W • e •   • D • i • d •   • I • t • ! • ' •   • T • r • o • p • h "
-                  '• y •   • S • c • r • e • a • m •   • & •   • C • o • n • f • e • t • t • i •',
- 'excl-wilkins-95': '• 1 • 9 • 8 • 8 •   • S • l • a • m •   • D • u • n • k •   • C • o • n • t • e • s • t •   • T • '
-                    'w • o • - • H • a • n • d • e • d •   • B • a • c • k • s • c • r • a • t • c • h • e • r •   • W '
-                    '• i • n • d • m • i • l • l •   • S • l • a • m •',
- 'excl-vince-94': '• 2 • 0 • 0 • 0 •   • S • l • a • m •   • D • u • n • k •   • C • o • n • t • e • s • t •   • H • o '
-                  '• n • e • y •   • D • i • p •   • E • l • b • o • w • - • I • n • - • T • h • e • - • R • i • m •   '
-                  '• & •   • 3 • 6 • 0 •   • W • i • n • d • m • i • l • l •   • S • l • a • m •',
- 'excl-bam-93': '• 2 • 0 • 2 • 0 •   • E • C • F •   • G • a • m • e •   • 1 •   • G • a • m • e • - • S • a • v • i • '
-                'n • g •   • L • e • f • t • - • H • a • n • d • e • d •   • R • i • m •   • R • e • j • e • c • t • i '
-                '• o • n •   • o • n •   • J • a • y • s • o • n •   • T • a • t • u • m •',
- 'dm-wiltchamberlain-99': '• 1 • 0 • 0 • - • P • o • i • n • t •   • D • o • m • i • n • a • t • o • r •',
- 'dm-wemby-99': '• A • l • i • e • n •   • I • n • v • i • n • c • i • b • l • e •',
- 'dm-victorwembanyama-99': '• A • l • i • e • n •   • I • n • v • i • n • c • i • b • l • e •',
- 'dm-timduncan-99': '• T • h • e •   • B • i • g •   • F • u • n • d • a • m • e • n • t • a • l •',
- 'dm-curry-99': '• U • n • a • n • i • m • o • u • s •   • M • V • P •',
- 'dm-stephencurry-99': '• U • n • a • n • i • m • o • u • s •   • M • V • P •',
- 'dm-shaq-99': '• D • i • e • s • e • l •   • D • o • m • i • n • a • n • c • e •',
- 'dm-shaquilleoneal-99': '• D • i • e • s • e • l •   • D • o • m • i • n • a • n • c • e •',
- 'dm-jordan-99': '• G • . • O • . • A • . • T • . •   • E • d • i • t • i • o • n •',
- 'dm-mj-99': '• 6 • x •   • C • h • a • m • p • i • o • n •   • S • i • l • h • o • u • e • t • t • e •',
- 'dm-michaeljordan-99': '• G • . • O • . • A • . • T • . •   • E • d • i • t • i • o • n •',
- 'dm-magic-99': '• S • h • o • w • t • i • m • e •   • M • a • e • s • t • r • o •',
- 'dm-magicjohnson-99': '• S • h • o • w • t • i • m • e •   • M • a • e • s • t • r • o •',
- 'dm-lebron-99': '• I • n • v • i • n • c • i • b • l • e •   • K • i • n • g •',
- 'dm-lebronjames-99': '• A • l • l • - • T • i • m • e •   • S • c • o • r • i • n • g •   • K • i • n • g •',
- 'dm-bird-99': '• B • o • s • t • o • n •   • L • e • g • e • n • d •',
- 'dm-larrybird-99': '• B • o • s • t • o • n •   • L • e • g • e • n • d •',
- 'dm-kobe-99': '• 8 • 1 • - • P • t •   • M • a • s • t • e • r • p • i • e • c • e •',
- 'dm-kobebryant-99': '• 8 • 1 • - • P • t •   • M • a • m • b • a •',
- 'dm-kd-99': '• S • l • i • m •   • R • e • a • p • e • r •   • 3 • - • L • e • v • e • l •',
- 'dm-kareemabduljabbar-99': '• S • k • y • h • o • o • k •   • M • a • s • t • e • r •',
- 'dm-hakeemolajuwon-99': '• T • h • e •   • D • r • e • a • m •   • S • h • a • k • e •',
- 'dm-giannis-99': '• G • r • e • e • k •   • F • r • e • a • k •   • M • V • P •',
- 'dm-billrussell-99': '• 1 • 1 • x •   • C • h • a • m • p • i • o • n •   • A • n • c • h • o • r •',
- 'dm-lebron-98': '• A • l • l • - • T • i • m • e •   • S • c • o • r • i • n • g •   • K • i • n • g •',
- 'go-waltfrazier-98': '• C • l • y • d • e •   • 1 • 9 • 7 • 0 •   • F • i • n • a • l • s •   • 3 • 6 • - • 1 • 9 •',
- 'go-tmac-98': '• 1 • 3 •   • i • n •   • 3 • 5 • s •',
- 'go-tracymcgrady-98': '• 1 • 3 •   • P • o • i • n • t • s •   • i • n •   • 3 • 3 •   • S • e • c • o • n • d • s •',
- 'go-duncan-98': '• T • h • e •   • B • i • g •   • F • u • n • d • a • m • e • n • t • a • l •',
- 'go-stevenash-98': '• 7 •   • S • e • c • o • n • d • s •   • o • r •   • L • e • s • s •   • M • V • P •',
- 'go-scottiepippen-98': '• 6 • x •   • C • h • a • m • p • i • o • n •   • L • o • c • k • d • o • w • n •',
- 'go-paulgeorge-98': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • x •   '
-                     '• A • l • l • - • S • t • a • r • ) •',
- 'go-patrickewing-98': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 1 • 1 • '
-                       'x •   • A • l • l • - • S • t • a • r • ) •',
- 'go-oscarrobertson-98': '• T • h • e •   • B • i • g •   • O •   • T • r • i • p • l • e • - • D • o • u • b • l • e '
+ 'excl-embiid-96': '70- PointMasterpieceCel'
+                   'e bration• & •   RoarvsSanAn '
+                   'tonioSpurs •',
+ 'excl-isiah-96': '1988FinalsGame• 6 •   25- Poi '
+                  'ntSingleQuarteronHeav '
+                  'ilySprainedAnkle •',
+ 'excl-wade-96': '2006FinalsGame• 3 •   Comeba '
+                 'ckRoar• & •   JumpingonScor '
+                 "er' • s •   Table •",
+ 'excl-cp3-96': '2021WCFGame• 6 •   41- Point• '
+                'S econdHalfEruptionatSt '
+                'aplesCenter •',
+ 'excl-barkley-96': '1993WesternConference• '
+                    'F inalsGame• 7 •   44- Point24 '
+                    '• - ReboundRoarvsSonics •',
+ 'excl-tatum-95': '2024NBAFinalsGame• 5 •   Cl '
+                  "incher• ' WeDidIt! • ' •   Troph "
+                  '• y •   Scream• & •   Confetti •',
+ 'excl-wilkins-95': '1988SlamDunkContest• T • '
+                    'w • o • - HandedBackscratcher• W '
+                    'indmillSlam •',
+ 'excl-vince-94': '2000SlamDunkContestHo '
+                  'neyDipElbow- In- The- Rim'
+                  '• & •   360WindmillSlam •',
+ 'excl-bam-93': '2020ECFGame• 1 •   Game- Savi'
+                'n • g •   Left- HandedRimRejecti '
+                'ononJaysonTatum •',
+ 'dm-wiltchamberlain-99': '100- PointDominator •',
+ 'dm-wemby-99': 'AlienInvincible •',
+ 'dm-victorwembanyama-99': 'AlienInvincible •',
+ 'dm-timduncan-99': 'TheBigFundamental •',
+ 'dm-curry-99': 'UnanimousMVP •',
+ 'dm-stephencurry-99': 'UnanimousMVP •',
+ 'dm-shaq-99': 'DieselDominance •',
+ 'dm-shaquilleoneal-99': 'DieselDominance •',
+ 'dm-jordan-99': '• G • . • O • . • A • . • T • . •   Edition •',
+ 'dm-mj-99': '6xChampionSilhouette •',
+ 'dm-michaeljordan-99': '• G • . • O • . • A • . • T • . •   Edition •',
+ 'dm-magic-99': 'ShowtimeMaestro •',
+ 'dm-magicjohnson-99': 'ShowtimeMaestro •',
+ 'dm-lebron-99': 'InvincibleKing •',
+ 'dm-lebronjames-99': 'All- TimeScoringKing •',
+ 'dm-bird-99': 'BostonLegend •',
+ 'dm-larrybird-99': 'BostonLegend •',
+ 'dm-kobe-99': '81- PtMasterpiece •',
+ 'dm-kobebryant-99': '81- PtMamba •',
+ 'dm-kd-99': 'SlimReaper• 3 • - Level •',
+ 'dm-kareemabduljabbar-99': 'SkyhookMaster •',
+ 'dm-hakeemolajuwon-99': 'TheDreamShake •',
+ 'dm-giannis-99': 'GreekFreakMVP •',
+ 'dm-billrussell-99': '11xChampionAnchor •',
+ 'dm-lebron-98': 'All- TimeScoringKing •',
+ 'go-waltfrazier-98': 'Clyde1970Finals36- 19 •',
+ 'go-tmac-98': '13in35s •',
+ 'go-tracymcgrady-98': '13Pointsin33Seconds •',
+ 'go-duncan-98': 'TheBigFundamental •',
+ 'go-stevenash-98': '• 7 •   SecondsorLessMVP •',
+ 'go-scottiepippen-98': '6xChampionLockdown •',
+ 'go-paulgeorge-98': 'HallofFameLegend• ( 9x'
+                     'All- Star) •',
+ 'go-patrickewing-98': 'HallofFameLegend• ( 11'
+                       'x •   All- Star) •',
+ 'go-oscarrobertson-98': 'TheBig• O •   Triple- Double '
                          '•',
- 'go-jokic-98': '• P • o • i • n • t •   • C • e • n • t • e • r •   • G • e • n • i • u • s •',
- 'go-nikolajokic-98': '• 3 • x •   • M • V • P •   • P • o • i • n • t •   • C • e • n • t • e • r •',
- 'go-mosesmalone-98': '• C • h • a • i • r • m • a • n •   • o • f •   • t • h • e •   • B • o • a • r • d • s •',
- 'go-luka-98': '• T • r • i • p • l • e •   • D • o • u • b • l • e •   • K • i • n • g •',
- 'go-lukadoncic-98': '• 6 • 0 • - • P • t •   • T • r • i • p • l • e • - • D • o • u • b • l • e •   • K • i • n • g '
+ 'go-jokic-98': 'PointCenterGenius •',
+ 'go-nikolajokic-98': '3xMVPPointCenter •',
+ 'go-mosesmalone-98': 'ChairmanoftheBoards •',
+ 'go-luka-98': 'TripleDoubleKing •',
+ 'go-lukadoncic-98': '60- PtTriple- DoubleKing '
                      '•',
- 'go-kyrieirving-98': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • x •   '
-                      '• A • l • l • - • S • t • a • r • ) •',
- 'go-kevingarnett-98': '• T • h • e •   • B • i • g •   • T • i • c • k • e • t •',
- 'go-kevindurant-98': '• S • l • i • m •   • R • e • a • p • e • r •   • 3 • - • L • e • v • e • l •',
- 'go-karlmalone-98': '• T • h • e •   • M • a • i • l • m • a • n •   • P • i • c • k •   • & •   • R • o • l • l •',
- 'go-juliuserving-98': '• D • r • . •   • J •   • A • b • o • v • e •   • t • h • e •   • R • i • m •',
- 'go-johnstockton-98': '• A • l • l • - • T • i • m • e •   • A • s • s • i • s • t •   • K • i • n • g •',
- 'go-embiid-98': '• P • r • o • c • e • s • s •   • M • V • P •',
- 'go-joelembiid-98': '• 7 • 0 • - • P • t •   • M • V • P •   • P • r • o • c • e • s • s •',
- 'go-jerrywest-98': '• T • h • e •   • N • B • A •   • L • o • g • o •',
- 'go-tatum-98': '• F • i • n • a • l • s •   • C • h • a • m • p • i • o • n •',
- 'go-jaysontatum-98': '• 2 • 0 • 2 • 4 •   • C • h • a • m • p • i • o • n •   • W • i • n • g •',
- 'go-jasonkidd-98': '• T • r • i • p • l • e • - • D • o • u • b • l • e •   • G • e • n • e • r • a • l •',
- 'go-isiahthomas-98': '• B • a • d •   • B • o • y • s •   • G • e • n • e • r • a • l •',
- 'go-giannisantetokounmpo-98': '• G • r • e • e • k •   • F • r • e • a • k •   • D • o • m • i • n • a • n • c • e •',
- 'go-elginbaylor-98': '• A • c • r • o • b • a • t • i • c •   • P • i • o • n • e • e • r •',
- 'go-dwyanewade-98': '• F • l • a • s • h •   • F • i • n • a • l • s •   • M • V • P •',
- 'go-dominiquewilkins-98': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • '
-                           'x •   • A • l • l • - • S • t • a • r • ) •',
- 'go-dirknowitzki-98': '• O • n • e • - • L • e • g •   • F • a • d • e • a • w • a • y •   • R • i • n • g •',
- 'go-davidrobinson-98': '• T • h • e •   • A • d • m • i • r • a • l •   • Q • u • a • d • r • u • p • l • e • - • D • '
-                        'o • u • b • l • e •',
- 'go-damianlillard-98': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 9 • x '
-                        '•   • A • l • l • - • S • t • a • r • ) •',
- 'go-clydedrexler-98': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 1 • 0 • '
-                       'x •   • A • l • l • - • S • t • a • r • ) •',
- 'go-charlesbarkley-98': '• R • o • u • n • d •   • M • o • u • n • d •   • o • f •   • R • e • b • o • u • n • d •',
- 'go-willisreed-97': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 7 • x •   '
-                     '• A • l • l • - • S • t • a • r • ) •',
- 'go-vincecarter-97': '• H • a • l • f • - • M • a • n •   • H • a • l • f • - • A • m • a • z • i • n • g •',
- 'go-tonyparker-97': '• 2 • 0 • 0 • 7 •   • F • i • n • a • l • s •   • M • V • P •   • T • e • a • r • d • r • o • p '
+ 'go-kyrieirving-98': 'HallofFameLegend• ( 9x'
+                      'All- Star) •',
+ 'go-kevingarnett-98': 'TheBigTicket •',
+ 'go-kevindurant-98': 'SlimReaper• 3 • - Level •',
+ 'go-karlmalone-98': 'TheMailmanPick• & •   Roll •',
+ 'go-juliuserving-98': 'Dr. • J •   AbovetheRim •',
+ 'go-johnstockton-98': 'All- TimeAssistKing •',
+ 'go-embiid-98': 'ProcessMVP •',
+ 'go-joelembiid-98': '70- PtMVPProcess •',
+ 'go-jerrywest-98': 'TheNBALogo •',
+ 'go-tatum-98': 'FinalsChampion •',
+ 'go-jaysontatum-98': '2024ChampionWing •',
+ 'go-jasonkidd-98': 'Triple- DoubleGeneral •',
+ 'go-isiahthomas-98': 'BadBoysGeneral •',
+ 'go-giannisantetokounmpo-98': 'GreekFreakDominance •',
+ 'go-elginbaylor-98': 'AcrobaticPioneer •',
+ 'go-dwyanewade-98': 'FlashFinalsMVP •',
+ 'go-dominiquewilkins-98': 'HallofFameLegend• ( • 9 • '
+                           'x •   All- Star) •',
+ 'go-dirknowitzki-98': 'One- LegFadeawayRing •',
+ 'go-davidrobinson-98': 'TheAdmiralQuadruple- • D • '
+                        'o uble •',
+ 'go-damianlillard-98': 'HallofFameLegend• ( 9x '
+                        '•   All- Star) •',
+ 'go-clydedrexler-98': 'HallofFameLegend• ( 10'
+                       'x •   All- Star) •',
+ 'go-charlesbarkley-98': 'RoundMoundofRebound •',
+ 'go-willisreed-97': 'HallofFameLegend• ( 7x'
+                     'All- Star) •',
+ 'go-vincecarter-97': 'Half- ManHalf- Amazing •',
+ 'go-tonyparker-97': '2007FinalsMVPTeardrop '
                      '•',
- 'go-timhardaway-97': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 5 • x •   '
-                      '• A • l • l • - • S • t • a • r • ) •',
- 'go-curry-97': '• G • r • e • a • t • e • s • t •   • S • h • o • o • t • e • r •   • E • v • e • r •',
- 'go-russellwestbrook-97': '• T • r • i • p • l • e • - • D • o • u • b • l • e •   • S • e • a • s • o • n •   • M • '
+ 'go-timhardaway-97': 'HallofFameLegend• ( 5x'
+                      'All- Star) •',
+ 'go-curry-97': 'GreatestShooterEver •',
+ 'go-russellwestbrook-97': 'Triple- DoubleSeason• M • '
                            'V • P •',
- 'go-rickbarry-97': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 8 • x •   • '
-                    'A • l • l • - • S • t • a • r • ) •',
- 'go-reggiemiller-97': '• 8 •   • P • o • i • n • t • s •   • i • n •   • 9 •   • S • e • c • o • n • d • s •',
- 'go-rayallen-97': '• G • a • m • e •   • 6 •   • C • o • r • n • e • r •   • M • i • r • a • c • l • e •',
- 'go-petemaravich-97': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 5 • x '
-                       '•   • A • l • l • - • S • t • a • r • ) •',
- 'go-paulpierce-97': '• T • h • e •   • T • r • u • t • h •   • F • i • n • a • l • s •   • M • V • P •',
- 'go-jokic-97': '• 3 • x •   • M • V • P •   • M • a • e • s • t • r • o •',
- 'go-kawhi-97': '• T • h • e •   • C • l • a • w •   • L • o • c • k •',
- 'go-kawhileonard-97': '• T • h • e •   • C • l • a • w •   • L • o • c • k • d • o • w • n •',
- 'go-butler-97': '• P • l • a • y • o • f • f •   • J • i • m • m • y •',
- 'go-jimmybutler-97': '• P • l • a • y • o • f • f •   • J • i • m • m • y •   • E • n • f • o • r • c • e • r •',
- 'go-jamesharden-97': '• T • h • e •   • S • t • e • p • b • a • c • k •   • M • V • P •',
- 'go-granthill-97': '• P • o • i • n • t •   • F • o • r • w • a • r • d •   • P • h • e • n • o • m •',
- 'go-garypayton-97': '• T • h • e •   • G • l • o • v • e •   • D • P • O • Y •   • G • u • a • r • d •',
- 'go-dwighthoward-97': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 8 • x '
-                       '•   • A • l • l • - • S • t • a • r • ) •',
- 'go-donovanmitchell-97': '• H • a • l • l •   • o • f •   • F • a • m • e •   • L • e • g • e • n • d •   • ( • 7 • x '
-                          '•   • A • l • l • - • S • t • a • r • ) •',
- 'go-dikembemutombo-97': '• F • i • n • g • e • r •   • W • a • g •   • 4 • x •   • D • P • O • Y •',
- 'go-chrispaul-97': '• P • o • i • n • t •   • G • o • d •   • F • l • o • o • r •   • G • e • n • e • r • a • l •',
- 'go-carmeloanthony-97': '• O • l • y • m • p • i • c •   • G • o • l • d •   • & •   • 6 • 2 • - • P • t •   • M • S '
+ 'go-rickbarry-97': 'HallofFameLegend• ( 8x• '
+                    'A ll- Star) •',
+ 'go-reggiemiller-97': '• 8 •   Pointsin• 9 •   Seconds •',
+ 'go-rayallen-97': 'Game• 6 •   CornerMiracle •',
+ 'go-petemaravich-97': 'HallofFameLegend• ( 5x '
+                       '•   All- Star) •',
+ 'go-paulpierce-97': 'TheTruthFinalsMVP •',
+ 'go-jokic-97': '3xMVPMaestro •',
+ 'go-kawhi-97': 'TheClawLock •',
+ 'go-kawhileonard-97': 'TheClawLockdown •',
+ 'go-butler-97': 'PlayoffJimmy •',
+ 'go-jimmybutler-97': 'PlayoffJimmyEnforcer •',
+ 'go-jamesharden-97': 'TheStepbackMVP •',
+ 'go-granthill-97': 'PointForwardPhenom •',
+ 'go-garypayton-97': 'TheGloveDPOYGuard •',
+ 'go-dwighthoward-97': 'HallofFameLegend• ( 8x '
+                       '•   All- Star) •',
+ 'go-donovanmitchell-97': 'HallofFameLegend• ( 7x '
+                          '•   All- Star) •',
+ 'go-dikembemutombo-97': 'FingerWag4xDPOY •',
+ 'go-chrispaul-97': 'PointGodFloorGeneral •',
+ 'go-carmeloanthony-97': 'OlympicGold• & •   62- PtMS '
                          '• G •',
- 'go-bobcousy-97': '• H • o • u • d • i • n • i •   • o • f •   • t • h • e •   • H • a • r • d • w • o • o • d •',
- 'go-ad-97': '• T • h • e •   • B • r • o • w •   • A • n • c • h • o • r •',
- 'go-anthonydavis-97': '• T • h • e •   • B • r • o • w •   • D • e • f • e • n • s • i • v • e •   • W • a • l • l •',
- 'go-alonzomourning-97': '• 2 • x •   • D • P • O • Y •   • P • a • i • n • t •   • P • r • o • t • e • c • t • o • r '
+ 'go-bobcousy-97': 'HoudinioftheHardwood •',
+ 'go-ad-97': 'TheBrowAnchor •',
+ 'go-anthonydavis-97': 'TheBrowDefensiveWall •',
+ 'go-alonzomourning-97': '2xDPOYPaintProtector '
                          '•',
- 'go-iverson-97': '• T • h • e •   • A • n • s • w • e • r •',
- 'go-alleniverson-97': '• T • h • e •   • A • n • s • w • e • r •   • C • r • o • s • s • o • v • e • r •',
- 'go-durant-96': '• S • l • i • m •   • R • e • a • p • e • r •',
- 'dia-sga-96': '• S • m • o • o • t • h •   • M • V • P •   • F • i • n • a • l • i • s • t •',
- 'dia-klaythompson-96': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 • x • ) •',
- 'dia-karlanthonytowns-96': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 6 • x • '
+ 'go-iverson-97': 'TheAnswer •',
+ 'go-alleniverson-97': 'TheAnswerCrossover •',
+ 'go-durant-96': 'SlimReaper •',
+ 'dia-sga-96': 'SmoothMVPFinalist •',
+ 'dia-klaythompson-96': 'FranchiseAll- Star• ( 5x) •',
+ 'dia-karlanthonytowns-96': 'FranchiseAll- Star• ( 6x'
                             ') •',
- 'dia-jaylenbrown-96': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 • x • ) •',
- 'dia-hakeem-96': '• T • h • e •   • D • r • e • a • m •   • S • h • a • k • e •',
- 'dia-devinbooker-96': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 5 • x • ) •',
- 'dia-blakegriffin-96': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 6 • x • ) •',
- 'dia-traeyoung-95': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) •',
- 'dia-sga-95': '• M • V • P •   • T • a • k • e • o • v • e • r •',
- 'dia-shaigilgeousalexander-95': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 '
+ 'dia-jaylenbrown-96': 'FranchiseAll- Star• ( 5x) •',
+ 'dia-hakeem-96': 'TheDreamShake •',
+ 'dia-devinbooker-96': 'FranchiseAll- Star• ( 5x) •',
+ 'dia-blakegriffin-96': 'FranchiseAll- Star• ( 6x) •',
+ 'dia-traeyoung-95': 'FranchiseAll- Star• ( 4x) •',
+ 'dia-sga-95': 'MVPTakeover •',
+ 'dia-shaigilgeousalexander-95': 'FranchiseAll- Star• ( • 4 '
                                  '• x • ) •',
- 'dia-pennyhardaway-95': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) '
+ 'dia-pennyhardaway-95': 'FranchiseAll- Star• ( 4x) '
                          '•',
- 'dia-kyrie-95': '• A • n • k • l • e •   • B • r • e • a • k • e • r •   • M • a • s • t • e • r •',
- 'dia-draymondgreen-95': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) '
+ 'dia-kyrie-95': 'AnkleBreakerMaster •',
+ 'dia-draymondgreen-95': 'FranchiseAll- Star• ( 4x) '
                          '•',
- 'dia-dirk-95': '• O • n • e • - • L • e • g •   • F • a • d • e • a • w • a • y •',
- 'dia-ant-95': '• A • n • t • - • M • a • n •   • P • o • s • t • e • r • i • z • e • r •',
- 'dia-anthonyedwards-95': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 4 • x • ) '
+ 'dia-dirk-95': 'One- LegFadeaway •',
+ 'dia-ant-95': 'Ant- ManPosterizer •',
+ 'dia-anthonyedwards-95': 'FranchiseAll- Star• ( 4x) '
                           '•',
- 'dia-hali-94': '• D • i • m • e • r •   • S • p • e • c • i • a • l • i • s • t •',
- 'dia-tatum-94': '• 2 • 0 • 2 • 4 •   • C • h • a • m • p • i • o • n •',
- 'dia-jalenbrunson-94': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 3 • x • ) •',
- 'dia-giannis-94': '• 2 • x •   • M • V • P •   • G • r • e • e • k •   • F • r • e • a • k •',
- 'dia-spida-94': '• 7 • 1 • - • P • t •   • E • x • p • l • o • s • i • o • n •',
- 'dia-booker-94': '• 7 • 0 • - • P • t •   • S • c • o • r • e • r •',
- 'dia-dame-94': '• D • a • m • e •   • T • i • m • e •   • C • l • u • t • c • h •',
- 'dia-bamadebayo-94': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 3 • x • ) •',
- 'dia-zionwilliamson-93': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) '
+ 'dia-hali-94': 'DimerSpecialist •',
+ 'dia-tatum-94': '2024Champion •',
+ 'dia-jalenbrunson-94': 'FranchiseAll- Star• ( 3x) •',
+ 'dia-giannis-94': '2xMVPGreekFreak •',
+ 'dia-spida-94': '71- PtExplosion •',
+ 'dia-booker-94': '70- PtScorer •',
+ 'dia-dame-94': 'DameTimeClutch •',
+ 'dia-bamadebayo-94': 'FranchiseAll- Star• ( 3x) •',
+ 'dia-zionwilliamson-93': 'FranchiseAll- Star• ( 2x) '
                           '•',
- 'dia-victorwembanyama-93': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • '
+ 'dia-victorwembanyama-93': 'FranchiseAll- Star• ( 2x'
                             ') •',
- 'dia-tyresehaliburton-93': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • '
+ 'dia-tyresehaliburton-93': 'FranchiseAll- Star• ( 2x'
                             ') •',
- 'dia-jrueholiday-93': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
- 'dia-morant-93': '• G • r • a • v • i • t • y •   • D • e • f • i • e • r •',
- 'dia-jamorant-93': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
- 'dia-deaaronfox-93': '• F • r • a • n • c • h • i • s • e •   • A • l • l • - • S • t • a • r •   • ( • 2 • x • ) •',
- 'dia-bam-93': '• D • P • O • Y •   • F • i • n • a • l • i • s • t •',
- 'dia-adavis-93': '• B • r • o • w •   • D • o • m • i • n • a • n • c • e •',
- 'amy-brunson-92': '• G • a • r • d • e • n •   • M • V • P •',
- 'amy-manuginobili-91': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 2 • x • ) •',
- 'amy-brown-91': '• F • i • n • a • l • s •   • M • V • P •',
- 'amy-billwalton-91': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 2 • x • ) •',
- 'amy-zion-90': '• P • a • i • n • t •   • B • u • l • l • d • o • z • e • r •',
- 'amy-paolo-90': '• A • l • l • - • S • t • a • r •   • P • o • i • n • t •   • F • o • r • w • a • r • d •',
- 'amy-kat-90': '• 3 • P • T •   • C • o • n • t • e • s • t •   • C • h • a • m • p •   • B • i • g •',
- 'amy-fox-90': '• I • n • a • u • g • u • r • a • l •   • C • l • u • t • c • h •   • P • O • T • Y •',
- 'amy-aedwards-90': '• A • n • t • - • M • a • n •   • R • i • s • i • n • g •',
- 'amy-trae-89': '• I • c • e •   • T • r • a • e •   • D • e • e • p •   • 3 •',
- 'amy-pawlo-89': '• R • O • Y •   • P • r • o • d • i • g • y •',
- 'amy-paolobanchero-89': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) '
+ 'dia-jrueholiday-93': 'FranchiseAll- Star• ( 2x) •',
+ 'dia-morant-93': 'GravityDefier •',
+ 'dia-jamorant-93': 'FranchiseAll- Star• ( 2x) •',
+ 'dia-deaaronfox-93': 'FranchiseAll- Star• ( 2x) •',
+ 'dia-bam-93': 'DPOYFinalist •',
+ 'dia-adavis-93': 'BrowDominance •',
+ 'amy-brunson-92': 'GardenMVP •',
+ 'amy-manuginobili-91': 'All- StarPerformer• ( 2x) •',
+ 'amy-brown-91': 'FinalsMVP •',
+ 'amy-billwalton-91': 'All- StarPerformer• ( 2x) •',
+ 'amy-zion-90': 'PaintBulldozer •',
+ 'amy-paolo-90': 'All- StarPointForward •',
+ 'amy-kat-90': '3PTContestChampBig •',
+ 'amy-fox-90': 'InauguralClutchPOTY •',
+ 'amy-aedwards-90': 'Ant- ManRising •',
+ 'amy-trae-89': 'IceTraeDeep• 3 •',
+ 'amy-pawlo-89': 'ROYProdigy •',
+ 'amy-paolobanchero-89': 'All- StarPerformer• ( 1x) '
                          '•',
- 'amy-lamelo-89': '• F • l • a • s • h • y •   • P • a • s • s • e • r •',
- 'amy-lameloball-89': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) •',
- 'amy-murray-89': '• P • l • a • y • o • f • f •   • B • u • c • k • e • t •',
- 'amy-jamalmurray-89': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) •',
- 'amy-jalen-89': '• M • S • G •   • M • a • e • s • t • r • o •',
- 'amy-chet-89': '• S • h • o • t • - • B • l • o • c • k • i • n • g •   • P • h • e • n • o • m •',
- 'amy-chetholmgren-89': '• A • l • l • - • S • t • a • r •   • P • e • r • f • o • r • m • e • r •   • ( • 1 • x • ) •',
- 'ruby-wemby-88': '• A • l • i • e • n •   • P • r • o • d • i • g • y •',
- 'ruby-trae-87': '• I • c • e •   • T • r • a • e •   • M • a • e • s • t • r • o •',
- 'ruby-zion-86': '• Z • i • o • n •   • F • r • e • i • g • h • t •   • T • r • a • i • n •',
- 'ruby-jrue-86': '• 2 • x •   • C • h • a • m • p • i • o • n •   • C • l • a • m • p •',
- 'ruby-white-86': '• T • w • o • - • W • a • y •   • G • l • u • e •',
- 'ruby-derrickwhite-86': '• T • w • o • - • W • a • y •   • G • l • u • e •',
- 'ruby-anunoby-85': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
- 'ruby-oganunoby-85': '• D • e • f • e • n • s • i • v • e •   • M • e • n • a • c • e •',
- 'ruby-mikal-85': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
- 'ruby-mikalbridges-85': '• I • r • o • n •   • M • a • n •   • L • o • c • k •',
- 'ruby-gordon-85': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
- 'ruby-aarongordon-85': '• D • u • n • k •   • C • o • n • t • e • s • t •   • K • i • n • g •',
+ 'amy-lamelo-89': 'FlashyPasser •',
+ 'amy-lameloball-89': 'All- StarPerformer• ( 1x) •',
+ 'amy-murray-89': 'PlayoffBucket •',
+ 'amy-jamalmurray-89': 'All- StarPerformer• ( 1x) •',
+ 'amy-jalen-89': 'MSGMaestro •',
+ 'amy-chet-89': 'Shot- BlockingPhenom •',
+ 'amy-chetholmgren-89': 'All- StarPerformer• ( 1x) •',
+ 'ruby-wemby-88': 'AlienProdigy •',
+ 'ruby-trae-87': 'IceTraeMaestro •',
+ 'ruby-zion-86': 'ZionFreightTrain •',
+ 'ruby-jrue-86': '2xChampionClamp •',
+ 'ruby-white-86': 'Two- WayGlue •',
+ 'ruby-derrickwhite-86': 'Two- WayGlue •',
+ 'ruby-anunoby-85': 'DefensiveMenace •',
+ 'ruby-oganunoby-85': 'DefensiveMenace •',
+ 'ruby-mikal-85': 'IronManLock •',
+ 'ruby-mikalbridges-85': 'IronManLock •',
+ 'ruby-gordon-85': 'DunkContestKing •',
+ 'ruby-aarongordon-85': 'DunkContestKing •',
  'ruby-green-84': 'Defensive Anchor',
- 'ruby-reaves-84': '• C • r • a • f • t • y •   • P • l • a • y • m • a • k • e • r •',
- 'ruby-austinreaves-84': '• C • r • a • f • t • y •   • P • l • a • y • m • a • k • e • r •',
- 'ruby-andreiguodala-84': '• A • l • l • - • S • t • a • r •   • S • t • a • n • d • o • u • t •   • ( • 2 • 0 • 1 • 2 '
+ 'ruby-reaves-84': 'CraftyPlaymaker •',
+ 'ruby-austinreaves-84': 'CraftyPlaymaker •',
+ 'ruby-andreiguodala-84': 'All- StarStandout• ( 2012 '
                           '• ) •',
  'gold-parker-83': 'French Tear Drop',
  'gold-ginobili-83': 'Eurostep Maestro',
@@ -18002,7 +18002,7 @@ NBA_REAL_MOMENTS: Dict[str, str] = {'excl-wilt-99': '• H • o • l • d •
  'gold-gordon-82': 'Mile High Enforcer',
  'gold-iggy-81': 'Dynasty Veteran',
  'gold-caruso-81': 'Defensive Menace',
- 'gold-alexcaruso-81': '• S • t • e • a • l • s •   • S • p • e • c • i • a • l • i • s • t •'}
+ 'gold-alexcaruso-81': 'StealsSpecialist •'}
 
 NBA_PLAYER_MOMENT_ACTION_URLS: Dict[str, str] = {'wilt chamberlain': 'https://upload.wikimedia.org/wikipedia/commons/1/11/Wilt_Chamberlain_1960_%28cropped%29_%28cropped%29.jpg',
  'shaquille oneal': 'https://upload.wikimedia.org/wikipedia/commons/e/e5/TechCrunch_Disrupt_2023_-_Day_1_%28cropped%29.jpg',
