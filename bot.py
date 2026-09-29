@@ -2512,6 +2512,8 @@ def parse_duration_string(time_str: str) -> Optional[int]:
 
     return max(5, min(total_seconds, 31536000))
 
+parse_time_string = parse_duration_string
+
 def format_time_elapsed(seconds: float) -> str:
     """Formats elapsed seconds into a clean human readable string like '14 minutes', '2 hours, 10 mins'."""
     sec = max(0, int(seconds))
@@ -18159,7 +18161,9 @@ NBA_PLAYER_MOMENT_ACTION_URLS: Dict[str, str] = {'wilt chamberlain': 'https://up
  'andre iguodala': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Heat_Andre_Iguodala_%28cropped%29.jpg/1280px-Heat_Andre_Iguodala_%28cropped%29.jpg',
  'alex caruso': 'https://upload.wikimedia.org/wikipedia/commons/2/29/Alex_Caruso_%2851888062828%29_%28cropped%29.jpg'}
 
-
+NBA_HOLO_EDITION_MOMENT_URLS: Dict[str, str] = {}
+NBA_CARD_SPECIFIC_MOMENT_URLS: Dict[str, str] = {}
+NBA_PLAYER_DEFAULT_MOMENTS: Dict[str, str] = {}
 
 def get_nba_card_moment(card: Dict[str, Any]) -> str:
     """Returns the iconic real-life NBA match moment for a given card.
