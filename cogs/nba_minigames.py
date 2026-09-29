@@ -615,12 +615,6 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
         await db.set_config(interaction.guild_id, "nba_drop_channel", str(target_channel.id))
         await interaction.followup.send(f"✅ Wild NBA 2K card spawns are now pinned to {target_channel.mention}!", ephemeral=True)
 
-    @app_commands.command(name="setupnbachannel", description="📌 Configure a dedicated text channel for wild NBA card spawns")
-    @app_commands.describe(channel="The channel to pin for NBA card drops (defaults to current channel)")
-    @app_commands.guild_only()
-    async def setupnbachannel_slash(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
-        await self._handle_setnbachannel(interaction, channel)
-
     @app_commands.command(name="setnbachannel", description="📌 Configure a dedicated text channel for wild NBA card spawns")
     @app_commands.describe(channel="The channel to pin for NBA card drops (defaults to current channel)")
     @app_commands.guild_only()

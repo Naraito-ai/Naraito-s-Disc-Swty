@@ -949,18 +949,6 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
         await interaction.response.defer()
         await self._show_top_collectors(interaction.followup.send, interaction.guild, is_interaction=True)
 
-    @app_commands.command(name="teamleaderboard", description="🏆 View the top NBA card collectors and battle leaderboard")
-    @app_commands.guild_only()
-    async def teamleaderboard_slash(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        await self._show_top_collectors(interaction.followup.send, interaction.guild, is_interaction=True)
-
-    @app_commands.command(name="teamtop", description="🏆 View the top NBA card collectors and battle leaderboard")
-    @app_commands.guild_only()
-    async def teamtop_slash(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        await self._show_top_collectors(interaction.followup.send, interaction.guild, is_interaction=True)
-
     @commands.command(name="nbatop", aliases=["nbaleaderboard", "topcards", "nbalb", "gmtop", "teamtop", "teamleaderboard"])
     @commands.guild_only()
     async def nbatop_prefix(self, ctx: commands.Context):
