@@ -199,6 +199,53 @@ class NBAAdminCog(commands.Cog, name="NBA Admin"):
         from cogs.nba_minigames import spawn_nba_card_drop
         await spawn_nba_card_drop(ctx.channel, spawner=ctx.author, card_override=card_override)
 
+    # ── Slash Tree Sync Commands ───────────────────────────────────────────────
+
+    @commands.command(name="sync", aliases=["treesync", "synccommands"])
+    @commands.guild_only()
+    async def sync_prefix(self, ctx: commands.Context, spec: Optional[str] = None):
+        """Sync slash commands: !sync (instant guild sync) or !sync global"""
+        if not is_creator(ctx.author) and not ctx.author.guild_permissions.administrator:
+            return await ctx.send("🚫 Only the Bot Creator or Server Administrators can sync slash commands.")
+
+        msg = await ctx.send("🔄 **Syncing slash commands with Discord...**")
+        try:
+            if spec == "global":
+                synced = await ctx.bot.tree.sync()
+                await msg.edit(content=f"🌍 **Global Sync Complete!** Synced `{len(synced)}` application commands globally. *(Note: Global updates may take up to an hour to propagate in Discord client caches).*")
+            elif spec == "clear":
+                ctx.bot.tree.clear_commands(guild=ctx.guild)
+                await ctx.bot.tree.sync(guild=ctx.guild)
+                await msg.edit(content=f"🧹 **Guild Tree Cleared!** Cleared custom guild commands for **{ctx.guild.name}**.")
+            else:
+                # Instant guild sync: copies all global commands directly into the current guild
+                ctx.bot.tree.copy_global_to(guild=ctx.guild)
+                synced = await ctx.bot.tree.sync(guild=ctx.guild)
+                await msg.edit(content=f"⚡ **Instant Guild Sync Complete!** Synced `{len(synced)}` slash commands directly to **{ctx.guild.name}**! They are now available immediately in chat.")
+        except Exception as e:
+            logger.error(f"Error syncing commands: {e}", exc_info=True)
+            await msg.edit(content=f"❌ **Sync Failed:** `{e}`")
+
+    @app_commands.command(name="sync", description="🔄 Force-sync all slash commands immediately to this server (Admin/Creator)")
+    @app_commands.describe(scope="Sync scope: 'guild' (instant local) or 'global'")
+    @app_commands.guild_only()
+    async def sync_slash(self, interaction: discord.Interaction, scope: Optional[str] = "guild"):
+        await interaction.response.defer(ephemeral=True)
+        if not is_creator(interaction.user) and not interaction.user.guild_permissions.administrator:
+            return await interaction.followup.send("🚫 Only the Bot Creator or Server Administrators can sync slash commands.", ephemeral=True)
+
+        try:
+            if scope == "global":
+                synced = await interaction.client.tree.sync()
+                await interaction.followup.send(f"🌍 **Global Sync Complete!** Synced `{len(synced)}` slash commands globally.", ephemeral=True)
+            else:
+                interaction.client.tree.copy_global_to(guild=interaction.guild)
+                synced = await interaction.client.tree.sync(guild=interaction.guild)
+                await interaction.followup.send(f"⚡ **Instant Guild Sync Complete!** Synced `{len(synced)}` slash commands directly to **{interaction.guild.name}**! All slash commands are now active immediately.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error in /sync: {e}", exc_info=True)
+            await interaction.followup.send(f"❌ **Sync Failed:** `{e}`", ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(NBAAdminCog(bot))
