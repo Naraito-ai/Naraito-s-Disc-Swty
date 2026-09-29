@@ -24871,6 +24871,37 @@ async def nbafuse_prefix_cmd(ctx: commands.Context, *, card: str):
 async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, card: str):
     """Directly gift an NBA card to another member: !nbagive @user <card_name_or_id> [count]"""
     try:
+        # Check if argument is a VC amount (e.g. 5000, 5000vc, 5k)
+        def _parse_vc(text: str) -> int:
+            clean = text.lower().strip().replace(',', '').replace('vc', '').strip()
+            if clean.isdigit():
+                return int(clean)
+            if clean.endswith('k') and clean[:-1].isdigit():
+                return int(clean[:-1]) * 1000
+            if clean.endswith('m') and clean[:-1].isdigit():
+                return int(clean[:-1]) * 1000000
+            return 0
+
+        vc_amount = _parse_vc(card)
+        if vc_amount > 0:
+            sender_id = ctx.author.id
+            is_cre = is_creator(ctx.author)
+            if not is_cre:
+                bal = await db.get_user_vc(sender_id)
+                if bal < vc_amount:
+                    return await ctx.send(f"❌ You do not have enough VC to gift! Balance: `💰 {bal:,} VC`")
+                await db.add_user_vc(sender_id, -vc_amount)
+            
+            await db.add_user_vc(target.id, vc_amount)
+            target_bal = await db.get_user_vc(target.id)
+            embed = discord.Embed(
+                title="💰 NBA 2K Mobile VC Gift Delivered!",
+                description=f"🎉 {ctx.author.mention} has gifted **💰 {vc_amount:,} VC** to {target.mention}!\n\n• **Recipient Balance:** `💰 {target_bal:,} VC`",
+                color=discord.Color.gold()
+            )
+            embed.set_footer(text=f"Gifted by {ctx.author.display_name} • Use !nbabal to check wallet")
+            return await ctx.send(embed=embed)
+
         if target.id == ctx.author.id:
             return await ctx.send("❌ You cannot gift cards to yourself!")
         if target.bot:
