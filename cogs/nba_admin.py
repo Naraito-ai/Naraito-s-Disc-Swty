@@ -159,30 +159,26 @@ class NBAAdminCog(commands.Cog, name="NBA Admin"):
         if not interaction.user.guild_permissions.manage_guild and not is_creator(interaction.user):
             return await interaction.followup.send("🚫 You need Manage Server permission to spawn drops.", ephemeral=True)
 
-        card = random.choice(NBA_2K_MOBILE_CARDS)
-        from cogs.nba_minigames import _active_nba_drops
-        _active_nba_drops[interaction.channel_id] = {
-            "card": card,
-            "spawned_at": time.time(),
-            "hint_level": 1,
-            "claimed": False
-        }
+        from cogs.nba_minigames import spawn_nba_card_drop
+        msg = await spawn_nba_card_drop(interaction.channel, spawner=interaction.user, interaction=interaction)
+        if not msg:
+            await interaction.followup.send("❌ Failed to spawn card drop.", ephemeral=True)
 
-        tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
-        hint = generate_player_hint(card["name"], hint_level=1)
-        embed = discord.Embed(
-            title="🏀 A wild NBA 2K card appeared!",
-            description=(
-                f"**Guess the player name to catch this card!**\n\n"
-                f"• **Type:** `/catch <name>` or guess in chat\n"
-                f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
-                f"• **Position:** `{card.get('pos', 'SG')}` | **Team:** `{card.get('team', 'NBA')}`\n"
-                f"• **Hint:** `{hint}`"
-            ),
-            color=discord.Color.from_rgb(*NBA_2K_CARD_THEMES.get(card.get("tier", "gold"), {}).get("primary", (255, 215, 0)))
-        )
-        embed.set_footer(text="NBA 2K Mobile Spawns • First to guess catches the card + 150 VC!")
-        await interaction.followup.send(embed=embed)
+    @commands.command(name="spawndrop", aliases=["drop", "forcespawn", "spawncard"])
+    @commands.guild_only()
+    async def spawndrop_prefix(self, ctx: commands.Context, *, card_name: Optional[str] = None):
+        """Force-spawn a drop: !spawndrop [card_name]"""
+        if not ctx.author.guild_permissions.manage_guild and not is_creator(ctx.author):
+            return await ctx.send("🚫 You need Manage Server permission to spawn drops.")
+
+        card_override = None
+        if card_name:
+            card_override = get_nba_card(card_name.strip())
+            if not card_override:
+                return await ctx.send(f"❌ Card `{card_name}` not found in catalog.")
+
+        from cogs.nba_minigames import spawn_nba_card_drop
+        await spawn_nba_card_drop(ctx.channel, spawner=ctx.author, card_override=card_override)
 
 
 async def setup(bot: commands.Bot):

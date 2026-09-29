@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 cogs/nba_minigames.py - 3-Point Shootout Contest, Wild Card Chat Spawns, Hint & Catch Commands
+Features instant UI component deferrals, modal entry, direct chat guessing, and non-blocking image generation.
 """
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ import io
 import time
 import random
 import logging
+import asyncio
 from typing import Optional, Union, List, Dict, Any, Tuple
 
 import discord
@@ -48,6 +50,8 @@ NBA_SHOOTOUT_STATIONS: List[Dict[str, Any]] = [
     {"name": "Money Ball Rack (Right Corner)", "icon": "💰", "type": "all_money", "balls": 5, "max_pts": 10},
 ]
 
+
+# ── Shootout Helpers ──────────────────────────────────────────────────────────
 
 async def get_user_best_3pt_shooter(user_id: int) -> Dict[str, Any]:
     row = await db.get_dream_team(user_id)
@@ -183,6 +187,7 @@ class ThreePointShootoutView(discord.ui.View):
             self.add_item(btn_heat)
 
     async def shoot_with_technique(self, interaction: discord.Interaction, technique: str):
+        # Line 1: Immediate deferral
         await interaction.response.defer()
         if interaction.user.id != self.author.id:
             return await interaction.followup.send("❌ This is not your shootout run!", ephemeral=True)
@@ -206,6 +211,276 @@ class ThreePointShootoutView(discord.ui.View):
         embed = build_shootout_embed(self.author, self.player, self.station_results, self.current_station_idx, self.total_score, self.is_complete, self.vc_won, self.last_commentary)
         await interaction.edit_original_response(embed=embed, view=self)
 
+
+# ── Wild Card Embed & View Construction ────────────────────────────────────────
+
+def build_nba_drop_embed(
+    card: Dict[str, Any],
+    hint_level: int = 1,
+    spawner: Optional[Union[discord.Member, discord.User]] = None
+) -> discord.Embed:
+    """Builds the mystery card drop embed."""
+    tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
+    hint_str = generate_player_hint(card["name"], hint_level=hint_level)
+    host_line = f"\n• 👑 **Hosted By:** {spawner.mention} *(Host disqualified from catching)*" if spawner else ""
+    footer_text = "NBA 2K Mobile Spawns • First to guess catches card + 150 VC! • Event host cannot claim" if spawner else "NBA 2K Mobile Spawns • First to guess catches the card + 150 VC!"
+
+    embed = discord.Embed(
+        title="🏀 A wild NBA 2K card appeared!" if not spawner else f"🏀 Special NBA Card Drop Hosted by {spawner.display_name}!",
+        description=(
+            f"**Guess the player name to catch this card!**\n\n"
+            f"• **Type:** `/catch <name>` or `!catch <name>` or guess directly in chat\n"
+            f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
+            f"• **Position:** `{card.get('pos', 'SG')}` | **Team:** `{card.get('team', 'NBA')}`\n"
+            f"• **Hint:** `{hint_str}`"
+            f"{host_line}"
+        ),
+        color=discord.Color.from_rgb(*NBA_2K_CARD_THEMES.get(card.get("tier", "gold"), {}).get("primary", (255, 215, 0)))
+    )
+    embed.set_image(url="attachment://nba_card.png")
+    embed.set_footer(text=footer_text)
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+
+def build_catch_success_embed(
+    user: Union[discord.Member, discord.User],
+    card: Dict[str, Any],
+    new_bal: int,
+    copies: int
+) -> discord.Embed:
+    """Builds the catch celebration embed."""
+    tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
+    moment = get_nba_card_moment(card)
+    embed = discord.Embed(
+        title=f"🏀 {tier_info['emoji']} Card Caught by {user.display_name}!",
+        description=(
+            f"🎉 {user.mention} guessed correctly and caught **[{card['ovr']} OVR] {card['name']}**!\n\n"
+            f"• ⚡ **Moment:** *{moment}*\n"
+            f"• 🏆 **Tier:** {tier_info['emoji']} **{tier_info['name']}** | `{card.get('pos', 'SG')}` ({card.get('team', 'NBA')})\n"
+            f"• 💰 **Reward:** `+150 VC` (Balance: `💰 {new_bal:,} VC`)\n"
+            f"• 🎴 **Collection:** You now own `{copies}` copies of this card!"
+        ),
+        color=discord.Color.green()
+    )
+    embed.set_image(url="attachment://nba_card.png")
+    embed.set_footer(text=f"Card ID: {card['id']} • View in binder: /nbadex")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+
+class NBACatchModal(discord.ui.Modal, title="🏀 Catch the NBA 2K Player"):
+    player_guess = discord.ui.TextInput(
+        label="Player Full Name or Nickname",
+        placeholder="e.g. Stephen Curry, Wemby, MJ, LeBron, Jrue Holiday...",
+        required=True,
+        min_length=2,
+        max_length=60
+    )
+
+    def __init__(self, channel_id: int, drop_id: str, drop_msg: Optional[discord.Message] = None):
+        super().__init__()
+        self.channel_id = channel_id
+        self.drop_id = drop_id
+        self.drop_msg = drop_msg
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Step 1: Immediate deferral on Line 1 to prevent timeout
+        await interaction.response.defer(ephemeral=False)
+        guess = self.player_guess.value.strip()
+        await handle_catch_attempt(interaction, guess, channel_id=self.channel_id, drop_msg=self.drop_msg)
+
+
+class NBAChatDropView(discord.ui.View):
+    def __init__(self, card: Dict[str, Any], drop_id: str, channel_id: int, drop_msg: Optional[discord.Message] = None):
+        super().__init__(timeout=300.0)
+        self.card = card
+        self.drop_id = drop_id
+        self.channel_id = channel_id
+        self.drop_msg = drop_msg
+
+    @discord.ui.button(label="🏀 Enter Player Name", style=discord.ButtonStyle.success, emoji="🏀", row=0)
+    async def guess_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        drop = _active_nba_drops.get(interaction.channel_id) or _active_nba_drops.get(self.channel_id)
+        if not drop or drop.get("claimed"):
+            return await interaction.response.send_message("❌ This wild card has already been claimed or expired.", ephemeral=True)
+        if drop.get("spawner_id") and interaction.user.id == drop.get("spawner_id"):
+            return await interaction.response.send_message("❌ As the event host, you cannot catch your own drop!", ephemeral=True)
+        # Opening modal is direct client-side response
+        await interaction.response.send_modal(NBACatchModal(self.channel_id, self.drop_id, self.drop_msg))
+
+    @discord.ui.button(label="💡 Get Hint", style=discord.ButtonStyle.secondary, emoji="💡", row=0)
+    async def hint_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Step 1: Immediate deferral on Line 1
+        await interaction.response.defer(ephemeral=True)
+        drop = _active_nba_drops.get(interaction.channel_id) or _active_nba_drops.get(self.channel_id)
+        if not drop or drop.get("claimed"):
+            return await interaction.followup.send("❌ No active wild card drop in this channel.", ephemeral=True)
+
+        hint_lvl = min(3, drop.get("hint_level", 1) + 1)
+        drop["hint_level"] = hint_lvl
+        hint_str = generate_player_hint(drop["card"]["name"], hint_level=hint_lvl)
+        await interaction.followup.send(f"💡 **Player Name Hint (Level {hint_lvl}):** `{hint_str}`", ephemeral=True)
+
+
+# ── Unified Catch Handler ──────────────────────────────────────────────────────
+
+async def handle_catch_attempt(
+    interaction_or_ctx_or_msg: Any,
+    guess: str,
+    channel_id: Optional[int] = None,
+    drop: Optional[Dict[str, Any]] = None,
+    drop_msg: Optional[discord.Message] = None
+):
+    """Unified handler for catch attempts across slash commands, prefix commands, modals, and direct chat typing."""
+    try:
+        is_interaction = isinstance(interaction_or_ctx_or_msg, discord.Interaction) or hasattr(interaction_or_ctx_or_msg, "response")
+        is_ctx = isinstance(interaction_or_ctx_or_msg, commands.Context) or (hasattr(interaction_or_ctx_or_msg, "author") and hasattr(interaction_or_ctx_or_msg, "prefix"))
+        is_msg = isinstance(interaction_or_ctx_or_msg, discord.Message) or (hasattr(interaction_or_ctx_or_msg, "author") and hasattr(interaction_or_ctx_or_msg, "content"))
+
+        if is_interaction:
+            user = interaction_or_ctx_or_msg.user
+            c_id = channel_id or interaction_or_ctx_or_msg.channel_id
+            g_id = interaction_or_ctx_or_msg.guild_id
+        elif is_ctx:
+            user = interaction_or_ctx_or_msg.author
+            c_id = interaction_or_ctx_or_msg.channel.id
+            g_id = interaction_or_ctx_or_msg.guild.id if interaction_or_ctx_or_msg.guild else None
+        elif is_msg:
+            user = interaction_or_ctx_or_msg.author
+            c_id = interaction_or_ctx_or_msg.channel.id
+            g_id = interaction_or_ctx_or_msg.guild.id if interaction_or_ctx_or_msg.guild else None
+        else:
+            return
+
+        if not drop:
+            drop = _active_nba_drops.get(c_id) or (_active_nba_drops.get(g_id) if g_id else None)
+
+        async def _respond_ephemeral(text: str):
+            if is_interaction:
+                if interaction_or_ctx_or_msg.response.is_done():
+                    await interaction_or_ctx_or_msg.followup.send(text, ephemeral=True)
+                else:
+                    await interaction_or_ctx_or_msg.response.send_message(text, ephemeral=True)
+            elif is_msg:
+                await interaction_or_ctx_or_msg.reply(text, mention_author=True)
+            elif is_ctx:
+                await interaction_or_ctx_or_msg.send(text)
+
+        if not drop:
+            return await _respond_ephemeral("❌ There is no active wild NBA card drop in this channel right now. Keep chatting to spawn one!")
+
+        # Check if spawner is attempting to claim their own manual drop
+        if drop.get("spawner_id") and user.id == drop.get("spawner_id"):
+            return await _respond_ephemeral("❌ **Host Disqualified:** You hosted this drop! Leave it for other members to catch.")
+
+        # Check if already claimed
+        if drop.get("claimed"):
+            claimed_by = drop.get("claimed_by_name", "another player")
+            return await _respond_ephemeral(f"❌ **Too slow!** This player was already caught by **{claimed_by}**! Wait for the next court spawn.")
+
+        card = drop["card"]
+        actual_name = card["name"]
+
+        # Check if guess is correct
+        if not is_correct_player_name(guess, actual_name):
+            return await _respond_ephemeral(f"❌ **'{guess}' is incorrect!** Team: **{card.get('team', 'NBA')}**, Pos: **{card.get('pos', 'SG')}**, or use `/nbahint`!")
+
+        # Defer interaction if valid guess and not already deferred
+        if is_interaction and not interaction_or_ctx_or_msg.response.is_done():
+            await interaction_or_ctx_or_msg.response.defer(ephemeral=False)
+
+        # Mark claimed immediately to lock out race conditions
+        drop["claimed"] = True
+        drop["claimed_by_id"] = user.id
+        drop["claimed_by_name"] = user.display_name
+
+        # Persist rewards
+        await db.add_user_nba_card(user.id, card["id"], source="wild_catch")
+        await db.add_user_vc(user.id, 150)
+        new_bal = await db.get_user_vc(user.id)
+        user_cards = await db.get_user_nba_cards(user.id)
+        copies = sum(1 for c in user_cards if c.get("card_id", "").lower() == card["id"].lower())
+
+        # Generate revealed card image in a non-blocking background thread
+        card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, False)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
+        embed = build_catch_success_embed(user, card, new_bal, copies)
+
+        # Deliver success response
+        if is_interaction:
+            await interaction_or_ctx_or_msg.followup.send(embed=embed, file=card_file)
+        elif is_msg:
+            await interaction_or_ctx_or_msg.reply(embed=embed, file=card_file, mention_author=True)
+        elif is_ctx:
+            await interaction_or_ctx_or_msg.send(embed=embed, file=card_file)
+
+        # Disable buttons on the original drop message
+        target_msg = drop_msg or drop.get("message")
+        if target_msg:
+            try:
+                disabled_view = discord.ui.View(timeout=1.0)
+                btn = discord.ui.Button(label=f"✅ Caught by {user.display_name}!", style=discord.ButtonStyle.secondary, disabled=True, emoji="🏀")
+                disabled_view.add_item(btn)
+                await target_msg.edit(view=disabled_view)
+            except Exception as edit_err:
+                logger.debug(f"Could not edit drop message: {edit_err}")
+
+    except Exception as e:
+        logger.error(f"Error in handle_catch_attempt: {e}", exc_info=True)
+
+
+async def spawn_nba_card_drop(
+    channel: discord.TextChannel,
+    spawner: Optional[Union[discord.Member, discord.User]] = None,
+    interaction: Optional[discord.Interaction] = None,
+    card_override: Optional[Dict[str, Any]] = None
+) -> Optional[discord.Message]:
+    """Spawns a mystery NBA card drop in the designated channel."""
+    try:
+        card = card_override or random.choice(NBA_2K_MOBILE_CARDS)
+        now_ts = time.time()
+        drop_id = f"{channel.guild.id}_{channel.id}_{int(now_ts)}"
+
+        drop_info = {
+            "card": card,
+            "drop_id": drop_id,
+            "channel_id": channel.id,
+            "guild_id": channel.guild.id,
+            "spawned_at": now_ts,
+            "hint_level": 1,
+            "claimed": False,
+            "claimed_by_id": None,
+            "claimed_by_name": None,
+            "spawner_id": spawner.id if spawner else None,
+            "message": None
+        }
+        _active_nba_drops[channel.id] = drop_info
+        if channel.guild:
+            _active_nba_drops[channel.guild.id] = drop_info
+
+        # Generate mystery card image in non-blocking thread
+        card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, True)
+        card_file = discord.File(fp=card_buf, filename="nba_card.png")
+        embed = build_nba_drop_embed(card, hint_level=1, spawner=spawner)
+        view = NBAChatDropView(card, drop_id, channel.id)
+
+        if interaction:
+            drop_msg = await interaction.followup.send(embed=embed, file=card_file, view=view)
+        else:
+            drop_msg = await channel.send(embed=embed, file=card_file, view=view)
+
+        if drop_msg:
+            drop_info["message"] = drop_msg
+            view.drop_msg = drop_msg
+
+        return drop_msg
+    except Exception as e:
+        logger.error(f"Error spawning NBA card drop: {e}", exc_info=True)
+        return None
+
+
+# ── NBA Minigames Cog ──────────────────────────────────────────────────────────
 
 class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
     """3-Point Shootout contest, wild court card spawns, and interactive guessing."""
@@ -258,7 +533,7 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
         active = _active_nba_drops.get(interaction.channel_id)
         if not active or active.get("claimed"):
             return await interaction.followup.send("ℹ️ No active wild card drop in this channel right now.", ephemeral=True)
-        hint_lvl = active.get("hint_level", 1) + 1
+        hint_lvl = min(3, active.get("hint_level", 1) + 1)
         active["hint_level"] = hint_lvl
         hint_str = generate_player_hint(active["card"]["name"], hint_level=hint_lvl)
         await interaction.followup.send(f"💡 **Updated Card Hint (Level {hint_lvl}):** `{hint_str}`")
@@ -270,7 +545,7 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
         active = _active_nba_drops.get(ctx.channel.id)
         if not active or active.get("claimed"):
             return await ctx.send("ℹ️ No active wild card drop in this channel right now.")
-        hint_lvl = active.get("hint_level", 1) + 1
+        hint_lvl = min(3, active.get("hint_level", 1) + 1)
         active["hint_level"] = hint_lvl
         hint_str = generate_player_hint(active["card"]["name"], hint_level=hint_lvl)
         await ctx.send(f"💡 **Updated Card Hint (Level {hint_lvl}):** `{hint_str}`")
@@ -280,73 +555,15 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
     @app_commands.guild_only()
     async def catch_slash(self, interaction: discord.Interaction, player: str):
         await interaction.response.defer()
-        active = _active_nba_drops.get(interaction.channel_id)
-        if not active or active.get("claimed"):
-            return await interaction.followup.send("❌ No wild card is currently available to catch in this channel!", ephemeral=True)
+        await handle_catch_attempt(interaction, player.strip(), channel_id=interaction.channel_id)
 
-        card = active["card"]
-        if is_correct_player_name(player, card["name"]):
-            active["claimed"] = True
-            active["claimed_by_name"] = interaction.user.display_name
-            await db.add_user_nba_card(interaction.user.id, card["id"], source="wild_catch")
-            await db.add_user_vc(interaction.user.id, 150)
-            new_bal = await db.get_user_vc(interaction.user.id)
-            user_cards = await db.get_user_nba_cards(interaction.user.id)
-            owned_count = sum(1 for c in user_cards if c.get("card_id", "").lower() == card["id"].lower())
-            tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
-
-            embed = discord.Embed(
-                title=f"🏀 {tier_info['emoji']} Card Caught by {interaction.user.display_name}!",
-                description=(
-                    f"🎉 {interaction.user.mention} guessed correctly and caught **[{card['ovr']} OVR] {card['name']}**!\n\n"
-                    f"• ⚡ **Moment:** *{get_nba_card_moment(card)}*\n"
-                    f"• 🏆 **Tier:** {tier_info['emoji']} **{tier_info['name']}** | `{card.get('pos', 'SG')}` ({card.get('team', 'NBA')})\n"
-                    f"• 💰 **Reward:** `+150 VC` (Balance: `💰 {new_bal:,} VC`)\n"
-                    f"• 🎴 **Collection:** You now own `{owned_count}` copies of this card!"
-                ),
-                color=discord.Color.green()
-            )
-            embed.set_footer(text=f"Card ID: {card['id']} • View in binder: /nbadex")
-            embed.timestamp = discord.utils.utcnow()
-            await interaction.followup.send(embed=embed)
-        else:
-            await interaction.followup.send(f"❌ **Incorrect guess!** `{player}` is not the active player. Try again!", ephemeral=True)
-
-    @commands.command(name="catch", aliases=["nbacatch", "claim", "nbaclaim"])
+    @commands.command(name="catch", aliases=["nbacatch", "claim", "nbaclaim", "c"])
     @commands.guild_only()
-    async def catch_prefix(self, ctx: commands.Context, *, player: str):
+    async def catch_prefix(self, ctx: commands.Context, *, player: Optional[str] = None):
         """Guess and catch active card: !catch <player_name>"""
-        active = _active_nba_drops.get(ctx.channel.id)
-        if not active or active.get("claimed"):
-            return await ctx.send("❌ No wild card is currently available to catch in this channel!")
-
-        card = active["card"]
-        if is_correct_player_name(player, card["name"]):
-            active["claimed"] = True
-            active["claimed_by_name"] = ctx.author.display_name
-            await db.add_user_nba_card(ctx.author.id, card["id"], source="wild_catch")
-            await db.add_user_vc(ctx.author.id, 150)
-            new_bal = await db.get_user_vc(ctx.author.id)
-            user_cards = await db.get_user_nba_cards(ctx.author.id)
-            owned_count = sum(1 for c in user_cards if c.get("card_id", "").lower() == card["id"].lower())
-            tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
-
-            embed = discord.Embed(
-                title=f"🏀 {tier_info['emoji']} Card Caught by {ctx.author.display_name}!",
-                description=(
-                    f"🎉 {ctx.author.mention} caught **[{card['ovr']} OVR] {card['name']}**!\n\n"
-                    f"• ⚡ **Moment:** *{get_nba_card_moment(card)}*\n"
-                    f"• 🏆 **Tier:** {tier_info['emoji']} **{tier_info['name']}** | `{card.get('pos', 'SG')}`\n"
-                    f"• 💰 **Reward:** `+150 VC` (Balance: `💰 {new_bal:,} VC`)\n"
-                    f"• 🎴 **Collection:** You now own `{owned_count}` copies!"
-                ),
-                color=discord.Color.green()
-            )
-            embed.set_footer(text=f"Card ID: {card['id']} • View in binder: !nbadex")
-            embed.timestamp = discord.utils.utcnow()
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send(f"❌ `{player}` is incorrect! Keep guessing.")
+        if not player:
+            return await ctx.send("⚠️ **Usage:** `!catch <player_name>` (e.g. `!catch Stephen Curry` or `!catch Wemby`)")
+        await handle_catch_attempt(ctx, player.strip(), channel_id=ctx.channel.id)
 
     # ── Channel Setup ──────────────────────────────────────────────────────────
 
@@ -367,6 +584,42 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
         """Configure card drop channel: !setnbachannel #channel"""
         await db.set_config(ctx.guild.id, "nba_drop_channel", str(channel.id))
         await ctx.send(f"✅ Wild NBA 2K card spawns pinned to {channel.mention}!")
+
+    # ── Chat Message Listener for Direct Guessing & Drops ─────────────────────
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Handles direct chat guessing and automatic activity-based card drops."""
+        if message.author.bot or not message.guild:
+            return
+
+        content = message.content.strip()
+
+        # 1. Direct chat guessing
+        if not content.startswith(("!", "/", "$", ".", "-", "~", ">", ";")):
+            active = _active_nba_drops.get(message.channel.id)
+            if active and not active.get("claimed"):
+                if len(content) >= 2 and is_correct_player_name(content, active["card"]["name"]):
+                    await handle_catch_attempt(message, content, channel_id=message.channel.id, drop=active)
+                    return
+            elif active and active.get("claimed") and (time.time() - active.get("spawned_at", 0) < 45):
+                if len(content) >= 2 and is_correct_player_name(content, active["card"]["name"]):
+                    claimed_by = active.get("claimed_by_name", "another player")
+                    await message.reply(f"❌ **Too slow!** This player was already caught by **{claimed_by}**! Wait for the next wild court spawn.", mention_author=True)
+                    return
+
+        # 2. Activity-based random card drops
+        c_id = message.channel.id
+        _nba_drop_msg_counts[c_id] = _nba_drop_msg_counts.get(c_id, 0) + 1
+        now = time.time()
+        last_drop = _nba_drop_last_timestamps.get(c_id, 0.0)
+
+        # Trigger every 30-50 messages, min 8-minute cooldown per channel
+        if _nba_drop_msg_counts[c_id] >= random.randint(30, 50) and (now - last_drop >= 480):
+            _nba_drop_msg_counts[c_id] = 0
+            _nba_drop_last_timestamps[c_id] = now
+            if is_valid_drop_channel(message.channel):
+                await spawn_nba_card_drop(message.channel)
 
 
 async def setup(bot: commands.Bot):
