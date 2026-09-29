@@ -7470,25 +7470,27 @@ async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: 
     else:
         await send_func(embed=embed)
 
-    # Secondary GIF Embed for Dark Matter (99 OVR) and Galaxy Opal (97-98 OVR) ONLY
+    # Secondary GIF & Flavor Text for Dark Matter (99 OVR) and Galaxy Opal (97-98 OVR) ONLY
     c_tier = card_obj.get("tier", "").lower()
     if c_tier in ["dark_matter", "galaxy_opal"]:
         base_cid = card_obj["id"].lower()
         gif_info = NBA_FUSION_GIF_MAPPINGS.get(base_cid) or NBA_FUSION_GIF_MAPPINGS.get(NBA_LEGACY_CARD_MAPPINGS.get(base_cid, ""))
         if gif_info and gif_info.get("gif_url"):
             try:
+                # 1. Send direct Tenor GIF URL in-between for native Discord auto-play animation
+                await send_func(content=gif_info["gif_url"])
+
+                # 2. Send glowing flavor text embed underneath
                 flavor = gif_info.get("flavor_text", f"⚡ {card_obj['name']} has transcended into legend!")
-                gif_embed = discord.Embed(
-                    title=f"⚡ {card_obj['name']} • Holo Foil Transcendence!",
+                flavor_embed = discord.Embed(
                     description=f"### *{flavor}*",
                     color=discord.Color.from_rgb(255, 215, 0) if c_tier == "dark_matter" else discord.Color.purple()
                 )
-                gif_embed.set_image(url=gif_info["gif_url"])
-                gif_embed.set_footer(text=f"✨ Holo Foil Transcendence • {card_obj['name']} ({holo_card['ovr']} OVR)")
-                gif_embed.timestamp = discord.utils.utcnow()
-                await send_func(embed=gif_embed)
+                flavor_embed.set_footer(text=f"✨ Holo Foil Transcendence • {card_obj['name']} ({holo_card['ovr']} OVR)")
+                flavor_embed.timestamp = discord.utils.utcnow()
+                await send_func(embed=flavor_embed)
             except Exception as gif_send_err:
-                logger.warning(f"Could not send secondary GIF embed for {card_obj['id']}: {gif_send_err}")
+                logger.warning(f"Could not send secondary GIF/flavor for {card_obj['id']}: {gif_send_err}")
 
 
 
@@ -10131,7 +10133,7 @@ NBA_FUSION_GIF_MAPPINGS: Dict[str, Dict[str, str]] = { 'dm-billrussell-99': { 'f
                 'gif_url': 'https://media1.tenor.com/m/uT2m0lOnolEAAAAC/kevin-durant.gif',
                 'name': 'Kevin Durant'},
   'dm-kobe-99': { 'flavor_text': '🐍 The Black Mamba has ascended beyond all limits',
-                  'gif_url': 'https://media1.tenor.com/m/v-VqMttMLW8AAAAC/kobe.gif',
+                  'gif_url': 'https://media1.tenor.com/m/xUF6L_2N2ZAAAAAd/nba-saiyan.gif',
                   'name': 'Kobe Bryant'},
   'dm-lebron-99': { 'flavor_text': '👑 The King has entered God Mode',
                     'gif_url': 'https://media1.tenor.com/m/YpipDU4ZGacAAAAC/excited-le-bron-james.gif',
@@ -26124,20 +26126,6 @@ async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, c
         await ctx.send(f"❌ Error gifting card: {e}")
 
 
-@bot.command(name="nbagrant", aliases=["grantcard", "cardgrant"])
-@commands.guild_only()
-async def nbagrant_prefix_cmd(ctx: commands.Context, target: discord.Member, card: str, count: int = 1):
-    """Grant an NBA card directly to a user's binder (Creator Only): !nbagrant @user <card> [count]"""
-    if not is_creator(ctx.author):
-        return await ctx.send("❌ This command is strictly restricted to the Bot Creator.")
-    card_obj = get_nba_card(card)
-    if not card_obj:
-        return await ctx.send(f"❌ Card `{card}` was not found in catalog.")
-    count = max(1, min(count, 50))
-    for _ in range(count):
-        await db.add_user_nba_card(target.id, card_obj["id"], source="creator_grant")
-    tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
-    await ctx.send(f"👑 Successfully granted **{count}x** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}** (`{card_obj['id']}`) to {target.mention}!")
 
 
 @bot.command(name="nbatrade", aliases=["tradecard", "trade"])
