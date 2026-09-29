@@ -522,210 +522,348 @@ NBA_LEGACY_CARD_MAPPINGS = { 'amy-chetholmgren-89': 'amy-chet-89',
   'go-durant-96': 'dm-kd-99',
   'go-jokic-97': 'go-jokic-98'}
 
-NBA_FUSION_GIF_MAPPINGS = { 'dm-billrussell-99': { 'flavor_text': '🏆 The greatest winner in basketball history has ascended',
-                         'gif_url': 'https://media.tenor.com/ETJhXOFjxOsAAAAM/bill-russell-nba.gif',
-                         'name': 'Bill Russell'},
-  'dm-bird-99': { 'flavor_text': '🧊 Larry Legend is ice cold and completely untouchable',
-                  'gif_url': 'https://media.tenor.com/k6Hc-oLyVesAAAAM/over-it.gif',
-                  'name': 'Larry Bird'},
-  'dm-curry-99': { 'flavor_text': '🍳 Curry has cooked the entire universe from half court',
-                   'gif_url': 'https://media.tenor.com/SshLSL88QqsAAAAM/steph-curry-stephen-curry.gif',
-                   'name': 'Stephen Curry'},
-  'dm-giannis-99': { 'flavor_text': '⚡ The Greek Freak has become a full deity',
-                     'gif_url': 'https://media.tenor.com/KJeGdvrcQvMAAAAM/milwaukee-bucks-giannis-antetokounmpo.gif',
-                     'name': 'Giannis Antetokounmpo'},
-  'dm-hakeemolajuwon-99': { 'flavor_text': '👻 The Dream Shake is now an unsolvable mystery',
-                            'gif_url': 'https://media.tenor.com/u0aplK7iUvYAAAAM/hakeem-turn-around.gif',
-                            'name': 'Hakeem Olajuwon'},
-  'dm-jordan-99': { 'flavor_text': '🐐 His Airness has transcended basketball itself',
-                    'gif_url': 'https://media.tenor.com/p7xX0izZwQIAAAAM/saiyan-jordan.gif',
-                    'name': 'Michael Jordan'},
-  'dm-kareemabduljabbar-99': { 'flavor_text': '🌀 The Skyhook is beyond all human comprehension',
-                               'gif_url': 'https://media.tenor.com/p5md9TZCDXgAAAAM/keeqoh-amv-edit-keeqoh-anime-edit.gif',
-                               'name': 'Kareem Abdul-Jabbar'},
-  'dm-kd-99': { 'flavor_text': '🎯 The Slim Reaper cannot be stopped by anyone',
-                'gif_url': 'https://media.tenor.com/uT2m0lOnolEAAAAM/kevin-durant.gif',
-                'name': 'Kevin Durant'},
-  'dm-kobe-99': { 'flavor_text': '🐍 The Black Mamba has ascended beyond all limits',
-                  'gif_url': 'https://media.tenor.com/xUF6L_2N2ZAAAAAM/nba-saiyan.gif',
-                  'name': 'Kobe Bryant'},
-  'dm-lebron-99': { 'flavor_text': '👑 The King has entered God Mode',
-                    'gif_url': 'https://media.tenor.com/YpipDU4ZGacAAAAM/excited-le-bron-james.gif',
-                    'name': 'LeBron James'},
-  'dm-magic-99': { 'flavor_text': '✨ Showtime has never looked this magical',
-                   'gif_url': 'https://media.tenor.com/oAUpWoDrGFUAAAAM/magic-johnson-pointing.gif',
-                   'name': 'Magic Johnson'},
-  'dm-shaq-99': { 'flavor_text': '💥 Shaq Diesel has gone absolutely nuclear',
-                  'gif_url': 'https://media.tenor.com/Ifwxkao4ByMAAAAM/shaq.gif',
-                  'name': "Shaquille O'Neal"},
-  'dm-timduncan-99': { 'flavor_text': '🏆 The Big Fundamental has become fundamentally unstoppable',
-                       'gif_url': 'https://media.tenor.com/xOJxOrwuVAsAAAAM/tim-duncan-laughing.gif',
-                       'name': 'Tim Duncan'},
-  'dm-wemby-99': { 'flavor_text': '👽 Wemby has confirmed he is not from this planet',
-                   'gif_url': 'https://media.tenor.com/XfcHHxN9eGIAAAAM/wemby-san-antonio-spurs.gif',
-                   'name': 'Victor Wembanyama'},
-  'dm-wiltchamberlain-99': { 'flavor_text': '👹 Wilt the Stilt has become a god among men',
-                             'gif_url': 'https://media.tenor.com/91ZOxXhO3nwAAAAM/100-pts-100.gif',
-                             'name': 'Wilt Chamberlain'},
-  'go-ad-97': { 'flavor_text': '👁️ The Brow has unlocked complete basketball domination',
-                'gif_url': 'https://media.tenor.com/q7s8-zGWp-8AAAAM/lakers.gif',
-                'name': 'Anthony Davis'},
-  'go-alleniverson-97': { 'flavor_text': '💨 The Answer moves faster than reality itself',
-                          'gif_url': 'https://media.tenor.com/EEdRX92hjD4AAAAM/allen-iverson-michael-jordan.gif',
-                          'name': 'Allen Iverson'},
-  'go-alonzomourning-97': { 'flavor_text': '🛡️ Zo has rejected every shot in basketball history',
-                            'gif_url': 'https://media.tenor.com/_GNW3V4WLQMAAAAM/blocked.gif',
-                            'name': 'Alonzo Mourning'},
-  'go-bobcousy-97': { 'flavor_text': '🎩 The Cooz invented basketball magic before it had a name',
-                      'gif_url': 'https://media.tenor.com/H0foamBzrn4AAAAM/bob-cousy-crossover.gif',
-                      'name': 'Bob Cousy'},
-  'go-butler-97': { 'flavor_text': '🔥 Jimmy Buckets has grinded his way to immortality',
-                    'gif_url': 'https://media.tenor.com/LlA95VeBO4YAAAAM/miamiheat-jimmybutler.gif',
-                    'name': 'Jimmy Butler'},
-  'go-carmeloanthony-97': { 'flavor_text': "🍊 Melo's midrange game is a form of poetry no one else can write",
-                            'gif_url': 'https://media.tenor.com/4O4z-bR2qMMAAAAM/carmelo-anthony-melo.gif',
-                            'name': 'Carmelo Anthony'},
-  'go-charlesbarkley-98': { 'flavor_text': '💪 Sir Charles has become an immovable force of nature',
-                            'gif_url': 'https://media.tenor.com/Mk6yEwpSSmwAAAAM/nba-charles.gif',
-                            'name': 'Charles Barkley'},
-  'go-chrispaul-97': { 'flavor_text': '🧠 The Point God controls the game from another dimension',
-                       'gif_url': 'https://media.tenor.com/QqhVvvcJ-FgAAAAM/chris-paul-chrispaul.gif',
-                       'name': 'Chris Paul'},
-  'go-clydedrexler-98': { 'flavor_text': '🌊 Clyde the Glide has reached breathtaking new heights',
-                          'gif_url': 'https://media.tenor.com/aTB1CJylK64AAAAM/clyde-drexler-nba.gif',
-                          'name': 'Clyde Drexler'},
-  'go-damianlillard-98': { 'flavor_text': '⏰ Dame Time has become completely infinite',
-                           'gif_url': 'https://media.tenor.com/B7vlYeVyouYAAAAM/dame-lillard.gif',
-                           'name': 'Damian Lillard'},
-  'go-davidrobinson-98': { 'flavor_text': '⚓ The Admiral has commanded complete basketball domination',
-                           'gif_url': 'https://media.tenor.com/llHrhs7rvBoAAAAM/david-robinson-spurs.gif',
-                           'name': 'David Robinson'},
-  'go-dikembemutombo-97': { 'flavor_text': "☝️ Not in Dikembe's house. Not today. Not ever.",
-                            'gif_url': 'https://media.tenor.com/Q5knp6bJF7wAAAAM/no-no-no-sports.gif',
-                            'name': 'Dikembe Mutombo'},
-  'go-dirknowitzki-98': { 'flavor_text': "🇩🇪 Nowitzki's fadeaway defies the laws of physics",
-                          'gif_url': 'https://media.tenor.com/YjR02HEOV4QAAAAM/dirk-nowitzki-fadeaway.gif',
-                          'name': 'Dirk Nowitzki'},
-  'go-dominiquewilkins-98': { 'flavor_text': '🦅 The Human Highlight Film has gone completely supernatural',
-                              'gif_url': 'https://media.tenor.com/23AQEdGjo9kAAAAM/dominique-wilkins-windmill-dunk.gif',
-                              'name': 'Dominique Wilkins'},
-  'go-donovanmitchell-97': { 'flavor_text': '🕷️ Spida Mitchell has spun a web no one can escape',
-                             'gif_url': 'https://media.tenor.com/IXx9Sy0zangAAAAM/utah-jazz-donovan-mitchell.gif',
-                             'name': 'Donovan Mitchell'},
-  'go-dwighthoward-97': { 'flavor_text': '🦸 Superman has taken complete ownership of the entire paint',
-                          'gif_url': 'https://media.tenor.com/UoIe4hF35J0AAAAM/dunk-contest.gif',
-                          'name': 'Dwight Howard'},
-  'go-dwyanewade-98': { 'flavor_text': '⚡ The Flash has reached absolute maximum velocity',
-                        'gif_url': 'https://media.tenor.com/7rtaXCzGEXoAAAAM/basketball-nba.gif',
-                        'name': 'Dwyane Wade'},
-  'go-elginbaylor-98': { 'flavor_text': '✈️ Elgin Baylor was flying before flying was even possible',
-                         'gif_url': 'https://media.tenor.com/R5y87hNEaQEAAAAM/baylor-bears.gif',
-                         'name': 'Elgin Baylor'},
-  'go-embiid-98': { 'flavor_text': '🌍 The Process is now complete and totally unstoppable',
-                    'gif_url': 'https://media.tenor.com/MOW8DxNObJQAAAAM/trust-the.gif',
-                    'name': 'Joel Embiid'},
-  'go-garypayton-97': { 'flavor_text': '🧤 The Glove has locked down the entire universe',
-                        'gif_url': 'https://media.tenor.com/NhVNJ-Nh2eUAAAAM/seattle-supersonics-gary-payton.gif',
-                        'name': 'Gary Payton'},
-  'go-granthill-97': { 'flavor_text': '🌟 Grant Hill showed the world what a complete player looks like',
-                       'gif_url': 'https://media.tenor.com/sfW2B6vJlHcAAAAM/grant-hill-dunk.gif',
-                       'name': 'Grant Hill'},
-  'go-isiahthomas-98': { 'flavor_text': '⚡ Zeke has proven size means absolutely nothing',
-                         'gif_url': 'https://media.tenor.com/kvyhSwhFGI4AAAAM/detroit-pistons-isiah-thomas.gif',
-                         'name': 'Isiah Thomas'},
-  'go-iverson-97': { 'flavor_text': '💨 The Answer moves faster than reality itself',
-                     'gif_url': 'https://media.tenor.com/EEdRX92hjD4AAAAM/allen-iverson-michael-jordan.gif',
-                     'name': 'Allen Iverson'},
-  'go-jamesharden-97': { 'flavor_text': "🧔 The Beard's step back has become physically impossible to guard",
-                         'gif_url': 'https://media.tenor.com/PzFNraX8AdkAAAAM/houston-rockets-stir.gif',
-                         'name': 'James Harden'},
-  'go-jasonkidd-98': { 'flavor_text': '👁️ Kidd saw the game three plays ahead of everyone else',
-                       'gif_url': 'https://media.tenor.com/-iZyPa1bc4MAAAAM/dirk-nowitzki-brendan-haywood.gif',
-                       'name': 'Jason Kidd'},
-  'go-jerrywest-98': { 'flavor_text': '🏀 The Logo himself has come to life',
-                       'gif_url': 'https://media.tenor.com/jPy4ArbPHUQAAAAM/jerry-west-lakers.gif',
-                       'name': 'Jerry West'},
-  'go-johnstockton-98': { 'flavor_text': '🎯 Stockton has become the puppet master of basketball',
-                          'gif_url': 'https://media.tenor.com/4SAdW1hPFXwAAAAM/jon-stockton-assist.gif',
-                          'name': 'John Stockton'},
-  'go-jokic-98': { 'flavor_text': '♟️ The Joker has revealed his final unstoppable form',
-                   'gif_url': 'https://media.tenor.com/zm7TmlkFSV4AAAAM/nikola-jokic-jokic.gif',
-                   'name': 'Nikola Jokic'},
-  'go-juliuserving-98': { 'flavor_text': '🩺 Dr J has prescribed a legendary dose of greatness',
-                          'gif_url': 'https://media.tenor.com/usm3rQ6KWDYAAAAM/julius-erving.gif',
-                          'name': 'Julius Erving'},
-  'go-karlmalone-98': { 'flavor_text': '📬 The Mailman always delivers in legendary form',
-                        'gif_url': 'https://media.tenor.com/i1w7-TsXgCEAAAAM/nba-karl-malone.gif',
-                        'name': 'Karl Malone'},
-  'go-kawhi-97': { 'flavor_text': '🤖 The Klaw has fully activated terminator mode',
-                   'gif_url': 'https://media.tenor.com/wOov1s3fCMEAAAAM/kawhi-kawhi-leonard.gif',
-                   'name': 'Kawhi Leonard'},
-  'go-kevingarnett-98': { 'flavor_text': "🔥 KG's intensity has shattered every limit imaginable",
-                          'gif_url': 'https://media.tenor.com/1g9AnZZbvDMAAAAM/kevin-garnett.gif',
-                          'name': 'Kevin Garnett'},
-  'go-kyrieirving-98': { 'flavor_text': "🌀 Uncle Drew's handles have completely broken the matrix",
-                         'gif_url': 'https://media.tenor.com/MltYmfAReOcAAAAM/kyrie-handles.gif',
-                         'name': 'Kyrie Irving'},
-  'go-luka-98': { 'flavor_text': '🌟 Luka Magic has gone completely beyond human limits',
-                  'gif_url': 'https://media.tenor.com/omMMOi4SlQwAAAAM/luka-doncic-luka.gif',
-                  'name': 'Luka Doncic'},
-  'go-mosesmalone-98': { 'flavor_text': '💪 Moses has led his team to the promised land',
-                         'gif_url': 'https://media.tenor.com/em5ccskUHFsAAAAM/high-shelf-collective-hsc.gif',
-                         'name': 'Moses Malone'},
-  'go-oscarrobertson-98': { 'flavor_text': '📊 The Big O has redefined what is humanly possible',
-                            'gif_url': 'https://media.tenor.com/CsmvCDzPp74AAAAM/i-dont-do-well-with-underachievers-better-than-you.gif',
-                            'name': 'Oscar Robertson'},
-  'go-patrickewing-98': { 'flavor_text': '🏙️ Ewing has become the guardian of New York',
-                          'gif_url': 'https://media.tenor.com/WVf7ugpBhoEAAAAM/patrick-ewing-33.gif',
-                          'name': 'Patrick Ewing'},
-  'go-paulgeorge-98': { 'flavor_text': '🌙 PG has elevated his game to another dimension entirely',
-                        'gif_url': 'https://media.tenor.com/mUU3BfPUhcYAAAAM/paul-george-pandemic-p.gif',
-                        'name': 'Paul George'},
-  'go-paulpierce-97': { 'flavor_text': '💚 The Truth cannot be denied or stopped',
-                        'gif_url': 'https://media.tenor.com/xVWgjAhAlZcAAAAM/paul-pierce-pierce.gif',
-                        'name': 'Paul Pierce'},
-  'go-petemaravich-97': { 'flavor_text': '🔫 Pistol Pete shoots from dimensions no one else can reach',
-                          'gif_url': 'https://media.tenor.com/9nw7rSUBdwIAAAAM/pete-maravich-pistol-pete.gif',
-                          'name': 'Pete Maravich'},
-  'go-rayallen-97': { 'flavor_text': '🎯 The purest shooter to ever grace the hardwood',
-                      'gif_url': 'https://media.tenor.com/-pDys2heFfQAAAAM/ray-allen.gif',
-                      'name': 'Ray Allen'},
-  'go-reggiemiller-97': { 'flavor_text': '🤌 Reggie Miller lives for the moment everyone else fears',
-                          'gif_url': 'https://media.tenor.com/OKAL7YMcTBQAAAAM/tyrese-haliburton-butlerguru.gif',
-                          'name': 'Reggie Miller'},
-  'go-rickbarry-97': { 'flavor_text': '🎯 Rick Barry did it his own way and it worked every single time',
-                       'gif_url': 'https://media.tenor.com/TfkGr7Sisx0AAAAM/lechpoznan-kolejorz.gif',
-                       'name': 'Rick Barry'},
-  'go-russellwestbrook-97': { 'flavor_text': '💢 Brodie runs on a different fuel than every other human being',
-                              'gif_url': 'https://media.tenor.com/HliWh4j2SBsAAAAM/russel-westbrook-nba.gif',
-                              'name': 'Russell Westbrook'},
-  'go-scottiepippen-98': { 'flavor_text': '🦸 Pip has stepped out of the shadow and into legend',
-                           'gif_url': 'https://media.tenor.com/R-un0kj39k4AAAAM/defense-scottie-pippen.gif',
-                           'name': 'Scottie Pippen'},
-  'go-stevenash-98': { 'flavor_text': '🎩 Nash turned basketball into an art form nobody else could paint',
-                       'gif_url': 'https://media.tenor.com/75ewi4a2u5UAAAAM/steve-nash.gif',
-                       'name': 'Steve Nash'},
-  'go-tatum-98': { 'flavor_text': '🍀 Tatum has become the new face of Boston legend',
-                   'gif_url': 'https://media.tenor.com/hrHgH7vCBtMAAAAM/tatum-jayson-tatum.gif',
-                   'name': 'Jayson Tatum'},
-  'go-timhardaway-97': { 'flavor_text': '💫 The UTEP Two Step has crossed over into legend',
-                         'gif_url': 'https://media.tenor.com/K-6KCIpOdocAAAAM/tim-hardaway-golden-state.gif',
-                         'name': 'Tim Hardaway'},
-  'go-tmac-98': { 'flavor_text': '⚡ T-Mac has unlocked unlimited scoring mode',
-                  'gif_url': 'https://media.tenor.com/11a8hkGCE94AAAAM/tracy-mc-grady-shrug.gif',
-                  'name': 'Tracy McGrady'},
-  'go-tonyparker-97': { 'flavor_text': '🇫🇷 The French Prince floated past every defender in history',
-                        'gif_url': 'https://media.tenor.com/5SQyE0-BNGIAAAAM/san-antonio-spurs-tim-duncan.gif',
-                        'name': 'Tony Parker'},
-  'go-vincecarter-97': { 'flavor_text': '🦅 Vinsanity has taken flight into the stratosphere',
-                         'gif_url': 'https://media.tenor.com/8N_RlZgzqSoAAAAM/vince-carter-vince.gif',
-                         'name': 'Vince Carter'},
-  'go-waltfrazier-98': { 'flavor_text': '😎 Clyde is too cool for this planet',
-                         'gif_url': 'https://media.tenor.com/VRSMNNdi6bcAAAAM/knicks.gif',
-                         'name': 'Walt Frazier'},
-  'go-willisreed-97': { 'flavor_text': '❤️ The heart of a champion cannot be measured',
-                        'gif_url': 'https://media.tenor.com/3pHIF1iXeNgAAAAM/basketball-kentucky.gif',
-                        'name': 'Willis Reed'}}
+NBA_FUSION_GIF_MAPPINGS = {
+  'dm-billrussell-99': {
+    'name': 'Bill Russell',
+    'gif_url': 'https://media.tenor.com/-uKWiG9YwiYAAAAM/bill-russell.gif',
+    'flavor_text': '🏆 The greatest winner in basketball history has ascended'
+  },
+  'dm-bird-99': {
+    'name': 'Larry Bird',
+    'gif_url': 'https://media.tenor.com/785iV9CCFTcAAAAM/larry-bird-robert-parish.gif',
+    'flavor_text': '🧊 Larry Legend is ice cold and completely untouchable'
+  },
+  'dm-curry-99': {
+    'name': 'Stephen Curry',
+    'gif_url': 'https://media.tenor.com/Oy2ncwqiZO8AAAAM/night-night-nighty-night.gif',
+    'flavor_text': '🍳 Curry has cooked the entire universe from half court'
+  },
+  'dm-giannis-99': {
+    'name': 'Giannis Antetokounmpo',
+    'gif_url': 'https://media.tenor.com/KJeGdvrcQvMAAAAM/milwaukee-bucks-giannis-antetokounmpo.gif',
+    'flavor_text': '⚡ The Greek Freak has become a full deity'
+  },
+  'dm-hakeemolajuwon-99': {
+    'name': 'Hakeem Olajuwon',
+    'gif_url': 'https://media.tenor.com/u0aplK7iUvYAAAAM/hakeem-turn-around.gif',
+    'flavor_text': '👻 The Dream Shake is now an unsolvable mystery'
+  },
+  'dm-jordan-99': {
+    'name': 'Michael Jordan',
+    'gif_url': 'https://media.tenor.com/-5II3eZiaJcAAAAM/michael-jordan-basketball.gif',
+    'flavor_text': '🐐 His Airness has transcended basketball itself'
+  },
+  'dm-kareemabduljabbar-99': {
+    'name': 'Kareem Abdul-Jabbar',
+    'gif_url': 'https://media.tenor.com/JEnX7ebK0Z0AAAAM/kareem-kareem-skyhook.gif',
+    'flavor_text': '🌀 The Skyhook is beyond all human comprehension'
+  },
+  'dm-kd-99': {
+    'name': 'Kevin Durant',
+    'gif_url': 'https://media.tenor.com/7ruKh0zDurUAAAAM/dunk-kevin-durant-dunk.gif',
+    'flavor_text': '🎯 The Slim Reaper cannot be stopped by anyone'
+  },
+  'dm-kobe-99': {
+    'name': 'Kobe Bryant',
+    'gif_url': 'https://media.tenor.com/xUF6L_2N2ZAAAAAM/nba-saiyan.gif',
+    'flavor_text': '🐍 The Black Mamba has ascended beyond all limits'
+  },
+  'dm-lebron-99': {
+    'name': 'LeBron James',
+    'gif_url': 'https://media.tenor.com/lquFMyMh8zYAAAAM/lebron-james-dunk.gif',
+    'flavor_text': '👑 The King has entered God Mode'
+  },
+  'dm-magic-99': {
+    'name': 'Magic Johnson',
+    'gif_url': 'https://media.tenor.com/zcX1Snd2CtsAAAAM/magic-johnson.gif',
+    'flavor_text': '✨ Showtime has never looked this magical'
+  },
+  'dm-shaq-99': {
+    'name': "Shaquille O'Neal",
+    'gif_url': 'https://media.tenor.com/kuyCaCZWKCwAAAAM/shaquille-oneal-basketball.gif',
+    'flavor_text': '💥 Shaq Diesel has gone absolutely nuclear'
+  },
+  'dm-timduncan-99': {
+    'name': 'Tim Duncan',
+    'gif_url': 'https://media.tenor.com/69cPUdgnQxwAAAAM/tim-duncan.gif',
+    'flavor_text': '🏆 The Big Fundamental has become fundamentally unstoppable'
+  },
+  'dm-wemby-99': {
+    'name': 'Victor Wembanyama',
+    'gif_url': 'https://media.tenor.com/XfmGUCYiEUEAAAAM/victor-wembanyama-wembanyama.gif',
+    'flavor_text': '👽 Wemby has confirmed he is not from this planet'
+  },
+  'dm-wiltchamberlain-99': {
+    'name': 'Wilt Chamberlain',
+    'gif_url': 'https://media.tenor.com/jqrvfLdQhZYAAAAM/wilt-chamberlain-basketball.gif',
+    'flavor_text': '👹 Wilt the Stilt has become a god among men'
+  },
+  'go-ad-97': {
+    'name': 'Anthony Davis',
+    'gif_url': 'https://media.tenor.com/q7s8-zGWp-8AAAAM/lakers.gif',
+    'flavor_text': '👁️ The Brow has unlocked complete basketball domination'
+  },
+  'go-alleniverson-97': {
+    'name': 'Allen Iverson',
+    'gif_url': 'https://media.tenor.com/EEdRX92hjD4AAAAM/allen-iverson-michael-jordan.gif',
+    'flavor_text': '💨 The Answer moves faster than reality itself'
+  },
+  'go-alonzomourning-97': {
+    'name': 'Alonzo Mourning',
+    'gif_url': 'https://media.tenor.com/wF9FQunfa6YAAAAM/alonzo-mourning.gif',
+    'flavor_text': '🛡️ Zo has rejected every shot in basketball history'
+  },
+  'go-bobcousy-97': {
+    'name': 'Bob Cousy',
+    'gif_url': 'https://media.tenor.com/H0foamBzrn4AAAAM/bob-cousy-crossover.gif',
+    'flavor_text': '🎩 The Cooz invented basketball magic before it had a name'
+  },
+  'go-butler-97': {
+    'name': 'Jimmy Butler',
+    'gif_url': 'https://media.tenor.com/LlA95VeBO4YAAAAM/miamiheat-jimmybutler.gif',
+    'flavor_text': '🔥 Jimmy Buckets has grinded his way to immortality'
+  },
+  'go-carmeloanthony-97': {
+    'name': 'Carmelo Anthony',
+    'gif_url': 'https://media.tenor.com/4O4z-bR2qMMAAAAM/carmelo-anthony-melo.gif',
+    'flavor_text': "🍊 Melo's midrange game is a form of poetry no one else can write"
+  },
+  'go-charlesbarkley-98': {
+    'name': 'Charles Barkley',
+    'gif_url': 'https://media.tenor.com/BBAgR634QDwAAAAM/charles-barkley-sir-charles.gif',
+    'flavor_text': '💪 Sir Charles has become an immovable force of nature'
+  },
+  'go-chrispaul-97': {
+    'name': 'Chris Paul',
+    'gif_url': 'https://media.tenor.com/QqhVvvcJ-FgAAAAM/chris-paul-chrispaul.gif',
+    'flavor_text': '🧠 The Point God controls the game from another dimension'
+  },
+  'go-clydedrexler-98': {
+    'name': 'Clyde Drexler',
+    'gif_url': 'https://media.tenor.com/aTB1CJylK64AAAAM/clyde-drexler-nba.gif',
+    'flavor_text': '🌊 Clyde the Glide has reached breathtaking new heights'
+  },
+  'go-damianlillard-98': {
+    'name': 'Damian Lillard',
+    'gif_url': 'https://media.tenor.com/B7vlYeVyouYAAAAM/dame-lillard.gif',
+    'flavor_text': '⏰ Dame Time has become completely infinite'
+  },
+  'go-davidrobinson-98': {
+    'name': 'David Robinson',
+    'gif_url': 'https://media.tenor.com/llHrhs7rvBoAAAAM/david-robinson-spurs.gif',
+    'flavor_text': '⚓ The Admiral has commanded complete basketball domination'
+  },
+  'go-dikembemutombo-97': {
+    'name': 'Dikembe Mutombo',
+    'gif_url': 'https://media.tenor.com/Q5knp6bJF7wAAAAM/no-no-no-sports.gif',
+    'flavor_text': "☝️ Not in Dikembe's house. Not today. Not ever."
+  },
+  'go-dirknowitzki-98': {
+    'name': 'Dirk Nowitzki',
+    'gif_url': 'https://media.tenor.com/l0iTUt9dWAgAAAAM/dirk-nowitzki-dallas-mavericks.gif',
+    'flavor_text': "🇩🇪 Nowitzki's fadeaway defies the laws of physics"
+  },
+  'go-dominiquewilkins-98': {
+    'name': 'Dominique Wilkins',
+    'gif_url': 'https://media.tenor.com/23AQEdGjo9kAAAAM/dominique-wilkins-windmill-dunk.gif',
+    'flavor_text': '🦅 The Human Highlight Film has gone completely supernatural'
+  },
+  'go-donovanmitchell-97': {
+    'name': 'Donovan Mitchell',
+    'gif_url': 'https://media.tenor.com/IXx9Sy0zangAAAAM/utah-jazz-donovan-mitchell.gif',
+    'flavor_text': '🕷️ Spida Mitchell has spun a web no one can escape'
+  },
+  'go-dwighthoward-97': {
+    'name': 'Dwight Howard',
+    'gif_url': 'https://media.tenor.com/UoIe4hF35J0AAAAM/dunk-contest.gif',
+    'flavor_text': '🦸 Superman has taken complete ownership of the entire paint'
+  },
+  'go-dwyanewade-98': {
+    'name': 'Dwyane Wade',
+    'gif_url': 'https://media.tenor.com/wQqVEkxIPAkAAAAM/dwayne-wade-nba.gif',
+    'flavor_text': '⚡ The Flash has reached absolute maximum velocity'
+  },
+  'go-elginbaylor-98': {
+    'name': 'Elgin Baylor',
+    'gif_url': '',
+    'flavor_text': '✈️ Elgin Baylor was flying before flying was even possible'
+  },
+  'go-embiid-98': {
+    'name': 'Joel Embiid',
+    'gif_url': 'https://media.tenor.com/dZnUrWgomFAAAAAM/joel-embiid-slam.gif',
+    'flavor_text': '🌍 The Process is now complete and totally unstoppable'
+  },
+  'go-garypayton-97': {
+    'name': 'Gary Payton',
+    'gif_url': 'https://media.tenor.com/NhVNJ-Nh2eUAAAAM/seattle-supersonics-gary-payton.gif',
+    'flavor_text': '🧤 The Glove has locked down the entire universe'
+  },
+  'go-granthill-97': {
+    'name': 'Grant Hill',
+    'gif_url': 'https://media.tenor.com/sfW2B6vJlHcAAAAM/grant-hill-dunk.gif',
+    'flavor_text': '🌟 Grant Hill showed the world what a complete player looks like'
+  },
+  'go-isiahthomas-98': {
+    'name': 'Isiah Thomas',
+    'gif_url': 'https://media.tenor.com/kvyhSwhFGI4AAAAM/detroit-pistons-isiah-thomas.gif',
+    'flavor_text': '⚡ Zeke has proven size means absolutely nothing'
+  },
+  'go-iverson-97': {
+    'name': 'Allen Iverson',
+    'gif_url': 'https://media.tenor.com/1EWb9d-a80cAAAAM/iverson-crossover.gif',
+    'flavor_text': '💨 The Answer moves faster than reality itself'
+  },
+  'go-jamesharden-97': {
+    'name': 'James Harden',
+    'gif_url': 'https://media.tenor.com/PzFNraX8AdkAAAAM/houston-rockets-stir.gif',
+    'flavor_text': "🧔 The Beard's step back has become physically impossible to guard"
+  },
+  'go-jasonkidd-98': {
+    'name': 'Jason Kidd',
+    'gif_url': 'https://media.tenor.com/QEvwiRiFDlAAAAAM/jason-kidd.gif',
+    'flavor_text': '👁️ Kidd saw the game three plays ahead of everyone else'
+  },
+  'go-jerrywest-98': {
+    'name': 'Jerry West',
+    'gif_url': 'https://media.tenor.com/jPy4ArbPHUQAAAAM/jerry-west-lakers.gif',
+    'flavor_text': '🏀 The Logo himself has come to life'
+  },
+  'go-johnstockton-98': {
+    'name': 'John Stockton',
+    'gif_url': 'https://media.tenor.com/4SAdW1hPFXwAAAAM/jon-stockton-assist.gif',
+    'flavor_text': '🎯 Stockton has become the puppet master of basketball'
+  },
+  'go-jokic-98': {
+    'name': 'Nikola Jokic',
+    'gif_url': 'https://media.tenor.com/MOufHecLk6IAAAAM/sports-sportsmanias.gif',
+    'flavor_text': '♟️ The Joker has revealed his final unstoppable form'
+  },
+  'go-juliuserving-98': {
+    'name': 'Julius Erving',
+    'gif_url': 'https://media.tenor.com/Nr762QJup18AAAAM/erving-sixers.gif',
+    'flavor_text': '🩺 Dr J has prescribed a legendary dose of greatness'
+  },
+  'go-karlmalone-98': {
+    'name': 'Karl Malone',
+    'gif_url': 'https://media.tenor.com/LTIxrHUvj8kAAAAM/karl-malone-the-mail-man.gif',
+    'flavor_text': '📬 The Mailman always delivers in legendary form'
+  },
+  'go-kawhi-97': {
+    'name': 'Kawhi Leonard',
+    'gif_url': 'https://media.tenor.com/wOov1s3fCMEAAAAM/kawhi-kawhi-leonard.gif',
+    'flavor_text': '🤖 The Klaw has fully activated terminator mode'
+  },
+  'go-kevingarnett-98': {
+    'name': 'Kevin Garnett',
+    'gif_url': 'https://media.tenor.com/1g9AnZZbvDMAAAAM/kevin-garnett.gif',
+    'flavor_text': "🔥 KG's intensity has shattered every limit imaginable"
+  },
+  'go-kyrieirving-98': {
+    'name': 'Kyrie Irving',
+    'gif_url': 'https://media.tenor.com/MltYmfAReOcAAAAM/kyrie-handles.gif',
+    'flavor_text': "🌀 Uncle Drew's handles have completely broken the matrix"
+  },
+  'go-luka-98': {
+    'name': 'Luka Doncic',
+    'gif_url': 'https://media.tenor.com/C9ABcyLH9l4AAAAM/luka-doncic-stepback.gif',
+    'flavor_text': '🌟 Luka Magic has gone completely beyond human limits'
+  },
+  'go-mosesmalone-98': {
+    'name': 'Moses Malone',
+    'gif_url': '',
+    'flavor_text': '💪 Moses has led his team to the promised land'
+  },
+  'go-oscarrobertson-98': {
+    'name': 'Oscar Robertson',
+    'gif_url': '',
+    'flavor_text': '📊 The Big O has redefined what is humanly possible'
+  },
+  'go-patrickewing-98': {
+    'name': 'Patrick Ewing',
+    'gif_url': 'https://media.tenor.com/WVf7ugpBhoEAAAAM/patrick-ewing-33.gif',
+    'flavor_text': '🏙️ Ewing has become the guardian of New York'
+  },
+  'go-paulgeorge-98': {
+    'name': 'Paul George',
+    'gif_url': 'https://media.tenor.com/G8eP7Zgy_-YAAAAM/dunk-paul-george.gif',
+    'flavor_text': '🌙 PG has elevated his game to another dimension entirely'
+  },
+  'go-paulpierce-97': {
+    'name': 'Paul Pierce',
+    'gif_url': 'https://media.tenor.com/xVWgjAhAlZcAAAAM/paul-pierce-pierce.gif',
+    'flavor_text': '💚 The Truth cannot be denied or stopped'
+  },
+  'go-petemaravich-97': {
+    'name': 'Pete Maravich',
+    'gif_url': 'https://media.tenor.com/9nw7rSUBdwIAAAAM/pete-maravich-pistol-pete.gif',
+    'flavor_text': '🔫 Pistol Pete shoots from dimensions no one else can reach'
+  },
+  'go-rayallen-97': {
+    'name': 'Ray Allen',
+    'gif_url': 'https://media.tenor.com/-pDys2heFfQAAAAM/ray-allen.gif',
+    'flavor_text': '🎯 The purest shooter to ever grace the hardwood'
+  },
+  'go-reggiemiller-97': {
+    'name': 'Reggie Miller',
+    'gif_url': 'https://media.tenor.com/p_99fxGEA4UAAAAM/reggie-miller-choke.gif',
+    'flavor_text': '🤌 Reggie Miller lives for the moment everyone else fears'
+  },
+  'go-rickbarry-97': {
+    'name': 'Rick Barry',
+    'gif_url': '',
+    'flavor_text': '🎯 Rick Barry did it his own way and it worked every single time'
+  },
+  'go-russellwestbrook-97': {
+    'name': 'Russell Westbrook',
+    'gif_url': 'https://media.tenor.com/HliWh4j2SBsAAAAM/russel-westbrook-nba.gif',
+    'flavor_text': '💢 Brodie runs on a different fuel than every other human being'
+  },
+  'go-scottiepippen-98': {
+    'name': 'Scottie Pippen',
+    'gif_url': 'https://media.tenor.com/4zjloKDWg6sAAAAM/scottie-pippen.gif',
+    'flavor_text': '🦸 Pip has stepped out of the shadow and into legend'
+  },
+  'go-stevenash-98': {
+    'name': 'Steve Nash',
+    'gif_url': 'https://media.tenor.com/75ewi4a2u5UAAAAM/steve-nash.gif',
+    'flavor_text': '🎩 Nash turned basketball into an art form nobody else could paint'
+  },
+  'go-tatum-98': {
+    'name': 'Jayson Tatum',
+    'gif_url': 'https://media.tenor.com/JegpKDR4F3gAAAAM/jayson-tatum-dunk.gif',
+    'flavor_text': '🍀 Tatum has become the new face of Boston legend'
+  },
+  'go-timhardaway-97': {
+    'name': 'Tim Hardaway',
+    'gif_url': 'https://media.tenor.com/K-6KCIpOdocAAAAM/tim-hardaway-golden-state.gif',
+    'flavor_text': '💫 The UTEP Two Step has crossed over into legend'
+  },
+  'go-tmac-98': {
+    'name': 'Tracy McGrady',
+    'gif_url': 'https://media.tenor.com/5GVprx8UYhAAAAAM/tracy-mcgrady-toronto-raptors.gif',
+    'flavor_text': '⚡ T-Mac has unlocked unlimited scoring mode'
+  },
+  'go-tonyparker-97': {
+    'name': 'Tony Parker',
+    'gif_url': 'https://media.tenor.com/7mw-CscArwoAAAAM/tony-parker-spurs.gif',
+    'flavor_text': '🇫🇷 The French Prince floated past every defender in history'
+  },
+  'go-vincecarter-97': {
+    'name': 'Vince Carter',
+    'gif_url': 'https://media.tenor.com/8N_RlZgzqSoAAAAM/vince-carter-vince.gif',
+    'flavor_text': '🦅 Vinsanity has taken flight into the stratosphere'
+  },
+  'go-waltfrazier-98': {
+    'name': 'Walt Frazier',
+    'gif_url': 'https://media.tenor.com/EU8UIOtlkKIAAAAM/walt-frazier.gif',
+    'flavor_text': '😎 Clyde is too cool for this planet'
+  },
+  'go-willisreed-97': {
+    'name': 'Willis Reed',
+    'gif_url': '',
+    'flavor_text': '❤️ The heart of a champion cannot be measured'
+  }
+}
 
 NBA_PLAYER_IMG_IDS = { 'Aaron Gordon': '203932',
   'Alex Caruso': '1627936',

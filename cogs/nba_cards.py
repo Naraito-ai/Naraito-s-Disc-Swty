@@ -91,21 +91,19 @@ class NBADexView(discord.ui.View):
         self.current_page = 0
         self.page_size = 15
 
-        # Group duplicate counts
+        # Group duplicate counts & resolve unique canonical card objects
         self.card_counts: Dict[str, int] = {}
-        for c in user_cards:
-            cid = c.get("card_id", "").lower()
-            self.card_counts[cid] = self.card_counts.get(cid, 0) + 1
-
-        # Unique card objects
         all_unique: List[Dict[str, Any]] = []
         seen = set()
+
         for c in user_cards:
-            cid = c.get("card_id", "").lower()
-            if cid not in seen:
-                seen.add(cid)
-                c_obj = get_nba_card(cid)
-                if c_obj:
+            cid = c.get("card_id", "")
+            c_obj = get_nba_card(cid)
+            if c_obj:
+                canon_id = c_obj["id"].lower()
+                self.card_counts[canon_id] = self.card_counts.get(canon_id, 0) + 1
+                if canon_id not in seen:
+                    seen.add(canon_id)
                     all_unique.append(c_obj)
 
         if tier_filter:
@@ -132,7 +130,11 @@ class NBADexView(discord.ui.View):
 
         if page_cards:
             options = []
-            for c in page_cards[:25]:
+            seen_opt = set()
+            for c in page_cards:
+                if c["id"] in seen_opt or len(options) >= 25:
+                    continue
+                seen_opt.add(c["id"])
                 t_info = NBA_2K_TIERS.get(c.get("tier", "gold"), NBA_2K_TIERS["gold"])
                 cnt = self.card_counts.get(c["id"].lower(), 1)
                 label = f"[{c['ovr']} OVR] {c['name']}"[:80]
@@ -332,7 +334,7 @@ def build_nbadex_embed(
     view = NBADexView(target_user, cards_owned, tier_filter=tier_filter)
     view.current_page = max(0, min(page - 1, max(0, view.total_pages - 1)))
     embed = view.build_embed()
-    return embed, max(1, view.total_pages), view.cards_to_show
+    return embed, max(1, view.total_pages), view.filtered_cards
 
 
 class NBACardsCog(commands.Cog, name="NBA Cards"):
@@ -423,11 +425,28 @@ class NBACardsCog(commands.Cog, name="NBA Cards"):
 
     @commands.command(name="nbadex", aliases=["dex", "binder", "cards"])
     @commands.guild_only()
-    async def nbadex_prefix(self, ctx: commands.Context, target: Optional[discord.Member] = None, *, tier: Optional[str] = None):
+    async def nbadex_prefix(self, ctx: commands.Context, *, raw_args: str = ""):
         """View your NBA card collection binder: !nbadex [@user] [tier]"""
-        target_user = target or ctx.author
+        import re
+        target_user = ctx.author
+        tier_filter = None
+        raw = raw_args.strip()
+
+        if raw:
+            tokens = raw.split()
+            first_tok = tokens[0]
+            m_match = re.match(r'^<@!?(\d+)>$', first_tok)
+            if m_match and ctx.guild:
+                target_user = ctx.guild.get_member(int(m_match.group(1))) or ctx.author
+                tier_filter = " ".join(tokens[1:]).strip() if len(tokens) > 1 else None
+            elif first_tok.isdigit() and len(first_tok) >= 17 and ctx.guild:
+                target_user = ctx.guild.get_member(int(first_tok)) or ctx.author
+                tier_filter = " ".join(tokens[1:]).strip() if len(tokens) > 1 else None
+            else:
+                tier_filter = raw
+
         user_cards = await db.get_user_nba_cards(target_user.id)
-        view = NBADexView(target_user, user_cards, tier_filter=tier)
+        view = NBADexView(target_user, user_cards, tier_filter=tier_filter)
         await ctx.send(embed=view.build_embed(), view=view)
 
     @commands.command(name="nbacard", aliases=["card", "cardinfo", "inspectcard"])
