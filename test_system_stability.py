@@ -1,10 +1,15 @@
 import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 from unittest.mock import MagicMock
 
-# Mock external modules that are installed in production environment
+# Load real modules or mock if not installed
 for mod in ["dotenv", "discord", "discord.ext", "discord.ext.commands", "discord.ext.tasks", "discord.app_commands", "aiosqlite", "asyncpg", "aiohttp", "PIL", "PIL.Image", "PIL.ImageDraw", "PIL.ImageFont", "PIL.ImageFilter", "psutil", "feedparser", "bs4", "jwt", "fastapi", "uvicorn", "google.generativeai"]:
-    if mod not in sys.modules:
-        sys.modules[mod] = MagicMock()
+    try:
+        __import__(mod)
+    except ImportError:
+        if mod not in sys.modules:
+            sys.modules[mod] = MagicMock()
 
 import unittest
 import asyncio

@@ -35,13 +35,13 @@ class DatabaseManager:
                 logger.info("Initializing PostgreSQL database connection...")
                 self.pg_pool = await asyncpg.create_pool(
                     self.db_url,
-                    min_size=0,
-                    max_size=5,
+                    min_size=2,
+                    max_size=15,
                     statement_cache_size=0,
                     max_inactive_connection_lifetime=60.0,
                     command_timeout=30.0
                 )
-                logger.info("PostgreSQL connection pool created successfully.")
+                logger.info("PostgreSQL connection pool created successfully (min=2, max=15).")
             except ImportError:
                 logger.error("asyncpg is not installed, falling back to SQLite!")
                 self.is_postgres = False
@@ -519,69 +519,97 @@ class DatabaseManager:
         logger.info("Database tables verified/created successfully.")
 
     async def execute(self, query: str, *args):
-        """Executes a write query (INSERT, UPDATE, DELETE)."""
-        if self.is_postgres:
-            async with self.pg_pool.acquire() as conn:
-                # asyncpg uses $1, $2 for placeholders instead of ? (SQLite)
-                pg_query = query
-                if "?" in query:
-                    parts = query.split("?")
-                    pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
-                await conn.execute(pg_query, *args)
-        else:
-            async with self._sqlite_lock:
-                sqlite_query = query
-                if re.search(r'\$\d+', sqlite_query):
-                    sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
-                if "SERIAL PRIMARY KEY" in sqlite_query:
-                    sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-                await self.sqlite_conn.execute(sqlite_query, args)
-                await self.sqlite_conn.commit()
+        """Executes a write query (INSERT, UPDATE, DELETE) with 3x retry resilience."""
+        last_err = None
+        for attempt in range(1, 4):
+            try:
+                if self.is_postgres:
+                    async with self.pg_pool.acquire() as conn:
+                        pg_query = query
+                        if "?" in query:
+                            parts = query.split("?")
+                            pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
+                        return await conn.execute(pg_query, *args)
+                else:
+                    async with self._sqlite_lock:
+                        sqlite_query = query
+                        if re.search(r'\$\d+', sqlite_query):
+                            sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
+                        if "SERIAL PRIMARY KEY" in sqlite_query:
+                            sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                        await self.sqlite_conn.execute(sqlite_query, args)
+                        await self.sqlite_conn.commit()
+                        return
+            except Exception as e:
+                last_err = e
+                logger.warning(f"Database execute attempt {attempt}/3 failed: {e}. Retrying in {0.15 * attempt}s...")
+                await asyncio.sleep(0.15 * attempt)
+        logger.error(f"Database execute failed after 3 attempts: {last_err}", exc_info=True)
+        raise last_err
 
     async def executemany(self, query: str, args_list: List[tuple]):
-        """Executes a parameterized write query across multiple parameter tuples in a single transaction."""
+        """Executes a parameterized write query across multiple parameter tuples in a single transaction with 3x retry."""
         if not args_list:
             return
-        if self.is_postgres:
-            async with self.pg_pool.acquire() as conn:
-                pg_query = query
-                if "?" in query:
-                    parts = query.split("?")
-                    pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
-                await conn.executemany(pg_query, args_list)
-        else:
-            async with self._sqlite_lock:
-                sqlite_query = query
-                if re.search(r'\$\d+', sqlite_query):
-                    sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
-                if "SERIAL PRIMARY KEY" in sqlite_query:
-                    sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-                await self.sqlite_conn.executemany(sqlite_query, args_list)
-                await self.sqlite_conn.commit()
+        last_err = None
+        for attempt in range(1, 4):
+            try:
+                if self.is_postgres:
+                    async with self.pg_pool.acquire() as conn:
+                        pg_query = query
+                        if "?" in query:
+                            parts = query.split("?")
+                            pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
+                        return await conn.executemany(pg_query, args_list)
+                else:
+                    async with self._sqlite_lock:
+                        sqlite_query = query
+                        if re.search(r'\$\d+', sqlite_query):
+                            sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
+                        if "SERIAL PRIMARY KEY" in sqlite_query:
+                            sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                        await self.sqlite_conn.executemany(sqlite_query, args_list)
+                        await self.sqlite_conn.commit()
+                        return
+            except Exception as e:
+                last_err = e
+                logger.warning(f"Database executemany attempt {attempt}/3 failed: {e}. Retrying in {0.15 * attempt}s...")
+                await asyncio.sleep(0.15 * attempt)
+        logger.error(f"Database executemany failed after 3 attempts: {last_err}", exc_info=True)
+        raise last_err
 
     async def fetch(self, query: str, *args) -> List[Dict[str, Any]]:
-        """Fetches multiple records as a list of dicts."""
-        if self.is_postgres:
-            async with self.pg_pool.acquire() as conn:
-                pg_query = query
-                if "?" in query:
-                    parts = query.split("?")
-                    pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
-                records = await conn.fetch(pg_query, *args)
-                return [dict(r) for r in records]
-        else:
-            async with self._sqlite_lock:
-                sqlite_query = query
-                if re.search(r'\$\d+', sqlite_query):
-                    sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
-                if "SERIAL PRIMARY KEY" in sqlite_query:
-                    sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-                async with self.sqlite_conn.execute(sqlite_query, args) as cursor:
-                    rows = await cursor.fetchall()
-                    if cursor.description is None:
-                        return []
-                    columns = [description[0] for description in cursor.description]
-                    return [dict(zip(columns, row)) for row in rows]
+        """Fetches multiple records as a list of dicts with 3x retry resilience."""
+        last_err = None
+        for attempt in range(1, 4):
+            try:
+                if self.is_postgres:
+                    async with self.pg_pool.acquire() as conn:
+                        pg_query = query
+                        if "?" in query:
+                            parts = query.split("?")
+                            pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
+                        records = await conn.fetch(pg_query, *args)
+                        return [dict(r) for r in records]
+                else:
+                    async with self._sqlite_lock:
+                        sqlite_query = query
+                        if re.search(r'\$\d+', sqlite_query):
+                            sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
+                        if "SERIAL PRIMARY KEY" in sqlite_query:
+                            sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                        async with self.sqlite_conn.execute(sqlite_query, args) as cursor:
+                            rows = await cursor.fetchall()
+                            if cursor.description is None:
+                                return []
+                            columns = [description[0] for description in cursor.description]
+                            return [dict(zip(columns, row)) for row in rows]
+            except Exception as e:
+                last_err = e
+                logger.warning(f"Database fetch attempt {attempt}/3 failed: {e}. Retrying in {0.15 * attempt}s...")
+                await asyncio.sleep(0.15 * attempt)
+        logger.error(f"Database fetch failed after 3 attempts: {last_err}", exc_info=True)
+        raise last_err
 
     async def fetchrow(self, query: str, *args) -> Optional[Dict[str, Any]]:
         """Fetches a single record as a dict."""
