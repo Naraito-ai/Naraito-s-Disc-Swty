@@ -190,10 +190,8 @@ class ThreePointShootoutView(discord.ui.View):
             self.add_item(btn_heat)
 
     async def shoot_with_technique(self, interaction: discord.Interaction, technique: str):
-        # Line 1: Immediate deferral
-        await interaction.response.defer()
         if interaction.user.id != self.author.id:
-            return await interaction.followup.send("❌ This is not your shootout run!", ephemeral=True)
+            return await interaction.response.send_message("❌ This is not your shootout run!", ephemeral=True)
 
         cur_st = NBA_SHOOTOUT_STATIONS[self.current_station_idx]
         shots, pts, money, starry, new_streak, commentary = simulate_interactive_shootout_station(
@@ -215,7 +213,7 @@ class ThreePointShootoutView(discord.ui.View):
             self._build_controls()
 
         embed = build_shootout_embed(self.author, self.player, self.station_results, self.current_station_idx, self.total_score, self.is_complete, self.vc_won, self.last_commentary)
-        await interaction.edit_original_response(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     async def on_timeout(self):
         for item in self.children:

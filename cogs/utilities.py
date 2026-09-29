@@ -61,7 +61,6 @@ class HelpCategorySelect(discord.ui.Select):
         super().__init__(placeholder="📖 Select a category to explore commands...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
         cat = self.values[0]
         embed = discord.Embed(color=discord.Color.gold())
         embed.set_footer(text="Sweety Bot • Use /help or !help anytime")
@@ -143,7 +142,7 @@ class HelpCategorySelect(discord.ui.Select):
                 "• `/summarize` (`!summarize`) — Summarize chat history"
             )
 
-        await interaction.edit_original_response(embed=embed)
+        await interaction.response.edit_message(embed=embed)
 
 
 class HelpView(discord.ui.View):

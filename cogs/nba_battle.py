@@ -184,14 +184,12 @@ class BuildTeamView(discord.ui.View):
         return True
 
     async def on_position_select(self, interaction: discord.Interaction):
-        await interaction.response.defer()
         self.current_pos = interaction.data["values"][0]
         self._update_components()
         embed = self.build_builder_embed(interaction.user)
-        await interaction.edit_original_response(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     async def on_player_select(self, interaction: discord.Interaction):
-        await interaction.response.defer()
         val = interaction.data["values"][0]
         if val != "none":
             card = get_nba_card(val)
@@ -199,10 +197,9 @@ class BuildTeamView(discord.ui.View):
                 self.picks[self.current_pos] = card_to_player_dict(card)
         self._update_components()
         embed = self.build_builder_embed(interaction.user)
-        await interaction.edit_original_response(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     async def on_auto_fill(self, interaction: discord.Interaction):
-        await interaction.response.defer()
         used_names = set()
         for pos in ["PG", "SG", "SF", "PF", "C"]:
             eligible = self._get_eligible_cards_for_pos(pos)
@@ -219,20 +216,18 @@ class BuildTeamView(discord.ui.View):
                 self.picks[pos] = card_to_player_dict(chosen)
         self._update_components()
         embed = self.build_builder_embed(interaction.user)
-        await interaction.edit_original_response(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     async def on_clear(self, interaction: discord.Interaction):
-        await interaction.response.defer()
         self.picks.clear()
         self._update_components()
         embed = self.build_builder_embed(interaction.user)
-        await interaction.edit_original_response(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     async def on_save(self, interaction: discord.Interaction):
-        await interaction.response.defer()
         missing = [p for p in ["PG", "SG", "SF", "PF", "C"] if p not in self.picks]
         if missing:
-            return await interaction.followup.send(f"⚠️ You must fill all 5 positions! Missing: `{', '.join(missing)}`", ephemeral=True)
+            return await interaction.response.send_message(f"⚠️ You must fill all 5 positions! Missing: `{', '.join(missing)}`", ephemeral=True)
 
         eval_res = evaluate_dream_team(self.picks)
         now = time.time()
@@ -251,7 +246,7 @@ class BuildTeamView(discord.ui.View):
         )
         for child in self.children:
             child.disabled = True
-        await interaction.edit_original_response(view=self)
+        await interaction.response.edit_message(view=self)
         await interaction.followup.send(f"✅ **Starting 5 Lineup Saved!** Team OVR: `⭐ {eval_res['ovr']:.1f}`. Ready for `/teambattle`!")
 
     def build_builder_embed(self, user: Union[discord.User, discord.Member]) -> discord.Embed:

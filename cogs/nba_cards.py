@@ -191,23 +191,25 @@ class NBADexView(discord.ui.View):
 
     @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary, row=1)
     async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
         if interaction.user.id != self.target_user.id and not is_creator(interaction.user):
-            return
+            return await interaction.response.send_message("❌ This is not your binder view.", ephemeral=True)
         if self.current_page > 0:
             self.current_page -= 1
             self._update_select_menu()
-            await interaction.edit_original_response(embed=self.build_embed(), view=self)
+            await interaction.response.edit_message(embed=self.build_embed(), view=self)
+        else:
+            await interaction.response.defer()
 
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=1)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
         if interaction.user.id != self.target_user.id and not is_creator(interaction.user):
-            return
+            return await interaction.response.send_message("❌ This is not your binder view.", ephemeral=True)
         if self.current_page < self.total_pages - 1:
             self.current_page += 1
             self._update_select_menu()
-            await interaction.edit_original_response(embed=self.build_embed(), view=self)
+            await interaction.response.edit_message(embed=self.build_embed(), view=self)
+        else:
+            await interaction.response.defer()
 
 
 async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: str, send_func: Any, is_interaction: bool = False):
@@ -275,27 +277,23 @@ async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: 
     else:
         await send_func(embed=embed)
 
-    # Step 2: Secondary GIF & Flavor Text for Dark Matter (99 OVR) and Galaxy Opal (97-98 OVR) ONLY
-    c_tier = card_obj.get("tier", "").lower()
-    if c_tier in ["dark_matter", "galaxy_opal"]:
-        base_cid = card_obj["id"].lower()
-        gif_info = NBA_FUSION_GIF_MAPPINGS.get(base_cid) or NBA_FUSION_GIF_MAPPINGS.get(NBA_LEGACY_CARD_MAPPINGS.get(base_cid, ""))
-        if gif_info and gif_info.get("gif_url"):
-            try:
-                # Direct Tenor GIF URL in-between for native Discord auto-play animation
-                await send_func(content=gif_info["gif_url"])
+    # Step 2: Fusion Celebration GIF & Flavor Text for all cards
+    base_cid = card_obj["id"].lower()
+    gif_info = NBA_FUSION_GIF_MAPPINGS.get(base_cid) or NBA_FUSION_GIF_MAPPINGS.get(NBA_LEGACY_CARD_MAPPINGS.get(base_cid, ""))
+    gif_url = gif_info["gif_url"] if (gif_info and gif_info.get("gif_url")) else "https://media1.tenor.com/m/6y1G5wQ4uCcAAAAC/nba-basketball.gif"
+    flavor = gif_info.get("flavor_text", f"⚡ {card_obj['name']} has transcended into a Holo Foil legend!") if gif_info else f"⚡ **{card_obj['name']}** has ascended to `{holo_card['ovr']} OVR` Holo Foil status!"
 
-                # Glowing flavor text embed underneath
-                flavor = gif_info.get("flavor_text", f"⚡ {card_obj['name']} has transcended into legend!")
-                flavor_embed = discord.Embed(
-                    description=f"### *{flavor}*",
-                    color=discord.Color.from_rgb(255, 215, 0) if c_tier == "dark_matter" else discord.Color.purple()
-                )
-                flavor_embed.set_footer(text=f"✨ Holo Foil Transcendence • {card_obj['name']} ({holo_card['ovr']} OVR)")
-                flavor_embed.timestamp = discord.utils.utcnow()
-                await send_func(embed=flavor_embed)
-            except Exception as gif_send_err:
-                logger.warning(f"Could not send secondary GIF/flavor for {card_obj['id']}: {gif_send_err}")
+    try:
+        await send_func(content=gif_url)
+        flavor_embed = discord.Embed(
+            description=f"### *{flavor}*",
+            color=discord.Color.from_rgb(255, 215, 0)
+        )
+        flavor_embed.set_footer(text=f"✨ Holo Foil Transcendence • {card_obj['name']} ({holo_card['ovr']} OVR)")
+        flavor_embed.timestamp = discord.utils.utcnow()
+        await send_func(embed=flavor_embed)
+    except Exception as gif_send_err:
+        logger.warning(f"Could not send secondary GIF/flavor for {card_obj['id']}: {gif_send_err}")
 
 
 def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: bool = False, owner_user: Optional[Union[discord.User, discord.Member]] = None) -> discord.Embed:

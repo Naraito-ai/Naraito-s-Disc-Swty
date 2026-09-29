@@ -121,11 +121,9 @@ async def call_ai_generation(prompt: str, system_instruction: str, json_mode: bo
     }
 
     models = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-70b-versatile",
-        "llama3-70b-8192",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it"
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b"
     ]
     last_err = None
 
@@ -777,7 +775,11 @@ class AIAssistantCog(commands.Cog, name="AI Assistant"):
                     for i in range(0, len(answer), 1900):
                         await message.channel.send(answer[i:i + 1900])
         except Exception as e:
-            logger.debug(f"Error in on_message AI auto-reply: {e}")
+            logger.error(f"Error in on_message AI auto-reply: {e}", exc_info=True)
+            try:
+                await message.reply("✨ I ran into a quick hiccup thinking of a reply, please ask me again!", mention_author=False)
+            except Exception:
+                pass
 
 
 async def setup(bot: commands.Bot):

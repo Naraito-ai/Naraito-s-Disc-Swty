@@ -80,9 +80,8 @@ class TestSweetyBotE2E(unittest.IsolatedAsyncioTestCase):
                     for attr_name, func in inspect.getmembers(cls, inspect.isfunction):
                         if attr_name in ("callback", "on_submit") or hasattr(func, "__discord_ui_compiled__") or attr_name.endswith("_btn") or attr_name.endswith("_button") or attr_name.endswith("_select"):
                             src = inspect.getsource(func)
-                            # Verify defer or modal response
-                            has_defer = "defer(" in src or "send_modal(" in src or "isinstance" in src
-                            self.assertTrue(has_defer, f"Callback {name}.{attr_name} does not call defer() on line 1!")
+                            has_defer = any(term in src for term in ["defer(", "send_modal(", "edit_message(", "send_message(", "isinstance"])
+                            self.assertTrue(has_defer, f"Callback {name}.{attr_name} does not immediately acknowledge interaction!")
                             checked_callbacks += 1
 
         print(f"✅ Verified {checked_callbacks} UI interactive callbacks have immediate deferral protection.")

@@ -125,11 +125,10 @@ class NBACardTradeView(discord.ui.View):
 
     @discord.ui.button(label="Accept Trade ✅", style=discord.ButtonStyle.success)
     async def accept_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
         if interaction.user.id not in (self.author.id, self.target.id):
-            return await interaction.followup.send("❌ You are not part of this trade.", ephemeral=True)
+            return await interaction.response.send_message("❌ You are not part of this trade.", ephemeral=True)
         if self.finished:
-            return
+            return await interaction.response.send_message("⚠️ This trade has already ended.", ephemeral=True)
 
         self.accepted_by.add(interaction.user.id)
         if self.author.id in self.accepted_by and self.target.id in self.accepted_by:
@@ -147,26 +146,25 @@ class NBACardTradeView(discord.ui.View):
                 embed = build_multi_trade_embed(self.author, self.target, self.cards_a, self.cards_b, status="completed", vc_a=self.vc_a, vc_b=self.vc_b)
                 for item in self.children:
                     item.disabled = True
-                await interaction.edit_original_response(embed=embed, view=self)
+                await interaction.response.edit_message(embed=embed, view=self)
                 await interaction.followup.send(f"🎉 **Trade Successful!** Both parties have received their items.")
             else:
                 for item in self.children:
                     item.disabled = True
-                await interaction.edit_original_response(view=self)
+                await interaction.response.edit_message(view=self)
                 await interaction.followup.send(f"❌ **Trade Failed:** {msg}")
         else:
-            await interaction.followup.send(f"✅ {interaction.user.mention} accepted the trade! Waiting for the other party...")
+            await interaction.response.send_message(f"✅ {interaction.user.mention} accepted the trade! Waiting for the other party...")
 
     @discord.ui.button(label="Cancel / Decline ❌", style=discord.ButtonStyle.danger)
     async def decline_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
         if interaction.user.id not in (self.author.id, self.target.id):
-            return await interaction.followup.send("❌ You are not part of this trade.", ephemeral=True)
+            return await interaction.response.send_message("❌ You are not part of this trade.", ephemeral=True)
         self.finished = True
         for item in self.children:
             item.disabled = True
         embed = build_multi_trade_embed(self.author, self.target, self.cards_a, self.cards_b, status="cancelled", vc_a=self.vc_a, vc_b=self.vc_b)
-        await interaction.edit_original_response(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
         await interaction.followup.send(f"❌ Trade cancelled by {interaction.user.mention}.")
 
 
@@ -268,20 +266,19 @@ class VCBetChallengeView(discord.ui.View):
 
     @discord.ui.button(label="Accept Wager ⚔️", style=discord.ButtonStyle.success)
     async def accept_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
         if interaction.user.id != self.opponent.id:
-            return await interaction.followup.send("❌ Only the challenged opponent can accept this wager.", ephemeral=True)
+            return await interaction.response.send_message("❌ Only the challenged opponent can accept this wager.", ephemeral=True)
         if self.resolved:
-            return
+            return await interaction.response.send_message("⚠️ This wager has already ended.", ephemeral=True)
         self.resolved = True
 
         # Check balances
         bal_a = await db.get_user_vc(self.challenger.id)
         bal_b = await db.get_user_vc(self.opponent.id)
         if bal_a < self.bet_amount:
-            return await interaction.followup.send(f"❌ {self.challenger.mention} no longer has enough VC (`{self.bet_amount:,} VC`)!")
+            return await interaction.response.send_message(f"❌ {self.challenger.mention} no longer has enough VC (`{self.bet_amount:,} VC`)!")
         if bal_b < self.bet_amount:
-            return await interaction.followup.send(f"❌ {self.opponent.mention} no longer has enough VC (`{self.bet_amount:,} VC`)!")
+            return await interaction.response.send_message(f"❌ {self.opponent.mention} no longer has enough VC (`{self.bet_amount:,} VC`)!")
 
         # Deduct from both
         ded_a = await db.deduct_user_vc(self.challenger.id, self.bet_amount)
@@ -289,7 +286,7 @@ class VCBetChallengeView(discord.ui.View):
         if not ded_a or not ded_b:
             if ded_a: await db.add_user_vc(self.challenger.id, self.bet_amount)
             if ded_b: await db.add_user_vc(self.opponent.id, self.bet_amount)
-            return await interaction.followup.send("❌ Transaction failed. Wager cancelled.")
+            return await interaction.response.send_message("❌ Transaction failed. Wager cancelled.")
 
         # Simulate 5v5 battle
         row_a = await db.get_dream_team(self.challenger.id)
@@ -331,17 +328,16 @@ class VCBetChallengeView(discord.ui.View):
             color=discord.Color.gold()
         )
         embed.timestamp = discord.utils.utcnow()
-        await interaction.edit_original_response(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(label="Decline ❌", style=discord.ButtonStyle.danger)
     async def decline_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
         if interaction.user.id not in (self.challenger.id, self.opponent.id):
-            return await interaction.followup.send("❌ You are not part of this wager.", ephemeral=True)
+            return await interaction.response.send_message("❌ You are not part of this wager.", ephemeral=True)
         self.resolved = True
         for child in self.children:
             child.disabled = True
-        await interaction.edit_original_response(content=f"❌ Wager challenge was declined by {interaction.user.mention}.", view=self)
+        await interaction.response.edit_message(content=f"❌ Wager challenge was declined by {interaction.user.mention}.", embed=None, view=self)
 
 
 class NBAEconomyCog(commands.Cog, name="NBA Economy"):
