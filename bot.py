@@ -23,6 +23,8 @@ import math
 import unicodedata
 import urllib.request
 import ssl
+import gc
+from collections import OrderedDict
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -31,6 +33,62 @@ import aiohttp
 from typing import Optional, Union, List, Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from database import db
+
+def clean_memory():
+    """Aggressively runs Python garbage collection and trims glibc heap memory on Linux to stay well under Render 512MB limit."""
+    try:
+        gc.collect()
+        if sys.platform.startswith("linux"):
+            try:
+                import ctypes
+                libc = ctypes.CDLL("libc.so.6")
+                if hasattr(libc, "malloc_trim"):
+                    libc.malloc_trim(0)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+class LRUImageCache:
+    """Bounded in-memory image cache with max capacity to prevent 512MB RAM exhaustion on Render."""
+    def __init__(self, max_size: int = 15):
+        self.max_size = max_size
+        self._cache: OrderedDict[str, Image.Image] = OrderedDict()
+
+    def get(self, key: str) -> Optional[Image.Image]:
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        return None
+
+    def set(self, key: str, img: Image.Image):
+        if key in self._cache:
+            self._cache.move_to_end(key)
+        else:
+            if len(self._cache) >= self.max_size:
+                old_k, old_img = self._cache.popitem(last=False)
+                try:
+                    old_img.close()
+                except Exception:
+                    pass
+            self._cache[key] = img
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._cache
+
+    def __getitem__(self, key: str) -> Image.Image:
+        return self._cache[key]
+
+    def __setitem__(self, key: str, img: Image.Image):
+        self.set(key, img)
+
+    def clear(self):
+        for img in self._cache.values():
+            try:
+                img.close()
+            except Exception:
+                pass
+        self._cache.clear()
 
 # Load environment variables from .env
 load_dotenv()
@@ -124,34 +182,30 @@ async def start_self_pinger():
     logger.info(f"🌐 Cloud 24/7 Self-Pinger active for external URL: {ext_url}")
 
     ping_count = 0
-    while True:
-        # 1. Local event-loop & FastAPI health ping
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(local_url, timeout=5) as resp:
+    client_timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=client_timeout) as session:
+        while True:
+            # 1. Local event-loop & FastAPI health ping
+            try:
+                async with session.get(local_url) as resp:
                     pass
-        except Exception:
-            pass
-
-        # 2. External Cloud keep-alive ping (keeps free Render containers permanently warm)
-        if ext_url:
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(ext_url, headers={"User-Agent": "RenderKeepAlive/3.0"}, timeout=15) as resp:
-                        pass
-            except Exception as ping_err:
-                logger.debug(f"Keep-alive ping notice: {ping_err}")
-
-        ping_count += 1
-        # Free memory periodically every 5 pings (5 minutes) to prevent 512MB RAM exhaustion
-        if ping_count % 5 == 0:
-            try:
-                import gc
-                gc.collect()
             except Exception:
                 pass
 
-        await asyncio.sleep(60)
+            # 2. External Cloud keep-alive ping (keeps free Render containers permanently warm)
+            if ext_url:
+                try:
+                    async with session.get(ext_url, headers={"User-Agent": "RenderKeepAlive/3.0"}) as resp:
+                        pass
+                except Exception as ping_err:
+                    logger.debug(f"Keep-alive ping notice: {ping_err}")
+
+            ping_count += 1
+            # Free memory and trim glibc heap every 2 pings (2 minutes) to prevent 512MB RAM exhaustion
+            if ping_count % 2 == 0:
+                clean_memory()
+
+            await asyncio.sleep(60)
 
 # ───────────────────────────────────────────────────────────────────────────
 
@@ -7617,7 +7671,7 @@ NBA_PLAYER_IMG_IDS: Dict[str, str] = {
     "Zach LaVine": "203897"
 }
 
-_NBA_HEADSHOT_CACHE: Dict[str, Image.Image] = {}
+_NBA_HEADSHOT_CACHE = LRUImageCache(max_size=15)
 
 def get_nba_player_headshot(player_name: str) -> Optional[Image.Image]:
     """Fetches and caches high-resolution transparent NBA player headshot from local assets or official NBA CDN."""
@@ -8032,6 +8086,11 @@ def generate_dream_team_card(
     buf = io.BytesIO()
     canvas.convert("RGB").save(buf, format="PNG", quality=95)
     buf.seek(0)
+    try:
+        canvas.close()
+    except Exception:
+        pass
+    clean_memory()
     return buf
 
 
@@ -8385,6 +8444,11 @@ def generate_versus_matchup_image(
     buf = io.BytesIO()
     canvas.convert("RGB").save(buf, format="PNG", quality=95)
     buf.seek(0)
+    try:
+        canvas.close()
+    except Exception:
+        pass
+    clean_memory()
     return buf
 
 
@@ -8640,6 +8704,11 @@ def generate_team_battle_boxscore_image(
     buf = io.BytesIO()
     canvas.convert("RGB").save(buf, format="PNG", quality=95)
     buf.seek(0)
+    try:
+        canvas.close()
+    except Exception:
+        pass
+    clean_memory()
     return buf
 
 
@@ -22291,7 +22360,7 @@ NBA_TIER_EXCLUSIVE_IMAGE_URLS: Dict[str, str] = {
 }
 
 _NBA_LOCAL_MOMENTS_MAP: Dict[str, str] = {}
-_NBA_PLAYER_MOMENT_CACHE: Dict[str, Image.Image] = {}
+_NBA_PLAYER_MOMENT_CACHE = LRUImageCache(max_size=15)
 
 def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]] = None) -> Optional[Image.Image]:
     """Resolves and loads the authentic, player-specific Wikipedia / Wikimedia match moment action photo.
@@ -22440,7 +22509,7 @@ TIER_DEFAULT_ACTION_URLS: Dict[str, str] = {
     "dark_matter": "https://upload.wikimedia.org/wikipedia/commons/4/43/Steve_Lipfosky_--_Michael_Jordan_%281997%29.jpg",
 }
 
-_TIER_MOMENT_CACHE: Dict[str, Image.Image] = {}
+_TIER_MOMENT_CACHE = LRUImageCache(max_size=6)
 
 def get_tier_default_moment_image(tier_key: str) -> Optional[Image.Image]:
     """Fetches, caches and returns the tier-specific iconic Wikipedia match moment image."""
@@ -22759,6 +22828,11 @@ def generate_nba_card_graphic(
     buf = io.BytesIO()
     card_img.save(buf, format="PNG")
     buf.seek(0)
+    try:
+        card_img.close()
+    except Exception:
+        pass
+    clean_memory()
     return buf
 
 
@@ -26248,11 +26322,21 @@ class GeminiBot(commands.Bot):
             command_prefix="!",
             intents=intents,
             help_command=None,
+            max_messages=100,
+            member_cache_flags=discord.MemberCacheFlags.from_intents(intents),
             status=discord.Status.online,
             activity=discord.Activity(type=discord.ActivityType.watching, name="/help | @Sweety")
         )
         self.temp_voice_channel_ids = set()
         self.start_time = time.time()
+
+    @tasks.loop(minutes=2)
+    async def memory_cleanup_loop(self):
+        """Periodically runs garbage collection and trims glibc heap memory to remain well below Render 512MB RAM ceiling."""
+        try:
+            clean_memory()
+        except Exception:
+            pass
         
     async def setup_hook(self):
         # 1. Connect database & create tables
@@ -26522,6 +26606,14 @@ class GeminiBot(commands.Bot):
                 logger.info("🏀 20-minute NBA wild card drop loop started")
         except Exception as nba_loop_err:
             logger.warning(f"Could not start nba_periodic_drop_loop: {nba_loop_err}")
+
+        # Step 9c: Start memory cleanup background loop
+        try:
+            if not self.memory_cleanup_loop.is_running():
+                self.memory_cleanup_loop.start()
+                logger.info("✅ Aggressive memory cleanup loop active (2-min interval)")
+        except Exception as mem_loop_err:
+            logger.warning(f"Could not start memory_cleanup_loop: {mem_loop_err}")
 
         # Step 10: Whitelist Verification on Startup
         if ALLOWED_GUILDS:
