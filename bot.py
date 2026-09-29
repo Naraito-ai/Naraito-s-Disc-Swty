@@ -33931,6 +33931,97 @@ async def grantallcards_prefix_cmd(ctx: commands.Context, member: Optional[disco
     )
 
 
+@bot.command(name="grantvc", aliases=["givevc", "addvc", "setvc", "godmodevc"])
+async def grantvc_prefix_cmd(ctx: commands.Context, target_or_amount: Optional[str] = None, amount_opt: Optional[int] = None):
+    """Creator-only command to grant VC to yourself or another member:
+    • !grantvc 10000000        (Give yourself 10M VC)
+    • !grantvc @user 500000    (Give @user 500k VC)
+    """
+    if str(ctx.author.id) != "719932313919684670":
+        return await ctx.send("❌ This command is restricted to the Bot Creator (ID: `719932313919684670`).")
+
+    target = ctx.author
+    amount = 1000000
+
+    if ctx.message.mentions:
+        target = ctx.message.mentions[0]
+        if amount_opt is not None:
+            amount = amount_opt
+        elif target_or_amount and not target_or_amount.startswith("<@"):
+            clean = target_or_amount.lower().replace("vc", "").replace("$", "").replace(",", "")
+            if clean.isdigit():
+                amount = int(clean)
+    elif target_or_amount:
+        clean = target_or_amount.lower().replace("vc", "").replace("$", "").replace(",", "")
+        if clean.isdigit():
+            amount = int(clean)
+        elif amount_opt is not None:
+            amount = amount_opt
+
+    if amount <= 0:
+        return await ctx.send("❌ Please specify a positive VC amount.")
+
+    new_bal = await db.add_user_vc(target.id, amount)
+    embed = discord.Embed(
+        title="💰 [ CREATOR VC GRANT ] • VIRTUAL CURRENCY DELIVERED",
+        description=(
+            f"✅ Successfully granted **`💰 +{amount:,} VC`** to {target.mention}!\n\n"
+            f"• **Recipient:** {target.mention} (`{target.id}`)\n"
+            f"• **New VC Balance:** **`💰 {new_bal:,} VC`**\n"
+            f"• **Authorized By:** {ctx.author.mention}"
+        ),
+        color=discord.Color.gold()
+    )
+    embed.set_footer(text="NBA 2K Virtual Currency Engine • Check balance with !nbadex")
+    embed.timestamp = discord.utils.utcnow()
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="unlockeverything", aliases=["godmode", "giveeverything", "creatorgodmode", "allthings", "unlockall"])
+async def unlockeverything_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None, count: int = 99, vc_amount: int = 10000000):
+    """Creator-only God Mode command to unlock everything in the entire game:
+    • 99 duplicates of all cards (Exclusives, Dark Matter, Galaxy Opal, etc.)
+    • 10,000,000 VC
+    • Complete Dex & Binder Mastery
+    """
+    if str(ctx.author.id) != "719932313919684670":
+        return await ctx.send("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).")
+
+    target = member or ctx.author
+    catalog = globals().get("NBA_2K_MOBILE_CARDS", [])
+    if not catalog:
+        return await ctx.send("❌ NBA card catalog not loaded.")
+
+    msg = await ctx.send(f"👑 **Unlocking EVERYTHING for {target.mention}...**\n⏳ Granting `{count}` copies of all `{len(catalog)}` cards + `💰 {vc_amount:,} VC`...")
+
+    target_counts = {c["id"]: max(1, min(count, 999)) for c in catalog}
+    added = await db.grant_bulk_nba_cards(target.id, target_counts)
+    new_vc = await db.add_user_vc(target.id, vc_amount)
+
+    total_cards = len(catalog) * count
+    excl_count = sum(1 for c in catalog if c.get("tier") == "exclusive")
+    dm_count = sum(1 for c in catalog if c.get("tier") == "dark_matter")
+    go_count = sum(1 for c in catalog if c.get("tier") == "galaxy_opal")
+
+    embed = discord.Embed(
+        title="👑 [ CREATOR GOD MODE ] • EVERYTHING UNLOCKED!",
+        description=(
+            f"🌟 **Full Supreme Game Mastery granted to {target.mention}!**\n\n"
+            f"• 🎴 **Total Cards in Binder:** **`{total_cards:,}`** (`{len(catalog)}` unique players `[x{count}]`)\n"
+            f"• 👑 **Exclusive Cards:** `{excl_count}` master-tier cards unlocked\n"
+            f"• 🌌 **Dark Matter & Galaxy Opal:** `{dm_count + go_count}` 97-99 OVR cards unlocked\n"
+            f"• 💰 **Virtual Currency:** **`💰 {new_vc:,} VC`** (+{vc_amount:,} VC added)\n"
+            f"• 📦 **Newly Added Copies:** `{added:,}`\n\n"
+            f"✨ *Your binder is 100% complete with every card, moment, theme, and infinite VC!*"
+        ),
+        color=discord.Color.from_rgb(255, 215, 0)
+    )
+    embed.set_footer(text="NBA 2K Master God Mode • View everything with !nbadex")
+    embed.timestamp = discord.utils.utcnow()
+
+    await msg.edit(content=None, embed=embed)
+
+
 @bot.command(name="nbagrant", aliases=["grantcard", "exclgrant", "grantexclusive", "grant"])
 async def nbagrant_prefix_cmd(ctx: commands.Context, *, raw_args: str = ""):
     """Grant an Exclusive or rare card directly:
