@@ -1503,15 +1503,36 @@ class DatabaseManager:
             logger.error(f"Error gifting NBA card from {u_from} to {u_to}: {e}")
             return False, f"Database error during gift transfer: {e}", None
 
-    async def execute_multi_card_trade(self, user_a_id: Any, user_b_id: Any, card_a_ids: List[str], card_b_ids: List[str]) -> Tuple[bool, str]:
-        """Atomically swaps multiple cards between user_a and user_b."""
+    async def execute_multi_card_trade(
+        self,
+        user_a_id: Any,
+        user_b_id: Any,
+        card_a_ids: List[str],
+        card_b_ids: List[str],
+        vc_a: int = 0,
+        vc_b: int = 0
+    ) -> Tuple[bool, str]:
+        """Atomically swaps multiple cards and/or VC between user_a and user_b."""
         u_a = str(user_a_id)
         u_b = str(user_b_id)
+        vc_a = max(0, int(vc_a or 0))
+        vc_b = max(0, int(vc_b or 0))
 
-        if not card_a_ids and not card_b_ids:
+        if not card_a_ids and not card_b_ids and vc_a <= 0 and vc_b <= 0:
             return False, "Cannot execute an empty trade."
 
         try:
+            # Verify VC balances if VC is included in offer
+            if vc_a > 0:
+                bal_a = await self.get_user_vc(u_a)
+                if bal_a < vc_a:
+                    return False, f"<@{u_a}> has insufficient VC ({bal_a:,} < {vc_a:,} VC)."
+
+            if vc_b > 0:
+                bal_b = await self.get_user_vc(u_b)
+                if bal_b < vc_b:
+                    return False, f"<@{u_b}> has insufficient VC ({bal_b:,} < {vc_b:,} VC)."
+
             # Get all owned cards for user_a
             owned_a = await self.fetch("SELECT id, card_id FROM user_nba_cards WHERE user_id = ?", u_a)
             a_pool: Dict[str, List[int]] = {}
@@ -1540,6 +1561,7 @@ class DatabaseManager:
                     return False, f"<@{u_b}> no longer owns card `{requested}` in their binder."
                 ids_to_transfer_to_a.append(b_pool[req_lower].pop(0))
 
+            # Transfer cards
             for db_id in ids_to_transfer_to_b:
                 # Preserve pack source so legitimate pack-pulled cards survive the abuse purge
                 orig = await self.fetchrow("SELECT source FROM user_nba_cards WHERE id = ?", db_id)
@@ -1553,14 +1575,25 @@ class DatabaseManager:
                 new_source = orig_source if (orig_source and orig_source.startswith("pack")) else "trade"
                 await self.execute("UPDATE user_nba_cards SET user_id = ?, source = ? WHERE id = ?", u_a, new_source, db_id)
 
-            return True, "Multi-card trade completed successfully."
+            # Transfer VC
+            if vc_a > 0:
+                await self.deduct_user_vc(u_a, vc_a)
+                await self.add_user_vc(u_b, vc_a)
+
+            if vc_b > 0:
+                await self.deduct_user_vc(u_b, vc_b)
+                await self.add_user_vc(u_a, vc_b)
+
+            return True, "Multi-card and VC trade completed successfully."
         except Exception as e:
             logger.error(f"Error executing multi-card trade between {u_a} and {u_b}: {e}")
             return False, f"Database error during multi-card trade: {e}"
 
-    async def execute_card_trade(self, user_a_id: Any, user_b_id: Any, card_a_id: str, card_b_id: str) -> Tuple[bool, str]:
-        """Safely and atomically swaps card_a from user_a and card_b from user_b."""
-        return await self.execute_multi_card_trade(user_a_id, user_b_id, [card_a_id], [card_b_id])
+    async def execute_card_trade(self, user_a_id: Any, user_b_id: Any, card_a_id: str, card_b_id: str, vc_a: int = 0, vc_b: int = 0) -> Tuple[bool, str]:
+        """Safely and atomically swaps card_a/vc_a from user_a and card_b/vc_b from user_b."""
+        cards_a = [card_a_id] if card_a_id else []
+        cards_b = [card_b_id] if card_b_id else []
+        return await self.execute_multi_card_trade(user_a_id, user_b_id, cards_a, cards_b, vc_a, vc_b)
 
     async def grant_bulk_nba_cards(self, user_id: Any, card_counts: Dict[str, int]) -> int:
         """Ensures user_id has at least the specified count for each card in card_counts."""

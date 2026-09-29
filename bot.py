@@ -23008,12 +23008,14 @@ def build_multi_trade_embed(
     sender_ready: bool = False,
     target_ready: bool = False,
     status: str = "pending",
-    countdown_secs: Optional[int] = None
+    countdown_secs: Optional[int] = None,
+    vc_a: int = 0,
+    vc_b: int = 0
 ) -> discord.Embed:
-    """Builds a multi-card live trading floor embed with real-time status and countdown."""
+    """Builds a multi-card & VC live trading floor embed with real-time status and countdown."""
     if status == "accepted":
         title = "🤝 NBA 2K Mobile Trade Completed!"
-        desc = f"🎉 **The card trade between {sender_user.mention} and {target_user.mention} has been successfully processed!**"
+        desc = f"🎉 **The trade between {sender_user.mention} and {target_user.mention} has been successfully processed!**"
         color = discord.Color.green()
     elif status == "declined":
         title = "❌ NBA 2K Mobile Trade Cancelled / Declined"
@@ -23031,7 +23033,7 @@ def build_multi_trade_embed(
         title = "🏀 NBA 2K Mobile Live Trading Floor"
         desc = (
             f"**{sender_user.mention}** has opened a live trade session with **{target_user.mention}**!\n"
-            f"• Both players can place up to **5 cards** on the table with `➕ Offer Card`\n"
+            f"• Both players can offer up to **5 cards** and send **VC** with `➕ Offer Card` & `💰 Offer VC`\n"
             f"• Once both click **`Ready`**, a **7-second safety countdown** will lock and execute the trade."
         )
         color = discord.Color.blue()
@@ -23052,12 +23054,15 @@ def build_multi_trade_embed(
         lines_a.append(f"`{idx}.` {t['emoji']} **[{ovr} OVR] {c['name']}** (`{c.get('pos', 'SF')}` · `{c.get('team', 'NBA')}`)")
     
     val_a = "\n".join(lines_a) if lines_a else "*No cards placed on table yet.*"
+    if vc_a > 0:
+        val_a += f"\n💰 **Offered VC:** `+{vc_a:,} VC`"
     val_a += f"\n\n**Status:** {ready_tag_a}"
     if cards_a:
         val_a += f" | **Power:** `⚡ {total_ovr_a} OVR`"
 
+    vc_header_a = f" | 💰 {vc_a:,} VC" if vc_a > 0 else ""
     embed.add_field(
-        name=f"📤 {sender_user.display_name}'s Offer ({len(cards_a)}/5)",
+        name=f"📤 {sender_user.display_name}'s Offer ({len(cards_a)}/5 cards{vc_header_a})",
         value=val_a,
         inline=True
     )
@@ -23076,17 +23081,20 @@ def build_multi_trade_embed(
         lines_b.append(f"`{idx}.` {t['emoji']} **[{ovr} OVR] {c['name']}** (`{c.get('pos', 'SF')}` · `{c.get('team', 'NBA')}`)")
 
     val_b = "\n".join(lines_b) if lines_b else "*No cards placed on table yet.*"
+    if vc_b > 0:
+        val_b += f"\n💰 **Offered VC:** `+{vc_b:,} VC`"
     val_b += f"\n\n**Status:** {ready_tag_b}"
     if cards_b:
         val_b += f" | **Power:** `⚡ {total_ovr_b} OVR`"
 
+    vc_header_b = f" | 💰 {vc_b:,} VC" if vc_b > 0 else ""
     embed.add_field(
-        name=f"📥 {target_user.display_name}'s Offer ({len(cards_b)}/5)",
+        name=f"📥 {target_user.display_name}'s Offer ({len(cards_b)}/5 cards{vc_header_b})",
         value=val_b,
         inline=True
     )
 
-    embed.set_footer(text="NBA 2K Mobile Multi-Card Trading Engine • 7-Second Safety Lock")
+    embed.set_footer(text="NBA 2K Mobile Multi-Card & VC Trading Engine • 7-Second Safety Lock")
     embed.timestamp = discord.utils.utcnow()
     return embed
 
@@ -23679,19 +23687,41 @@ class NBATradeRemoveCardModal(discord.ui.Modal, title="🏀 Remove Card from Off
         await self.parent_view.handle_remove_card_modal(interaction, self.card_index.value.strip(), self.is_sender)
 
 
+class NBATradeVCModal(discord.ui.Modal, title="💰 Offer VC in Trade"):
+    vc_input = discord.ui.TextInput(
+        label="VC Amount (0 to clear VC offer)",
+        placeholder="e.g. 500, 1000, 25000, 0...",
+        required=True,
+        min_length=1,
+        max_length=12
+    )
+
+    def __init__(self, parent_view: "NBACardTradeView", is_sender: bool):
+        super().__init__()
+        self.parent_view = parent_view
+        self.is_sender = is_sender
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.parent_view.handle_vc_modal(interaction, self.vc_input.value.strip(), self.is_sender)
+
+
 class NBACardTradeView(discord.ui.View):
     def __init__(
         self,
         sender_user: discord.User,
         target_user: discord.User,
         cards_a: Optional[List[Dict[str, Any]]] = None,
-        cards_b: Optional[List[Dict[str, Any]]] = None
+        cards_b: Optional[List[Dict[str, Any]]] = None,
+        vc_a: int = 0,
+        vc_b: int = 0
     ):
         super().__init__(timeout=300.0)
         self.sender_user = sender_user
         self.target_user = target_user
         self.cards_a: List[Dict[str, Any]] = list(cards_a) if cards_a else []
         self.cards_b: List[Dict[str, Any]] = list(cards_b) if cards_b else []
+        self.vc_a: int = max(0, int(vc_a or 0))
+        self.vc_b: int = max(0, int(vc_b or 0))
         self.sender_ready: bool = False
         self.target_ready: bool = False
         self.status: str = "pending"
@@ -23751,6 +23781,17 @@ class NBACardTradeView(discord.ui.View):
         modal = NBATradeRemoveCardModal(self, is_sender)
         await interaction.response.send_modal(modal)
 
+    @discord.ui.button(label="💰 Offer VC", style=discord.ButtonStyle.success, emoji="💰", row=0)
+    async def offer_vc_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.status == "countdown":
+            return await interaction.response.send_message("🔒 Trade is locked in countdown! Click Cancel to abort.", ephemeral=True)
+        if self.is_finalized or self.is_cancelled:
+            return await interaction.response.send_message("❌ This trade session is closed.", ephemeral=True)
+
+        is_sender = interaction.user.id == self.sender_user.id
+        modal = NBATradeVCModal(self, is_sender)
+        await interaction.response.send_modal(modal)
+
     @discord.ui.button(label="Ready (Sender) ⏳", style=discord.ButtonStyle.secondary, row=1)
     async def ready_a_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.sender_user.id:
@@ -23778,10 +23819,63 @@ class NBACardTradeView(discord.ui.View):
                 self.sender_user, self.target_user,
                 self.cards_a, self.cards_b,
                 False, False,
-                status="declined"
+                status="declined",
+                vc_a=self.vc_a, vc_b=self.vc_b
             )
             await interaction.response.edit_message(embed=embed, view=self)
             await interaction.followup.send(f"🛑 Trade was cancelled by {interaction.user.mention}.")
+
+    async def handle_vc_modal(self, interaction: discord.Interaction, raw_val: str, is_sender: bool):
+        async with self._lock:
+            cleaned = raw_val.replace(",", "").replace("$", "").replace(" ", "").lower()
+            if cleaned.endswith("k"):
+                try:
+                    amount = int(float(cleaned[:-1]) * 1000)
+                except ValueError:
+                    amount = -1
+            elif cleaned.endswith("m"):
+                try:
+                    amount = int(float(cleaned[:-1]) * 1000000)
+                except ValueError:
+                    amount = -1
+            else:
+                try:
+                    amount = int(cleaned)
+                except ValueError:
+                    amount = -1
+
+            if amount < 0:
+                return await interaction.response.send_message("❌ Please enter a valid non-negative number for VC.", ephemeral=True)
+
+            user_id = self.sender_user.id if is_sender else self.target_user.id
+            current_vc = await db.get_user_vc(user_id)
+            if amount > current_vc:
+                return await interaction.response.send_message(
+                    f"❌ Insufficient VC! You have **`{current_vc:,}` VC**, but tried to offer **`{amount:,}` VC**.",
+                    ephemeral=True
+                )
+
+            if is_sender:
+                self.vc_a = amount
+            else:
+                self.vc_b = amount
+
+            # Reset readiness on offer change
+            self.sender_ready = False
+            self.target_ready = False
+            self.status = "pending"
+            if self.countdown_task and not self.countdown_task.done():
+                self.countdown_task.cancel()
+
+            self.update_button_labels()
+            embed = build_multi_trade_embed(
+                self.sender_user, self.target_user,
+                self.cards_a, self.cards_b,
+                self.sender_ready, self.target_ready,
+                status="pending",
+                vc_a=self.vc_a, vc_b=self.vc_b
+            )
+            await interaction.response.edit_message(embed=embed, view=self)
 
     async def handle_add_card_modal(self, interaction: discord.Interaction, query: str, is_sender: bool):
         async with self._lock:
@@ -23816,7 +23910,8 @@ class NBACardTradeView(discord.ui.View):
                 self.sender_user, self.target_user,
                 self.cards_a, self.cards_b,
                 self.sender_ready, self.target_ready,
-                status="pending"
+                status="pending",
+                vc_a=self.vc_a, vc_b=self.vc_b
             )
             await interaction.response.edit_message(embed=embed, view=self)
 
@@ -23853,14 +23948,25 @@ class NBACardTradeView(discord.ui.View):
                 self.sender_user, self.target_user,
                 self.cards_a, self.cards_b,
                 self.sender_ready, self.target_ready,
-                status="pending"
+                status="pending",
+                vc_a=self.vc_a, vc_b=self.vc_b
             )
             await interaction.response.edit_message(embed=embed, view=self)
 
     async def toggle_ready(self, interaction: discord.Interaction, is_sender: bool):
         async with self._lock:
-            if not self.cards_a and not self.cards_b:
-                return await interaction.response.send_message("❌ At least one card must be placed on the trade floor.", ephemeral=True)
+            if not self.cards_a and not self.cards_b and self.vc_a <= 0 and self.vc_b <= 0:
+                return await interaction.response.send_message("❌ At least one card or VC amount must be placed on the trade floor.", ephemeral=True)
+
+            # Pre-validate VC balances before toggling to ready
+            if is_sender and not self.sender_ready and self.vc_a > 0:
+                bal_a = await db.get_user_vc(self.sender_user.id)
+                if bal_a < self.vc_a:
+                    return await interaction.response.send_message(f"❌ You have insufficient VC ({bal_a:,} < {self.vc_a:,} VC). Please update your VC offer.", ephemeral=True)
+            elif not is_sender and not self.target_ready and self.vc_b > 0:
+                bal_b = await db.get_user_vc(self.target_user.id)
+                if bal_b < self.vc_b:
+                    return await interaction.response.send_message(f"❌ You have insufficient VC ({bal_b:,} < {self.vc_b:,} VC). Please update your VC offer.", ephemeral=True)
 
             if is_sender:
                 self.sender_ready = not self.sender_ready
@@ -23874,6 +23980,7 @@ class NBACardTradeView(discord.ui.View):
                 self.status = "countdown"
                 self.add_card_btn.disabled = True
                 self.remove_card_btn.disabled = True
+                self.offer_vc_btn.disabled = True
                 self.ready_a_btn.disabled = True
                 self.ready_b_btn.disabled = True
 
@@ -23882,7 +23989,8 @@ class NBACardTradeView(discord.ui.View):
                     self.cards_a, self.cards_b,
                     self.sender_ready, self.target_ready,
                     status="countdown",
-                    countdown_secs=7
+                    countdown_secs=7,
+                    vc_a=self.vc_a, vc_b=self.vc_b
                 )
                 await interaction.response.edit_message(embed=embed, view=self)
                 self.message = interaction.message
@@ -23893,7 +24001,8 @@ class NBACardTradeView(discord.ui.View):
                     self.sender_user, self.target_user,
                     self.cards_a, self.cards_b,
                     self.sender_ready, self.target_ready,
-                    status="pending"
+                    status="pending",
+                    vc_a=self.vc_a, vc_b=self.vc_b
                 )
                 await interaction.response.edit_message(embed=embed, view=self)
 
@@ -23908,7 +24017,8 @@ class NBACardTradeView(discord.ui.View):
                     self.cards_a, self.cards_b,
                     self.sender_ready, self.target_ready,
                     status="countdown",
-                    countdown_secs=sec
+                    countdown_secs=sec,
+                    vc_a=self.vc_a, vc_b=self.vc_b
                 )
                 try:
                     await message.edit(embed=embed, view=self)
@@ -23924,7 +24034,7 @@ class NBACardTradeView(discord.ui.View):
             card_b_ids = [c["id"] for c in self.cards_b]
 
             success, err_msg = await db.execute_multi_card_trade(
-                self.sender_user.id, self.target_user.id, card_a_ids, card_b_ids
+                self.sender_user.id, self.target_user.id, card_a_ids, card_b_ids, self.vc_a, self.vc_b
             )
 
             self.is_finalized = True
@@ -23937,12 +24047,21 @@ class NBACardTradeView(discord.ui.View):
                     self.sender_user, self.target_user,
                     self.cards_a, self.cards_b,
                     True, True,
-                    status="accepted"
+                    status="accepted",
+                    vc_a=self.vc_a, vc_b=self.vc_b
                 )
                 await message.edit(embed=embed, view=self)
                 try:
-                    summary_a = ", ".join(f"**[{c['ovr']}] {c['name']}**" for c in self.cards_a) if self.cards_a else "*None*"
-                    summary_b = ", ".join(f"**[{c['ovr']}] {c['name']}**" for c in self.cards_b) if self.cards_b else "*None*"
+                    summary_a_items = [f"**[{c['ovr']}] {c['name']}**" for c in self.cards_a]
+                    if self.vc_a > 0:
+                        summary_a_items.append(f"💰 **`{self.vc_a:,} VC`**")
+                    summary_a = " + ".join(summary_a_items) if summary_a_items else "*None*"
+
+                    summary_b_items = [f"**[{c['ovr']}] {c['name']}**" for c in self.cards_b]
+                    if self.vc_b > 0:
+                        summary_b_items.append(f"💰 **`{self.vc_b:,} VC`**")
+                    summary_b = " + ".join(summary_b_items) if summary_b_items else "*None*"
+
                     await message.channel.send(
                         f"🎉 **Trade Executed!**\n"
                         f"• {self.sender_user.mention} received: {summary_b}\n"
@@ -23958,6 +24077,10 @@ class NBACardTradeView(discord.ui.View):
                     color=discord.Color.red()
                 )
                 await message.edit(embed=embed, view=self)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error in trade countdown: {e}", exc_info=True)
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -29838,11 +29961,12 @@ async def stripexclusives_slash_cmd(
             await interaction.response.send_message(f"❌ Error stripping exclusive cards: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="nbatrade", description="🤝 Open an interactive multi-card trade panel with another member")
+@bot.tree.command(name="nbatrade", description="🤝 Open an interactive multi-card & VC trade panel with another member")
 @app_commands.describe(
-    user="The member you want to trade cards with",
+    user="The member you want to trade cards / VC with",
     your_card="Optional: Initial Card ID or Player Name you are offering",
-    their_card="Optional: Initial Card ID or Player Name you are requesting"
+    their_card="Optional: Initial Card ID or Player Name you are requesting",
+    your_vc="Optional: Initial VC amount you want to offer"
 )
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
@@ -29850,13 +29974,21 @@ async def nbatrade_slash_cmd(
     interaction: discord.Interaction,
     user: discord.Member,
     your_card: Optional[str] = None,
-    their_card: Optional[str] = None
+    their_card: Optional[str] = None,
+    your_vc: Optional[int] = 0
 ):
     try:
         await interaction.response.defer()
         if user.id == interaction.user.id or user.bot:
             await interaction.followup.send("❌ You cannot trade cards with yourself or bots.", ephemeral=True)
             return
+
+        init_vc_a = max(0, int(your_vc or 0))
+        if init_vc_a > 0:
+            sender_vc = await db.get_user_vc(interaction.user.id)
+            if sender_vc < init_vc_a:
+                await interaction.followup.send(f"❌ You only have **`{sender_vc:,}` VC**, cannot offer **`{init_vc_a:,}` VC**.", ephemeral=True)
+                return
 
         cards_a = []
         cards_b = []
@@ -29883,10 +30015,10 @@ async def nbatrade_slash_cmd(
                 return
             cards_b.append(c_b)
 
-        embed = build_multi_trade_embed(interaction.user, user, cards_a, cards_b, status="pending")
-        view = NBACardTradeView(interaction.user, user, cards_a, cards_b)
+        embed = build_multi_trade_embed(interaction.user, user, cards_a, cards_b, status="pending", vc_a=init_vc_a)
+        view = NBACardTradeView(interaction.user, user, cards_a, cards_b, vc_a=init_vc_a)
         msg = await interaction.followup.send(
-            content=f"🔔 {user.mention}, you have received a card trade proposal from {interaction.user.mention}!",
+            content=f"🔔 {user.mention}, you have received a card & VC trade proposal from {interaction.user.mention}!",
             embed=embed,
             view=view
         )
@@ -33645,7 +33777,7 @@ async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, c
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def nbatrade_prefix_cmd(ctx: commands.Context, target: discord.Member, your_card: Optional[str] = None, their_card: Optional[str] = None):
-    """Open an interactive multi-card trade panel: !nbatrade @user [your_card] [their_card]"""
+    """Open an interactive multi-card & VC trade panel: !nbatrade @user [your_card] [their_card]"""
     try:
         if target.id == ctx.author.id or target.bot:
             await ctx.send("❌ You cannot trade cards with yourself or bots.")
@@ -33653,15 +33785,23 @@ async def nbatrade_prefix_cmd(ctx: commands.Context, target: discord.Member, you
 
         cards_a = []
         cards_b = []
+        init_vc_a = 0
 
         if your_card:
-            c_a = get_nba_card(your_card)
-            if not c_a:
-                return await ctx.send(f"❌ Your offered card `{your_card}` was not found.")
-            sender_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(ctx.author.id)]
-            if c_a["id"].lower() not in sender_cards:
-                return await ctx.send(f"❌ You do not own **{c_a['name']}** (`{c_a['id']}`).")
-            cards_a.append(c_a)
+            clean_str = your_card.lower().replace("vc", "").replace("$", "").replace(",", "").strip()
+            if clean_str.isdigit():
+                init_vc_a = int(clean_str)
+                user_vc = await db.get_user_vc(ctx.author.id)
+                if user_vc < init_vc_a:
+                    return await ctx.send(f"❌ You only have **`{user_vc:,}` VC**, cannot offer **`{init_vc_a:,}` VC**.")
+            else:
+                c_a = get_nba_card(your_card)
+                if not c_a:
+                    return await ctx.send(f"❌ Your offered card `{your_card}` was not found.")
+                sender_cards = [c["card_id"].lower() for c in await db.get_user_nba_cards(ctx.author.id)]
+                if c_a["id"].lower() not in sender_cards:
+                    return await ctx.send(f"❌ You do not own **{c_a['name']}** (`{c_a['id']}`).")
+                cards_a.append(c_a)
 
         if their_card:
             c_b = get_nba_card(their_card)
@@ -33672,10 +33812,10 @@ async def nbatrade_prefix_cmd(ctx: commands.Context, target: discord.Member, you
                 return await ctx.send(f"❌ {target.mention} does not own **{c_b['name']}** (`{c_b['id']}`).")
             cards_b.append(c_b)
 
-        embed = build_multi_trade_embed(ctx.author, target, cards_a, cards_b, status="pending")
-        view = NBACardTradeView(ctx.author, target, cards_a, cards_b)
+        embed = build_multi_trade_embed(ctx.author, target, cards_a, cards_b, status="pending", vc_a=init_vc_a)
+        view = NBACardTradeView(ctx.author, target, cards_a, cards_b, vc_a=init_vc_a)
         msg = await ctx.send(
-            content=f"🔔 {target.mention}, you have received a card trade proposal from {ctx.author.mention}!",
+            content=f"🔔 {target.mention}, you have received a card & VC trade proposal from {ctx.author.mention}!",
             embed=embed,
             view=view
         )
