@@ -60,11 +60,11 @@ class BuildTeamView(discord.ui.View):
             validated_picks = {}
             for pos, p in saved_picks.items():
                 cid = p.get("card_id", "").lower() if isinstance(p, dict) else ""
-                if cid and cid in owned_cids:
+                if cid and (cid in owned_cids or cid.replace("holo_", "") in owned_cids):
                     validated_picks[pos] = p
                 else:
                     card_by_name = get_nba_card(p.get("name", "")) if isinstance(p, dict) else None
-                    if card_by_name and card_by_name["id"].lower() in owned_cids:
+                    if card_by_name and (card_by_name["id"].lower() in owned_cids or card_by_name["id"].lower().replace("holo_", "") in owned_cids):
                         validated_picks[pos] = card_to_player_dict(card_by_name)
             self.picks = validated_picks
         self._update_components()
@@ -73,9 +73,14 @@ class BuildTeamView(discord.ui.View):
         """Finds all unique owned cards eligible for this position."""
         owned_cids = {c["card_id"].lower() for c in self.user_cards if isinstance(c, dict) and "card_id" in c}
         eligible = []
+        seen = set()
         for cid in owned_cids:
             card = get_nba_card(cid)
             if card:
+                canonical_id = card["id"].lower()
+                if canonical_id in seen:
+                    continue
+                seen.add(canonical_id)
                 p_pos = card.get("pos", "").upper()
                 s_pos = (card.get("sec_pos") or "").upper()
                 if pos == p_pos or pos == s_pos or pos in p_pos:
@@ -116,15 +121,29 @@ class BuildTeamView(discord.ui.View):
                 description="Open packs or catch drops to acquire cards"
             ))
         else:
-            for c in eligible[:25]:
+            seen_values = set()
+            found_default = False
+            for c in eligible:
+                val = c["id"]
+                if val in seen_values:
+                    continue
+                seen_values.add(val)
                 t_info = NBA_2K_TIERS.get(c.get("tier", "gold"), NBA_2K_TIERS["gold"])
-                is_curr = self.picks.get(self.current_pos, {}).get("card_id") == c["id"]
+                
+                is_curr = False
+                curr_pick = self.picks.get(self.current_pos, {})
+                if not found_default and (curr_pick.get("card_id", "").lower() == val.lower() or (curr_pick.get("name") and curr_pick.get("name") == c.get("name"))):
+                    is_curr = True
+                    found_default = True
+
                 player_options.append(discord.SelectOption(
-                    label=f"[{c['ovr']}] {c['name']} ({c['team']})",
-                    value=c["id"],
-                    description=f"{t_info['name']} • {c.get('theme', 'Base')}"[:100],
+                    label=f"[{c.get('ovr', 80)}] {c.get('name', 'Player')} ({c.get('team', 'NBA')})"[:100],
+                    value=val,
+                    description=f"{t_info.get('name', 'Gold')} • {c.get('theme', 'Base')}"[:100],
                     default=is_curr
                 ))
+                if len(player_options) >= 25:
+                    break
 
         player_select = discord.ui.Select(
             placeholder=f"⭐ Choose {self.current_pos} Player",
@@ -174,10 +193,20 @@ class BuildTeamView(discord.ui.View):
 
     async def on_auto_fill(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        used_names = set()
         for pos in ["PG", "SG", "SF", "PF", "C"]:
             eligible = self._get_eligible_cards_for_pos(pos)
-            if eligible:
-                self.picks[pos] = card_to_player_dict(eligible[0])
+            chosen = None
+            for card in eligible:
+                c_name = card.get("name", "").strip().lower()
+                if c_name not in used_names:
+                    chosen = card
+                    used_names.add(c_name)
+                    break
+            if not chosen and eligible:
+                chosen = eligible[0]
+            if chosen:
+                self.picks[pos] = card_to_player_dict(chosen)
         self._update_components()
         embed = self.build_builder_embed(interaction.user)
         await interaction.edit_original_response(embed=embed, view=self)
@@ -215,7 +244,7 @@ class BuildTeamView(discord.ui.View):
         await interaction.edit_original_response(view=self)
         await interaction.followup.send(f"✅ **Starting 5 Lineup Saved!** Team OVR: `⭐ {eval_res['ovr']:.1f}`. Ready for `/teambattle`!")
 
-    def build_builder_embed(self, user: discord.User) -> discord.Embed:
+    def build_builder_embed(self, user: Union[discord.User, discord.Member]) -> discord.Embed:
         eval_res = evaluate_dream_team(self.picks) if len(self.picks) == 5 else {"ovr": 0.0}
         embed = discord.Embed(
             title=f"🏀 NBA 2K Starting 5 Builder • {user.display_name}",
@@ -226,9 +255,12 @@ class BuildTeamView(discord.ui.View):
             p = self.picks.get(pos)
             if p:
                 t_info = NBA_2K_TIERS.get(p.get("tier", "gold"), NBA_2K_TIERS["gold"])
+                p_3pt = p.get("pts_3") or p.get("3pt") or p.get("inside", 80)
+                p_def = p.get("defense") or p.get("def", 80)
+                p_clu = p.get("clutch") or p.get("clu", 80)
                 embed.add_field(
                     name=f"{pos}: {t_info['emoji']} [{p.get('ovr', 80)}] {p['name']}",
-                    value=f"🎯 3PT: `{p.get('defense', 80)}` • 🔒 DEF: `{p.get('defense', 80)}` • ⚡ CLU: `{p.get('clutch', 80)}`",
+                    value=f"🎯 3PT: `{p_3pt}` • 🔒 DEF: `{p_def}` • ⚡ CLU: `{p_clu}`",
                     inline=False
                 )
             else:
@@ -277,18 +309,33 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
 
         picks: Dict[str, Dict[str, Any]] = {}
         owned_cids = {c["card_id"].lower() for c in cards}
+        used_names = set()
         for pos in ["PG", "SG", "SF", "PF", "C"]:
             eligible = []
+            seen = set()
             for cid in owned_cids:
                 c_obj = get_nba_card(cid)
                 if c_obj:
+                    canon_id = c_obj["id"].lower()
+                    if canon_id in seen:
+                        continue
+                    seen.add(canon_id)
                     p_pos = c_obj.get("pos", "").upper()
                     s_pos = (c_obj.get("sec_pos") or "").upper()
                     if pos == p_pos or pos == s_pos or pos in p_pos:
                         eligible.append(c_obj)
             eligible.sort(key=lambda x: x.get("ovr", 80), reverse=True)
-            if eligible:
-                picks[pos] = card_to_player_dict(eligible[0])
+            chosen = None
+            for c_cand in eligible:
+                cand_name = c_cand.get("name", "").strip().lower()
+                if cand_name not in used_names:
+                    chosen = c_cand
+                    used_names.add(cand_name)
+                    break
+            if not chosen and eligible:
+                chosen = eligible[0]
+            if chosen:
+                picks[pos] = card_to_player_dict(chosen)
 
         missing = [p for p in ["PG", "SG", "SF", "PF", "C"] if p not in picks]
         if missing:
@@ -334,18 +381,33 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
 
         picks: Dict[str, Dict[str, Any]] = {}
         owned_cids = {c["card_id"].lower() for c in cards}
+        used_names = set()
         for pos in ["PG", "SG", "SF", "PF", "C"]:
             eligible = []
+            seen = set()
             for cid in owned_cids:
                 c_obj = get_nba_card(cid)
                 if c_obj:
+                    canon_id = c_obj["id"].lower()
+                    if canon_id in seen:
+                        continue
+                    seen.add(canon_id)
                     p_pos = c_obj.get("pos", "").upper()
                     s_pos = (c_obj.get("sec_pos") or "").upper()
                     if pos == p_pos or pos == s_pos or pos in p_pos:
                         eligible.append(c_obj)
             eligible.sort(key=lambda x: x.get("ovr", 80), reverse=True)
-            if eligible:
-                picks[pos] = card_to_player_dict(eligible[0])
+            chosen = None
+            for c_cand in eligible:
+                cand_name = c_cand.get("name", "").strip().lower()
+                if cand_name not in used_names:
+                    chosen = c_cand
+                    used_names.add(cand_name)
+                    break
+            if not chosen and eligible:
+                chosen = eligible[0]
+            if chosen:
+                picks[pos] = card_to_player_dict(chosen)
 
         missing = [p for p in ["PG", "SG", "SF", "PF", "C"] if p not in picks]
         if missing:
