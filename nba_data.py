@@ -4078,20 +4078,18 @@ def _draw_star_polygon(draw: ImageDraw.Draw, center: Tuple[int, int], size: int,
 
 
 def is_valid_drop_channel(channel: Optional[discord.abc.GuildChannel], allow_system: bool = False) -> bool:
-    """Checks if a channel is appropriate for NBA card drops (not a welcome/rules/log channel, and must be public)."""
+    """Checks if a channel is appropriate for NBA card drops (not a welcome/rules/log channel)."""
     if not channel or not isinstance(channel, discord.TextChannel):
         return False
-    if not is_public_community_channel(channel):
-        return False
-    if not channel.permissions_for(channel.guild.me).send_messages:
-        return False
-    if not channel.permissions_for(channel.guild.me).attach_files:
-        return False
-    if not allow_system and channel.guild.system_channel and channel.id == channel.guild.system_channel.id:
+    if not allow_system and channel.guild and channel.guild.system_channel and channel.id == channel.guild.system_channel.id:
         return False
     cname = channel.name.lower().replace("_", "-")
     for kw in IGNORED_DROP_CHANNEL_KEYWORDS:
         if kw in cname:
+            return False
+    if channel.guild and channel.guild.me:
+        perms = channel.permissions_for(channel.guild.me)
+        if not perms.send_messages or not perms.attach_files or not perms.embed_links:
             return False
     return True
 

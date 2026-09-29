@@ -305,8 +305,8 @@ class NBACatchModal(discord.ui.Modal, title="🏀 Catch the NBA 2K Player"):
 
 
 class NBAChatDropView(discord.ui.View):
-    def __init__(self, card: Dict[str, Any], drop_id: str, channel_id: int, drop_msg: Optional[discord.Message] = None):
-        super().__init__(timeout=300.0)
+    def __init__(self, card: Dict[str, Any], drop_id: str, channel_id: int, drop_msg: Optional[discord.Message] = None, duration_seconds: int = 300):
+        super().__init__(timeout=float(max(30, min(duration_seconds, 1800))))
         self.card = card
         self.drop_id = drop_id
         self.channel_id = channel_id
@@ -319,7 +319,10 @@ class NBAChatDropView(discord.ui.View):
         _active_nba_drops.pop(self.channel_id, None)
         if self.drop_msg:
             try:
-                await self.drop_msg.edit(content="⏰ This wild card drop has expired unclaimed.", view=self)
+                disabled_view = discord.ui.View(timeout=1.0)
+                btn = discord.ui.Button(label="⏰ Time expired — player fled the court!", style=discord.ButtonStyle.secondary, disabled=True, emoji="⏳")
+                disabled_view.add_item(btn)
+                await self.drop_msg.edit(view=disabled_view)
             except Exception:
                 pass
 
@@ -469,7 +472,8 @@ async def spawn_nba_card_drop(
     channel: discord.TextChannel,
     spawner: Optional[Union[discord.Member, discord.User]] = None,
     interaction: Optional[discord.Interaction] = None,
-    card_override: Optional[Dict[str, Any]] = None
+    card_override: Optional[Dict[str, Any]] = None,
+    duration_seconds: Optional[int] = None
 ) -> Optional[discord.Message]:
     """Spawns a mystery NBA card drop in the designated channel."""
     try:
@@ -478,12 +482,19 @@ async def spawn_nba_card_drop(
         g_id = channel.guild.id if (hasattr(channel, "guild") and channel.guild) else 0
         drop_id = f"{g_id}_{channel.id}_{int(now_ts)}"
 
+        if duration_seconds is None and g_id:
+            dur_min = await db.get_config(g_id, "nba_drop_duration_min", 5)
+            duration_seconds = max(60, min(int(dur_min) * 60, 1800))
+        elif duration_seconds is None:
+            duration_seconds = 300
+
         drop_info = {
             "card": card,
             "drop_id": drop_id,
             "channel_id": channel.id,
             "guild_id": g_id,
             "spawned_at": now_ts,
+            "duration_seconds": duration_seconds,
             "hint_level": 1,
             "claimed": False,
             "claimed_by_id": None,
@@ -499,7 +510,7 @@ async def spawn_nba_card_drop(
         card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, True)
         card_file = discord.File(fp=card_buf, filename="nba_card.png")
         embed = build_nba_drop_embed(card, hint_level=1, spawner=spawner)
-        view = NBAChatDropView(card, drop_id, channel.id)
+        view = NBAChatDropView(card, drop_id, channel.id, duration_seconds=duration_seconds)
 
         if interaction:
             drop_msg = await interaction.followup.send(embed=embed, file=card_file, view=view)
@@ -605,7 +616,166 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
             return await ctx.send("⚠️ **Usage:** `!catch <player_name>` (e.g. `!catch Stephen Curry` or `!catch Wemby`)")
         await handle_catch_attempt(ctx, player.strip(), channel_id=ctx.channel.id)
 
-    # ── Channel Setup ──────────────────────────────────────────────────────────
+    # ── Channel Setup & Drop Configuration ─────────────────────────────────────
+
+    async def _show_or_update_drop_config(
+        self,
+        send_func: Any,
+        guild: discord.Guild,
+        user: Union[discord.Member, discord.User],
+        channel: Optional[discord.TextChannel] = None,
+        threshold: Optional[int] = None,
+        cooldown: Optional[int] = None,
+        timer: Optional[int] = None,
+        reset: bool = False,
+        is_interaction: bool = False
+    ):
+        perms = getattr(user, "guild_permissions", None)
+        can_manage = (perms and perms.manage_guild) or is_creator(user)
+        if not can_manage:
+            msg = "🚫 You need **Manage Server** permissions or Bot Creator access to configure drops."
+            if is_interaction:
+                return await send_func(msg, ephemeral=True)
+            return await send_func(msg)
+
+        g_id = guild.id
+        updated_fields = []
+
+        if reset:
+            await db.set_config(g_id, "nba_drop_channel", None)
+            await db.set_config(g_id, "nba_drop_threshold", 35)
+            await db.set_config(g_id, "nba_drop_cooldown_min", 8)
+            await db.set_config(g_id, "nba_drop_duration_min", 5)
+            _nba_drop_msg_counts[g_id] = 0
+            updated_fields.append("🔄 All settings reset to system defaults")
+        else:
+            if channel is not None:
+                await db.set_config(g_id, "nba_drop_channel", str(channel.id))
+                updated_fields.append(f"📌 **Drop Channel:** {channel.mention}")
+            if threshold is not None:
+                val = max(10, min(int(threshold), 100))
+                await db.set_config(g_id, "nba_drop_threshold", val)
+                updated_fields.append(f"💬 **Message Threshold:** `{val}` messages")
+            if cooldown is not None:
+                val = max(1, min(int(cooldown), 60))
+                await db.set_config(g_id, "nba_drop_cooldown_min", val)
+                updated_fields.append(f"⏳ **Cooldown:** `{val}` minutes")
+            if timer is not None:
+                val = max(1, min(int(timer), 30))
+                await db.set_config(g_id, "nba_drop_duration_min", val)
+                updated_fields.append(f"⏰ **Catch Timer:** `{val}` minutes")
+
+        # Query active persisted settings
+        chan_id_str = await db.get_config(g_id, "nba_drop_channel", None)
+        curr_thresh = await db.get_config(g_id, "nba_drop_threshold", 35)
+        curr_cd = await db.get_config(g_id, "nba_drop_cooldown_min", 8)
+        curr_timer = await db.get_config(g_id, "nba_drop_duration_min", 5)
+        curr_count = _nba_drop_msg_counts.get(g_id, 0)
+        last_drop = _nba_drop_last_timestamps.get(g_id, 0.0)
+        now = time.time()
+        cd_sec = int(curr_cd) * 60
+        time_since = now - last_drop if last_drop > 0 else 99999.0
+        cd_status = "🟢 Ready to drop" if time_since >= cd_sec else f"⏳ Cooling down (`{int(cd_sec - time_since)}s` left)"
+
+        chan_disp = f"<#{chan_id_str}>" if chan_id_str else "🌐 **Auto-Detect** *(Active Chat Channels)*"
+
+        embed = discord.Embed(
+            title="⚙️ NBA Wild Card Drop Configuration",
+            description=f"Server drop parameters for **{guild.name}**:\n",
+            color=discord.Color.gold()
+        )
+        if updated_fields:
+            embed.description = "✅ **Configuration Updated!**\n" + "\n".join(f"• {f}" for f in updated_fields) + "\n\n"
+
+        embed.add_field(name="📌 Dedicated Drop Channel", value=chan_disp, inline=True)
+        embed.add_field(name="💬 Message Threshold", value=f"`{curr_thresh}` messages *(Range: 10–100)*", inline=True)
+        embed.add_field(name="⏳ Spawn Cooldown", value=f"`{curr_cd}` minutes *(Range: 1–60m)*", inline=True)
+        embed.add_field(name="⏰ Catch Duration Timer", value=f"`{curr_timer}` minutes *(Range: 1–30m)*", inline=True)
+        embed.add_field(name="📊 Next Spawn Progress", value=f"`{curr_count} / {curr_thresh}` messages counted", inline=True)
+        embed.add_field(name="🟢 Cooldown Status", value=cd_status, inline=True)
+        embed.set_footer(text="Settings saved to database • Use /nbadropconfig or !nbadropconfig anytime")
+        embed.timestamp = discord.utils.utcnow()
+
+        if is_interaction:
+            await send_func(embed=embed, ephemeral=True)
+        else:
+            await send_func(embed=embed)
+
+    @app_commands.command(name="nbadropconfig", description="⚙️ Configure auto NBA card drop channel, message threshold, cooldown & timer")
+    @app_commands.describe(
+        channel="Dedicated channel for wild card spawns (optional)",
+        threshold="Number of messages between drops (10-100, default: 35)",
+        cooldown="Minimum minutes between drops (1-60m, default: 8)",
+        timer="How long drops stay active in minutes (1-30m, default: 5)",
+        reset="Reset all drop settings to system defaults (optional)"
+    )
+    @app_commands.guild_only()
+    async def nbadropconfig_slash(
+        self,
+        interaction: discord.Interaction,
+        channel: Optional[discord.TextChannel] = None,
+        threshold: Optional[int] = None,
+        cooldown: Optional[int] = None,
+        timer: Optional[int] = None,
+        reset: bool = False
+    ):
+        await interaction.response.defer(ephemeral=True)
+        await self._show_or_update_drop_config(
+            send_func=interaction.followup.send,
+            guild=interaction.guild,
+            user=interaction.user,
+            channel=channel,
+            threshold=threshold,
+            cooldown=cooldown,
+            timer=timer,
+            reset=reset,
+            is_interaction=True
+        )
+
+    @commands.command(name="nbadropconfig", aliases=["dropconfig", "dropcfg", "setdrop"])
+    @commands.guild_only()
+    async def nbadropconfig_prefix(self, ctx: commands.Context, *, args: str = ""):
+        """View or configure drops: !nbadropconfig [channel=#ch] [threshold=35] [cooldown=8] [timer=5] [reset]"""
+        channel = None
+        threshold = None
+        cooldown = None
+        timer = None
+        reset = False
+
+        raw = args.strip().lower()
+        if "reset" in raw:
+            reset = True
+        else:
+            if ctx.message.channel_mentions:
+                channel = ctx.message.channel_mentions[0]
+
+            for token in raw.split():
+                if "=" in token:
+                    k, v = token.split("=", 1)
+                    if k in ("thresh", "threshold", "msgs", "messages", "count") and v.isdigit():
+                        threshold = int(v)
+                    elif k in ("cd", "cooldown", "cooldown_min", "wait") and v.isdigit():
+                        cooldown = int(v)
+                    elif k in ("timer", "duration", "time", "expire") and v.isdigit():
+                        timer = int(v)
+                elif token.isdigit():
+                    num = int(token)
+                    if 10 <= num <= 100 and threshold is None:
+                        threshold = num
+                    elif 1 <= num <= 60 and cooldown is None:
+                        cooldown = num
+
+        await self._show_or_update_drop_config(
+            send_func=ctx.send,
+            guild=ctx.guild,
+            user=ctx.author,
+            channel=channel,
+            threshold=threshold,
+            cooldown=cooldown,
+            timer=timer,
+            reset=reset,
+            is_interaction=False
+        )
 
     async def _handle_setnbachannel(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
         await interaction.response.defer(ephemeral=True)
@@ -613,7 +783,7 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
             return await interaction.followup.send("🚫 You need Manage Server permission to configure drop channels.", ephemeral=True)
         target_channel = channel or interaction.channel
         await db.set_config(interaction.guild_id, "nba_drop_channel", str(target_channel.id))
-        await interaction.followup.send(f"✅ Wild NBA 2K card spawns are now pinned to {target_channel.mention}!", ephemeral=True)
+        await interaction.followup.send(f"✅ Wild NBA 2K card spawns are now pinned to {target_channel.mention}!\n💡 *Tip: Use `/nbadropconfig` to configure message threshold, cooldown, and timer.*", ephemeral=True)
 
     @app_commands.command(name="setnbachannel", description="📌 Configure a dedicated text channel for wild NBA card spawns")
     @app_commands.describe(channel="The channel to pin for NBA card drops (defaults to current channel)")
@@ -628,7 +798,7 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
         """Configure card drop channel: !setnbachannel [#channel]"""
         target_channel = channel or ctx.channel
         await db.set_config(ctx.guild.id, "nba_drop_channel", str(target_channel.id))
-        await ctx.send(f"✅ Wild NBA 2K card spawns pinned to {target_channel.mention}!")
+        await ctx.send(f"✅ Wild NBA 2K card spawns pinned to {target_channel.mention}!\n💡 *Tip: Use `!nbadropconfig` to configure message threshold, cooldown, and timer.*")
 
     # ── Chat Message Listener for Direct Guessing & Drops ─────────────────────
 
@@ -642,7 +812,7 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
 
         # 1. Direct chat guessing
         if not content.startswith(("!", "/", "$", ".", "-", "~", ">", ";")):
-            active = _active_nba_drops.get(message.channel.id)
+            active = _active_nba_drops.get(message.channel.id) or _active_nba_drops.get(message.guild.id)
             if active and not active.get("claimed"):
                 if len(content) >= 2 and is_correct_player_name(content, active["card"]["name"]):
                     await handle_catch_attempt(message, content, channel_id=message.channel.id, drop=active)
@@ -653,18 +823,59 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
                     await message.reply(f"❌ **Too slow!** This player was already caught by **{claimed_by}**! Wait for the next wild court spawn.", mention_author=True)
                     return
 
-        # 2. Activity-based random card drops
-        c_id = message.channel.id
-        _nba_drop_msg_counts[c_id] = _nba_drop_msg_counts.get(c_id, 0) + 1
-        now = time.time()
-        last_drop = _nba_drop_last_timestamps.get(c_id, 0.0)
+            # 2. Activity-based random card drops
+            g_id = message.guild.id
+            _nba_drop_msg_counts[g_id] = _nba_drop_msg_counts.get(g_id, 0) + 1
+            now = time.time()
+            last_drop = _nba_drop_last_timestamps.get(g_id, 0.0)
 
-        # Trigger every 30-50 messages, min 8-minute cooldown per channel
-        if _nba_drop_msg_counts[c_id] >= random.randint(30, 50) and (now - last_drop >= 480):
-            _nba_drop_msg_counts[c_id] = 0
-            _nba_drop_last_timestamps[c_id] = now
-            if is_valid_drop_channel(message.channel):
-                await spawn_nba_card_drop(message.channel)
+            # Fetch persistent config from guild_config (cached)
+            threshold = await db.get_config(g_id, "nba_drop_threshold", 35)
+            try:
+                threshold = max(10, min(int(threshold), 100))
+            except Exception:
+                threshold = 35
+
+            cooldown_min = await db.get_config(g_id, "nba_drop_cooldown_min", 8)
+            try:
+                cooldown_sec = max(60, min(int(cooldown_min) * 60, 3600))
+            except Exception:
+                cooldown_sec = 480
+
+            duration_min = await db.get_config(g_id, "nba_drop_duration_min", 5)
+            try:
+                duration_sec = max(60, min(int(duration_min) * 60, 1800))
+            except Exception:
+                duration_sec = 300
+
+            count = _nba_drop_msg_counts[g_id]
+            time_since_last = now - last_drop if last_drop > 0 else 99999.0
+
+            # Debug log to track message counting progress
+            logger.info(f"📊 [NBA Drop Progress] Guild '{message.guild.name}' ({g_id}) in #{message.channel.name}: {count}/{threshold} msgs (Last Drop: {time_since_last:.0f}s ago / Cooldown: {cooldown_sec}s)")
+
+            if count >= threshold and (time_since_last >= cooldown_sec):
+                _nba_drop_msg_counts[g_id] = 0
+                _nba_drop_last_timestamps[g_id] = now
+
+                # Determine target drop channel
+                drop_chan_id = await db.get_config(g_id, "nba_drop_channel", None)
+                target_channel = None
+                if drop_chan_id:
+                    try:
+                        target_channel = message.guild.get_channel(int(drop_chan_id))
+                    except Exception:
+                        target_channel = None
+
+                if not target_channel or not is_valid_drop_channel(target_channel):
+                    target_channel = get_best_drop_channel(message.guild) or message.channel
+
+                if target_channel and is_valid_drop_channel(target_channel):
+                    logger.info(f"🏀 [NBA Drop Spawned] Spawning wild card in #{target_channel.name} ({target_channel.id}) for guild '{message.guild.name}'")
+                    await spawn_nba_card_drop(target_channel, duration_seconds=duration_sec)
+                elif is_valid_drop_channel(message.channel):
+                    logger.info(f"🏀 [NBA Drop Spawned] Spawning wild card in fallback #{message.channel.name} ({message.channel.id}) for guild '{message.guild.name}'")
+                    await spawn_nba_card_drop(message.channel, duration_seconds=duration_sec)
 
 
 async def setup(bot: commands.Bot):
