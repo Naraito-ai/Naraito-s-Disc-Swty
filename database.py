@@ -538,6 +538,27 @@ class DatabaseManager:
                 await self.sqlite_conn.execute(sqlite_query, args)
                 await self.sqlite_conn.commit()
 
+    async def executemany(self, query: str, args_list: List[tuple]):
+        """Executes a parameterized write query across multiple parameter tuples in a single transaction."""
+        if not args_list:
+            return
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                pg_query = query
+                if "?" in query:
+                    parts = query.split("?")
+                    pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
+                await conn.executemany(pg_query, args_list)
+        else:
+            async with self._sqlite_lock:
+                sqlite_query = query
+                if re.search(r'\$\d+', sqlite_query):
+                    sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
+                if "SERIAL PRIMARY KEY" in sqlite_query:
+                    sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                await self.sqlite_conn.executemany(sqlite_query, args_list)
+                await self.sqlite_conn.commit()
+
     async def fetch(self, query: str, *args) -> List[Dict[str, Any]]:
         """Fetches multiple records as a list of dicts."""
         if self.is_postgres:
@@ -1671,15 +1692,44 @@ class DatabaseManager:
             if not inserts:
                 return 0
 
-            for i in range(0, len(inserts), 250):
-                batch = inserts[i:i+250]
-                for item in batch:
-                    await self.execute("INSERT INTO user_nba_cards (user_id, card_id, obtained_at, source) VALUES (?, ?, ?, ?)", *item)
+            # Execute in lightning-fast batches using executemany
+            for i in range(0, len(inserts), 500):
+                batch = inserts[i:i+500]
+                await self.executemany("INSERT INTO user_nba_cards (user_id, card_id, obtained_at, source) VALUES (?, ?, ?, ?)", batch)
 
             return len(inserts)
         except Exception as e:
             logger.error(f"Error granting bulk NBA cards to {u}: {e}")
             return 0
+
+    async def set_creator_godmode_stats(self, user_id: Any, achievements: Optional[List[str]] = None) -> None:
+        """Grants Creator Supreme GM Battle mastery: 100W-0L, 100 win streak, and all achievements unlocked."""
+        u = str(user_id)
+        now = time.time()
+        ach_list = achievements or [
+            "first_champ", "budget_maestro", "the_clamps", "splash_dynasty",
+            "hof_gm", "showtime_century", "streak_master"
+        ]
+        ach_json = json.dumps(ach_list)
+        dna_json = json.dumps({"3pt": 50, "def": 50, "mid": 50, "rim": 50, "total": 200})
+
+        if self.is_postgres:
+            query = """
+                INSERT INTO team_battle_stats (user_id, wins, losses, ties, streak, best_streak, total_duels_won, total_points, daily_wins, last_daily_win_date, achievements, coaching_dna, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    wins = EXCLUDED.wins, losses = EXCLUDED.losses, ties = EXCLUDED.ties,
+                    streak = EXCLUDED.streak, best_streak = EXCLUDED.best_streak,
+                    total_duels_won = EXCLUDED.total_duels_won, total_points = EXCLUDED.total_points,
+                    daily_wins = EXCLUDED.daily_wins, last_daily_win_date = EXCLUDED.last_daily_win_date,
+                    achievements = EXCLUDED.achievements, coaching_dna = EXCLUDED.coaching_dna, updated_at = EXCLUDED.updated_at
+            """
+        else:
+            query = """
+                INSERT OR REPLACE INTO team_battle_stats (user_id, wins, losses, ties, streak, best_streak, total_duels_won, total_points, daily_wins, last_daily_win_date, achievements, coaching_dna, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+        await self.execute(query, u, 100, 0, 0, 100, 100, 500, 10000, 10, datetime.now().strftime('%Y-%m-%d'), ach_json, dna_json, now)
 
     async def remove_abused_top_tier_cards(self, card_ids: List[str], exclude_user_id: Optional[Any] = None) -> int:
         """Removes only 97+ OVR cards that came from chat catches, command spawns, trades, or gifts (preserves genuine pack pulls & creator vault)."""

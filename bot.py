@@ -1492,13 +1492,17 @@ def is_staff_or_immune(member) -> bool:
     """Alias for backwards compatibility — delegates 100% to is_protected."""
     return is_protected(member)
 
-def is_creator(user: Union[discord.Member, discord.User, int, None]) -> bool:
+def is_creator(user: Union[discord.Member, discord.User, int, str, None]) -> bool:
     """Returns True if user is the Bot Creator/Owner (ID: 719932313919684670)."""
     if user is None:
         return False
     uid = getattr(user, "id", user)
     try:
-        return int(uid) == 719932313919684670
+        creator_env = os.getenv("BOT_CREATOR_ID", "719932313919684670").strip()
+        allowed = {"719932313919684670"}
+        if creator_env:
+            allowed.add(creator_env)
+        return str(uid) in allowed or int(uid) == 719932313919684670
     except (ValueError, TypeError):
         return False
 
@@ -23791,11 +23795,73 @@ CREATOR_ID_INT = 719932313919684670
 
 def is_event_creator(user: Union[discord.User, discord.Member, int, str]) -> bool:
     """Checks if the user is the bot creator (719932313919684670)."""
-    try:
-        uid = user.id if hasattr(user, "id") else int(str(user))
-        return uid == CREATOR_ID_INT
-    except Exception:
-        return False
+    return is_creator(user)
+
+
+async def execute_godmode_unlock(author: Union[discord.User, discord.Member], target: Union[discord.User, discord.Member], count: int = 99, vc_amount: int = 10000000) -> discord.Embed:
+    """Supreme God Mode execution helper: unlocks all standard cards, Holo editions, Exclusives, 10M VC, and 100W-0L GM Mastery."""
+    catalog = globals().get("NBA_2K_MOBILE_CARDS", [])
+    if not catalog:
+        raise ValueError("NBA card catalog not loaded.")
+
+    target_counts: Dict[str, int] = {}
+    clamped_count = max(1, min(count, 999))
+    
+    # 1. Add all standard catalog cards (Gold to Dark Matter to Exclusives)
+    for c in catalog:
+        cid = str(c["id"]).lower().strip()
+        target_counts[cid] = clamped_count
+        
+    # 2. Add all Holo Foil versions for every player (+5 OVR)
+    for c in catalog:
+        cid = str(c["id"]).lower().strip()
+        holo_id = f"holo_{cid}"
+        target_counts[holo_id] = clamped_count
+
+    # 3. Add any dedicated Holo Edition and Card-specific IDs
+    holo_urls = globals().get("NBA_HOLO_EDITION_MOMENT_URLS", {})
+    for hid in holo_urls.keys():
+        target_counts[f"holo_{hid.lower()}"] = clamped_count
+
+    # 4. Ultra-fast batch grant to database via executemany
+    added = await db.grant_bulk_nba_cards(target.id, target_counts)
+    
+    # 5. Grant VC
+    new_vc = await db.add_user_vc(target.id, vc_amount)
+    
+    # 6. Unlock all GM Battle Achievements & 100W-0L Streak
+    ach_dict = globals().get("NBA_ACHIEVEMENTS", {})
+    all_ach_keys = list(ach_dict.keys()) if ach_dict else [
+        "first_champ", "budget_maestro", "the_clamps", "splash_dynasty",
+        "hof_gm", "showtime_century", "streak_master"
+    ]
+    await db.set_creator_godmode_stats(target.id, all_ach_keys)
+
+    total_unique = len(target_counts)
+    total_cards_binder = total_unique * clamped_count
+    excl_count = sum(1 for c in catalog if c.get("tier") == "exclusive" or c.get("is_exclusive"))
+    dm_count = sum(1 for c in catalog if c.get("tier") == "dark_matter")
+    go_count = sum(1 for c in catalog if c.get("tier") == "galaxy_opal")
+    holo_count = len(catalog)
+
+    embed = discord.Embed(
+        title="👑 [ CREATOR SUPREME GOD MODE ] • EVERYTHING UNLOCKED!",
+        description=(
+            f"🌟 **Full Supreme Game Mastery granted to {target.mention}!**\n\n"
+            f"• 🎴 **Total Cards in Binder:** **`{total_cards_binder:,}`** (`{total_unique}` unique cards `[x{clamped_count}]`)\n"
+            f"• 🌟 **Holo Foil Editions:** `{holo_count}` shimmering Holo (+5 OVR) cards unlocked\n"
+            f"• 👑 **Exclusive Immortal Cards:** `{excl_count}` master-tier cards unlocked\n"
+            f"• 🌌 **Dark Matter & Galaxy Opal:** `{dm_count + go_count}` 97-99 OVR cards unlocked\n"
+            f"• 🏆 **GM Starting 5 Career:** **`100W — 0L`** (🔥 `100W Streak` • All Achievements Unlocked!)\n"
+            f"• 💰 **Virtual Currency:** **`💰 {new_vc:,} VC`** (+{vc_amount:,} VC added)\n"
+            f"• 📦 **Newly Added Copies:** `{added:,}`\n\n"
+            f"✨ *Your binder is 100% complete with every card, Holo edition, GM trophy, and infinite VC!*"
+        ),
+        color=discord.Color.from_rgb(255, 215, 0)
+    )
+    embed.set_footer(text="NBA 2K Creator God Mode • Check collection with !nbadex or /myteam")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
 
 
 TIER_ALIASES_MAP: Dict[str, str] = {
@@ -31060,6 +31126,32 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
             await interaction.response.send_message(f"❌ Error gifting card: {e}", ephemeral=True)
 
 
+@bot.tree.command(name="godmode", description="👑 Creator: Supreme God Mode — Unlock all cards, Holo Foils, Exclusives, 10M VC & GM Mastery")
+@app_commands.describe(
+    user="The target member to receive God Mode (defaults to yourself)",
+    count="Copies of each card to unlock (default: 99)",
+    vc_amount="Amount of Virtual Currency to grant (default: 10,000,000)"
+)
+@app_commands.guild_only()
+async def godmode_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None, count: int = 99, vc_amount: int = 10000000):
+    try:
+        if not is_creator(interaction.user):
+            await interaction.response.send_message("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).", ephemeral=True)
+            return
+
+        target = user or interaction.user
+        await interaction.response.defer()
+
+        embed = await execute_godmode_unlock(interaction.user, target, count=count, vc_amount=vc_amount)
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /godmode: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error executing God Mode: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error executing God Mode: {e}", ephemeral=True)
+
+
 @bot.tree.command(name="nbagrant", description="👑 Grant an Exclusive or Rare NBA card directly to a user's binder (Creator Only)")
 @app_commands.describe(
     user="The target member to receive the card",
@@ -31069,8 +31161,7 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
 @app_commands.guild_only()
 async def nbagrant_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str, count: int = 1):
     try:
-        is_creator = str(interaction.user.id) == "719932313919684670"
-        if not is_creator:
+        if not is_creator(interaction.user):
             await interaction.response.send_message("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).", ephemeral=True)
             return
 
@@ -35564,7 +35655,7 @@ async def nbafav_prefix_cmd(ctx: commands.Context, *, card_query: str):
 @bot.command(name="grantallcards", aliases=["giveallcards", "godmodecards", "masterbinder"])
 async def grantallcards_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None, count: int = 99):
     """Creator-only command to grant all cards with duplicates: !grantallcards [@user] [count]"""
-    if str(ctx.author.id) != "719932313919684670":
+    if not is_creator(ctx.author):
         return await ctx.send("❌ This command is restricted to the Bot Creator.")
 
     target = member or ctx.author
@@ -35594,7 +35685,7 @@ async def grantvc_prefix_cmd(ctx: commands.Context, target_or_amount: Optional[s
     • !grantvc 10000000        (Give yourself 10M VC)
     • !grantvc @user 500000    (Give @user 500k VC)
     """
-    if str(ctx.author.id) != "719932313919684670":
+    if not is_creator(ctx.author):
         return await ctx.send("❌ This command is restricted to the Bot Creator (ID: `719932313919684670`).")
 
     target = ctx.author
@@ -35636,47 +35727,24 @@ async def grantvc_prefix_cmd(ctx: commands.Context, target_or_amount: Optional[s
 
 @bot.command(name="unlockeverything", aliases=["godmode", "giveeverything", "creatorgodmode", "allthings", "unlockall"])
 async def unlockeverything_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None, count: int = 99, vc_amount: int = 10000000):
-    """Creator-only God Mode command to unlock everything in the entire game:
-    • 99 duplicates of all cards (Exclusives, Dark Matter, Galaxy Opal, etc.)
+    """Creator-only Supreme God Mode command to unlock everything in the entire game:
+    • 99 duplicates of all cards (Gold, Ruby, Amethyst, Diamond, Galaxy Opal, Dark Matter, Exclusives)
+    • 99 duplicates of all Holo Foil versions (+5 OVR)
     • 10,000,000 VC
-    • Complete Dex & Binder Mastery
+    • 100W-0L Starting 5 GM Career & All GM Battle Achievements Unlocked
     """
-    if str(ctx.author.id) != "719932313919684670":
+    if not is_creator(ctx.author):
         return await ctx.send("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).")
 
     target = member or ctx.author
-    catalog = globals().get("NBA_2K_MOBILE_CARDS", [])
-    if not catalog:
-        return await ctx.send("❌ NBA card catalog not loaded.")
+    msg = await ctx.send(f"👑 **Unlocking SUPREME GOD MODE for {target.mention}...**\n⏳ Granting all Base + Holo Cards, Exclusives, 10M VC & 100W-0L GM Record...")
 
-    msg = await ctx.send(f"👑 **Unlocking EVERYTHING for {target.mention}...**\n⏳ Granting `{count}` copies of all `{len(catalog)}` cards + `💰 {vc_amount:,} VC`...")
-
-    target_counts = {c["id"]: max(1, min(count, 999)) for c in catalog}
-    added = await db.grant_bulk_nba_cards(target.id, target_counts)
-    new_vc = await db.add_user_vc(target.id, vc_amount)
-
-    total_cards = len(catalog) * count
-    excl_count = sum(1 for c in catalog if c.get("tier") == "exclusive")
-    dm_count = sum(1 for c in catalog if c.get("tier") == "dark_matter")
-    go_count = sum(1 for c in catalog if c.get("tier") == "galaxy_opal")
-
-    embed = discord.Embed(
-        title="👑 [ CREATOR GOD MODE ] • EVERYTHING UNLOCKED!",
-        description=(
-            f"🌟 **Full Supreme Game Mastery granted to {target.mention}!**\n\n"
-            f"• 🎴 **Total Cards in Binder:** **`{total_cards:,}`** (`{len(catalog)}` unique players `[x{count}]`)\n"
-            f"• 👑 **Exclusive Cards:** `{excl_count}` master-tier cards unlocked\n"
-            f"• 🌌 **Dark Matter & Galaxy Opal:** `{dm_count + go_count}` 97-99 OVR cards unlocked\n"
-            f"• 💰 **Virtual Currency:** **`💰 {new_vc:,} VC`** (+{vc_amount:,} VC added)\n"
-            f"• 📦 **Newly Added Copies:** `{added:,}`\n\n"
-            f"✨ *Your binder is 100% complete with every card, moment, theme, and infinite VC!*"
-        ),
-        color=discord.Color.from_rgb(255, 215, 0)
-    )
-    embed.set_footer(text="NBA 2K Master God Mode • View everything with !nbadex")
-    embed.timestamp = discord.utils.utcnow()
-
-    await msg.edit(content=None, embed=embed)
+    try:
+        embed = await execute_godmode_unlock(ctx.author, target, count=count, vc_amount=vc_amount)
+        await msg.edit(content=None, embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !unlockeverything: {e}", exc_info=True)
+        await msg.edit(content=f"❌ Error unlocking God Mode: {e}")
 
 
 @bot.command(name="wipeallmycards", aliases=["removeallfromme", "clearmyinventory", "wipeeverything", "resetmybinder", "purgeallmycards", "wipeme"])
@@ -35687,8 +35755,7 @@ async def wipeallmycards_prefix_cmd(ctx: commands.Context):
     • !clearmyinventory
     """
     try:
-        is_creator = str(ctx.author.id) == "719932313919684670"
-        if not is_creator:
+        if not is_creator(ctx.author):
             return await ctx.send("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).")
 
         res = await db.wipe_user_nba_data(ctx.author.id)
@@ -35724,8 +35791,7 @@ async def nbagrant_prefix_cmd(ctx: commands.Context, *, raw_args: str = ""):
       !nbagrant @Naraito 2 LeBron 99
     """
     try:
-        is_creator = str(ctx.author.id) == "719932313919684670"
-        if not is_creator:
+        if not is_creator(ctx.author):
             return await ctx.send("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).")
 
         raw = raw_args.strip()
