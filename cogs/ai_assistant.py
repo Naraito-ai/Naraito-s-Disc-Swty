@@ -480,6 +480,16 @@ class MemoryManageView(discord.ui.View):
         super().__init__(timeout=300)
         self.target_user_id = target_user_id
         self.author_id = author_id
+        self.message: Optional[discord.Message] = None
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
 
     @discord.ui.button(label="Remember Fact", style=discord.ButtonStyle.success, emoji="🧠")
     async def add_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -687,7 +697,9 @@ class AIAssistantCog(commands.Cog, name="AI Assistant"):
         embed.set_thumbnail(url=target.display_avatar.url)
         embed.set_footer(text=f"Total: {len(mems)} memories • Use !forget <key> to delete.")
         view = MemoryManageView(target.id, ctx.author.id) if target.id == ctx.author.id else None
-        await ctx.reply(embed=embed, view=view, mention_author=False)
+        msg = await ctx.reply(embed=embed, view=view, mention_author=False)
+        if view:
+            view.message = msg
 
     @commands.command(name="forget")
     @commands.cooldown(1, 3.0, commands.BucketType.user)

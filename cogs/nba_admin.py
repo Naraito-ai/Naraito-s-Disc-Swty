@@ -119,8 +119,8 @@ class NBAAdminCog(commands.Cog, name="NBA Admin"):
             return await ctx.send("❌ Restricted to Bot Creator.")
 
         target_user = target or ctx.author
-        for card in NBA_2K_MOBILE_CARDS:
-            await db.add_user_nba_card(target_user.id, card["id"], source="creator_godmode")
+        card_targets = {card["id"]: 1 for card in NBA_2K_MOBILE_CARDS}
+        await db.grant_bulk_nba_cards(target_user.id, card_targets)
         await ctx.send(f"👑 **Godmode Activated:** Granted 1x copy of all **`{len(NBA_2K_MOBILE_CARDS)}` cards** to {target_user.mention}!")
 
     @commands.command(name="grantvc", aliases=["givevc", "addvc"])
@@ -169,13 +169,23 @@ class NBAAdminCog(commands.Cog, name="NBA Admin"):
     async def spawndrop_prefix(self, ctx: commands.Context, *, card_name: Optional[str] = None):
         """Force-spawn a drop: !spawndrop [card_name]"""
         if not ctx.author.guild_permissions.manage_guild and not is_creator(ctx.author):
-            return await ctx.send("🚫 You need Manage Server permission to spawn drops.")
+            embed = discord.Embed(
+                title="🚫 Permission Denied",
+                description="You need **Manage Server** permissions or Bot Creator access to spawn card drops.",
+                color=discord.Color.red()
+            )
+            return await ctx.send(embed=embed)
 
         card_override = None
         if card_name:
             card_override = get_nba_card(card_name.strip())
             if not card_override:
-                return await ctx.send(f"❌ Card `{card_name}` not found in catalog.")
+                embed = discord.Embed(
+                    title="❌ Card Not Found",
+                    description=f"Card `{card_name}` was not found in the NBA catalog.",
+                    color=discord.Color.red()
+                )
+                return await ctx.send(embed=embed)
 
         from cogs.nba_minigames import spawn_nba_card_drop
         await spawn_nba_card_drop(ctx.channel, spawner=ctx.author, card_override=card_override)

@@ -710,31 +710,33 @@ class NBAEconomyCog(commands.Cog, name="NBA Economy"):
 
         # Scenario 1: alldupes / dupes
         if opt in ("dupes", "alldupes", "all_dupes"):
-            counts: Dict[str, int] = {}
+            grouped_cards: Dict[str, List[Dict[str, Any]]] = {}
             for c in cards:
                 cid = c["card_id"].lower()
-                counts[cid] = counts.get(cid, 0) + 1
+                grouped_cards.setdefault(cid, []).append(c)
 
-            sold_count = 0
+            row_ids_to_remove = []
             total_vc = 0
-            for cid, count in counts.items():
-                if count > 1:
+            for cid, card_list in grouped_cards.items():
+                if len(card_list) > 1:
                     c_obj = get_nba_card(cid)
                     if c_obj and not c_obj.get("is_exclusive") and not c_obj.get("is_holo"):
                         tier_info = NBA_2K_TIERS.get(c_obj.get("tier", "gold"), NBA_2K_TIERS["gold"])
                         val_per = tier_info.get("quick_sell", 100)
-                        to_remove = count - 1
-                        for _ in range(to_remove):
-                            await db.remove_user_nba_card(interaction.user.id, cid)
-                        sold_count += to_remove
-                        total_vc += val_per * to_remove
+                        # Keep the first one, sell the rest
+                        dupe_entries = card_list[1:]
+                        for entry in dupe_entries:
+                            row_ids_to_remove.append(entry["id"])
+                            total_vc += val_per
 
-            if sold_count == 0:
+            if not row_ids_to_remove:
                 return await interaction.followup.send("ℹ️ No eligible duplicate cards found to sell.")
 
-            await db.add_user_vc(interaction.user.id, total_vc)
-            new_vc = await db.get_user_vc(interaction.user.id)
-            return await interaction.followup.send(f"✅ **Sold `{sold_count}` duplicate cards** for `💰 +{total_vc:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            success, msg, new_vc = await db.bulk_remove_user_nba_cards(interaction.user.id, row_ids_to_remove, total_vc)
+            if success:
+                return await interaction.followup.send(f"✅ **Sold `{len(row_ids_to_remove)}` duplicate cards** for `💰 +{total_vc:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            else:
+                return await interaction.followup.send(f"❌ Failed to sell cards: {msg}")
 
         # Scenario 2: specific card by ID / Name
         c_obj = get_nba_card(opt)
@@ -745,14 +747,15 @@ class NBAEconomyCog(commands.Cog, name="NBA Economy"):
                 return await interaction.followup.send(f"❌ You do not own **{c_obj['name']}** (`{cid}`).")
 
             if c_obj.get("is_exclusive"):
-                return await interaction.followup.send(f"🛡️ Exclusive cards cannot be sold.")
+                return await interaction.followup.send("🛡️ Exclusive cards cannot be sold.")
 
             tier_info = NBA_2K_TIERS.get(c_obj.get("tier", "gold"), NBA_2K_TIERS["gold"])
             vc_earned = tier_info.get("quick_sell", 100)
-            await db.remove_user_nba_card(interaction.user.id, cid)
-            await db.add_user_vc(interaction.user.id, vc_earned)
-            new_vc = await db.get_user_vc(interaction.user.id)
-            return await interaction.followup.send(f"✅ **Sold 1x {c_obj['name']}** for `💰 +{vc_earned:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            success, msg, new_vc = await db.bulk_remove_user_nba_cards(interaction.user.id, [owned[0]["id"]], vc_earned)
+            if success:
+                return await interaction.followup.send(f"✅ **Sold 1x {c_obj['name']}** for `💰 +{vc_earned:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            else:
+                return await interaction.followup.send(f"❌ Failed to sell card: {msg}")
 
         await interaction.followup.send("❌ Card not found. Specify a valid card ID, player name, or `dupes`.")
 
@@ -769,31 +772,32 @@ class NBAEconomyCog(commands.Cog, name="NBA Economy"):
             return await ctx.send("❌ You don't have any cards in your collection.")
 
         if opt in ("dupes", "alldupes", "all_dupes"):
-            counts: Dict[str, int] = {}
+            grouped_cards: Dict[str, List[Dict[str, Any]]] = {}
             for c in cards:
                 cid = c["card_id"].lower()
-                counts[cid] = counts.get(cid, 0) + 1
+                grouped_cards.setdefault(cid, []).append(c)
 
-            sold_count = 0
+            row_ids_to_remove = []
             total_vc = 0
-            for cid, count in counts.items():
-                if count > 1:
+            for cid, card_list in grouped_cards.items():
+                if len(card_list) > 1:
                     c_obj = get_nba_card(cid)
                     if c_obj and not c_obj.get("is_exclusive") and not c_obj.get("is_holo"):
                         tier_info = NBA_2K_TIERS.get(c_obj.get("tier", "gold"), NBA_2K_TIERS["gold"])
                         val_per = tier_info.get("quick_sell", 100)
-                        to_remove = count - 1
-                        for _ in range(to_remove):
-                            await db.remove_user_nba_card(ctx.author.id, cid)
-                        sold_count += to_remove
-                        total_vc += val_per * to_remove
+                        dupe_entries = card_list[1:]
+                        for entry in dupe_entries:
+                            row_ids_to_remove.append(entry["id"])
+                            total_vc += val_per
 
-            if sold_count == 0:
+            if not row_ids_to_remove:
                 return await ctx.send("ℹ️ No eligible duplicate cards found to sell.")
 
-            await db.add_user_vc(ctx.author.id, total_vc)
-            new_vc = await db.get_user_vc(ctx.author.id)
-            return await ctx.send(f"✅ **Sold `{sold_count}` duplicate cards** for `💰 +{total_vc:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            success, msg, new_vc = await db.bulk_remove_user_nba_cards(ctx.author.id, row_ids_to_remove, total_vc)
+            if success:
+                return await ctx.send(f"✅ **Sold `{len(row_ids_to_remove)}` duplicate cards** for `💰 +{total_vc:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            else:
+                return await ctx.send(f"❌ Failed to sell cards: {msg}")
 
         c_obj = get_nba_card(opt)
         if c_obj:
@@ -803,14 +807,15 @@ class NBAEconomyCog(commands.Cog, name="NBA Economy"):
                 return await ctx.send(f"❌ You do not own **{c_obj['name']}** (`{cid}`).")
 
             if c_obj.get("is_exclusive"):
-                return await ctx.send(f"🛡️ Exclusive cards cannot be sold.")
+                return await ctx.send("🛡️ Exclusive cards cannot be sold.")
 
             tier_info = NBA_2K_TIERS.get(c_obj.get("tier", "gold"), NBA_2K_TIERS["gold"])
             vc_earned = tier_info.get("quick_sell", 100)
-            await db.remove_user_nba_card(ctx.author.id, cid)
-            await db.add_user_vc(ctx.author.id, vc_earned)
-            new_vc = await db.get_user_vc(ctx.author.id)
-            return await ctx.send(f"✅ **Sold 1x {c_obj['name']}** for `💰 +{vc_earned:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            success, msg, new_vc = await db.bulk_remove_user_nba_cards(ctx.author.id, [owned[0]["id"]], vc_earned)
+            if success:
+                return await ctx.send(f"✅ **Sold 1x {c_obj['name']}** for `💰 +{vc_earned:,} VC`! New balance: `💰 {new_vc:,} VC`.")
+            else:
+                return await ctx.send(f"❌ Failed to sell card: {msg}")
 
         await ctx.send("❌ Card not found. Specify a valid card ID or `dupes`.")
 

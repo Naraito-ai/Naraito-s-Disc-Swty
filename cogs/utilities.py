@@ -4,6 +4,7 @@ cogs/utilities.py - Utility Commands (Help Guide, Ping, ServerInfo, UserInfo, Av
 """
 from __future__ import annotations
 
+import re
 import time
 import datetime
 import logging
@@ -19,6 +20,29 @@ from nba_data import is_creator
 logger = logging.getLogger("SweetyBot.Utilities")
 
 _afk_cache: Dict[Tuple[int, int], Dict[str, Any]] = {}
+
+
+def parse_time_duration(time_str: str) -> Optional[float]:
+    """Parses duration string like '10m', '2h', '1d', '30s' into seconds."""
+    clean = str(time_str).strip().lower()
+    total_seconds = 0.0
+    matches = re.findall(r'(\d+)\s*(s|sec|seconds?|m|min|minutes?|h|hr|hours?|d|days?|w|weeks?)', clean)
+    if not matches:
+        if clean.isdigit():
+            return float(clean) * 60.0
+        return None
+
+    unit_mult = {
+        's': 1.0, 'sec': 1.0, 'second': 1.0, 'seconds': 1.0,
+        'm': 60.0, 'min': 60.0, 'minute': 60.0, 'minutes': 60.0,
+        'h': 3600.0, 'hr': 3600.0, 'hour': 3600.0, 'hours': 3600.0,
+        'd': 86400.0, 'day': 86400.0, 'days': 86400.0,
+        'w': 604800.0, 'week': 604800.0, 'weeks': 604800.0,
+    }
+    for val_str, unit in matches:
+        total_seconds += float(val_str) * unit_mult.get(unit, 60.0)
+
+    return total_seconds if total_seconds > 0 else None
 
 
 class HelpCategorySelect(discord.ui.Select):
@@ -313,6 +337,49 @@ class UtilitiesCog(commands.Cog, name="Utilities"):
         embed.set_image(url=u.display_avatar.url)
         await ctx.send(embed=embed)
 
+    # ── Reminders System ────────────────────────────────────────────────────────
+    @app_commands.command(name="remindme", description="⏰ Set a personal scheduled reminder")
+    @app_commands.describe(time="Duration before reminder fires (e.g. 10m, 2h, 1d)", reminder="What to remind you about")
+    @app_commands.guild_only()
+    async def remindme_slash(self, interaction: discord.Interaction, time: str, reminder: str):
+        await interaction.response.defer()
+        secs = parse_time_duration(time)
+        if not secs or secs < 5:
+            return await interaction.followup.send("⚠️ Invalid duration. Example: `/remindme 10m Check oven` or `/remindme 2h Daily reset`", ephemeral=True)
+
+        remind_at = time_module_time = time_now = datetime.datetime.now().timestamp() + secs
+        rem_id = f"{interaction.user.id}_{int(time_now)}"
+        await db.add_reminder(rem_id, interaction.user.id, interaction.guild_id, interaction.channel_id, reminder, remind_at, time_now, delivery_method="channel")
+
+        target_ts = int(remind_at)
+        embed = discord.Embed(
+            title="⏰ Reminder Scheduled!",
+            description=f"✅ I will remind you <t:{target_ts}:R> (<t:{target_ts}:F>):\n\n**{reminder}**",
+            color=discord.Color.gold()
+        )
+        await interaction.followup.send(embed=embed)
+
+    @commands.command(name="remindme", aliases=["remind", "reminder", "timer"])
+    @commands.guild_only()
+    async def remindme_prefix(self, ctx: commands.Context, duration: str, *, reminder: str):
+        """Set a reminder: !remindme 10m [text]"""
+        secs = parse_time_duration(duration)
+        if not secs or secs < 5:
+            return await ctx.send("⚠️ Invalid duration. Example: `!remindme 10m Check oven` or `!remindme 2h Daily reset`")
+
+        time_now = datetime.datetime.now().timestamp()
+        remind_at = time_now + secs
+        rem_id = f"{ctx.author.id}_{int(time_now)}"
+        await db.add_reminder(rem_id, ctx.author.id, ctx.guild.id, ctx.channel.id, reminder, remind_at, time_now, delivery_method="channel")
+
+        target_ts = int(remind_at)
+        embed = discord.Embed(
+            title="⏰ Reminder Scheduled!",
+            description=f"✅ I will remind you <t:{target_ts}:R> (<t:{target_ts}:F>):\n\n**{reminder}**",
+            color=discord.Color.gold()
+        )
+        await ctx.send(embed=embed)
+
     # ── AFK System ──────────────────────────────────────────────────────────────
 
     @app_commands.command(name="afk", description="💤 Set your AFK away message for when members mention you")
@@ -320,17 +387,62 @@ class UtilitiesCog(commands.Cog, name="Utilities"):
     @app_commands.guild_only()
     async def afk_slash(self, interaction: discord.Interaction, reason: Optional[str] = "AFK"):
         await interaction.response.defer()
-        _afk_cache[(interaction.guild_id, interaction.user.id)] = {"reason": reason, "since": time.time()}
-        await db.set_afk(interaction.user.id, interaction.guild_id, reason, time.time())
+        now_ts = datetime.datetime.now().timestamp()
+        _afk_cache[(interaction.guild_id, interaction.user.id)] = {"reason": reason, "since": now_ts}
+        await db.set_afk(interaction.user.id, interaction.guild_id, reason, now_ts)
         await interaction.followup.send(f"💤 {interaction.user.mention}, you are now marked as AFK: **{reason}**.")
 
     @commands.command(name="afk")
     @commands.guild_only()
     async def afk_prefix(self, ctx: commands.Context, *, reason: str = "AFK"):
         """Set AFK status: !afk [reason]"""
-        _afk_cache[(ctx.guild.id, ctx.author.id)] = {"reason": reason, "since": time.time()}
-        await db.set_afk(ctx.author.id, ctx.guild.id, reason, time.time())
+        now_ts = datetime.datetime.now().timestamp()
+        _afk_cache[(ctx.guild.id, ctx.author.id)] = {"reason": reason, "since": now_ts}
+        await db.set_afk(ctx.author.id, ctx.guild.id, reason, now_ts)
         await ctx.send(f"💤 {ctx.author.mention}, you are now marked as AFK: **{reason}**.")
+
+    # ── AFK Message Listener ───────────────────────────────────────────────────
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Removes AFK on message and alerts users when mentioning an AFK member."""
+        if message.author.bot or not message.guild:
+            return
+
+        g_id = message.guild.id
+        u_id = message.author.id
+
+        # 1. Check if author was AFK -> remove AFK status
+        afk_key = (g_id, u_id)
+        if afk_key in _afk_cache:
+            _afk_cache.pop(afk_key, None)
+            await db.remove_afk(u_id, g_id)
+            try:
+                await message.reply(f"👋 Welcome back {message.author.mention}, your AFK status has been removed!", delete_after=6)
+            except Exception:
+                pass
+
+        # 2. Check if author mentioned any AFK users
+        if message.mentions:
+            for mentioned in message.mentions:
+                if mentioned.bot or mentioned.id == u_id:
+                    continue
+                m_key = (g_id, mentioned.id)
+                m_info = _afk_cache.get(m_key)
+                if not m_info:
+                    afk_rows = await db.fetch("SELECT reason, afk_since FROM afk_users WHERE user_id = ? AND guild_id = ?", str(mentioned.id), str(g_id))
+                    if afk_rows:
+                        m_info = {"reason": afk_rows[0].get("reason", "AFK"), "since": float(afk_rows[0].get("afk_since", 0))}
+                        _afk_cache[m_key] = m_info
+
+                if m_info:
+                    since_ts = int(m_info.get("since", 0))
+                    reason = m_info.get("reason", "AFK")
+                    time_ago_str = f"<t:{since_ts}:R>" if since_ts > 0 else "recently"
+                    try:
+                        await message.reply(f"💤 **{mentioned.display_name}** is currently AFK ({time_ago_str}): **{reason}**", delete_after=10)
+                    except Exception:
+                        pass
 
 
 async def setup(bot: commands.Bot):

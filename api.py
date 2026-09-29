@@ -60,15 +60,17 @@ async def seed_dashboard_data(db):
             r = rows[0]
             count = r["count"] if isinstance(r, dict) and "count" in r else (r.get("count", 0) if hasattr(r, "get") else (r[0] if isinstance(r, (list, tuple)) else 0))
         if count == 0:
-            now_ts = time.time()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            joined_30d = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+            joined_10d = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
             # Seed guilds
             await db.execute(
                 "INSERT INTO guilds (id, name, icon, owner_id, member_count, joined_at, ai_enabled, logging_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                "123456789012345678", "Naruto Hub", "a_abcd1234efgh5678", "987654321098765432", 1540, now_ts - (30 * 86400), True, True
+                "123456789012345678", "Naruto Hub", "a_abcd1234efgh5678", "987654321098765432", 1540, joined_30d, True, True
             )
             await db.execute(
                 "INSERT INTO guilds (id, name, icon, owner_id, member_count, joined_at, ai_enabled, logging_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                "876543210987654321", "Konoha Sanctuary", None, "987654321098765432", 420, now_ts - (10 * 86400), True, False
+                "876543210987654321", "Konoha Sanctuary", None, "987654321098765432", 420, joined_10d, True, False
             )
             
             # Seed analytics for the past 7 days
