@@ -16,6 +16,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 load_dotenv()
 
+import aiohttp
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -83,6 +84,7 @@ class SweetyBot(commands.Bot):
         self.presence_task.start()
         self.reminders_task.start()
         self.cleanup_task.start()
+        self.keepalive_pinger_task.start()
 
         # Start FastAPI Dashboard / Health Server for Render
         port = int(os.getenv("PORT", 8080))
@@ -235,9 +237,29 @@ class SweetyBot(commands.Bot):
         except Exception as e:
             logger.debug(f"Cleanup task error: {e}")
 
+    @tasks.loop(minutes=5)
+    async def keepalive_pinger_task(self):
+        """Pings the Render/Railway external URL or local health check to prevent idle spin-down."""
+        ext_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("APP_URL") or os.getenv("PUBLIC_URL")
+        port = int(os.getenv("PORT", 8080))
+        urls = []
+        if ext_url:
+            urls.append(ext_url.rstrip("/") + "/health")
+        urls.append(f"http://127.0.0.1:{port}/health")
+
+        for u in urls:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(u, timeout=10) as resp:
+                        if resp.status == 200:
+                            logger.debug(f"Keepalive self-ping OK: {u}")
+            except Exception as e:
+                logger.debug(f"Keepalive ping {u} failed: {e}")
+
     @presence_task.before_loop
     @reminders_task.before_loop
     @cleanup_task.before_loop
+    @keepalive_pinger_task.before_loop
     async def before_tasks(self):
         await self.wait_until_ready()
 
