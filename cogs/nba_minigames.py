@@ -361,8 +361,8 @@ async def handle_catch_attempt(
     """Unified handler for catch attempts across slash commands, prefix commands, modals, and direct chat typing."""
     try:
         is_interaction = isinstance(interaction_or_ctx_or_msg, discord.Interaction) or hasattr(interaction_or_ctx_or_msg, "response")
-        is_ctx = isinstance(interaction_or_ctx_or_msg, commands.Context) or (hasattr(interaction_or_ctx_or_msg, "author") and hasattr(interaction_or_ctx_or_msg, "prefix"))
-        is_msg = isinstance(interaction_or_ctx_or_msg, discord.Message) or (hasattr(interaction_or_ctx_or_msg, "author") and hasattr(interaction_or_ctx_or_msg, "content"))
+        is_ctx = isinstance(interaction_or_ctx_or_msg, commands.Context) or (hasattr(interaction_or_ctx_or_msg, "author") and hasattr(interaction_or_ctx_or_msg, "channel") and hasattr(interaction_or_ctx_or_msg, "send") and not is_interaction)
+        is_msg = isinstance(interaction_or_ctx_or_msg, discord.Message) or (hasattr(interaction_or_ctx_or_msg, "author") and hasattr(interaction_or_ctx_or_msg, "content") and not is_ctx and not is_interaction)
 
         if is_interaction:
             user = interaction_or_ctx_or_msg.user
@@ -384,7 +384,12 @@ async def handle_catch_attempt(
 
         async def _respond_ephemeral(text: str):
             if is_interaction:
-                if interaction_or_ctx_or_msg.response.is_done():
+                resp = getattr(interaction_or_ctx_or_msg, "response", None)
+                done = False
+                if resp:
+                    is_done_attr = getattr(resp, "is_done", False)
+                    done = is_done_attr() if callable(is_done_attr) else bool(is_done_attr)
+                if done:
                     await interaction_or_ctx_or_msg.followup.send(text, ephemeral=True)
                 else:
                     await interaction_or_ctx_or_msg.response.send_message(text, ephemeral=True)
@@ -413,8 +418,14 @@ async def handle_catch_attempt(
             return await _respond_ephemeral(f"❌ **'{guess}' is incorrect!** Team: **{card.get('team', 'NBA')}**, Pos: **{card.get('pos', 'SG')}**, or use `/nbahint`!")
 
         # Defer interaction if valid guess and not already deferred
-        if is_interaction and not interaction_or_ctx_or_msg.response.is_done():
-            await interaction_or_ctx_or_msg.response.defer(ephemeral=False)
+        if is_interaction:
+            resp = getattr(interaction_or_ctx_or_msg, "response", None)
+            done = False
+            if resp:
+                is_done_attr = getattr(resp, "is_done", False)
+                done = is_done_attr() if callable(is_done_attr) else bool(is_done_attr)
+            if not done:
+                await interaction_or_ctx_or_msg.response.defer(ephemeral=False)
 
         # Mark claimed immediately to lock out race conditions
         drop["claimed"] = True
@@ -466,13 +477,14 @@ async def spawn_nba_card_drop(
     try:
         card = card_override or random.choice(NBA_2K_MOBILE_CARDS)
         now_ts = time.time()
-        drop_id = f"{channel.guild.id}_{channel.id}_{int(now_ts)}"
+        g_id = channel.guild.id if (hasattr(channel, "guild") and channel.guild) else 0
+        drop_id = f"{g_id}_{channel.id}_{int(now_ts)}"
 
         drop_info = {
             "card": card,
             "drop_id": drop_id,
             "channel_id": channel.id,
-            "guild_id": channel.guild.id,
+            "guild_id": g_id,
             "spawned_at": now_ts,
             "hint_level": 1,
             "claimed": False,
@@ -482,8 +494,8 @@ async def spawn_nba_card_drop(
             "message": None
         }
         _active_nba_drops[channel.id] = drop_info
-        if channel.guild:
-            _active_nba_drops[channel.guild.id] = drop_info
+        if g_id:
+            _active_nba_drops[g_id] = drop_info
 
         # Generate mystery card image in non-blocking thread
         card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, True)
@@ -597,23 +609,34 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
 
     # ── Channel Setup ──────────────────────────────────────────────────────────
 
-    @app_commands.command(name="setupnbachannel", description="📌 Configure a dedicated text channel for wild NBA card spawns")
-    @app_commands.describe(channel="The channel to pin for NBA card drops")
-    @app_commands.guild_only()
-    async def setupnbachannel_slash(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def _handle_setnbachannel(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
         await interaction.response.defer(ephemeral=True)
         if not interaction.user.guild_permissions.manage_guild and not is_creator(interaction.user):
             return await interaction.followup.send("🚫 You need Manage Server permission to configure drop channels.", ephemeral=True)
-        await db.set_config(interaction.guild_id, "nba_drop_channel", str(channel.id))
-        await interaction.followup.send(f"✅ Wild NBA 2K card spawns are now pinned to {channel.mention}!", ephemeral=True)
+        target_channel = channel or interaction.channel
+        await db.set_config(interaction.guild_id, "nba_drop_channel", str(target_channel.id))
+        await interaction.followup.send(f"✅ Wild NBA 2K card spawns are now pinned to {target_channel.mention}!", ephemeral=True)
+
+    @app_commands.command(name="setupnbachannel", description="📌 Configure a dedicated text channel for wild NBA card spawns")
+    @app_commands.describe(channel="The channel to pin for NBA card drops (defaults to current channel)")
+    @app_commands.guild_only()
+    async def setupnbachannel_slash(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+        await self._handle_setnbachannel(interaction, channel)
+
+    @app_commands.command(name="setnbachannel", description="📌 Configure a dedicated text channel for wild NBA card spawns")
+    @app_commands.describe(channel="The channel to pin for NBA card drops (defaults to current channel)")
+    @app_commands.guild_only()
+    async def setnbachannel_slash(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+        await self._handle_setnbachannel(interaction, channel)
 
     @commands.command(name="setnbachannel", aliases=["setupnbachannel", "nbachannel"])
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    async def setnbachannel_prefix(self, ctx: commands.Context, channel: discord.TextChannel):
-        """Configure card drop channel: !setnbachannel #channel"""
-        await db.set_config(ctx.guild.id, "nba_drop_channel", str(channel.id))
-        await ctx.send(f"✅ Wild NBA 2K card spawns pinned to {channel.mention}!")
+    async def setnbachannel_prefix(self, ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
+        """Configure card drop channel: !setnbachannel [#channel]"""
+        target_channel = channel or ctx.channel
+        await db.set_config(ctx.guild.id, "nba_drop_channel", str(target_channel.id))
+        await ctx.send(f"✅ Wild NBA 2K card spawns pinned to {target_channel.mention}!")
 
     # ── Chat Message Listener for Direct Guessing & Drops ─────────────────────
 

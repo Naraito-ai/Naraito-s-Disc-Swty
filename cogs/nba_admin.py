@@ -133,13 +133,22 @@ class NBAAdminCog(commands.Cog, name="NBA Admin"):
         new_bal = await db.get_user_vc(target.id)
         await ctx.send(f"💰 Successfully granted **`{amount:,} VC`** to {target.mention}! Balance: `💰 {new_bal:,} VC`.")
 
+    @app_commands.command(name="stripexclusives", description="🛡️ Strip exclusive cards from all non-creators (Creator Only)")
+    @app_commands.guild_only()
+    async def stripexclusives_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        if not is_creator(interaction.user):
+            return await interaction.followup.send("❌ Restricted to Bot Creator.", ephemeral=True)
+        await db.execute("DELETE FROM user_nba_cards WHERE card_id LIKE 'excl-%' AND user_id != '719932313919684670';")
+        await interaction.followup.send("🛡️ **Exclusive Cards Stripped:** All non-creator exclusive cards have been purged.", ephemeral=True)
+
     @commands.command(name="stripexclusives", aliases=["revokeeveryoneexclusives"])
     @commands.guild_only()
     async def stripexclusives_prefix(self, ctx: commands.Context):
         """Strip exclusive cards from all non-creators (Creator Only)"""
         if not is_creator(ctx.author):
             return await ctx.send("❌ Restricted to Bot Creator.")
-        await db.execute("DELETE FROM user_nba_cards WHERE card_id LIKE 'excl-%' AND user_id != '719932313919684670' AND user_id != 719932313919684670;")
+        await db.execute("DELETE FROM user_nba_cards WHERE card_id LIKE 'excl-%' AND user_id != '719932313919684670';")
         await ctx.send("🛡️ **Exclusive Cards Stripped:** All non-creator exclusive cards have been purged.")
 
     @commands.command(name="wipeallmycards", aliases=["selfwipe"])

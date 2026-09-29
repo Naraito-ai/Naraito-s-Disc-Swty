@@ -118,6 +118,35 @@ class ModerationCog(commands.Cog, name="Moderation"):
         await db.record_moderation_action(interaction.guild_id, interaction.user.id, user.id, "warn", reason)
         await interaction.followup.send(f"⚠️ **{user.display_name}** has been warned. *Reason:* {reason} (Total Strikes: `{strike_count}`)")
 
+    @app_commands.command(name="strike", description="⚡ Issue an official strike to a member")
+    @app_commands.describe(user="The member to strike", reason="Reason for strike")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def strike_slash(self, interaction: discord.Interaction, user: discord.Member, reason: str):
+        await interaction.response.defer()
+        if is_protected(user):
+            return await interaction.followup.send("🚫 You cannot strike an administrator, staff member, or the bot creator!", ephemeral=True)
+        strike_count = await db.add_user_strike(interaction.guild_id, user.id, interaction.user.id, reason)
+        await db.record_moderation_action(interaction.guild_id, interaction.user.id, user.id, "strike", reason)
+        await interaction.followup.send(f"⚡ **{user.display_name}** has received a strike. *Reason:* {reason} (Total Strikes: `{strike_count}`)")
+
+    @app_commands.command(name="strikes", description="📋 View moderation strikes and warnings for a member")
+    @app_commands.describe(user="The member whose strikes to inspect")
+    @app_commands.guild_only()
+    async def strikes_slash(self, interaction: discord.Interaction, user: Optional[discord.Member] = None):
+        await interaction.response.defer()
+        target = user or interaction.user
+        rows = await db.get_warnings(interaction.guild_id, target.id)
+        count = len(rows)
+        embed = discord.Embed(
+            title=f"📋 Moderation Strikes • {target.display_name}",
+            description=f"Total Strikes on Record: **`{count}`**\n",
+            color=discord.Color.orange() if count > 0 else discord.Color.green()
+        )
+        for i, r in enumerate(rows[:10], 1):
+            embed.add_field(name=f"Strike #{i}", value=f"**Reason:** {r.get('reason', 'No reason')}\n**Moderator:** <@{r.get('moderator_id', '')}>", inline=False)
+        await interaction.followup.send(embed=embed)
+
     @app_commands.command(name="purge", description="🧹 Bulk delete messages from the current channel")
     @app_commands.describe(count="Number of messages to delete (1-100)")
     @app_commands.guild_only()
@@ -202,6 +231,22 @@ class ModerationCog(commands.Cog, name="Moderation"):
         strike_count = await db.add_user_strike(ctx.guild.id, user.id, ctx.author.id, reason)
         await db.record_moderation_action(ctx.guild.id, ctx.author.id, user.id, "warn", reason)
         await ctx.send(f"⚠️ **{user.display_name}** has been warned. *Reason:* {reason} (Total Strikes: `{strike_count}`)")
+
+    @commands.command(name="strikes", aliases=["warnings", "infractions"])
+    @commands.guild_only()
+    async def strikes_prefix(self, ctx: commands.Context, user: Optional[discord.Member] = None):
+        """View strikes for a member: !strikes [@user]"""
+        target = user or ctx.author
+        rows = await db.get_warnings(ctx.guild.id, target.id)
+        count = len(rows)
+        embed = discord.Embed(
+            title=f"📋 Moderation Strikes • {target.display_name}",
+            description=f"Total Strikes on Record: **`{count}`**\n",
+            color=discord.Color.orange() if count > 0 else discord.Color.green()
+        )
+        for i, r in enumerate(rows[:10], 1):
+            embed.add_field(name=f"Strike #{i}", value=f"**Reason:** {r.get('reason', 'No reason')}\n**Moderator:** <@{r.get('moderator_id', '')}>", inline=False)
+        await ctx.send(embed=embed)
 
     @commands.command(name="purge", aliases=["clear"])
     @commands.guild_only()

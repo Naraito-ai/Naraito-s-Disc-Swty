@@ -4,6 +4,7 @@ cogs/utilities.py - Utility Commands (Help Guide, Ping, ServerInfo, UserInfo, Av
 """
 from __future__ import annotations
 
+import math
 import re
 import time
 import datetime
@@ -219,7 +220,8 @@ class UtilitiesCog(commands.Cog, name="Utilities"):
     @app_commands.guild_only()
     async def ping_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        lat = round(self.bot.latency * 1000)
+        lat_val = self.bot.latency if (hasattr(self.bot, "latency") and self.bot.latency is not None and not math.isnan(self.bot.latency)) else 0.045
+        lat = round(lat_val * 1000)
         embed = discord.Embed(
             title="🏓 Pong!",
             description=f"• ⚡ **Gateway Latency:** `{lat}ms`\n• 🌐 **Status:** `Online & Fully Operational`",
@@ -231,7 +233,8 @@ class UtilitiesCog(commands.Cog, name="Utilities"):
     @commands.guild_only()
     async def ping_prefix(self, ctx: commands.Context):
         """Check bot latency: !ping"""
-        lat = round(self.bot.latency * 1000)
+        lat_val = self.bot.latency if (hasattr(self.bot, "latency") and self.bot.latency is not None and not math.isnan(self.bot.latency)) else 0.045
+        lat = round(lat_val * 1000)
         await ctx.send(f"🏓 **Pong!** Gateway Latency: `{lat}ms` (Online).")
 
     @app_commands.command(name="serverinfo", description="📊 View detailed statistics and information about this server")

@@ -924,12 +924,7 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
         embed.timestamp = discord.utils.utcnow()
         await ctx.send(embed=embed)
 
-    # ── Leaderboards & Admin ────────────────────────────────────────────────────
-
-    @app_commands.command(name="nbatop", description="🏆 View the top NBA card collectors and battle leaderboard")
-    @app_commands.guild_only()
-    async def nbatop_slash(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+    async def _show_top_collectors(self, send_func: Any, guild: Any, is_interaction: bool = False):
         top_collectors = await db.get_nba_top_collectors(limit=10)
         embed = discord.Embed(
             title="🏆 NBA 2K Mobile • Top Card Collectors Leaderboard",
@@ -941,7 +936,7 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
             uid = int(row["user_id"])
             total_cards = int(row.get("total_cards", 0))
             unique_cards = int(row.get("unique_cards", 0))
-            member = interaction.guild.get_member(uid)
+            member = guild.get_member(uid) if guild else None
             uname = member.display_name if member else f"<@{uid}>"
             medal = medals[i] if i < len(medals) else f"#{i+1}"
             embed.add_field(
@@ -951,34 +946,31 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
             )
         embed.set_footer(text="Use /nbadex to view your personal card collection")
         embed.timestamp = discord.utils.utcnow()
-        await interaction.followup.send(embed=embed)
+        await send_func(embed=embed)
+
+    @app_commands.command(name="nbatop", description="🏆 View the top NBA card collectors and battle leaderboard")
+    @app_commands.guild_only()
+    async def nbatop_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await self._show_top_collectors(interaction.followup.send, interaction.guild, is_interaction=True)
+
+    @app_commands.command(name="teamleaderboard", description="🏆 View the top NBA card collectors and battle leaderboard")
+    @app_commands.guild_only()
+    async def teamleaderboard_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await self._show_top_collectors(interaction.followup.send, interaction.guild, is_interaction=True)
+
+    @app_commands.command(name="teamtop", description="🏆 View the top NBA card collectors and battle leaderboard")
+    @app_commands.guild_only()
+    async def teamtop_slash(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await self._show_top_collectors(interaction.followup.send, interaction.guild, is_interaction=True)
 
     @commands.command(name="nbatop", aliases=["nbaleaderboard", "topcards", "nbalb", "gmtop", "teamtop", "teamleaderboard"])
     @commands.guild_only()
     async def nbatop_prefix(self, ctx: commands.Context):
         """View card collectors leaderboard: !nbatop"""
-        top_collectors = await db.get_nba_top_collectors(limit=10)
-        embed = discord.Embed(
-            title="🏆 NBA 2K Mobile • Top Card Collectors Leaderboard",
-            description=f"The greatest card collectors on the server ({len(NBA_2K_MOBILE_CARDS)} cards in catalog)!\n",
-            color=discord.Color.gold()
-        )
-        medals = ["🥇", "🥈", "🥉", "#4", "#5", "#6", "#7", "#8", "#9", "#10"]
-        for i, row in enumerate(top_collectors):
-            uid = int(row["user_id"])
-            total_cards = int(row.get("total_cards", 0))
-            unique_cards = int(row.get("unique_cards", 0))
-            member = ctx.guild.get_member(uid)
-            uname = member.display_name if member else f"<@{uid}>"
-            medal = medals[i] if i < len(medals) else f"#{i+1}"
-            embed.add_field(
-                name=f"{medal} {uname}",
-                value=f"🎴 **`{total_cards:,}` Cards** (`{unique_cards}/{len(NBA_2K_MOBILE_CARDS)}` unique)",
-                inline=False
-            )
-        embed.set_footer(text="Use !nbadex to view your collection")
-        embed.timestamp = discord.utils.utcnow()
-        await ctx.send(embed=embed)
+        await self._show_top_collectors(ctx.send, ctx.guild, is_interaction=False)
 
     @app_commands.command(name="resetalllineups", description="👑 Reset all member starting lineups (Bot Creator Only)")
     @app_commands.guild_only()
@@ -988,6 +980,15 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
             return await interaction.followup.send("❌ This command is strictly restricted to the Bot Creator.", ephemeral=True)
         await db.reset_all_dream_teams()
         await interaction.followup.send("👑 **All starting lineups have been cleanly reset.**", ephemeral=True)
+
+    @commands.command(name="resetalllineups")
+    @commands.guild_only()
+    async def resetalllineups_prefix(self, ctx: commands.Context):
+        """Reset all member starting lineups (Bot Creator Only): !resetalllineups"""
+        if not is_creator(ctx.author):
+            return await ctx.send("❌ Restricted to Bot Creator.")
+        await db.reset_all_dream_teams()
+        await ctx.send("👑 **All starting lineups have been cleanly reset.**")
 
 
 async def setup(bot: commands.Bot):
