@@ -13641,6 +13641,26 @@ def build_pack_shop_embed(vc_balance: int) -> discord.Embed:
     return embed
 
 
+
+def roll_pack_card(pack_id: str = "starter", user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Rolls an authentic card from NBA_2K_MOBILE_CARDS using transparent pack odds."""
+    pack_data = NBA_PACK_TYPES.get(pack_id.lower().strip(), NBA_PACK_TYPES["starter"])
+    odds = pack_data.get("odds", {"gold": 1.0})
+    tiers = list(odds.keys())
+    weights = list(odds.values())
+
+    chosen_tier = random.choices(tiers, weights=weights, k=1)[0]
+    matching = [
+        c for c in NBA_2K_MOBILE_CARDS
+        if c.get("tier") == chosen_tier and not c.get("is_exclusive") and not c.get("is_holo")
+    ]
+    if not matching:
+        matching = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == chosen_tier]
+    if not matching:
+        matching = NBA_2K_MOBILE_CARDS
+    return random.choice(matching)
+
+
 def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Dict[str, Any], new_vc: int, is_new: bool = True, copies: int = 1) -> discord.Embed:
     """Builds an authentic 2K Mobile pack reveal embed with transparent drop rates."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
@@ -17864,22 +17884,16 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     embed.add_field(
         name="🏀 **NBA 2K Mobile Cards, Packs & Dex**",
         value=(
-            "• `/spawndrop [tier]` / `!spawndrop` — Trigger wild player card drops\n"
-            "• `/openpack [tier]` / `!openpack` — Open Starter, Standard, All-Star, HOF & G.O.A.T. packs (with pity!)\n"
-            "• `/packodds` / `!packodds` — View exact pack drop rates & card tier odds\n"
-            "• `/nbadex [page]` / `!nbadex` — Open 2K Card Binder (includes 🔒 Privacy Toggle)\n"
+            "• `/spawndrop` / `!spawndrop` — Trigger wild player card drops\n"
+            "• `/openpack` / `!openpack` — Open Starter, Standard, All-Star, HOF & G.O.A.T. packs\n"
+            "• `/packodds` / `!packodds` — View exact pack drop rates & odds\n"
+            "• `/nbadex` / `!nbadex` — Open 2K Card Binder (includes 🔒 Privacy Toggle)\n"
             "• `/nbafuse <id>` / `!nbafuse` — Fuse 3 duplicate cards into Holo Foil (+5 OVR)\n"
-            "• `/nbaprivacy` / `!nbaprivacy` — Toggle public/private visibility for your dex\n"
-            "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops\n"
-            "• `/nbahint` / `!nbahint` — Reveal masked name hints for active court spawns\n"
+            "• `/catch <player>` / `!catch` — First to guess player name catches wild drops\n"
             "• `/nbacard <id>` / `!nbacard` — High-res visual card stats, tier & attributes\n"
-            "• `/nbadaily` / `!nbadaily` — Daily 1k VC + Gold/Ruby/Amethyst card deposit\n"
-            "• `/nbaweekly` (5k VC + Ruby/Amethyst/Diamond card), `/nbamonthly` (25k VC + Diamond/Opal/Dark Matter)\n"
-            "• `/nbabal [@user]` / `!nbabal` — VC balance & pack opening statistics\n"
-            "• `/nbasell` / `!nbasell` — Quick-sell single cards, duplicates, or bulk tiers for VC\n"
-            "• `/nbatrade @user` / `!nbatrade` — Multi-card and VC trade floor\n"
-            "• `/event [status|raid|list]` — Server tournaments and World Boss Raids\n"
-            "• `/nbatop [cards|vc]` / `!nbatop` — Leaderboards for top collectors & VC tycoons"
+            "• `/nbadaily` / `/nbaweekly` / `/nbamonthly` — Claim VC & card deposits\n"
+            "• `/nbabal` / `/nbasell` / `/nbatrade` — Wallet balance, sell & trade floor\n"
+            "• `/event` / `/nbatop` — Server tournaments, Raids & leaderboards"
         ),
         inline=False
     )

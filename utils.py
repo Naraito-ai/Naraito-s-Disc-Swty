@@ -555,3 +555,23 @@ ACTION_METADATA = {
     },
 }
 
+
+
+def roll_pack_card(pack_id: str = "starter", user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Rolls an authentic card from NBA_2K_MOBILE_CARDS using transparent pack odds."""
+    pack_data = NBA_PACK_TYPES.get(pack_id.lower().strip(), NBA_PACK_TYPES["starter"])
+    odds = pack_data.get("odds", {"gold": 1.0})
+    tiers = list(odds.keys())
+    weights = list(odds.values())
+
+    chosen_tier = random.choices(tiers, weights=weights, k=1)[0]
+    matching = [
+        c for c in NBA_2K_MOBILE_CARDS
+        if c.get("tier") == chosen_tier and not c.get("is_exclusive") and not c.get("is_holo")
+    ]
+    if not matching:
+        matching = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == chosen_tier]
+    if not matching:
+        matching = NBA_2K_MOBILE_CARDS
+    return random.choice(matching)
+
