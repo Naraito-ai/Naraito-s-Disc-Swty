@@ -1,0 +1,546 @@
+[
+  {
+    "id": "dm-billrussell-99",
+    "name": "Bill Russell",
+    "url": "https://media.tenor.com/-uKWiG9YwiYAAAAM/bill-russell.gif",
+    "size": 286489,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-bird-99",
+    "name": "Larry Bird",
+    "url": "https://media.tenor.com/785iV9CCFTcAAAAM/larry-bird-robert-parish.gif",
+    "size": 381112,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-curry-99",
+    "name": "Stephen Curry",
+    "url": "https://media.tenor.com/Oy2ncwqiZO8AAAAM/night-night-nighty-night.gif",
+    "size": 515236,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-giannis-99",
+    "name": "Giannis Antetokounmpo",
+    "url": "https://media.tenor.com/KJeGdvrcQvMAAAAM/milwaukee-bucks-giannis-antetokounmpo.gif",
+    "size": 712048,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-hakeemolajuwon-99",
+    "name": "Hakeem Olajuwon",
+    "url": "https://media.tenor.com/u0aplK7iUvYAAAAM/hakeem-turn-around.gif",
+    "size": 363840,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-jordan-99",
+    "name": "Michael Jordan",
+    "url": "https://media.tenor.com/-5II3eZiaJcAAAAM/michael-jordan-basketball.gif",
+    "size": 451388,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-kareemabduljabbar-99",
+    "name": "Kareem Abdul-Jabbar",
+    "url": "https://media.tenor.com/JEnX7ebK0Z0AAAAM/kareem-kareem-skyhook.gif",
+    "size": 471509,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-kd-99",
+    "name": "Kevin Durant",
+    "url": "https://media.tenor.com/7ruKh0zDurUAAAAM/dunk-kevin-durant-dunk.gif",
+    "size": 325050,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-kobe-99",
+    "name": "Kobe Bryant",
+    "url": "https://media.tenor.com/xUF6L_2N2ZAAAAAM/nba-saiyan.gif",
+    "size": 376428,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-lebron-99",
+    "name": "LeBron James",
+    "url": "https://media.tenor.com/lquFMyMh8zYAAAAM/lebron-james-dunk.gif",
+    "size": 89005,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-magic-99",
+    "name": "Magic Johnson",
+    "url": "https://media.tenor.com/zcX1Snd2CtsAAAAM/magic-johnson.gif",
+    "size": 232721,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-shaq-99",
+    "name": "Shaquille O'Neal",
+    "url": "https://media.tenor.com/kuyCaCZWKCwAAAAM/shaquille-oneal-basketball.gif",
+    "size": 503266,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-timduncan-99",
+    "name": "Tim Duncan",
+    "url": "https://media.tenor.com/69cPUdgnQxwAAAAM/tim-duncan.gif",
+    "size": 421865,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-wemby-99",
+    "name": "Victor Wembanyama",
+    "url": "https://media.tenor.com/XfmGUCYiEUEAAAAM/victor-wembanyama-wembanyama.gif",
+    "size": 1363575,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "dm-wiltchamberlain-99",
+    "name": "Wilt Chamberlain",
+    "url": "https://media.tenor.com/jqrvfLdQhZYAAAAM/wilt-chamberlain-basketball.gif",
+    "size": 991638,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-ad-97",
+    "name": "Anthony Davis",
+    "url": "https://media.tenor.com/q7s8-zGWp-8AAAAM/lakers.gif",
+    "size": 14493,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-alleniverson-97",
+    "name": "Allen Iverson",
+    "url": "https://media.tenor.com/EEdRX92hjD4AAAAM/allen-iverson-michael-jordan.gif",
+    "size": 245197,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-alonzomourning-97",
+    "name": "Alonzo Mourning",
+    "url": "https://media.tenor.com/wF9FQunfa6YAAAAM/alonzo-mourning.gif",
+    "size": 406290,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-bobcousy-97",
+    "name": "Bob Cousy",
+    "url": "https://media.tenor.com/H0foamBzrn4AAAAM/bob-cousy-crossover.gif",
+    "size": 351908,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-butler-97",
+    "name": "Jimmy Butler",
+    "url": "https://media.tenor.com/LlA95VeBO4YAAAAM/miamiheat-jimmybutler.gif",
+    "size": 1068976,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-carmeloanthony-97",
+    "name": "Carmelo Anthony",
+    "url": "https://media.tenor.com/4O4z-bR2qMMAAAAM/carmelo-anthony-melo.gif",
+    "size": 2945417,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-charlesbarkley-98",
+    "name": "Charles Barkley",
+    "url": "https://media.tenor.com/BBAgR634QDwAAAAM/charles-barkley-sir-charles.gif",
+    "size": 271151,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-chrispaul-97",
+    "name": "Chris Paul",
+    "url": "https://media.tenor.com/QqhVvvcJ-FgAAAAM/chris-paul-chrispaul.gif",
+    "size": 553367,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-clydedrexler-98",
+    "name": "Clyde Drexler",
+    "url": "https://media.tenor.com/aTB1CJylK64AAAAM/clyde-drexler-nba.gif",
+    "size": 388063,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-damianlillard-98",
+    "name": "Damian Lillard",
+    "url": "https://media.tenor.com/B7vlYeVyouYAAAAM/dame-lillard.gif",
+    "size": 320912,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-davidrobinson-98",
+    "name": "David Robinson",
+    "url": "https://media.tenor.com/llHrhs7rvBoAAAAM/david-robinson-spurs.gif",
+    "size": 707403,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-dikembemutombo-97",
+    "name": "Dikembe Mutombo",
+    "url": "https://media.tenor.com/Q5knp6bJF7wAAAAM/no-no-no-sports.gif",
+    "size": 113177,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-dirknowitzki-98",
+    "name": "Dirk Nowitzki",
+    "url": "https://media.tenor.com/l0iTUt9dWAgAAAAM/dirk-nowitzki-dallas-mavericks.gif",
+    "size": 1490072,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-dominiquewilkins-98",
+    "name": "Dominique Wilkins",
+    "url": "https://media.tenor.com/23AQEdGjo9kAAAAM/dominique-wilkins-windmill-dunk.gif",
+    "size": 760140,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-donovanmitchell-97",
+    "name": "Donovan Mitchell",
+    "url": "https://media.tenor.com/IXx9Sy0zangAAAAM/utah-jazz-donovan-mitchell.gif",
+    "size": 169993,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-dwighthoward-97",
+    "name": "Dwight Howard",
+    "url": "https://media.tenor.com/UoIe4hF35J0AAAAM/dunk-contest.gif",
+    "size": 1337903,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-dwyanewade-98",
+    "name": "Dwyane Wade",
+    "url": "https://media.tenor.com/wQqVEkxIPAkAAAAM/dwayne-wade-nba.gif",
+    "size": 1309347,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-elginbaylor-98",
+    "name": "Elgin Baylor",
+    "url": "None (No authentic Tenor GIF exists)",
+    "size": 0,
+    "status": "PASS",
+    "reason": "Authentic omission (Rule: Omit rather than use wrong GIF)"
+  },
+  {
+    "id": "go-embiid-98",
+    "name": "Joel Embiid",
+    "url": "https://media.tenor.com/dZnUrWgomFAAAAAM/joel-embiid-slam.gif",
+    "size": 364604,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-garypayton-97",
+    "name": "Gary Payton",
+    "url": "https://media.tenor.com/NhVNJ-Nh2eUAAAAM/seattle-supersonics-gary-payton.gif",
+    "size": 471434,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-granthill-97",
+    "name": "Grant Hill",
+    "url": "https://media.tenor.com/sfW2B6vJlHcAAAAM/grant-hill-dunk.gif",
+    "size": 408634,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-isiahthomas-98",
+    "name": "Isiah Thomas",
+    "url": "https://media.tenor.com/kvyhSwhFGI4AAAAM/detroit-pistons-isiah-thomas.gif",
+    "size": 788667,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-iverson-97",
+    "name": "Allen Iverson",
+    "url": "https://media.tenor.com/1EWb9d-a80cAAAAM/iverson-crossover.gif",
+    "size": 791108,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-jamesharden-97",
+    "name": "James Harden",
+    "url": "https://media.tenor.com/PzFNraX8AdkAAAAM/houston-rockets-stir.gif",
+    "size": 286501,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-jasonkidd-98",
+    "name": "Jason Kidd",
+    "url": "https://media.tenor.com/QEvwiRiFDlAAAAAM/jason-kidd.gif",
+    "size": 254211,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-jerrywest-98",
+    "name": "Jerry West",
+    "url": "https://media.tenor.com/jPy4ArbPHUQAAAAM/jerry-west-lakers.gif",
+    "size": 17688,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-johnstockton-98",
+    "name": "John Stockton",
+    "url": "https://media.tenor.com/4SAdW1hPFXwAAAAM/jon-stockton-assist.gif",
+    "size": 579817,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-jokic-98",
+    "name": "Nikola Jokic",
+    "url": "https://media.tenor.com/MOufHecLk6IAAAAM/sports-sportsmanias.gif",
+    "size": 451066,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-juliuserving-98",
+    "name": "Julius Erving",
+    "url": "https://media.tenor.com/Nr762QJup18AAAAM/erving-sixers.gif",
+    "size": 918168,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-karlmalone-98",
+    "name": "Karl Malone",
+    "url": "https://media.tenor.com/LTIxrHUvj8kAAAAM/karl-malone-the-mail-man.gif",
+    "size": 153154,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-kawhi-97",
+    "name": "Kawhi Leonard",
+    "url": "https://media.tenor.com/wOov1s3fCMEAAAAM/kawhi-kawhi-leonard.gif",
+    "size": 476783,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-kevingarnett-98",
+    "name": "Kevin Garnett",
+    "url": "https://media.tenor.com/1g9AnZZbvDMAAAAM/kevin-garnett.gif",
+    "size": 1243324,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-kyrieirving-98",
+    "name": "Kyrie Irving",
+    "url": "https://media.tenor.com/MltYmfAReOcAAAAM/kyrie-handles.gif",
+    "size": 182519,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-luka-98",
+    "name": "Luka Doncic",
+    "url": "https://media.tenor.com/C9ABcyLH9l4AAAAM/luka-doncic-stepback.gif",
+    "size": 1293685,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-mosesmalone-98",
+    "name": "Moses Malone",
+    "url": "None (No authentic Tenor GIF exists)",
+    "size": 0,
+    "status": "PASS",
+    "reason": "Authentic omission (Rule: Omit rather than use wrong GIF)"
+  },
+  {
+    "id": "go-oscarrobertson-98",
+    "name": "Oscar Robertson",
+    "url": "None (No authentic Tenor GIF exists)",
+    "size": 0,
+    "status": "PASS",
+    "reason": "Authentic omission (Rule: Omit rather than use wrong GIF)"
+  },
+  {
+    "id": "go-patrickewing-98",
+    "name": "Patrick Ewing",
+    "url": "https://media.tenor.com/WVf7ugpBhoEAAAAM/patrick-ewing-33.gif",
+    "size": 483585,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-paulgeorge-98",
+    "name": "Paul George",
+    "url": "https://media.tenor.com/G8eP7Zgy_-YAAAAM/dunk-paul-george.gif",
+    "size": 433728,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-paulpierce-97",
+    "name": "Paul Pierce",
+    "url": "https://media.tenor.com/xVWgjAhAlZcAAAAM/paul-pierce-pierce.gif",
+    "size": 1653853,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-petemaravich-97",
+    "name": "Pete Maravich",
+    "url": "https://media.tenor.com/9nw7rSUBdwIAAAAM/pete-maravich-pistol-pete.gif",
+    "size": 415365,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-rayallen-97",
+    "name": "Ray Allen",
+    "url": "https://media.tenor.com/-pDys2heFfQAAAAM/ray-allen.gif",
+    "size": 421303,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-reggiemiller-97",
+    "name": "Reggie Miller",
+    "url": "https://media.tenor.com/p_99fxGEA4UAAAAM/reggie-miller-choke.gif",
+    "size": 567345,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-rickbarry-97",
+    "name": "Rick Barry",
+    "url": "None (No authentic Tenor GIF exists)",
+    "size": 0,
+    "status": "PASS",
+    "reason": "Authentic omission (Rule: Omit rather than use wrong GIF)"
+  },
+  {
+    "id": "go-russellwestbrook-97",
+    "name": "Russell Westbrook",
+    "url": "https://media.tenor.com/HliWh4j2SBsAAAAM/russel-westbrook-nba.gif",
+    "size": 302163,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-scottiepippen-98",
+    "name": "Scottie Pippen",
+    "url": "https://media.tenor.com/4zjloKDWg6sAAAAM/scottie-pippen.gif",
+    "size": 562871,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-stevenash-98",
+    "name": "Steve Nash",
+    "url": "https://media.tenor.com/75ewi4a2u5UAAAAM/steve-nash.gif",
+    "size": 1128155,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-tatum-98",
+    "name": "Jayson Tatum",
+    "url": "https://media.tenor.com/JegpKDR4F3gAAAAM/jayson-tatum-dunk.gif",
+    "size": 1260322,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-timhardaway-97",
+    "name": "Tim Hardaway",
+    "url": "https://media.tenor.com/K-6KCIpOdocAAAAM/tim-hardaway-golden-state.gif",
+    "size": 327347,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-tmac-98",
+    "name": "Tracy McGrady",
+    "url": "https://media.tenor.com/5GVprx8UYhAAAAAM/tracy-mcgrady-toronto-raptors.gif",
+    "size": 438078,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-tonyparker-97",
+    "name": "Tony Parker",
+    "url": "https://media.tenor.com/7mw-CscArwoAAAAM/tony-parker-spurs.gif",
+    "size": 365232,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-vincecarter-97",
+    "name": "Vince Carter",
+    "url": "https://media.tenor.com/8N_RlZgzqSoAAAAM/vince-carter-vince.gif",
+    "size": 936643,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-waltfrazier-98",
+    "name": "Walt Frazier",
+    "url": "https://media.tenor.com/EU8UIOtlkKIAAAAM/walt-frazier.gif",
+    "size": 479621,
+    "status": "PASS",
+    "reason": "Valid AAAAM format under 5MB"
+  },
+  {
+    "id": "go-willisreed-97",
+    "name": "Willis Reed",
+    "url": "None (No authentic Tenor GIF exists)",
+    "size": 0,
+    "status": "PASS",
+    "reason": "Authentic omission (Rule: Omit rather than use wrong GIF)"
+  }
+]

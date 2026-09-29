@@ -125,6 +125,16 @@ class HelpView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=180.0)
         self.add_item(HelpCategorySelect())
+        self.message: Optional[discord.Message] = None
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
 
 
 class UtilitiesCog(commands.Cog, name="Utilities"):
@@ -248,13 +258,15 @@ class UtilitiesCog(commands.Cog, name="Utilities"):
     async def userinfo_slash(self, interaction: discord.Interaction, user: Optional[discord.Member] = None):
         await interaction.response.defer()
         target = user or interaction.user
+        joined_str = f"<t:{int(target.joined_at.timestamp())}:R>" if getattr(target, "joined_at", None) else "Unknown"
+        top_role_str = target.top_role.mention if hasattr(target, "top_role") else "None"
         embed = discord.Embed(
             title=f"👤 Member Information • {target.display_name}",
             description=(
                 f"• 🆔 **User ID:** `{target.id}`\n"
                 f"• 📅 **Account Created:** <t:{int(target.created_at.timestamp())}:R>\n"
-                f"• 📥 **Joined Server:** <t:{int(target.joined_at.timestamp())}:R if target.joined_at else 'Unknown'>\n"
-                f"• 🎭 **Top Role:** {target.top_role.mention if hasattr(target, 'top_role') else 'None'}"
+                f"• 📥 **Joined Server:** {joined_str}\n"
+                f"• 🎭 **Top Role:** {top_role_str}"
             ),
             color=discord.Color.gold()
         )
@@ -267,12 +279,15 @@ class UtilitiesCog(commands.Cog, name="Utilities"):
     async def userinfo_prefix(self, ctx: commands.Context, target: Optional[discord.Member] = None):
         """View user info: !userinfo [@user]"""
         u = target or ctx.author
+        joined_str = f"<t:{int(u.joined_at.timestamp())}:R>" if getattr(u, "joined_at", None) else "Unknown"
+        top_role_str = u.top_role.mention if hasattr(u, "top_role") else "None"
         embed = discord.Embed(
             title=f"👤 Member Information • {u.display_name}",
             description=(
                 f"• 🆔 **ID:** `{u.id}`\n"
                 f"• 📅 **Account Created:** <t:{int(u.created_at.timestamp())}:R>\n"
-                f"• 📥 **Joined Server:** <t:{int(u.joined_at.timestamp())}:R if u.joined_at else 'Unknown'>"
+                f"• 📥 **Joined Server:** {joined_str}\n"
+                f"• 🎭 **Top Role:** {top_role_str}"
             ),
             color=discord.Color.gold()
         )

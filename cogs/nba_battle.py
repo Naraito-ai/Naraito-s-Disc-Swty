@@ -47,6 +47,16 @@ class BuildTeamView(discord.ui.View):
         self.user_cards = user_cards or []
         self.current_pos = "PG"
         self.picks: Dict[str, Dict[str, Any]] = {}
+        self.message: Optional[discord.Message] = None
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
 
     async def initialize(self):
         """Populates owned cards and existing active lineup from database."""
@@ -288,7 +298,8 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
         view = BuildTeamView(interaction.user.id)
         await view.initialize()
         embed = view.build_builder_embed(interaction.user)
-        await interaction.followup.send(embed=embed, view=view)
+        msg = await interaction.followup.send(embed=embed, view=view)
+        view.message = msg
 
     @commands.command(name="buildteam", aliases=["draftteam", "nbadraft", "lineup"])
     @commands.guild_only()
@@ -297,7 +308,8 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
         view = BuildTeamView(ctx.author.id)
         await view.initialize()
         embed = view.build_builder_embed(ctx.author)
-        await ctx.send(embed=embed, view=view)
+        msg = await ctx.send(embed=embed, view=view)
+        view.message = msg
 
     @app_commands.command(name="autoteam", description="⚡ Automatically equip your highest OVR cards into your Starting 5")
     @app_commands.guild_only()
@@ -466,15 +478,18 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
             p = picks.get(pos, {})
             if p:
                 t_info = NBA_2K_TIERS.get(p.get("tier", "gold"), NBA_2K_TIERS["gold"])
+                p_3pt = p.get("pts_3") or p.get("3pt") or p.get("ins", 80)
+                p_def = p.get("defense") or p.get("def", 80)
+                p_clu = p.get("clutch") or p.get("clu", 80)
                 embed.add_field(
                     name=f"{pos}: {t_info['emoji']} [{p.get('ovr', 80)}] {p.get('name', 'Unknown')}",
-                    value=f"🎯 3PT: `{p.get('defense', 80)}` • 🔒 DEF: `{p.get('defense', 80)}` • ⚡ CLU: `{p.get('clutch', 80)}`",
+                    value=f"🎯 3PT: `{p_3pt}` • 🔒 DEF: `{p_def}` • ⚡ CLU: `{p_clu}`",
                     inline=False
                 )
 
         wins = stats.get("wins", 0)
         losses = stats.get("losses", 0)
-        streak = stats.get("win_streak", 0)
+        streak = stats.get("streak", stats.get("win_streak", 0))
         rank_info = get_gm_rank(wins)
         embed.add_field(
             name="🏆 GM Career Record",
@@ -507,15 +522,18 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
             p = picks.get(pos, {})
             if p:
                 t_info = NBA_2K_TIERS.get(p.get("tier", "gold"), NBA_2K_TIERS["gold"])
+                p_3pt = p.get("pts_3") or p.get("3pt") or p.get("ins", 80)
+                p_def = p.get("defense") or p.get("def", 80)
+                p_clu = p.get("clutch") or p.get("clu", 80)
                 embed.add_field(
                     name=f"{pos}: {t_info['emoji']} [{p.get('ovr', 80)}] {p.get('name', 'Unknown')}",
-                    value=f"🎯 3PT: `{p.get('defense', 80)}` • 🔒 DEF: `{p.get('defense', 80)}` • ⚡ CLU: `{p.get('clutch', 80)}`",
+                    value=f"🎯 3PT: `{p_3pt}` • 🔒 DEF: `{p_def}` • ⚡ CLU: `{p_clu}`",
                     inline=False
                 )
 
         wins = stats.get("wins", 0)
         losses = stats.get("losses", 0)
-        streak = stats.get("win_streak", 0)
+        streak = stats.get("streak", stats.get("win_streak", 0))
         rank_info = get_gm_rank(wins)
         embed.add_field(
             name="🏆 GM Career Record",
@@ -861,7 +879,7 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
         losses = stats.get("losses", 0)
         total = wins + losses
         win_rate = (wins / total * 100.0) if total > 0 else 0.0
-        streak = stats.get("win_streak", 0)
+        streak = stats.get("streak", stats.get("win_streak", 0))
         rank_info = get_gm_rank(wins)
 
         embed = discord.Embed(
@@ -889,7 +907,7 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
         losses = stats.get("losses", 0)
         total = wins + losses
         win_rate = (wins / total * 100.0) if total > 0 else 0.0
-        streak = stats.get("win_streak", 0)
+        streak = stats.get("streak", stats.get("win_streak", 0))
         rank_info = get_gm_rank(wins)
 
         embed = discord.Embed(
@@ -968,7 +986,7 @@ class NBABattleCog(commands.Cog, name="NBA Battle"):
         await interaction.response.defer(ephemeral=True)
         if not is_creator(interaction.user):
             return await interaction.followup.send("❌ This command is strictly restricted to the Bot Creator.", ephemeral=True)
-        await db.execute("DELETE FROM user_nba_lineups;")
+        await db.reset_all_dream_teams()
         await interaction.followup.send("👑 **All starting lineups have been cleanly reset.**", ephemeral=True)
 
 

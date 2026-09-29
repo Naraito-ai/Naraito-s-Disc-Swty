@@ -147,7 +147,7 @@ class NBAAdminCog(commands.Cog, name="NBA Admin"):
     async def wipeallmycards_prefix(self, ctx: commands.Context):
         """Wipe your own binder cleanly: !wipeallmycards"""
         await db.execute("DELETE FROM user_nba_cards WHERE user_id = ?;", str(ctx.author.id))
-        await db.execute("DELETE FROM user_nba_lineups WHERE user_id = ?;", str(ctx.author.id))
+        await db.delete_dream_team(ctx.author.id)
         await ctx.send(f"✅ Successfully wiped all cards from your account ({ctx.author.mention})!")
 
     # ── Force Drop Spawning ────────────────────────────────────────────────────

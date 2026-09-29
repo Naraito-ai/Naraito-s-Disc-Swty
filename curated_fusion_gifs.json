@@ -1,0 +1,538 @@
+{
+  "dm-jordan-99": {
+    "id": "dm-jordan-99",
+    "name": "Michael Jordan",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/-5II3eZiaJcAAAAM/michael-jordan-basketball.gif",
+    "slug": "michael-jordan-basketball",
+    "size": 451388
+  },
+  "dm-kobe-99": {
+    "id": "dm-kobe-99",
+    "name": "Kobe Bryant",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/xUF6L_2N2ZAAAAAM/nba-saiyan.gif",
+    "slug": "nba-saiyan",
+    "size": 376428
+  },
+  "dm-lebron-99": {
+    "id": "dm-lebron-99",
+    "name": "LeBron James",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/lquFMyMh8zYAAAAM/lebron-james-dunk.gif",
+    "slug": "lebron-james-dunk",
+    "size": 89005
+  },
+  "dm-curry-99": {
+    "id": "dm-curry-99",
+    "name": "Stephen Curry",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/Oy2ncwqiZO8AAAAM/night-night-nighty-night.gif",
+    "slug": "night-night-nighty-night",
+    "size": 515236
+  },
+  "dm-shaq-99": {
+    "id": "dm-shaq-99",
+    "name": "Shaquille O'Neal",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/kuyCaCZWKCwAAAAM/shaquille-oneal-basketball.gif",
+    "slug": "shaquille-oneal-basketball",
+    "size": 503266
+  },
+  "dm-kd-99": {
+    "id": "dm-kd-99",
+    "name": "Kevin Durant",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/7ruKh0zDurUAAAAM/dunk-kevin-durant-dunk.gif",
+    "slug": "dunk-kevin-durant-dunk",
+    "size": 325050
+  },
+  "dm-giannis-99": {
+    "id": "dm-giannis-99",
+    "name": "Giannis Antetokounmpo",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/KJeGdvrcQvMAAAAM/milwaukee-bucks-giannis-antetokounmpo.gif",
+    "slug": "milwaukee-bucks-giannis-antetokounmpo",
+    "size": 712048
+  },
+  "dm-magic-99": {
+    "id": "dm-magic-99",
+    "name": "Magic Johnson",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/zcX1Snd2CtsAAAAM/magic-johnson.gif",
+    "slug": "magic-johnson",
+    "size": 232721
+  },
+  "dm-bird-99": {
+    "id": "dm-bird-99",
+    "name": "Larry Bird",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/ZnwpZlA2hjkAAAAM/bird.gif",
+    "slug": "bird",
+    "size": 563588
+  },
+  "dm-kareemabduljabbar-99": {
+    "id": "dm-kareemabduljabbar-99",
+    "name": "Kareem Abdul-Jabbar",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/JEnX7ebK0Z0AAAAM/kareem-kareem-skyhook.gif",
+    "slug": "kareem-kareem-skyhook",
+    "size": 471509
+  },
+  "dm-wiltchamberlain-99": {
+    "id": "dm-wiltchamberlain-99",
+    "name": "Wilt Chamberlain",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/jqrvfLdQhZYAAAAM/wilt-chamberlain-basketball.gif",
+    "slug": "wilt-chamberlain-basketball",
+    "size": 991638
+  },
+  "dm-billrussell-99": {
+    "id": "dm-billrussell-99",
+    "name": "Bill Russell",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/-uKWiG9YwiYAAAAM/bill-russell.gif",
+    "slug": "bill-russell",
+    "size": 286489
+  },
+  "dm-timduncan-99": {
+    "id": "dm-timduncan-99",
+    "name": "Tim Duncan",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/f-3xabwvdx8AAAAM/dirk-nowitzki-dallas-mavericks.gif",
+    "slug": "dirk-nowitzki-dallas-mavericks",
+    "size": 828988
+  },
+  "dm-hakeemolajuwon-99": {
+    "id": "dm-hakeemolajuwon-99",
+    "name": "Hakeem Olajuwon",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/u0aplK7iUvYAAAAM/hakeem-turn-around.gif",
+    "slug": "hakeem-turn-around",
+    "size": 363840
+  },
+  "dm-wemby-99": {
+    "id": "dm-wemby-99",
+    "name": "Victor Wembanyama",
+    "tier": "Dark Matter (99)",
+    "gif_url": "https://media.tenor.com/XfmGUCYiEUEAAAAM/victor-wembanyama-wembanyama.gif",
+    "slug": "victor-wembanyama-wembanyama",
+    "size": 1363575
+  },
+  "go-luka-98": {
+    "id": "go-luka-98",
+    "name": "Luka Doncic",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/C9ABcyLH9l4AAAAM/luka-doncic-stepback.gif",
+    "slug": "luka-doncic-stepback",
+    "size": 1293685
+  },
+  "go-jokic-98": {
+    "id": "go-jokic-98",
+    "name": "Nikola Jokic",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/MOufHecLk6IAAAAM/sports-sportsmanias.gif",
+    "slug": "sports-sportsmanias",
+    "size": 451066
+  },
+  "go-embiid-98": {
+    "id": "go-embiid-98",
+    "name": "Joel Embiid",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/dZnUrWgomFAAAAAM/joel-embiid-slam.gif",
+    "slug": "joel-embiid-slam",
+    "size": 364604
+  },
+  "go-tatum-98": {
+    "id": "go-tatum-98",
+    "name": "Jayson Tatum",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/JegpKDR4F3gAAAAM/jayson-tatum-dunk.gif",
+    "slug": "jayson-tatum-dunk",
+    "size": 1260322
+  },
+  "go-tmac-98": {
+    "id": "go-tmac-98",
+    "name": "Tracy McGrady",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/5GVprx8UYhAAAAAM/tracy-mcgrady-toronto-raptors.gif",
+    "slug": "tracy-mcgrady-toronto-raptors",
+    "size": 438078
+  },
+  "go-iverson-97": {
+    "id": "go-iverson-97",
+    "name": "Allen Iverson",
+    "tier": "Galaxy Opal (98/97)",
+    "gif_url": "https://media.tenor.com/1EWb9d-a80cAAAAM/iverson-crossover.gif",
+    "slug": "iverson-crossover",
+    "size": 791108
+  },
+  "go-dwyanewade-98": {
+    "id": "go-dwyanewade-98",
+    "name": "Dwyane Wade",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/wQqVEkxIPAkAAAAM/dwayne-wade-nba.gif",
+    "slug": "dwayne-wade-nba",
+    "size": 1309347
+  },
+  "go-kevingarnett-98": {
+    "id": "go-kevingarnett-98",
+    "name": "Kevin Garnett",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/sys3weVzjJMAAAAM/wow-kevin-garnett.gif",
+    "slug": "wow-kevin-garnett",
+    "size": 357247
+  },
+  "go-dirknowitzki-98": {
+    "id": "go-dirknowitzki-98",
+    "name": "Dirk Nowitzki",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/l0iTUt9dWAgAAAAM/dirk-nowitzki-dallas-mavericks.gif",
+    "slug": "dirk-nowitzki-dallas-mavericks",
+    "size": 1490072
+  },
+  "go-charlesbarkley-98": {
+    "id": "go-charlesbarkley-98",
+    "name": "Charles Barkley",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/BBAgR634QDwAAAAM/charles-barkley-sir-charles.gif",
+    "slug": "charles-barkley-sir-charles",
+    "size": 271151
+  },
+  "go-scottiepippen-98": {
+    "id": "go-scottiepippen-98",
+    "name": "Scottie Pippen",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/4zjloKDWg6sAAAAM/scottie-pippen.gif",
+    "slug": "scottie-pippen",
+    "size": 562871
+  },
+  "go-davidrobinson-98": {
+    "id": "go-davidrobinson-98",
+    "name": "David Robinson",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/jeXSsScDKxgAAAAM/lakers-shaq.gif",
+    "slug": "lakers-shaq",
+    "size": 643393
+  },
+  "go-mosesmalone-98": {
+    "id": "go-mosesmalone-98",
+    "name": "Moses Malone",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/oG1ZfPgdHzoAAAAM/post-malone.gif",
+    "slug": "post-malone",
+    "size": 372090
+  },
+  "go-juliuserving-98": {
+    "id": "go-juliuserving-98",
+    "name": "Julius Erving",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/Nr762QJup18AAAAM/erving-sixers.gif",
+    "slug": "erving-sixers",
+    "size": 918168
+  },
+  "go-johnstockton-98": {
+    "id": "go-johnstockton-98",
+    "name": "John Stockton",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/4SAdW1hPFXwAAAAM/jon-stockton-assist.gif",
+    "slug": "jon-stockton-assist",
+    "size": 579817
+  },
+  "go-karlmalone-98": {
+    "id": "go-karlmalone-98",
+    "name": "Karl Malone",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/4SAdW1hPFXwAAAAM/jon-stockton-assist.gif",
+    "slug": "jon-stockton-assist",
+    "size": 579817
+  },
+  "go-clydedrexler-98": {
+    "id": "go-clydedrexler-98",
+    "name": "Clyde Drexler",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/aTB1CJylK64AAAAM/clyde-drexler-nba.gif",
+    "slug": "clyde-drexler-nba",
+    "size": 388063
+  },
+  "go-patrickewing-98": {
+    "id": "go-patrickewing-98",
+    "name": "Patrick Ewing",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/og7QVbb-uv8AAAAM/dunk-slam.gif",
+    "slug": "dunk-slam",
+    "size": 483583
+  },
+  "go-oscarrobertson-98": {
+    "id": "go-oscarrobertson-98",
+    "name": "Oscar Robertson",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/ZJx3dbUMo7cAAAAM/maggie-robertson-hair.gif",
+    "slug": "maggie-robertson-hair",
+    "size": 655407
+  },
+  "go-jerrywest-98": {
+    "id": "go-jerrywest-98",
+    "name": "Jerry West",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/jPy4ArbPHUQAAAAM/jerry-west-lakers.gif",
+    "slug": "jerry-west-lakers",
+    "size": 17688
+  },
+  "go-elginbaylor-98": {
+    "id": "go-elginbaylor-98",
+    "name": "Elgin Baylor",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/R5y87hNEaQEAAAAM/baylor-bears.gif",
+    "slug": "baylor-bears",
+    "size": 669585
+  },
+  "go-waltfrazier-98": {
+    "id": "go-waltfrazier-98",
+    "name": "Walt Frazier",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/VRSMNNdi6bcAAAAM/knicks.gif",
+    "slug": "knicks",
+    "size": 102197
+  },
+  "go-stevenash-98": {
+    "id": "go-stevenash-98",
+    "name": "Steve Nash",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/75ewi4a2u5UAAAAM/steve-nash.gif",
+    "slug": "steve-nash",
+    "size": 1128155
+  },
+  "go-jasonkidd-98": {
+    "id": "go-jasonkidd-98",
+    "name": "Jason Kidd",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/QEvwiRiFDlAAAAAM/jason-kidd.gif",
+    "slug": "jason-kidd",
+    "size": 254211
+  },
+  "go-isiahthomas-98": {
+    "id": "go-isiahthomas-98",
+    "name": "Isiah Thomas",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/kvyhSwhFGI4AAAAM/detroit-pistons-isiah-thomas.gif",
+    "slug": "detroit-pistons-isiah-thomas",
+    "size": 788667
+  },
+  "go-dominiquewilkins-98": {
+    "id": "go-dominiquewilkins-98",
+    "name": "Dominique Wilkins",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/23AQEdGjo9kAAAAM/dominique-wilkins-windmill-dunk.gif",
+    "slug": "dominique-wilkins-windmill-dunk",
+    "size": 760140
+  },
+  "go-damianlillard-98": {
+    "id": "go-damianlillard-98",
+    "name": "Damian Lillard",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/NBWEzaEYsqsAAAAM/damian-lillard-lillard.gif",
+    "slug": "damian-lillard-lillard",
+    "size": 676691
+  },
+  "go-kyrieirving-98": {
+    "id": "go-kyrieirving-98",
+    "name": "Kyrie Irving",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/IGUHwK5msAMAAAAM/kyrie-irving-moves-spin-move.gif",
+    "slug": "kyrie-irving-moves-spin-move",
+    "size": 820798
+  },
+  "go-paulgeorge-98": {
+    "id": "go-paulgeorge-98",
+    "name": "Paul George",
+    "tier": "Galaxy Opal (98)",
+    "gif_url": "https://media.tenor.com/wwY-AqYkzTAAAAAM/paul-george-360dunk.gif",
+    "slug": "paul-george-360dunk",
+    "size": 818706
+  },
+  "go-ad-97": {
+    "id": "go-ad-97",
+    "name": "Anthony Davis",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/kX2e_4Mm5KMAAAAM/la-lakers-anthony-davis.gif",
+    "slug": "la-lakers-anthony-davis",
+    "size": 259405
+  },
+  "go-kawhi-97": {
+    "id": "go-kawhi-97",
+    "name": "Kawhi Leonard",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/ERu0Q_-j15IAAAAM/kawhi-the-shot-cut.gif",
+    "slug": "kawhi-the-shot-cut",
+    "size": 1094108
+  },
+  "go-butler-97": {
+    "id": "go-butler-97",
+    "name": "Jimmy Butler",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/LlA95VeBO4YAAAAM/miamiheat-jimmybutler.gif",
+    "slug": "miamiheat-jimmybutler",
+    "size": 1068976
+  },
+  "go-jamesharden-97": {
+    "id": "go-jamesharden-97",
+    "name": "James Harden",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/JQM_lFnyrqoAAAAM/james-harden-stepback.gif",
+    "slug": "james-harden-stepback",
+    "size": 814715
+  },
+  "go-russellwestbrook-97": {
+    "id": "go-russellwestbrook-97",
+    "name": "Russell Westbrook",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/2m6wOa0Q2QUAAAAM/westbrook-rock-a-the-baby-lakers-russell.gif",
+    "slug": "westbrook-rock-a-the-baby-lakers-russell",
+    "size": 1125754
+  },
+  "go-chrispaul-97": {
+    "id": "go-chrispaul-97",
+    "name": "Chris Paul",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/lLRH2U8tUxIAAAAM/paul-george-clippers.gif",
+    "slug": "paul-george-clippers",
+    "size": 430745
+  },
+  "go-carmeloanthony-97": {
+    "id": "go-carmeloanthony-97",
+    "name": "Carmelo Anthony",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/rn7aWrOdyxsAAAAM/nba-basketball.gif",
+    "slug": "nba-basketball",
+    "size": 99680
+  },
+  "go-vincecarter-97": {
+    "id": "go-vincecarter-97",
+    "name": "Vince Carter",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/CsI2uy7_NDAAAAAM/slam-dunk.gif",
+    "slug": "slam-dunk",
+    "size": 440974
+  },
+  "go-rayallen-97": {
+    "id": "go-rayallen-97",
+    "name": "Ray Allen",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/RNzYmnPTe1YAAAAM/nba-basketball.gif",
+    "slug": "nba-basketball",
+    "size": 943695
+  },
+  "go-reggiemiller-97": {
+    "id": "go-reggiemiller-97",
+    "name": "Reggie Miller",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/7TOsXD94qSEAAAAM/reggie-miller.gif",
+    "slug": "reggie-miller",
+    "size": 209210
+  },
+  "go-paulpierce-97": {
+    "id": "go-paulpierce-97",
+    "name": "Paul Pierce",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/ImFpmaOg-6MAAAAM/paul-pierce-stare-down-stare-down.gif",
+    "slug": "paul-pierce-stare-down-stare-down",
+    "size": 750397
+  },
+  "go-garypayton-97": {
+    "id": "go-garypayton-97",
+    "name": "Gary Payton",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/V_WsvZNyMiIAAAAM/seattle-supersonics-gary-payton-and-shawn-kemp.gif",
+    "slug": "seattle-supersonics-gary-payton-and-shawn-kemp",
+    "size": 551549
+  },
+  "go-dwighthoward-97": {
+    "id": "go-dwighthoward-97",
+    "name": "Dwight Howard",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/wglnHvEIE9oAAAAM/dwight-howard-lebron-james.gif",
+    "slug": "dwight-howard-lebron-james",
+    "size": 32179
+  },
+  "go-alonzomourning-97": {
+    "id": "go-alonzomourning-97",
+    "name": "Alonzo Mourning",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/WrzbpqUNqBAAAAAM/alonzo-mourning-blocked-shot.gif",
+    "slug": "alonzo-mourning-blocked-shot",
+    "size": 230738
+  },
+  "go-dikembemutombo-97": {
+    "id": "go-dikembemutombo-97",
+    "name": "Dikembe Mutombo",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/-3fctxnK9Y8AAAAM/dikembe-mutombo-dikembe.gif",
+    "slug": "dikembe-mutombo-dikembe",
+    "size": 334093
+  },
+  "go-granthill-97": {
+    "id": "go-granthill-97",
+    "name": "Grant Hill",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/sfW2B6vJlHcAAAAM/grant-hill-dunk.gif",
+    "slug": "grant-hill-dunk",
+    "size": 408634
+  },
+  "go-tonyparker-97": {
+    "id": "go-tonyparker-97",
+    "name": "Tony Parker",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/cq24SqcE_IMAAAAM/tony-parker-strong.gif",
+    "slug": "tony-parker-strong",
+    "size": 228058
+  },
+  "go-timhardaway-97": {
+    "id": "go-timhardaway-97",
+    "name": "Tim Hardaway",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/K-6KCIpOdocAAAAM/tim-hardaway-golden-state.gif",
+    "slug": "tim-hardaway-golden-state",
+    "size": 327347
+  },
+  "go-petemaravich-97": {
+    "id": "go-petemaravich-97",
+    "name": "Pete Maravich",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/9nw7rSUBdwIAAAAM/pete-maravich-pistol-pete.gif",
+    "slug": "pete-maravich-pistol-pete",
+    "size": 415365
+  },
+  "go-willisreed-97": {
+    "id": "go-willisreed-97",
+    "name": "Willis Reed",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/3pHIF1iXeNgAAAAM/basketball-kentucky.gif",
+    "slug": "basketball-kentucky",
+    "size": 341077
+  },
+  "go-bobcousy-97": {
+    "id": "go-bobcousy-97",
+    "name": "Bob Cousy",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/H0foamBzrn4AAAAM/bob-cousy-crossover.gif",
+    "slug": "bob-cousy-crossover",
+    "size": 351908
+  },
+  "go-rickbarry-97": {
+    "id": "go-rickbarry-97",
+    "name": "Rick Barry",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/TfkGr7Sisx0AAAAM/lechpoznan-kolejorz.gif",
+    "slug": "lechpoznan-kolejorz",
+    "size": 244942
+  },
+  "go-donovanmitchell-97": {
+    "id": "go-donovanmitchell-97",
+    "name": "Donovan Mitchell",
+    "tier": "Galaxy Opal (97)",
+    "gif_url": "https://media.tenor.com/TentW8-rL8UAAAAM/donovan-mitchell-dunk.gif",
+    "slug": "donovan-mitchell-dunk",
+    "size": 710962
+  }
+}

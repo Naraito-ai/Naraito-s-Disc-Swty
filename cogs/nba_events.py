@@ -8,6 +8,7 @@ import io
 import time
 import random
 import logging
+import asyncio
 from typing import Optional, Union, List, Dict, Any, Tuple
 
 import discord
@@ -115,7 +116,7 @@ class NBAEventsCog(commands.Cog, name="NBA Events"):
             ),
             color=0xFF1493
         )
-        img_io = generate_nba_card_graphic(prize_obj)
+        img_io = await asyncio.to_thread(generate_nba_card_graphic, prize_obj)
         ann_file = discord.File(img_io, filename=f"prize_{prize_obj['id']}.png")
         ann_embed.set_image(url=f"attachment://prize_{prize_obj['id']}.png")
         await interaction.followup.send(embed=ann_embed, file=ann_file)
@@ -128,7 +129,7 @@ class NBAEventsCog(commands.Cog, name="NBA Events"):
         if not active:
             return await interaction.followup.send("ℹ️ No active event is currently running in this server.")
 
-        ends_at = int(active.get("end_time", time.time()))
+        ends_at = int(active.get("ends_at", active.get("end_time", time.time())))
         prize_obj = get_nba_card(active.get("prize_card_id", ""))
         pname = prize_obj["name"] if prize_obj else active.get("prize_card_name", "Rare Card")
 
@@ -140,8 +141,8 @@ class NBAEventsCog(commands.Cog, name="NBA Events"):
         )
 
         if active.get("event_type") == "raid":
-            hp_cur = active.get("boss_hp_current", 0)
-            hp_max = active.get("boss_hp_max", 1)
+            hp_cur = active.get("boss_hp", active.get("boss_hp_current", 0))
+            hp_max = active.get("boss_max_hp", active.get("boss_hp_max", 1))
             pct = max(0.0, min(100.0, (hp_cur / hp_max) * 100))
             bars = int(pct / 10)
             hp_bar = "█" * bars + "░" * (10 - bars)

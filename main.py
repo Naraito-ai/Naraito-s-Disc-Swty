@@ -185,17 +185,17 @@ class SweetyBot(commands.Bot):
         """Polls database for due user reminders and delivers them."""
         try:
             now_ts = time.time()
-            rows = await db.fetch("SELECT * FROM reminders WHERE reminder_time <= ? AND completed = 0 LIMIT 20", now_ts)
+            rows = await db.get_due_reminders(now_ts)
             if not rows:
                 return
 
             for r in rows:
                 r_id = r["id"]
                 u_id = int(r["user_id"])
-                note = r.get("reminder_text") or r.get("note", "Reminder")
+                note = r.get("reminder_text") or "Reminder"
                 c_id = r.get("channel_id")
 
-                await db.execute("UPDATE reminders SET completed = 1 WHERE id = ?", r_id)
+                await db.delete_reminder(r_id)
 
                 user = self.get_user(u_id)
                 if not user:

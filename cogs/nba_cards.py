@@ -9,6 +9,7 @@ import io
 import time
 import random
 import logging
+import asyncio
 from typing import Optional, Union, List, Dict, Any, Tuple
 
 import discord
@@ -55,8 +56,8 @@ class NBADexSelect(discord.ui.Select):
             if not card:
                 return await interaction.followup.send("❌ Card not found in catalog.", ephemeral=True)
             
-            # Generate card graphic
-            card_buf = generate_nba_card_graphic(card, is_mystery=False)
+            # Generate card graphic in worker thread
+            card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, False)
             file = discord.File(fp=card_buf, filename=f"{card['id']}.png")
             
             tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
@@ -116,7 +117,17 @@ class NBADexView(discord.ui.View):
         tier_prio = {"exclusive": 7, "dark_matter": 6, "galaxy_opal": 5, "diamond": 4, "amethyst": 3, "ruby": 2, "gold": 1}
         self.filtered_cards.sort(key=lambda x: (tier_prio.get(x.get("tier", "gold"), 0), x.get("ovr", 0)), reverse=True)
         self.total_pages = max(1, (len(self.filtered_cards) + self.page_size - 1) // self.page_size)
+        self.message: Optional[discord.Message] = None
         self._update_select_menu()
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
 
     def _update_select_menu(self):
         # Remove old select menu if present
@@ -234,7 +245,7 @@ async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: 
         holo_card["is_holo"] = True
 
     try:
-        card_buf = generate_nba_card_graphic(holo_card, is_mystery=False)
+        card_buf = await asyncio.to_thread(generate_nba_card_graphic, holo_card, is_mystery=False)
         card_file = discord.File(fp=card_buf, filename="holo_card.png")
     except Exception as img_err:
         logger.error(f"Error generating holo card graphic: {img_err}", exc_info=True)
@@ -363,7 +374,8 @@ class NBACardsCog(commands.Cog, name="NBA Cards"):
         tier_val = tier.value if tier else None
         user_cards = await db.get_user_nba_cards(target.id)
         view = NBADexView(target, user_cards, tier_filter=tier_val)
-        await interaction.followup.send(embed=view.build_embed(), view=view)
+        msg = await interaction.followup.send(embed=view.build_embed(), view=view)
+        view.message = msg
 
     @app_commands.command(name="nbacard", description="🔍 Inspect a specific NBA 2K card's artwork, stats, and real moment")
     @app_commands.describe(card="Card ID or Player Name to inspect (e.g. 'curry', 'dm-jordan-99')")
@@ -374,7 +386,7 @@ class NBACardsCog(commands.Cog, name="NBA Cards"):
         if not card_obj:
             return await interaction.followup.send(f"❌ Card `{card}` was not found in catalog.", ephemeral=True)
 
-        card_buf = generate_nba_card_graphic(card_obj, is_mystery=False)
+        card_buf = await asyncio.to_thread(generate_nba_card_graphic, card_obj, is_mystery=False)
         file = discord.File(fp=card_buf, filename=f"{card_obj['id']}.png")
         tier_info = NBA_2K_TIERS.get(card_obj.get("tier", "gold"), NBA_2K_TIERS["gold"])
         embed = discord.Embed(
@@ -447,7 +459,8 @@ class NBACardsCog(commands.Cog, name="NBA Cards"):
 
         user_cards = await db.get_user_nba_cards(target_user.id)
         view = NBADexView(target_user, user_cards, tier_filter=tier_filter)
-        await ctx.send(embed=view.build_embed(), view=view)
+        msg = await ctx.send(embed=view.build_embed(), view=view)
+        view.message = msg
 
     @commands.command(name="nbacard", aliases=["card", "cardinfo", "inspectcard"])
     @commands.guild_only()
@@ -457,7 +470,7 @@ class NBACardsCog(commands.Cog, name="NBA Cards"):
         if not card_obj:
             return await ctx.send(f"❌ Card `{query}` was not found in catalog.")
 
-        card_buf = generate_nba_card_graphic(card_obj, is_mystery=False)
+        card_buf = await asyncio.to_thread(generate_nba_card_graphic, card_obj, is_mystery=False)
         file = discord.File(fp=card_buf, filename=f"{card_obj['id']}.png")
         tier_info = NBA_2K_TIERS.get(card_obj.get("tier", "gold"), NBA_2K_TIERS["gold"])
         embed = discord.Embed(

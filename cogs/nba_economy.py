@@ -8,6 +8,7 @@ import io
 import time
 import random
 import logging
+import asyncio
 from typing import Optional, Union, List, Dict, Any, Tuple
 
 import discord
@@ -110,6 +111,17 @@ class NBACardTradeView(discord.ui.View):
         self.vc_b = vc_b
         self.accepted_by = set()
         self.finished = False
+        self.message: Optional[discord.Message] = None
+
+    async def on_timeout(self):
+        if not self.finished:
+            for item in self.children:
+                item.disabled = True
+            if self.message:
+                try:
+                    await self.message.edit(content="⏰ Trade offer expired (no response in 2 minutes).", view=self)
+                except Exception:
+                    pass
 
     @discord.ui.button(label="Accept Trade ✅", style=discord.ButtonStyle.success)
     async def accept_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -167,6 +179,7 @@ class NBAPackOpenView(discord.ui.View):
         self.new_bal = new_bal
         self.is_new = is_new
         self.copies = copies
+        self.message: Optional[discord.Message] = None
 
         pack_data = NBA_PACK_TYPES.get(pack_id, NBA_PACK_TYPES["starter"])
         self.open_another_btn = discord.ui.Button(
@@ -177,6 +190,15 @@ class NBAPackOpenView(discord.ui.View):
         )
         self.open_another_btn.callback = self.open_another
         self.add_item(self.open_another_btn)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user.id:
@@ -217,7 +239,7 @@ class NBAPackOpenView(discord.ui.View):
         embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
         new_view = NBAPackOpenView(interaction.user, self.pack_id, card, new_bal, is_new, copies_now)
         try:
-            card_buf = generate_nba_card_graphic(card, is_mystery=False)
+            card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, is_mystery=False)
             card_file = discord.File(fp=card_buf, filename="nba_card.png")
             await interaction.followup.send(embed=embed, file=card_file, view=new_view)
         except Exception:
@@ -231,6 +253,18 @@ class VCBetChallengeView(discord.ui.View):
         self.opponent = opponent
         self.bet_amount = bet_amount
         self.resolved = False
+        self.message: Optional[discord.Message] = None
+
+    async def on_timeout(self):
+        if not self.resolved:
+            self.resolved = True
+            for item in self.children:
+                item.disabled = True
+            if self.message:
+                try:
+                    await self.message.edit(content="⏰ Wager challenge expired — no response in 90 seconds.", view=self)
+                except Exception:
+                    pass
 
     @discord.ui.button(label="Accept Wager ⚔️", style=discord.ButtonStyle.success)
     async def accept_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -424,7 +458,7 @@ class NBAEconomyCog(commands.Cog, name="NBA Economy"):
         embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
         reveal_view = NBAPackOpenView(interaction.user, pack_id, card, new_bal, is_new, copies_now)
         try:
-            card_buf = generate_nba_card_graphic(card, is_mystery=False)
+            card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, is_mystery=False)
             card_file = discord.File(fp=card_buf, filename="nba_card.png")
             await interaction.followup.send(embed=embed, file=card_file, view=reveal_view)
         except Exception:
@@ -470,7 +504,7 @@ class NBAEconomyCog(commands.Cog, name="NBA Economy"):
         embed = build_openpack_embed(ctx.author, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
         reveal_view = NBAPackOpenView(ctx.author, pack_id, card, new_bal, is_new, copies_now)
         try:
-            card_buf = generate_nba_card_graphic(card, is_mystery=False)
+            card_buf = await asyncio.to_thread(generate_nba_card_graphic, card, is_mystery=False)
             card_file = discord.File(fp=card_buf, filename="nba_card.png")
             await ctx.send(embed=embed, file=card_file, view=reveal_view)
         except Exception:

@@ -165,10 +165,13 @@ class ThreePointShootoutView(discord.ui.View):
         self.current_station_idx = 0
         self.station_results: List[Dict[str, Any]] = []
         self.total_score = 0
+        self.money_made = 0
+        self.starry_made = 0
         self.current_streak = 0
         self.is_complete = False
         self.vc_won = 0
         self.last_commentary = ""
+        self.message: Optional[discord.Message] = None
         self._build_controls()
 
     def _build_controls(self):
@@ -198,6 +201,8 @@ class ThreePointShootoutView(discord.ui.View):
         )
         self.station_results.append({"name": cur_st["name"], "shots": shots, "pts": pts})
         self.total_score += pts
+        self.money_made += money
+        self.starry_made += starry
         self.current_streak = new_streak
         self.last_commentary = commentary
         self.current_station_idx += 1
@@ -206,10 +211,20 @@ class ThreePointShootoutView(discord.ui.View):
             self.is_complete = True
             self.vc_won = int(self.total_score * 15)
             await db.add_user_vc(self.author.id, self.vc_won)
+            await db.save_shootout_score(self.author.id, self.player["name"], self.total_score, self.money_made, self.starry_made)
             self._build_controls()
 
         embed = build_shootout_embed(self.author, self.player, self.station_results, self.current_station_idx, self.total_score, self.is_complete, self.vc_won, self.last_commentary)
         await interaction.edit_original_response(embed=embed, view=self)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
 
 
 # ── Wild Card Embed & View Construction ────────────────────────────────────────
@@ -298,6 +313,17 @@ class NBAChatDropView(discord.ui.View):
         self.drop_id = drop_id
         self.channel_id = channel_id
         self.drop_msg = drop_msg
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        # Clean up the in-memory drop entry
+        _active_nba_drops.pop(self.channel_id, None)
+        if self.drop_msg:
+            try:
+                await self.drop_msg.edit(content="⏰ This wild card drop has expired unclaimed.", view=self)
+            except Exception:
+                pass
 
     @discord.ui.button(label="🏀 Enter Player Name", style=discord.ButtonStyle.success, emoji="🏀", row=0)
     async def guess_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -495,34 +521,38 @@ class NBAMinigamesCog(commands.Cog, name="NBA Minigames"):
     async def shootout_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
         now = time.time()
-        last = _SHOOTOUT_USER_COOLDOWNS.get(interaction.user.id, 0.0)
+        last = await db.get_user_shootout_cooldown(interaction.user.id)
         cooldown = 120.0  # 2 minute cooldown
         if now - last < cooldown:
             rem = int(cooldown - (now - last))
             return await interaction.followup.send(f"⏳ Shootout is on cooldown! Come back in `{rem}s`.", ephemeral=True)
 
+        await db.set_user_shootout_cooldown(interaction.user.id, now)
         _SHOOTOUT_USER_COOLDOWNS[interaction.user.id] = now
         shooter = await get_user_best_3pt_shooter(interaction.user.id)
         view = ThreePointShootoutView(interaction.user, shooter)
         embed = build_shootout_embed(interaction.user, shooter, view.station_results, 0, 0, False)
-        await interaction.followup.send(embed=embed, view=view)
+        msg = await interaction.followup.send(embed=embed, view=view)
+        view.message = msg
 
     @commands.command(name="shootout", aliases=["3pt", "contest", "3point"])
     @commands.guild_only()
     async def shootout_prefix(self, ctx: commands.Context):
         """Play the 3-Point Shootout: !shootout"""
         now = time.time()
-        last = _SHOOTOUT_USER_COOLDOWNS.get(ctx.author.id, 0.0)
+        last = await db.get_user_shootout_cooldown(ctx.author.id)
         cooldown = 120.0
         if now - last < cooldown:
             rem = int(cooldown - (now - last))
             return await ctx.send(f"⏳ Shootout is on cooldown! Come back in `{rem}s`.")
 
+        await db.set_user_shootout_cooldown(ctx.author.id, now)
         _SHOOTOUT_USER_COOLDOWNS[ctx.author.id] = now
         shooter = await get_user_best_3pt_shooter(ctx.author.id)
         view = ThreePointShootoutView(ctx.author, shooter)
         embed = build_shootout_embed(ctx.author, shooter, view.station_results, 0, 0, False)
-        await ctx.send(embed=embed, view=view)
+        msg = await ctx.send(embed=embed, view=view)
+        view.message = msg
 
     # ── Wild Card Spawn & Catch ────────────────────────────────────────────────
 
