@@ -2604,6 +2604,7 @@ def card_to_player_dict(card: Dict[str, Any]) -> Dict[str, Any]:
     ovr = card.get("ovr", 85)
     
     tier_cost_map = {
+        "exclusive": 6,
         "dark_matter": 5,
         "galaxy_opal": 4,
         "diamond": 3,
@@ -2614,6 +2615,7 @@ def card_to_player_dict(card: Dict[str, Any]) -> Dict[str, Any]:
     cost = tier_cost_map.get(tier, 1)
     
     tier_emoji_map = {
+        "exclusive": "👑",
         "dark_matter": "🌌",
         "galaxy_opal": "💎",
         "diamond": "🔷",
@@ -2622,16 +2624,33 @@ def card_to_player_dict(card: Dict[str, Any]) -> Dict[str, Any]:
         "gold": "🟡"
     }
     emoji = tier_emoji_map.get(tier, "🏀")
+    if card.get("is_holo"):
+        emoji = "🌟"
     
     pts_3 = stats.get("3pt", 80)
     defense = stats.get("def", 80)
     playmaking = stats.get("ply", 80)
     inside = stats.get("ins", 80)
+    athleticism = stats.get("ath", 80)
     clutch = stats.get("clu", 80)
     
     arch = card.get("theme", "2K Star")
     if card.get("pos"):
         arch = f"{card.get('pos')} • {card.get('theme', '2K Star')}"
+        
+    favored = ["iso"]
+    blocked = []
+    if pts_3 >= 88:
+        favored.append("three")
+    elif pts_3 <= 70:
+        blocked.append("three")
+        
+    if inside >= 88:
+        favored.append("drive")
+    if defense >= 88:
+        favored.append("defense")
+    if playmaking >= 88:
+        favored.append("pnr")
         
     return {
         "name": card.get("name", "Unknown Player"),
@@ -2644,12 +2663,18 @@ def card_to_player_dict(card: Dict[str, Any]) -> Dict[str, Any]:
         "defense": defense,
         "playmaking": playmaking,
         "inside": inside,
+        "pts_inside": inside,
+        "pts_mid": int((pts_3 + inside) / 2),
+        "athleticism": athleticism,
         "clutch": clutch,
         "tier": tier,
         "ovr": ovr,
+        "pos": card.get("pos", "SF"),
+        "sec_pos": card.get("sec_pos"),
+        "image_url": card.get("image_url"),
         "card_id": card.get("id"),
-        "favored": ["three", "drive", "defense", "iso", "pnr"],
-        "blocked": []
+        "favored": favored,
+        "blocked": blocked
     }
 
 def find_nba_player(pos: str, name: str) -> Optional[Dict[str, Any]]:
@@ -18765,6 +18790,10 @@ NBA_PLAYER_NICKNAMES: Dict[str, str] = {   '(2015)': 'Andre Iguodala (2015)',
     'zion': 'Zion Williamson',
     'zion williamson': 'Zion Williamson'}
 
+# Ensure all canonical cards in NBA_2K_MOBILE_CARDS map directly to their exact card object
+for _c in NBA_2K_MOBILE_CARDS:
+    NBA_CARDS_BY_ID[_c["id"].lower()] = _c
+
 def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
     """Intelligently look up an NBA card by ID, nickname, player name, tier, OVR rating, or Holo Foil edition with 100% database fallback protection."""
     if not identifier:
@@ -18782,11 +18811,16 @@ def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
         clean = clean[:-5]
     base_identifier = clean
 
-    # 1. Direct ID match
+    # 1. Direct Catalog Canonical Match First
     card = None
-    if base_identifier in NBA_CARDS_BY_ID:
+    for _c in NBA_2K_MOBILE_CARDS:
+        if _c["id"].lower() == base_identifier:
+            card = _c
+            break
+    if not card and base_identifier in NBA_CARDS_BY_ID:
         card = NBA_CARDS_BY_ID[base_identifier]
-    else:
+
+    if not card:
         # 2. Extract potential tier filter from query (e.g. "curry exclusive", "jordan dm", "wemby ruby")
         detected_tier = None
         query_without_tier = base_identifier
@@ -18879,10 +18913,19 @@ def get_nba_card(identifier: str) -> Optional[Dict[str, Any]]:
         holo_card["name"] = f"🌟 {card['name']} (Holo Foil)"
         holo_card["ovr"] = min(100, card.get("ovr", 80) + 5)
         holo_card["is_holo"] = True
-        holo_card["quicksell_vc"] = int(card.get("quicksell_vc", 100) * 1.20)
-        for stat in ["pts_inside", "pts_mid", "pts_3", "defense", "playmaking"]:
-            if stat in holo_card:
-                holo_card[stat] = min(99, holo_card[stat] + 5)
+        holo_card["quicksell_vc"] = int(card.get("quicksell_vc", 100) * 1.50)
+        
+        # Boost nested 6-stat dictionary
+        if "stats" in card and isinstance(card["stats"], dict):
+            holo_stats = dict(card["stats"])
+            for sk, sv in holo_stats.items():
+                if isinstance(sv, (int, float)):
+                    holo_stats[sk] = min(99, int(sv) + 5)
+            holo_card["stats"] = holo_stats
+            
+        for stat in ["pts_inside", "pts_mid", "pts_3", "defense", "playmaking", "inside", "3pt", "def", "ply", "ath", "clu"]:
+            if stat in holo_card and isinstance(holo_card[stat], (int, float)):
+                holo_card[stat] = min(99, int(holo_card[stat]) + 5)
         return holo_card
 
     return card
@@ -29317,6 +29360,15 @@ async def shootout_slash_cmd(interaction: discord.Interaction, opponent: Optiona
             return
 
         # Solo Shootout Run
+        now = time.time()
+        last_play = _SHOOTOUT_USER_COOLDOWNS.get(interaction.user.id, 0.0)
+        if now - last_play < 180.0:
+            rem = int(180.0 - (now - last_play))
+            return await interaction.response.send_message(
+                f"⏳ **Shootout Cooldown Active**: Please wait **{rem}s** before playing another solo 3-Point Shootout Contest!",
+                ephemeral=True
+            )
+
         await interaction.response.defer()
         shooter = await get_user_best_3pt_shooter(interaction.user.id)
         view = ThreePointShootoutView(author=interaction.user, player=shooter)
@@ -29587,6 +29639,8 @@ async def nbasell_slash_cmd(interaction: discord.Interaction, card: str):
 
         tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
         sell_price = tier_info["quick_sell"]
+        if card_obj.get("is_holo"):
+            sell_price = int(sell_price * 1.5)
 
         removed = await db.remove_user_nba_card(interaction.user.id, card_obj["id"])
         if not removed:
@@ -32498,6 +32552,15 @@ class ThreePointShootoutView(discord.ui.View):
 
     async def replay_callback(self, interaction: discord.Interaction):
         try:
+            now = time.time()
+            last_play = _SHOOTOUT_USER_COOLDOWNS.get(self.author.id, 0.0)
+            if now - last_play < 180.0:
+                rem = int(180.0 - (now - last_play))
+                return await interaction.response.send_message(
+                    f"⏳ **Shootout Cooldown Active**: Please wait **{rem}s** before playing another solo 3-Point Shootout Contest!",
+                    ephemeral=True
+                )
+
             if not interaction.response.is_done():
                 await interaction.response.defer()
             shooter = await get_user_best_3pt_shooter(self.author.id)
@@ -32650,6 +32713,14 @@ async def shootout_prefix_cmd(ctx: commands.Context, target_or_subcmd: Optional[
             return
 
         # Solo Shootout Run
+        now = time.time()
+        last_play = _SHOOTOUT_USER_COOLDOWNS.get(ctx.author.id, 0.0)
+        if now - last_play < 180.0:
+            rem = int(180.0 - (now - last_play))
+            return await ctx.send(
+                f"⏳ **Shootout Cooldown Active**: Please wait **{rem}s** before playing another solo 3-Point Shootout Contest!"
+            )
+
         shooter = await get_user_best_3pt_shooter(ctx.author.id)
         view = ThreePointShootoutView(author=ctx.author, player=shooter)
         embed = build_shootout_embed(
@@ -33443,6 +33514,8 @@ async def nbasell_prefix_cmd(ctx: commands.Context, *, card_query: str):
 
         tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
         sell_price = tier_info["quick_sell"]
+        if card_obj.get("is_holo"):
+            sell_price = int(sell_price * 1.5)
 
         removed = await db.remove_user_nba_card(ctx.author.id, card_obj["id"])
         if not removed:
