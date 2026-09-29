@@ -21668,11 +21668,12 @@ async def nbafuse_slash_cmd(interaction: discord.Interaction, card: str):
 @bot.tree.command(name="nbagive", description="🎁 Directly gift an NBA 2K card to another server member")
 @app_commands.describe(
     user="The member to gift the card to",
-    card="Card ID or Player Name you want to send from your binder"
+    card="Card ID or Player Name you want to send from your binder",
+    count="Number of copies to gift (default: 1)"
 )
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str):
+async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str, count: int = 1):
     try:
         await interaction.response.defer()
         if user.id == interaction.user.id:
@@ -21691,22 +21692,24 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
             await interaction.followup.send("❌ **Exclusive cards cannot be traded or gifted!** They are non-transferable account-bound trophies.", ephemeral=True)
             return
 
-        success, err_msg, row = await db.gift_user_nba_card(interaction.user.id, user.id, card_obj["id"])
+        count = max(1, count)
+        success, err_msg, data = await db.gift_user_nba_card(interaction.user.id, user.id, card_obj["id"], count=count, legacy_map=NBA_LEGACY_CARD_MAPPINGS)
         if not success:
             await interaction.followup.send(f"❌ {err_msg}", ephemeral=True)
             return
 
         tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
+        count_tag = f" `[x{count}]`" if count > 1 else ""
         embed = discord.Embed(
             title=f"🎁 NBA 2K Mobile Card Gift Delivered!",
             description=(
-                f"🎉 {interaction.user.mention} has gifted a card to {user.mention}!\n\n"
-                f"• **Card:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**\n"
+                f"🎉 {interaction.user.mention} has gifted **{count}x** card{'s' if count != 1 else ''} to {user.mention}!\n\n"
+                f"• **Card:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**{count_tag}\n"
                 f"• **Position:** `{card_obj.get('pos', 'SF')}` | **Team:** `{card_obj.get('team', 'NBA')}`\n"
                 f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
                 f"• **Theme:** *{card_obj.get('theme', 'Signature Series')}*\n"
                 f"• **Card ID:** `{card_obj['id']}`\n\n"
-                f"*The card has been safely transferred to {user.display_name}'s collection binder!*"
+                f"*The card{'s have' if count != 1 else ' has'} been safely transferred to {user.display_name}'s collection binder!*"
             ),
             color=tier_info["color"]
         )
@@ -26056,35 +26059,47 @@ async def nbafuse_prefix_cmd(ctx: commands.Context, *, card: str):
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, card: str):
-    """Directly gift an NBA card to another member: !nbagive @user <card_name_or_id>"""
+    """Directly gift an NBA card to another member: !nbagive @user <card_name_or_id> [count]"""
     try:
         if target.id == ctx.author.id:
             return await ctx.send("❌ You cannot gift cards to yourself!")
         if target.bot:
             return await ctx.send("❌ You cannot gift cards to a bot!")
 
-        card_obj = get_nba_card(card)
+        # Parse quantity if specified at end or start e.g. "dm-jordan-99 3" or "3x dm-jordan-99"
+        count = 1
+        clean_card = card.strip()
+        words = clean_card.split()
+        if len(words) >= 2 and words[-1].isdigit() and not get_nba_card(clean_card):
+            count = max(1, int(words[-1]))
+            clean_card = " ".join(words[:-1])
+        elif len(words) >= 2 and words[0].lower().endswith("x") and words[0][:-1].isdigit():
+            count = max(1, int(words[0][:-1]))
+            clean_card = " ".join(words[1:])
+
+        card_obj = get_nba_card(clean_card)
         if not card_obj:
-            return await ctx.send(f"❌ Card `{card}` was not found in the 2K Mobile catalog.")
+            return await ctx.send(f"❌ Card `{clean_card}` was not found in the 2K Mobile catalog.")
 
         if card_obj.get("tier") == "exclusive" or str(card_obj.get("id", "")).startswith("excl-") or card_obj.get("is_exclusive"):
             return await ctx.send("❌ **Exclusive cards cannot be traded or gifted!** They are non-transferable account-bound trophies.")
 
-        success, err_msg, row = await db.gift_user_nba_card(ctx.author.id, target.id, card_obj["id"])
+        success, err_msg, data = await db.gift_user_nba_card(ctx.author.id, target.id, card_obj["id"], count=count, legacy_map=NBA_LEGACY_CARD_MAPPINGS)
         if not success:
             return await ctx.send(f"❌ {err_msg}")
 
         tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
+        count_tag = f" `[x{count}]`" if count > 1 else ""
         embed = discord.Embed(
             title=f"🎁 NBA 2K Mobile Card Gift Delivered!",
             description=(
-                f"🎉 {ctx.author.mention} has gifted a card to {target.mention}!\n\n"
-                f"• **Card:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**\n"
+                f"🎉 {ctx.author.mention} has gifted **{count}x** card{'s' if count != 1 else ''} to {target.mention}!\n\n"
+                f"• **Card:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**{count_tag}\n"
                 f"• **Position:** `{card_obj.get('pos', 'SF')}` | **Team:** `{card_obj.get('team', 'NBA')}`\n"
                 f"• **Tier:** {tier_info['emoji']} **{tier_info['name']}**\n"
                 f"• **Theme:** *{card_obj.get('theme', 'Signature Series')}*\n"
                 f"• **Card ID:** `{card_obj['id']}`\n\n"
-                f"*The card has been safely transferred to {target.display_name}'s collection binder!*"
+                f"*The card{'s have' if count != 1 else ' has'} been safely transferred to {target.display_name}'s collection binder!*"
             ),
             color=tier_info["color"]
         )
@@ -26107,6 +26122,22 @@ async def nbagive_prefix_cmd(ctx: commands.Context, target: discord.Member, *, c
     except Exception as e:
         logger.error(f"Error in !nbagive: {e}", exc_info=True)
         await ctx.send(f"❌ Error gifting card: {e}")
+
+
+@bot.command(name="nbagrant", aliases=["grantcard", "cardgrant"])
+@commands.guild_only()
+async def nbagrant_prefix_cmd(ctx: commands.Context, target: discord.Member, card: str, count: int = 1):
+    """Grant an NBA card directly to a user's binder (Creator Only): !nbagrant @user <card> [count]"""
+    if not is_creator(ctx.author):
+        return await ctx.send("❌ This command is strictly restricted to the Bot Creator.")
+    card_obj = get_nba_card(card)
+    if not card_obj:
+        return await ctx.send(f"❌ Card `{card}` was not found in catalog.")
+    count = max(1, min(count, 50))
+    for _ in range(count):
+        await db.add_user_nba_card(target.id, card_obj["id"], source="creator_grant")
+    tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
+    await ctx.send(f"👑 Successfully granted **{count}x** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}** (`{card_obj['id']}`) to {target.mention}!")
 
 
 @bot.command(name="nbatrade", aliases=["tradecard", "trade"])

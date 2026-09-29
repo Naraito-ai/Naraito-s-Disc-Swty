@@ -1551,28 +1551,40 @@ class DatabaseManager:
             logger.error(f"Error transferring NBA card in DB: {e}")
             return False
 
-    async def gift_user_nba_card(self, from_user_id: Any, to_user_id: Any, card_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-        """Transfers an NBA card from from_user_id to to_user_id cleanly."""
+    async def gift_user_nba_card(self, from_user_id: Any, to_user_id: Any, card_id: str, count: int = 1, legacy_map: Optional[Dict[str, str]] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """Transfers `count` copies of an NBA card from from_user_id to to_user_id cleanly."""
         u_from = str(from_user_id)
         u_to = str(to_user_id)
-        cid = str(card_id).strip()
+        raw_cid = str(card_id).strip().lower()
+        canonical_cid = (legacy_map.get(raw_cid, raw_cid) if legacy_map else raw_cid).lower()
+        count = max(1, count)
 
-        if cid.lower().startswith("excl-") or cid.lower().startswith("exclusive"):
+        if canonical_cid.startswith("excl-") or canonical_cid.startswith("exclusive"):
             return False, "Exclusive cards cannot be traded or gifted.", None
 
         try:
-            row = await self.fetchrow("SELECT id, card_id, source FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = LOWER(?) LIMIT 1", u_from, cid)
-            if not row:
-                return False, f"You do not own card `{cid}` in your collection binder.", None
-            
-            db_id = row["id"] if isinstance(row, dict) and "id" in row else row[0]
-            # Preserve pack source so legitimate pack-pulled cards survive the abuse purge
-            orig_source = row.get("source", "gift") if isinstance(row, dict) else "gift"
-            new_source = orig_source if (orig_source and orig_source.startswith("pack")) else "gift"
-            await self.execute("UPDATE user_nba_cards SET user_id = ?, source = ? WHERE id = ?", u_to, new_source, db_id)
-            return True, "Card gifted successfully.", dict(row) if isinstance(row, dict) else {"id": db_id, "card_id": cid}
+            # Find all matching owned copies
+            all_rows = await self.fetch(
+                "SELECT id, card_id, source FROM user_nba_cards WHERE user_id = ?",
+                u_from
+            )
+            matching_rows = []
+            for r in all_rows:
+                cid_in_db = str(r.get("card_id", "")).strip().lower()
+                canon_in_db = (legacy_map.get(cid_in_db, cid_in_db) if legacy_map else cid_in_db).lower()
+                if canon_in_db == canonical_cid:
+                    matching_rows.append(r)
+
+            if len(matching_rows) < count:
+                return False, f"You only own **{len(matching_rows)}** cop{'ies' if len(matching_rows) != 1 else 'y'} of `{canonical_cid}`, but tried to gift **{count}**.", None
+
+            selected = matching_rows[:count]
+            row_ids = [r["id"] for r in selected]
+            placeholders = ", ".join(["?"] * len(row_ids))
+            await self.execute(f"UPDATE user_nba_cards SET user_id = ? WHERE id IN ({placeholders})", u_to, *row_ids)
+            return True, f"Successfully gifted {count}x `{canonical_cid}`!", {"count": count, "card_id": canonical_cid}
         except Exception as e:
-            logger.error(f"Error gifting NBA card from {u_from} to {u_to}: {e}")
+            logger.error(f"Error gifting NBA card from {u_from} to {u_to}: {e}", exc_info=True)
             return False, f"Database error during gift transfer: {e}", None
 
     async def execute_multi_card_trade(
