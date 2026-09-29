@@ -7726,6 +7726,63 @@ def get_nba_player_headshot(player_name: str) -> Optional[Image.Image]:
     return None
 
 
+_NBA_MOMENT_PHOTO_CACHE = LRUImageCache(max_size=30)
+
+def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]] = None) -> Optional[Image.Image]:
+    """Fetches and caches high-resolution action photo for a player / card moment."""
+    clean_name = str(player_name or "").strip()
+    if not clean_name:
+        return None
+    cid = card.get("id", "").lower() if card else ""
+    cache_key = f"{clean_name}_{cid}" if cid else clean_name
+    if cache_key in _NBA_MOMENT_PHOTO_CACHE:
+        return _NBA_MOMENT_PHOTO_CACHE[cache_key]
+
+    # 1. Check local assets/moments/{player_name}/ directory
+    folder_name = re.sub(r'[\\/*?:"<>|]', '', clean_name).strip()
+    local_dir = os.path.join(os.path.dirname(__file__), "assets", "moments", folder_name)
+    if os.path.exists(local_dir):
+        for fname in ["1.jpg", "1.png", "2.jpg", "2.png"]:
+            fpath = os.path.join(local_dir, fname)
+            if os.path.exists(fpath):
+                try:
+                    img = Image.open(fpath).convert("RGBA")
+                    _NBA_MOMENT_PHOTO_CACHE[cache_key] = img
+                    return img
+                except Exception:
+                    pass
+
+    # 2. Check card image_url or NBA_PLAYER_MOMENT_ACTION_URLS
+    img_url = None
+    if card and card.get("image_url"):
+        img_url = card["image_url"]
+    
+    if not img_url:
+        action_urls = globals().get("NBA_PLAYER_MOMENT_ACTION_URLS", {})
+        p_norm = unicodedata.normalize('NFKD', clean_name).encode('ascii', 'ignore').decode('utf-8').lower().replace(".", "").replace("'", "").strip()
+        img_url = action_urls.get(p_norm) or action_urls.get(clean_name.lower())
+
+    if img_url:
+        import urllib.request
+        req = urllib.request.Request(img_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        try:
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data = resp.read()
+                img = Image.open(io.BytesIO(data)).convert("RGBA")
+                _NBA_MOMENT_PHOTO_CACHE[cache_key] = img
+                return img
+        except Exception:
+            pass
+
+    # 3. Fallback to headshot
+    headshot = get_nba_player_headshot(clean_name)
+    if headshot:
+        _NBA_MOMENT_PHOTO_CACHE[cache_key] = headshot
+        return headshot
+
+    return None
+
+
 def _draw_star_polygon(draw: ImageDraw.Draw, center: Tuple[int, int], size: int, color: Tuple[int, int, int, int]):
     """Draws a crisp gold star polygon on PIL canvas."""
     cx, cy = center
