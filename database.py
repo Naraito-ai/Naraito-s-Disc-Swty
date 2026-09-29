@@ -35,13 +35,13 @@ class DatabaseManager:
                 logger.info("Initializing PostgreSQL database connection...")
                 self.pg_pool = await asyncpg.create_pool(
                     self.db_url,
-                    min_size=2,
-                    max_size=15,
+                    min_size=0,
+                    max_size=5,
                     statement_cache_size=0,
                     max_inactive_connection_lifetime=60.0,
                     command_timeout=30.0
                 )
-                logger.info("PostgreSQL connection pool created successfully (min=2, max=15).")
+                logger.info("PostgreSQL connection pool created successfully.")
             except ImportError:
                 logger.error("asyncpg is not installed, falling back to SQLite!")
                 self.is_postgres = False
@@ -415,7 +415,6 @@ class DatabaseManager:
                 last_daily_claim REAL DEFAULT 0.0,
                 last_weekly_claim REAL DEFAULT 0.0,
                 last_monthly_claim REAL DEFAULT 0.0,
-                last_shootout REAL DEFAULT 0.0,
                 is_private INTEGER DEFAULT 0
             );
             """,
@@ -510,110 +509,79 @@ class DatabaseManager:
                     await self.execute("ALTER TABLE user_nba_economy ADD COLUMN last_weekly_claim REAL DEFAULT 0.0;")
                 if "last_monthly_claim" not in eco_col_names:
                     await self.execute("ALTER TABLE user_nba_economy ADD COLUMN last_monthly_claim REAL DEFAULT 0.0;")
-                if "last_shootout" not in eco_col_names:
-                    await self.execute("ALTER TABLE user_nba_economy ADD COLUMN last_shootout REAL DEFAULT 0.0;")
             else:
                 await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS is_private INTEGER DEFAULT 0;")
                 await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS last_weekly_claim REAL DEFAULT 0.0;")
                 await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS last_monthly_claim REAL DEFAULT 0.0;")
-                await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS last_shootout REAL DEFAULT 0.0;")
         except Exception as alter_err:
             logger.debug(f"Column check for team_battle_stats/economy: {alter_err}")
             
         logger.info("Database tables verified/created successfully.")
 
     async def execute(self, query: str, *args):
-        """Executes a write query (INSERT, UPDATE, DELETE) with 3x retry resilience."""
-        last_err = None
-        for attempt in range(1, 4):
-            try:
-                if self.is_postgres:
-                    async with self.pg_pool.acquire() as conn:
-                        pg_query = query
-                        if "?" in query:
-                            parts = query.split("?")
-                            pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
-                        return await conn.execute(pg_query, *args)
-                else:
-                    async with self._sqlite_lock:
-                        sqlite_query = query
-                        if re.search(r'\$\d+', sqlite_query):
-                            sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
-                        if "SERIAL PRIMARY KEY" in sqlite_query:
-                            sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-                        await self.sqlite_conn.execute(sqlite_query, args)
-                        await self.sqlite_conn.commit()
-                        return
-            except Exception as e:
-                last_err = e
-                logger.warning(f"Database execute attempt {attempt}/3 failed: {e}. Retrying in {0.15 * attempt}s...")
-                await asyncio.sleep(0.15 * attempt)
-        logger.error(f"Database execute failed after 3 attempts: {last_err}", exc_info=True)
-        raise last_err
+        """Executes a write query (INSERT, UPDATE, DELETE)."""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                # asyncpg uses $1, $2 for placeholders instead of ? (SQLite)
+                pg_query = query
+                if "?" in query:
+                    parts = query.split("?")
+                    pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
+                await conn.execute(pg_query, *args)
+        else:
+            async with self._sqlite_lock:
+                sqlite_query = query
+                if re.search(r'\$\d+', sqlite_query):
+                    sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
+                if "SERIAL PRIMARY KEY" in sqlite_query:
+                    sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                await self.sqlite_conn.execute(sqlite_query, args)
+                await self.sqlite_conn.commit()
 
     async def executemany(self, query: str, args_list: List[tuple]):
-        """Executes a parameterized write query across multiple parameter tuples in a single transaction with 3x retry."""
+        """Executes a parameterized write query across multiple parameter tuples in a single transaction."""
         if not args_list:
             return
-        last_err = None
-        for attempt in range(1, 4):
-            try:
-                if self.is_postgres:
-                    async with self.pg_pool.acquire() as conn:
-                        pg_query = query
-                        if "?" in query:
-                            parts = query.split("?")
-                            pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
-                        return await conn.executemany(pg_query, args_list)
-                else:
-                    async with self._sqlite_lock:
-                        sqlite_query = query
-                        if re.search(r'\$\d+', sqlite_query):
-                            sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
-                        if "SERIAL PRIMARY KEY" in sqlite_query:
-                            sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-                        await self.sqlite_conn.executemany(sqlite_query, args_list)
-                        await self.sqlite_conn.commit()
-                        return
-            except Exception as e:
-                last_err = e
-                logger.warning(f"Database executemany attempt {attempt}/3 failed: {e}. Retrying in {0.15 * attempt}s...")
-                await asyncio.sleep(0.15 * attempt)
-        logger.error(f"Database executemany failed after 3 attempts: {last_err}", exc_info=True)
-        raise last_err
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                pg_query = query
+                if "?" in query:
+                    parts = query.split("?")
+                    pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
+                await conn.executemany(pg_query, args_list)
+        else:
+            async with self._sqlite_lock:
+                sqlite_query = query
+                if re.search(r'\$\d+', sqlite_query):
+                    sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
+                if "SERIAL PRIMARY KEY" in sqlite_query:
+                    sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                await self.sqlite_conn.executemany(sqlite_query, args_list)
+                await self.sqlite_conn.commit()
 
     async def fetch(self, query: str, *args) -> List[Dict[str, Any]]:
-        """Fetches multiple records as a list of dicts with 3x retry resilience."""
-        last_err = None
-        for attempt in range(1, 4):
-            try:
-                if self.is_postgres:
-                    async with self.pg_pool.acquire() as conn:
-                        pg_query = query
-                        if "?" in query:
-                            parts = query.split("?")
-                            pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
-                        records = await conn.fetch(pg_query, *args)
-                        return [dict(r) for r in records]
-                else:
-                    async with self._sqlite_lock:
-                        sqlite_query = query
-                        if re.search(r'\$\d+', sqlite_query):
-                            sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
-                        if "SERIAL PRIMARY KEY" in sqlite_query:
-                            sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-                        async with self.sqlite_conn.execute(sqlite_query, args) as cursor:
-                            rows = await cursor.fetchall()
-                            if cursor.description is None:
-                                return []
-                            columns = [description[0] for description in cursor.description]
-                            return [dict(zip(columns, row)) for row in rows]
-            except Exception as e:
-                last_err = e
-                logger.warning(f"Database fetch attempt {attempt}/3 failed: {e}. Retrying in {0.15 * attempt}s...")
-                await asyncio.sleep(0.15 * attempt)
-        logger.error(f"Database fetch failed after 3 attempts: {last_err}", exc_info=True)
-        raise last_err
+        """Fetches multiple records as a list of dicts."""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                pg_query = query
+                if "?" in query:
+                    parts = query.split("?")
+                    pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
+                records = await conn.fetch(pg_query, *args)
+                return [dict(r) for r in records]
+        else:
+            async with self._sqlite_lock:
+                sqlite_query = query
+                if re.search(r'\$\d+', sqlite_query):
+                    sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
+                if "SERIAL PRIMARY KEY" in sqlite_query:
+                    sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                async with self.sqlite_conn.execute(sqlite_query, args) as cursor:
+                    rows = await cursor.fetchall()
+                    if cursor.description is None:
+                        return []
+                    columns = [description[0] for description in cursor.description]
+                    return [dict(zip(columns, row)) for row in rows]
 
     async def fetchrow(self, query: str, *args) -> Optional[Dict[str, Any]]:
         """Fetches a single record as a dict."""
@@ -856,26 +824,7 @@ class DatabaseManager:
     async def log_audit(self, guild_id: Any, user_id: Any, action: str, details: str = None):
         """Logs a dashboard or moderator action."""
         query = "INSERT INTO audit_logs (guild_id, user_id, action, details) VALUES (?, ?, ?, ?)"
-        await self.execute(query, str(guild_id) if guild_id else None, str(user_id), action, details)
-
-    async def record_moderation_action(self, guild_id: Any, moderator_id: Any, user_id: Any, action: str, reason: str = ""):
-        """Records an official moderation action in audit logs and analytics."""
-        details = f"Target: <@{user_id}> | Action: {action.upper()} | Reason: {reason or 'No reason provided'}"
-        await self.log_audit(guild_id, moderator_id, f"MOD_{action.upper()}", details)
-        if action.lower() in ("ban", "unban"):
-            await self.increment_analytics(guild_id, "bans_count")
-        elif action.lower() in ("timeout", "mute", "untimeout", "unmute"):
-            await self.increment_analytics(guild_id, "mutes_count")
-        elif action.lower() in ("warn", "strike"):
-            await self.increment_analytics(guild_id, "warnings_count")
-
-    async def add_user_strike(self, guild_id: Any, user_id: Any, moderator_id: Any, reason: str = "") -> int:
-        """Adds a warning strike to a user and returns the new total strike count."""
-        await self.add_warning(guild_id, user_id, moderator_id, reason or "No reason provided")
-        rows = await self.fetch("SELECT COUNT(*) as count FROM warnings WHERE guild_id = ? AND user_id = ?", str(guild_id), str(user_id))
-        if rows:
-            return int(rows[0].get("count", 1) if isinstance(rows[0], dict) else rows[0][0])
-        return 1
+        await self.execute(query, str(guild_id), str(user_id), action, details)
 
     # ── Reminders Methods ───────────────────────────────────────────────────
     async def add_reminder(self, reminder_id: str, user_id: Any, guild_id: Any, channel_id: Any, reminder_text: str, remind_at: float, created_at: float, delivery_method: str = "dm") -> bool:
@@ -1073,18 +1022,6 @@ class DatabaseManager:
             query = "INSERT OR REPLACE INTO team_battle_stats (user_id, wins, losses, ties, streak, best_streak, total_duels_won, total_points, daily_wins, last_daily_win_date, achievements, coaching_dna, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
         await self.execute(query, str(user_id), wins, losses, ties, streak, best_streak, total_duels, total_pts, daily_wins, last_daily_win_date, ach_json, dna_json, now)
-
-    async def record_team_battle_result(self, user_id: Any, won: bool, is_ai: bool = False, points_scored: int = 100):
-        """Adapter recording a team battle victory or defeat."""
-        pts = points_scored if won else max(60, points_scored - 20)
-        await self.update_team_battle_record(
-            user_id=user_id,
-            won=won,
-            is_tie=False,
-            duels_won=1 if won else 0,
-            points_scored=pts,
-            is_daily_win=(is_ai and won)
-        )
 
     async def get_nba_rivalry(self, user_a_id: Any, user_b_id: Any) -> Dict[str, Any]:
         """Fetches head-to-head rivalry history and match count between two users."""
@@ -2173,81 +2110,6 @@ class DatabaseManager:
             logger.error(f"Error toggling NBA privacy for {u}: {e}")
             return False
 
-    async def toggle_user_binder_privacy(self, user_id: Any) -> bool:
-        """Alias pointing to toggle_user_nba_privacy."""
-        return await self.toggle_user_nba_privacy(user_id)
-
-    async def set_favorite_nba_card(self, user_id: Any, card_id: str) -> bool:
-        """Sets a card as the user's featured/favorite showcase card in inventory."""
-        u = str(user_id)
-        cid = str(card_id).strip().lower()
-        try:
-            await self.execute("UPDATE user_nba_cards SET is_favorite = FALSE WHERE user_id = ?", u)
-            await self.execute(
-                "UPDATE user_nba_cards SET is_favorite = TRUE WHERE id = (SELECT id FROM user_nba_cards WHERE user_id = ? AND LOWER(card_id) = ? LIMIT 1)",
-                u, cid
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error setting favorite card for {u}: {e}")
-            return False
-
-    async def get_user_reward_timestamp(self, user_id: Any, reward_type: str = "daily") -> float:
-        """Gets the last claim timestamp for daily, weekly, or monthly rewards."""
-        col_map = {
-            "daily": "last_daily_claim",
-            "weekly": "last_weekly_claim",
-            "monthly": "last_monthly_claim"
-        }
-        col = col_map.get(str(reward_type).lower().strip(), "last_daily_claim")
-        try:
-            row = await self.fetchrow(f"SELECT {col} FROM user_nba_economy WHERE user_id = ?", str(user_id))
-            if row and col in row and row[col] is not None:
-                return float(row[col])
-            return 0.0
-        except Exception as e:
-            logger.debug(f"Error getting reward timestamp for {user_id} ({reward_type}): {e}")
-            return 0.0
-
-    async def set_user_reward_timestamp(self, user_id: Any, reward_type: str, timestamp: float) -> bool:
-        """Updates the last claim timestamp for daily, weekly, or monthly rewards."""
-        col_map = {
-            "daily": "last_daily_claim",
-            "weekly": "last_weekly_claim",
-            "monthly": "last_monthly_claim"
-        }
-        col = col_map.get(str(reward_type).lower().strip(), "last_daily_claim")
-        u = str(user_id)
-        ts = float(timestamp)
-        try:
-            query = f"""
-            INSERT INTO user_nba_economy (user_id, vc_balance, {col})
-            VALUES (?, 1000, ?)
-            ON CONFLICT(user_id) DO UPDATE SET {col} = ?
-            """
-            await self.execute(query, u, ts, ts)
-            return True
-        except Exception as e:
-            logger.error(f"Error setting reward timestamp for {u} ({reward_type}): {e}")
-            return False
-
-    async def get_nba_top_collectors(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Fetches the top NBA card collectors ranked by total cards and unique cards."""
-        query = f"""
-        SELECT user_id, COUNT(*) as total_cards, COUNT(DISTINCT LOWER(card_id)) as unique_cards
-        FROM user_nba_cards
-        WHERE user_id != '719932313919684670'
-        GROUP BY user_id
-        ORDER BY total_cards DESC, unique_cards DESC
-        LIMIT {int(limit)}
-        """
-        try:
-            rows = await self.fetch(query)
-            return [dict(r) for r in rows] if rows else []
-        except Exception as e:
-            logger.error(f"Error fetching top collectors: {e}")
-            return []
-
     async def save_shootout_score(self, user_id: Any, player_name: str, score: int, money_made: int = 0, starry_made: int = 0) -> bool:
         """Saves a 3-Point Shootout Contest run score."""
         try:
@@ -2293,36 +2155,6 @@ class DatabaseManager:
             return dict(row) if row else None
         except Exception as e:
             logger.error(f"Error fetching user personal best shootout score: {e}")
-            return None
-
-    async def get_user_shootout_cooldown(self, user_id: Any) -> float:
-        """Fetches the timestamp of the last shootout run for user_id from DB."""
-        try:
-            row = await self.fetchrow("SELECT last_shootout FROM user_nba_economy WHERE user_id = ?", str(user_id))
-            if row and "last_shootout" in row and row["last_shootout"] is not None:
-                return float(row["last_shootout"])
-            row_score = await self.fetchrow("SELECT MAX(created_at) as last_run FROM nba_shootout_scores WHERE user_id = ?", str(user_id))
-            if row_score and row_score["last_run"]:
-                return float(row_score["last_run"])
-            return 0.0
-        except Exception as e:
-            logger.debug(f"Error getting shootout cooldown for {user_id}: {e}")
-            return 0.0
-
-    async def set_user_shootout_cooldown(self, user_id: Any, timestamp: Optional[float] = None) -> bool:
-        """Persists the user's latest shootout timestamp into the database."""
-        ts = float(timestamp if timestamp is not None else time.time())
-        u = str(user_id)
-        try:
-            await self.execute("""
-                INSERT INTO user_nba_economy (user_id, vc_balance, last_shootout)
-                VALUES (?, 1000, ?)
-                ON CONFLICT(user_id) DO UPDATE SET last_shootout = ?
-            """, u, ts, ts)
-            return True
-        except Exception as e:
-            logger.error(f"Error setting shootout cooldown for {u}: {e}")
-            return False
     async def bulk_remove_user_nba_cards(self, user_id: Any, card_row_ids: List[int], vc_to_add: int) -> Tuple[bool, str, int]:
         """Atomically removes a list of card row IDs belonging to user_id and credits VC."""
         u = str(user_id)
@@ -2487,17 +2319,6 @@ class DatabaseManager:
             logger.error(f"Error recording raid damage: {e}", exc_info=True)
             return 0, 0
 
-    async def apply_nba_raid_damage(self, event_id: int, user_id: Any, damage: int) -> Tuple[int, bool]:
-        """Applies damage to an active raid boss, concluding the event if defeated. Returns (new_hp, is_defeated)."""
-        new_hp, total_dmg = await self.record_nba_raid_damage(event_id, user_id, damage)
-        is_defeated = (new_hp <= 0)
-        if is_defeated:
-            try:
-                await self.end_nba_event(event_id)
-            except Exception as e:
-                logger.debug(f"Error ending defeated raid event: {e}")
-        return new_hp, is_defeated
-
     async def get_nba_raid_leaderboard(self, event_id: int, limit: int = 10) -> List[Dict[str, Any]]:
         """Gets top damage dealers for a Raid Boss."""
         query = f"SELECT user_id, damage_dealt, last_attack_at FROM nba_event_raid_damage WHERE event_id = ? ORDER BY damage_dealt DESC LIMIT {int(limit)}"
@@ -2506,7 +2327,7 @@ class DatabaseManager:
 
     async def set_nba_event_channel(self, guild_id: Any, channel_id: Any) -> bool:
         """Stores the designated event channel for a guild."""
-        query = "INSERT INTO guild_config (guild_id, key, value) VALUES (?, 'nba_event_channel', ?) ON CONFLICT(guild_id, key) DO UPDATE SET value = EXCLUDED.value"
+        query = "INSERT INTO guild_configs (guild_id, key, value) VALUES (?, 'nba_event_channel', ?) ON CONFLICT(guild_id, key) DO UPDATE SET value = EXCLUDED.value"
         try:
             await self.execute(query, str(guild_id), str(channel_id))
             return True
@@ -2517,7 +2338,7 @@ class DatabaseManager:
     async def get_nba_event_channel(self, guild_id: Any) -> Optional[int]:
         """Gets designated event channel for a guild."""
         try:
-            row = await self.fetchrow("SELECT value FROM guild_config WHERE guild_id = ? AND key = 'nba_event_channel'", str(guild_id))
+            row = await self.fetchrow("SELECT value FROM guild_configs WHERE guild_id = ? AND key = 'nba_event_channel'", str(guild_id))
             if row and row.get("value") and str(row.get("value")).isdigit():
                 return int(row["value"])
             return None
