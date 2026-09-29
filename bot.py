@@ -25818,22 +25818,6 @@ class GeminiBot(commands.Bot):
         self.add_view(DMAppealLauncherView())
         self.add_view(AppealReviewView())
 
-        # 5. Creator Master Binder Auto-Initialization (99 duplicates of all cards)
-        asyncio.create_task(self.initialize_creator_vault())
-
-    async def initialize_creator_vault(self):
-        """Asynchronously grants 99 copies of all NBA 2K Mobile cards to the creator."""
-        try:
-            creator_id = "719932313919684670"
-            catalog = globals().get("NBA_2K_MOBILE_CARDS", [])
-            if catalog:
-                target_counts = {c["id"]: 99 for c in catalog}
-                added = await db.grant_bulk_nba_cards(creator_id, target_counts)
-                if added > 0:
-                    logger.info(f"👑 [CREATOR VAULT] Successfully granted {added} cards (99 duplicates) to Creator ({creator_id}).")
-        except Exception as vault_err:
-            logger.error(f"Error in initialize_creator_vault: {vault_err}")
-
     @tasks.loop(minutes=5)
     async def check_expired_mutes(self):
         """Automatically removes @Muted role and native timeout after 7 days."""
@@ -34020,6 +34004,41 @@ async def unlockeverything_prefix_cmd(ctx: commands.Context, member: Optional[di
     embed.timestamp = discord.utils.utcnow()
 
     await msg.edit(content=None, embed=embed)
+
+
+@bot.command(name="wipeallmycards", aliases=["removeallfromme", "clearmyinventory", "wipeeverything", "resetmybinder", "purgeallmycards", "wipeme"])
+async def wipeallmycards_prefix_cmd(ctx: commands.Context):
+    """Creator-only command to completely remove all cards, starting 5 lineup, and reset VC from ONLY your own account:
+    • !wipeallmycards
+    • !removeallfromme
+    • !clearmyinventory
+    """
+    try:
+        is_creator = str(ctx.author.id) == "719932313919684670"
+        if not is_creator:
+            return await ctx.send("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).")
+
+        res = await db.wipe_user_nba_data(ctx.author.id)
+        cards_deleted = res.get("cards_deleted", 0)
+
+        embed = discord.Embed(
+            title="🗑️ [ CREATOR SELF PURGE ] • EVERYTHING REMOVED FROM YOUR ACCOUNT",
+            description=(
+                f"✅ Successfully wiped and reset all cards and data from **only your account** ({ctx.author.mention})!\n\n"
+                f"• 🎴 **Cards Purged from Your Binder:** `{cards_deleted:,}` cards\n"
+                f"• 🏀 **Starting 5 Lineup:** *Cleared & Reset*\n"
+                f"• 💰 **VC Balance Reset:** `💰 1,000 VC` (Standard Starting Balance)\n"
+                f"• 🛡️ **Other Users:** *Completely Untouched & Safe*\n\n"
+                f"💡 *Want everything back later? Run `!unlockeverything` or `!godmode` anytime!*"
+            ),
+            color=discord.Color.dark_grey()
+        )
+        embed.set_footer(text="NBA 2K Creator Self-Wipe Protocol")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !wipeallmycards: {e}", exc_info=True)
+        await ctx.send(f"❌ Error wiping your cards: {e}")
 
 
 @bot.command(name="nbagrant", aliases=["grantcard", "exclgrant", "grantexclusive", "grant"])

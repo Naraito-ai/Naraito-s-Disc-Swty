@@ -1740,6 +1740,33 @@ class DatabaseManager:
             logger.error(f"[DB] Error in strip_exclusive_cards: {e}", exc_info=True)
             return 0, 0
 
+    async def wipe_user_nba_data(self, user_id: Any) -> Dict[str, Any]:
+        """Completely purges all NBA cards, dream team lineup, and resets economy for a specific user."""
+        u = str(user_id)
+        result = {"cards_deleted": 0, "dream_team_deleted": False, "vc_reset": 1000}
+        try:
+            # 1. Count & delete all cards
+            cnt_row = await self.fetchrow("SELECT COUNT(*) as cnt FROM user_nba_cards WHERE user_id = ?", u)
+            total_cards = int(cnt_row["cnt"]) if cnt_row and "cnt" in cnt_row else 0
+            if total_cards > 0:
+                await self.execute("DELETE FROM user_nba_cards WHERE user_id = ?", u)
+            result["cards_deleted"] = total_cards
+
+            # 2. Delete dream team starting 5
+            await self.execute("DELETE FROM dream_teams WHERE user_id = ?", u)
+            result["dream_team_deleted"] = True
+
+            # 3. Reset VC & stats in user_nba_economy
+            await self.execute(
+                "UPDATE user_nba_economy SET vc_balance = 1000, cards_claimed = 0 WHERE user_id = ?",
+                u
+            )
+            logger.info(f"[DB] wipe_user_nba_data successfully wiped {total_cards} cards and reset economy for user {u}.")
+            return result
+        except Exception as e:
+            logger.error(f"[DB] Error in wipe_user_nba_data for user {u}: {e}", exc_info=True)
+            return result
+
     async def fuse_nba_cards(self, user_id: Any, card_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """Combines 3 duplicate copies of a card to forge a Holo / Foil Edition (+5 OVR, +20% quicksell)."""
         u = str(user_id)
