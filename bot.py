@@ -116,19 +116,14 @@ logger = logging.getLogger("GeminiBot")
 # ── Keep-alive background self-pinger for 24/7 cloud uptime (Render / Railway) ────────
 async def start_self_pinger():
     """Pings both the internal health port and external URL so cloud hosting never sleeps."""
-    await asyncio.sleep(15)
+    await asyncio.sleep(10)
     port = int(os.getenv("PORT", 8080))
     local_url = f"http://127.0.0.1:{port}/health"
     
-    ext_url = os.getenv("RENDER_EXTERNAL_URL")
-    if not ext_url and os.getenv("RENDER_SERVICE_NAME"):
-        ext_url = f"https://{os.getenv('RENDER_SERVICE_NAME')}.onrender.com"
+    ext_url = os.getenv("RENDER_EXTERNAL_URL") or "https://discord-bot-cloud.onrender.com/health"
+    logger.info(f"🌐 Cloud 24/7 Self-Pinger active for external URL: {ext_url}")
 
-    if ext_url:
-        logger.info(f"🌐 Cloud 24/7 Self-Pinger active for external URL: {ext_url}")
-    else:
-        logger.info(f"ℹ️ Set RENDER_EXTERNAL_URL in environment to enable external 24/7 keep-alive pings.")
-
+    ping_count = 0
     while True:
         # 1. Local event-loop & FastAPI health ping
         try:
@@ -138,16 +133,25 @@ async def start_self_pinger():
         except Exception:
             pass
 
-        # 2. External Cloud keep-alive ping (keeps free containers from idling)
+        # 2. External Cloud keep-alive ping (keeps free Render containers permanently warm)
         if ext_url:
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(ext_url, headers={"User-Agent": "RenderKeepAlive/2.0"}, timeout=15) as resp:
+                    async with session.get(ext_url, headers={"User-Agent": "RenderKeepAlive/3.0"}, timeout=15) as resp:
                         pass
+            except Exception as ping_err:
+                logger.debug(f"Keep-alive ping notice: {ping_err}")
+
+        ping_count += 1
+        # Free memory periodically every 5 pings (5 minutes) to prevent 512MB RAM exhaustion
+        if ping_count % 5 == 0:
+            try:
+                import gc
+                gc.collect()
             except Exception:
                 pass
 
-        await asyncio.sleep(120)
+        await asyncio.sleep(60)
 
 # ───────────────────────────────────────────────────────────────────────────
 
