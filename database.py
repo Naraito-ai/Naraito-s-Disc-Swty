@@ -435,6 +435,54 @@ class DatabaseManager:
             """,
             """
             CREATE INDEX IF NOT EXISTS idx_nba_shootout_scores_score ON nba_shootout_scores(score DESC);
+            """,
+            # NBA Events System Table
+            """
+            CREATE TABLE IF NOT EXISTS nba_events (
+                id SERIAL PRIMARY KEY,
+                guild_id TEXT,
+                name TEXT NOT NULL,
+                description TEXT,
+                event_type TEXT DEFAULT 'custom',
+                target_tier TEXT,
+                prize_card_id TEXT NOT NULL,
+                prize_card_name TEXT,
+                channel_id TEXT,
+                creator_id TEXT DEFAULT '719932313919684670',
+                created_at REAL NOT NULL,
+                ends_at REAL NOT NULL,
+                status TEXT DEFAULT 'active',
+                rules TEXT,
+                boss_name TEXT,
+                boss_hp INTEGER DEFAULT 0,
+                boss_max_hp INTEGER DEFAULT 0,
+                metadata TEXT DEFAULT '{}'
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_nba_events_status ON nba_events(status, guild_id);
+            """,
+            # NBA Event Winners Table
+            """
+            CREATE TABLE IF NOT EXISTS nba_event_winners (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                card_id TEXT NOT NULL,
+                card_name TEXT,
+                rewarded_at REAL NOT NULL,
+                rewarded_by TEXT DEFAULT '719932313919684670'
+            );
+            """,
+            # NBA Event Raid Boss Damage Tracking Table
+            """
+            CREATE TABLE IF NOT EXISTS nba_event_raid_damage (
+                event_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                damage_dealt INTEGER DEFAULT 0,
+                last_attack_at REAL NOT NULL,
+                PRIMARY KEY (event_id, user_id)
+            );
             """
         ]
         
@@ -2001,6 +2049,190 @@ class DatabaseManager:
             return dict(row) if row else None
         except Exception as e:
             logger.error(f"Error fetching user personal best shootout score: {e}")
+    async def bulk_remove_user_nba_cards(self, user_id: Any, card_row_ids: List[int], vc_to_add: int) -> Tuple[bool, str, int]:
+        """Atomically removes a list of card row IDs belonging to user_id and credits VC."""
+        u = str(user_id)
+        if not card_row_ids:
+            return False, "No cards specified for deletion.", await self.get_user_vc(u)
+
+        try:
+            placeholders = ", ".join(["?"] * len(card_row_ids))
+            # Verify all specified card row IDs currently belong to this user
+            check_query = f"SELECT id FROM user_nba_cards WHERE user_id = ? AND id IN ({placeholders})"
+            owned_rows = await self.fetch(check_query, u, *card_row_ids)
+            owned_ids = {r["id"] if isinstance(r, dict) and "id" in r else r[0] for r in owned_rows}
+
+            if len(owned_ids) != len(card_row_ids):
+                return False, f"Ownership verification failed: You own {len(owned_ids)} of the {len(card_row_ids)} selected cards.", await self.get_user_vc(u)
+
+            # Atomically delete cards and credit VC
+            del_query = f"DELETE FROM user_nba_cards WHERE user_id = ? AND id IN ({placeholders})"
+            await self.execute(del_query, u, *card_row_ids)
+
+            new_bal = await self.add_user_vc(u, vc_to_add)
+            logger.info(f"[DB] bulk_remove_user_nba_cards: User {u} sold {len(card_row_ids)} cards for {vc_to_add} VC. New bal: {new_bal}")
+            return True, "Cards sold successfully.", new_bal
+        except Exception as e:
+            logger.error(f"[DB] Error in bulk_remove_user_nba_cards: {e}", exc_info=True)
+            return False, f"Database error: {e}", await self.get_user_vc(u)
+
+    async def create_nba_event(
+        self,
+        guild_id: Any,
+        name: str,
+        description: str,
+        event_type: str = "custom",
+        prize_card_id: str = "",
+        prize_card_name: str = "",
+        channel_id: Optional[Any] = None,
+        duration_hours: float = 48.0,
+        rules: str = "",
+        boss_name: str = "",
+        boss_hp: int = 0
+    ) -> Optional[int]:
+        """Creates an active NBA Event and stores it permanently in database."""
+        now = time.time()
+        ends_at = now + (duration_hours * 3600.0)
+        query = """
+        INSERT INTO nba_events (
+            guild_id, name, description, event_type, prize_card_id,
+            prize_card_name, channel_id, creator_id, created_at,
+            ends_at, status, rules, boss_name, boss_hp, boss_max_hp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, '719932313919684670', ?, ?, 'active', ?, ?, ?, ?)
+        """
+        try:
+            await self.execute(
+                query,
+                str(guild_id), name, description, event_type, prize_card_id,
+                prize_card_name, str(channel_id or ""), now, ends_at,
+                rules, boss_name, boss_hp, boss_hp
+            )
+            row = await self.fetchrow("SELECT id FROM nba_events WHERE guild_id = ? AND created_at = ? ORDER BY id DESC LIMIT 1", str(guild_id), now)
+            return int(row["id"]) if row and "id" in row else None
+        except Exception as e:
+            logger.error(f"Error creating NBA event in DB: {e}", exc_info=True)
+            return None
+
+    async def get_active_nba_event(self, guild_id: Optional[Any] = None) -> Optional[Dict[str, Any]]:
+        """Gets current active event for a server or globally."""
+        if guild_id:
+            query = "SELECT * FROM nba_events WHERE guild_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+            row = await self.fetchrow(query, str(guild_id))
+        else:
+            query = "SELECT * FROM nba_events WHERE status = 'active' ORDER BY created_at DESC LIMIT 1"
+            row = await self.fetchrow(query)
+        return dict(row) if row else None
+
+    async def get_nba_event_by_id(self, event_id: int) -> Optional[Dict[str, Any]]:
+        """Gets event details by ID."""
+        row = await self.fetchrow("SELECT * FROM nba_events WHERE id = ?", int(event_id))
+        return dict(row) if row else None
+
+    async def get_all_nba_events(self, guild_id: Optional[Any] = None, limit: int = 15) -> List[Dict[str, Any]]:
+        """Gets history of all events."""
+        if guild_id:
+            query = f"SELECT * FROM nba_events WHERE guild_id = ? ORDER BY created_at DESC LIMIT {int(limit)}"
+            rows = await self.fetch(query, str(guild_id))
+        else:
+            query = f"SELECT * FROM nba_events ORDER BY created_at DESC LIMIT {int(limit)}"
+            rows = await self.fetch(query)
+        return [dict(r) for r in rows] if rows else []
+
+    async def end_nba_event(self, event_id: int) -> bool:
+        """Marks an active event as ended."""
+        try:
+            await self.execute("UPDATE nba_events SET status = 'ended' WHERE id = ?", int(event_id))
+            return True
+        except Exception as e:
+            logger.error(f"Error ending event {event_id}: {e}")
+            return False
+
+    async def cancel_nba_event(self, event_id: int) -> bool:
+        """Cancels an active event."""
+        try:
+            await self.execute("UPDATE nba_events SET status = 'cancelled' WHERE id = ?", int(event_id))
+            return True
+        except Exception as e:
+            logger.error(f"Error cancelling event {event_id}: {e}")
+            return False
+
+    async def reward_nba_event_winner(self, event_id: int, user_id: Any, card_id: str, card_name: str, rewarded_by: str = "719932313919684670") -> bool:
+        """Records a winner and awards the real Exclusive card to their inventory."""
+        u = str(user_id)
+        now = time.time()
+        try:
+            # 1. Record winner in winners table
+            await self.execute(
+                "INSERT INTO nba_event_winners (event_id, user_id, card_id, card_name, rewarded_at, rewarded_by) VALUES (?, ?, ?, ?, ?, ?)",
+                int(event_id), u, card_id, card_name, now, rewarded_by
+            )
+            # 2. Add real card to inventory with source 'event_reward'
+            await self.add_user_nba_card(u, card_id, source="event_reward")
+            logger.info(f"👑 [EVENT REWARD] User {u} rewarded with card {card_id} for event {event_id}.")
+            return True
+        except Exception as e:
+            logger.error(f"Error rewarding event winner: {e}", exc_info=True)
+            return False
+
+    async def get_nba_event_winners(self, event_id: int) -> List[Dict[str, Any]]:
+        """Gets list of winners for a specific event."""
+        rows = await self.fetch("SELECT * FROM nba_event_winners WHERE event_id = ? ORDER BY rewarded_at ASC", int(event_id))
+        return [dict(r) for r in rows] if rows else []
+
+    async def record_nba_raid_damage(self, event_id: int, user_id: Any, damage: int) -> Tuple[int, int]:
+        """Records damage against a Raid Boss, updates remaining Boss HP, and returns (new_boss_hp, user_total_damage)."""
+        u = str(user_id)
+        now = time.time()
+        dmg = max(1, int(damage))
+        try:
+            # Update boss HP
+            event = await self.get_nba_event_by_id(event_id)
+            if not event or event.get("status") != "active":
+                return 0, 0
+            cur_hp = int(event.get("boss_hp", 0))
+            new_hp = max(0, cur_hp - dmg)
+            await self.execute("UPDATE nba_events SET boss_hp = ? WHERE id = ?", new_hp, int(event_id))
+
+            # Record damage
+            query = """
+            INSERT INTO nba_event_raid_damage (event_id, user_id, damage_dealt, last_attack_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(event_id, user_id) DO UPDATE SET damage_dealt = nba_event_raid_damage.damage_dealt + ?, last_attack_at = ?
+            """
+            await self.execute(query, int(event_id), u, dmg, now, dmg, now)
+
+            user_row = await self.fetchrow("SELECT damage_dealt FROM nba_event_raid_damage WHERE event_id = ? AND user_id = ?", int(event_id), u)
+            total_dmg = int(user_row["damage_dealt"]) if user_row and "damage_dealt" in user_row else dmg
+            return new_hp, total_dmg
+        except Exception as e:
+            logger.error(f"Error recording raid damage: {e}", exc_info=True)
+            return 0, 0
+
+    async def get_nba_raid_leaderboard(self, event_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+        """Gets top damage dealers for a Raid Boss."""
+        query = f"SELECT user_id, damage_dealt, last_attack_at FROM nba_event_raid_damage WHERE event_id = ? ORDER BY damage_dealt DESC LIMIT {int(limit)}"
+        rows = await self.fetch(query, int(event_id))
+        return [dict(r) for r in rows] if rows else []
+
+    async def set_nba_event_channel(self, guild_id: Any, channel_id: Any) -> bool:
+        """Stores the designated event channel for a guild."""
+        query = "INSERT INTO guild_configs (guild_id, key, value) VALUES (?, 'nba_event_channel', ?) ON CONFLICT(guild_id, key) DO UPDATE SET value = EXCLUDED.value"
+        try:
+            await self.execute(query, str(guild_id), str(channel_id))
+            return True
+        except Exception as e:
+            logger.error(f"Error setting event channel: {e}")
+            return False
+
+    async def get_nba_event_channel(self, guild_id: Any) -> Optional[int]:
+        """Gets designated event channel for a guild."""
+        try:
+            row = await self.fetchrow("SELECT value FROM guild_configs WHERE guild_id = ? AND key = 'nba_event_channel'", str(guild_id))
+            if row and row.get("value") and str(row.get("value")).isdigit():
+                return int(row["value"])
+            return None
+        except Exception as e:
+            logger.error(f"Error getting event channel: {e}")
             return None
 
     async def close(self):

@@ -23655,6 +23655,421 @@ class NBACardInspectView(discord.ui.View):
             await self.parent_dex_view.refresh_message(interaction)
 
 
+CREATOR_ID_INT = 719932313919684670
+
+def is_event_creator(user: Union[discord.User, discord.Member, int, str]) -> bool:
+    """Checks if the user is the bot creator (719932313919684670)."""
+    try:
+        uid = user.id if hasattr(user, "id") else int(str(user))
+        return uid == CREATOR_ID_INT
+    except Exception:
+        return False
+
+
+TIER_ALIASES_MAP: Dict[str, str] = {
+    "gold": "gold", "emerald": "gold", "yellow": "gold",
+    "ruby": "ruby", "sapphire": "ruby", "red": "ruby", "blue": "ruby",
+    "amethyst": "amethyst", "purple": "amethyst", "amy": "amethyst",
+    "diamond": "diamond", "pink_diamond": "diamond", "pink diamond": "diamond", "pd": "diamond",
+    "galaxy_opal": "galaxy_opal", "galaxy opal": "galaxy_opal", "opal": "galaxy_opal", "go": "galaxy_opal",
+    "dark_matter": "dark_matter", "dark matter": "dark_matter", "dm": "dark_matter", "goat": "dark_matter", "g.o.a.t.": "dark_matter",
+    "exclusive": "exclusive", "excl": "exclusive", "immortal": "exclusive"
+}
+
+
+class NBASellBulkConfirmView(discord.ui.View):
+    """Interactive confirmation dialog for NBA card bulk sales with atomic execution & itemized receipt."""
+    def __init__(
+        self,
+        author: Union[discord.User, discord.Member],
+        card_row_ids: List[int],
+        breakdown: List[Dict[str, Any]],
+        total_vc: int,
+        total_cards: int,
+        is_interaction: bool = True
+    ):
+        super().__init__(timeout=60.0)
+        self.author = author
+        self.card_row_ids = card_row_ids
+        self.breakdown = breakdown
+        self.total_vc = total_vc
+        self.total_cards = total_cards
+        self.is_interaction = is_interaction
+        self.message: Optional[Union[discord.Message, discord.WebhookMessage]] = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message("❌ This confirmation is only for the player selling these cards.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Confirm Sell", style=discord.ButtonStyle.success, emoji="✅", row=0)
+    async def confirm_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            for child in self.children:
+                child.disabled = True
+
+            success, msg, new_bal = await db.bulk_remove_user_nba_cards(self.author.id, self.card_row_ids, self.total_vc)
+            if not success:
+                await interaction.response.edit_message(content=f"❌ **Bulk Sell Failed:** {msg}", embed=None, view=None)
+                self.stop()
+                return
+
+            receipt_embed = discord.Embed(
+                title="🧾 NBA Card Sale Receipt",
+                description=(
+                    f"✅ **Bulk Sale Completed!**\n"
+                    f"Successfully sold **{self.total_cards:,}** card{'s' if self.total_cards != 1 else ''} for **💰 {self.total_vc:,} VC**!\n\n"
+                    f"💰 **New VC Balance:** `💰 {new_bal:,} VC`"
+                ),
+                color=discord.Color.green()
+            )
+            receipt_embed.set_author(
+                name=f"{self.author.display_name}'s Sale Receipt",
+                icon_url=self.author.display_avatar.url if hasattr(self.author, 'display_avatar') else None
+            )
+
+            lines = []
+            for item in self.breakdown[:12]:
+                lines.append(f"• **{item['qty']}x** {item['emoji']} `[{item['ovr']} OVR]` **{item['name']}** — `💰 {item['subtotal']:,} VC` (`{item['unit_price']:,}` ea)")
+
+            if len(self.breakdown) > 12:
+                extra_cards = sum(item['qty'] for item in self.breakdown[12:])
+                extra_types = len(self.breakdown) - 12
+                extra_vc = sum(item['subtotal'] for item in self.breakdown[12:])
+                lines.append(f"• *... and {extra_cards:,} more card{'s' if extra_cards != 1 else ''} across {extra_types} other card types (`💰 {extra_vc:,} VC`)*")
+
+            receipt_embed.add_field(name="📋 Cards Sold", value="\n".join(lines) if lines else "No items", inline=False)
+            receipt_embed.set_footer(text=f"Atomic DB Transaction ID: #{int(time.time())} • Sweety NBA Economy")
+            receipt_embed.timestamp = discord.utils.utcnow()
+
+            await interaction.response.edit_message(embed=receipt_embed, view=None)
+            self.stop()
+        except Exception as e:
+            logger.error(f"Error in NBASellBulkConfirmView.confirm_btn: {e}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error during bulk sell: {e}", ephemeral=True)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="❌", row=0)
+    async def cancel_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(content="❌ **Bulk sell cancelled.** No cards were sold and your collection was not modified.", embed=None, view=None)
+        self.stop()
+
+    async def on_timeout(self):
+        try:
+            for child in self.children:
+                child.disabled = True
+            if self.message:
+                await self.message.edit(view=self)
+        except Exception:
+            pass
+
+
+async def handle_nbasell(
+    user: Union[discord.User, discord.Member],
+    send_response: Callable,
+    card_query: Optional[str] = None,
+    quantity: Optional[Union[str, int]] = None,
+    tier_filter: Optional[str] = None,
+    all_dupes: bool = False,
+    is_interaction: bool = False
+):
+    """Processes NBA card sell requests across all bulk modes with strict card protections and atomic confirmation."""
+    try:
+        user_cards = await db.get_user_nba_cards(user.id)
+        if not user_cards:
+            await send_response("❌ You do not own any NBA cards in your binder yet! Rip packs using `/openpack` or claim daily cards.")
+            return
+
+        # Check if card_query is parsing shorthand for dupes or tier
+        if card_query:
+            cq_clean = str(card_query).strip()
+            cq_lower = cq_clean.lower()
+            if cq_lower in ["dupes all", "all dupes", "dupes", "all_dupes", "duplicates all", "all duplicates", "duplicates", "all"]:
+                all_dupes = True
+                card_query = None
+            else:
+                words = cq_lower.split()
+                if len(words) == 2 and "all" in words:
+                    cand = words[0] if words[1] == "all" else words[1]
+                    if cand in TIER_ALIASES_MAP:
+                        tier_filter = TIER_ALIASES_MAP[cand]
+                        card_query = None
+                elif len(words) >= 2 and words[-1] == "all" and " ".join(words[:-1]) in TIER_ALIASES_MAP:
+                    tier_filter = TIER_ALIASES_MAP[" ".join(words[:-1])]
+                    card_query = None
+                elif len(words) >= 2 and words[0] == "all" and " ".join(words[1:]) in TIER_ALIASES_MAP:
+                    tier_filter = TIER_ALIASES_MAP[" ".join(words[1:])]
+                    card_query = None
+                elif len(words) >= 2 and words[-1] in ["dupes", "dupe", "duplicates", "duplicate"]:
+                    card_query = cq_clean.rsplit(" ", 1)[0].strip()
+                    quantity = "dupes"
+                elif len(words) >= 2 and words[-1].isdigit():
+                    # check if full query matches a real card first
+                    if not get_nba_card(cq_clean):
+                        card_query = cq_clean.rsplit(" ", 1)[0].strip()
+                        quantity = int(words[-1])
+
+        # MODE 1: All duplicates across entire collection
+        if all_dupes:
+            grouped = {}
+            for c in user_cards:
+                grouped.setdefault(c["card_id"].lower(), []).append(c)
+
+            selected_row_ids = []
+            breakdown_dict = {}
+
+            for cid, copies in grouped.items():
+                if len(copies) <= 1:
+                    continue
+                sample_card = get_nba_card(copies[0]["card_id"])
+                # Protection: Holo Foil cards cannot be sold in bulk
+                if bool(sample_card and (sample_card.get("is_holo") or str(cid).startswith("holo_"))):
+                    continue
+                
+                # Keep 1 copy!
+                to_sell_copies = copies[1:]
+                tier = (sample_card.get("tier") if sample_card else "gold") or "gold"
+                tier_info = NBA_2K_TIERS.get(tier, NBA_2K_TIERS["gold"])
+                unit_price = tier_info.get("quick_sell", 100)
+                card_name = sample_card.get("name", cid.replace("-", " ").title()) if sample_card else cid
+                ovr = sample_card.get("ovr", 80) if sample_card else 80
+                emoji = tier_info.get("emoji", "🟡")
+
+                for row in to_sell_copies:
+                    selected_row_ids.append(row["id"])
+
+                qty = len(to_sell_copies)
+                subtotal = qty * unit_price
+                breakdown_dict[cid] = {
+                    "name": card_name,
+                    "tier": tier,
+                    "ovr": ovr,
+                    "emoji": emoji,
+                    "qty": qty,
+                    "unit_price": unit_price,
+                    "subtotal": subtotal
+                }
+
+            if not selected_row_ids:
+                await send_response("❌ You do not have any duplicate cards eligible for bulk selling in your collection.\n*(Holo Foil cards and single 1x copies are protected)*")
+                return
+
+            breakdown = sorted(breakdown_dict.values(), key=lambda x: x["subtotal"], reverse=True)
+            mode_desc = "all duplicate copies in your collection (keeping 1 copy of each)"
+
+        # MODE 2: Specific Tier selling
+        elif tier_filter:
+            target_tier = TIER_ALIASES_MAP.get(str(tier_filter).lower().strip(), str(tier_filter).lower().strip())
+            tier_info = NBA_2K_TIERS.get(target_tier, NBA_2K_TIERS.get("gold"))
+
+            grouped = {}
+            for c in user_cards:
+                sample_card = get_nba_card(c["card_id"])
+                if not sample_card:
+                    continue
+                c_tier = sample_card.get("tier", "").lower()
+                if c_tier != target_tier:
+                    continue
+                # Protection: Holo Foil cards cannot be sold in bulk
+                if sample_card.get("is_holo") or str(c["card_id"]).lower().startswith("holo_"):
+                    continue
+                grouped.setdefault(c["card_id"].lower(), []).append((c, sample_card))
+
+            selected_row_ids = []
+            breakdown_dict = {}
+
+            for cid, items in grouped.items():
+                sample_card = items[0][1]
+                # Protection: Cannot sell last copy of Exclusive card
+                if target_tier == "exclusive" or sample_card.get("is_exclusive") or str(cid).startswith("excl-"):
+                    if len(items) <= 1:
+                        continue
+                    to_sell_items = items[1:]
+                else:
+                    to_sell_items = items
+
+                unit_price = tier_info.get("quick_sell", 100)
+                card_name = sample_card.get("name", cid)
+                ovr = sample_card.get("ovr", 80)
+                emoji = tier_info.get("emoji", "🟡")
+
+                for row, _ in to_sell_items:
+                    selected_row_ids.append(row["id"])
+
+                qty = len(to_sell_items)
+                subtotal = qty * unit_price
+                breakdown_dict[cid] = {
+                    "name": card_name,
+                    "tier": target_tier,
+                    "ovr": ovr,
+                    "emoji": emoji,
+                    "qty": qty,
+                    "unit_price": unit_price,
+                    "subtotal": subtotal
+                }
+
+            if not selected_row_ids:
+                await send_response(f"❌ You have no eligible **{tier_info['name']}** cards to sell.\n*(Holo Foil cards and single 1x Exclusive cards are protected)*")
+                return
+
+            breakdown = sorted(breakdown_dict.values(), key=lambda x: x["subtotal"], reverse=True)
+            mode_desc = f"all eligible {tier_info['emoji']} **{tier_info['name']}** cards"
+
+        # MODE 3: Specific Card (with quantity or dupes)
+        elif card_query:
+            card_obj = get_nba_card(card_query)
+            if not card_obj:
+                await send_response(f"❌ Card `{card_query}` not found in catalog.")
+                return
+
+            cid = card_obj["id"].lower()
+            matching = [c for c in user_cards if c["card_id"].lower() == cid]
+            owned_count = len(matching)
+
+            if owned_count == 0:
+                await send_response(f"❌ You do not own any copies of **{card_obj['name']}** (`{card_obj['id']}`).")
+                return
+
+            is_holo = bool(card_obj.get("is_holo") or str(card_obj["id"]).lower().startswith("holo_"))
+            is_exclusive = bool(card_obj.get("tier") == "exclusive" or str(card_obj["id"]).lower().startswith("excl-") or card_obj.get("is_exclusive"))
+
+            # Check quantity
+            qty_str = str(quantity).strip().lower() if quantity is not None else ""
+            if qty_str in ["dupes", "dupe", "duplicates", "duplicate"]:
+                if is_holo:
+                    await send_response(f"❌ **{card_obj['name']}** is a Holo Foil card! Holo Foil cards are protected from bulk selling.")
+                    return
+                if owned_count <= 1:
+                    await send_response(f"❌ You do not have duplicate copies of **{card_obj['name']}** to sell (you own {owned_count} copy).")
+                    return
+                to_sell_copies = matching[1:]
+            elif qty_str == "all":
+                if is_exclusive:
+                    if owned_count <= 1:
+                        await send_response(f"❌ You cannot sell your last copy of Exclusive card **{card_obj['name']}**! Exclusive cards are protected.")
+                        return
+                    to_sell_copies = matching[1:]
+                elif is_holo and owned_count > 1:
+                    await send_response("❌ Holo Foil cards are protected from bulk selling.")
+                    return
+                else:
+                    to_sell_copies = matching
+            elif qty_str.isdigit() or isinstance(quantity, int):
+                req_qty = int(quantity)
+                if req_qty <= 0:
+                    await send_response("❌ Sell quantity must be at least 1.")
+                    return
+                if req_qty > owned_count:
+                    await send_response(f"❌ You only own **{owned_count}** cop{'ies' if owned_count != 1 else 'y'} of **{card_obj['name']}**, but requested to sell **{req_qty}**.")
+                    return
+                if is_holo and req_qty > 1:
+                    await send_response(f"❌ **{card_obj['name']}** is a Holo Foil card! Holo Foil cards are protected from bulk selling.")
+                    return
+                if is_exclusive and req_qty >= owned_count:
+                    await send_response(f"❌ You cannot sell all copies of Exclusive card **{card_obj['name']}**! You must keep at least 1 copy in your collection.")
+                    return
+                to_sell_copies = matching[:req_qty]
+            else:
+                # Default single card sell
+                if is_exclusive and owned_count == 1:
+                    await send_response(f"❌ You cannot sell your last copy of Exclusive card **{card_obj['name']}**! Exclusive cards are protected.")
+                    return
+                to_sell_copies = matching[:1]
+
+            tier = card_obj.get("tier", "gold")
+            tier_info = NBA_2K_TIERS.get(tier, NBA_2K_TIERS["gold"])
+            unit_price = tier_info.get("quick_sell", 100)
+            if is_holo:
+                unit_price = int(unit_price * 1.5)
+
+            selected_row_ids = [c["id"] for c in to_sell_copies]
+            qty = len(to_sell_copies)
+            subtotal = qty * unit_price
+            breakdown = [{
+                "name": card_obj["name"],
+                "tier": tier,
+                "ovr": card_obj.get("ovr", 80),
+                "emoji": tier_info.get("emoji", "🟡"),
+                "qty": qty,
+                "unit_price": unit_price,
+                "subtotal": subtotal
+            }]
+            mode_desc = f"{qty}x {tier_info['emoji']} **[{card_obj.get('ovr', 80)} OVR] {card_obj['name']}**"
+
+        else:
+            # No arguments given -> display helpful usage guide
+            help_embed = discord.Embed(
+                title="💰 NBA Card Sell & Bulk Sell System",
+                description=(
+                    "Sell unwanted cards or duplicates for instant **VC (Virtual Currency)**.\n\n"
+                    "**Command Examples:**\n"
+                    "• `/nbasell card: Curry quantity: 5` — Sell 5 copies of Stephen Curry\n"
+                    "• `/nbasell card: Curry quantity: dupes` — Sell all duplicates of Curry, keeping 1\n"
+                    "• `/nbasell tier: gold` — Bulk sell all Gold tier cards you own\n"
+                    "• `/nbasell all_dupes: True` — Bulk sell all duplicate cards across your entire binder\n\n"
+                    "**Prefix Command Examples:**\n"
+                    "• `!nbasell Curry 5` — Sell 5 copies\n"
+                    "• `!nbasell Curry dupes` — Sell all duplicates of Curry\n"
+                    "• `!nbasell gold all` — Sell all Gold tier cards\n"
+                    "• `!nbasell dupes all` — Sell all duplicate cards across entire collection\n\n"
+                    "🛡️ **Protections:**\n"
+                    "• Last copy of Exclusive cards cannot be sold.\n"
+                    "• Holo Foil cards are protected from bulk selling.\n"
+                    "• Interactive button confirmation required before execution."
+                ),
+                color=discord.Color.gold()
+            )
+            await send_response(embed=help_embed)
+            return
+
+        total_cards = len(selected_row_ids)
+        total_vc = sum(item["subtotal"] for item in breakdown)
+
+        confirm_embed = discord.Embed(
+            title="⚠️ Confirm Bulk Card Sale",
+            description=(
+                f"Are you sure you want to sell **{total_cards:,}** card{'s' if total_cards != 1 else ''} for a total of **💰 {total_vc:,} VC**?\n\n"
+                f"• **Target:** {mode_desc}\n"
+                f"• **Total Cards:** `{total_cards:,}`\n"
+                f"• **Total VC Payout:** `💰 {total_vc:,} VC`\n\n"
+                f"*Click **Confirm Sell** to execute atomically or **Cancel** to abort.*"
+            ),
+            color=discord.Color.orange()
+        )
+        confirm_embed.set_author(name=f"{user.display_name} — Sell Confirmation", icon_url=user.display_avatar.url if hasattr(user, 'display_avatar') else None)
+
+        lines = []
+        for item in breakdown[:10]:
+            lines.append(f"• **{item['qty']}x** {item['emoji']} `[{item['ovr']} OVR]` **{item['name']}** — `💰 {item['subtotal']:,} VC` (`{item['unit_price']:,}` ea)")
+        if len(breakdown) > 10:
+            extra_c = sum(item['qty'] for item in breakdown[10:])
+            extra_t = len(breakdown) - 10
+            extra_v = sum(item['subtotal'] for item in breakdown[10:])
+            lines.append(f"• *... and {extra_c:,} more card{'s' if extra_c != 1 else ''} across {extra_t} other card types (`💰 {extra_v:,} VC`)*")
+
+        confirm_embed.add_field(name="📋 Itemized Summary", value="\n".join(lines) if lines else "None", inline=False)
+        confirm_embed.set_footer(text="Confirmation expires in 60 seconds • Holo Foil & 1x Exclusive protected")
+
+        view = NBASellBulkConfirmView(
+            author=user,
+            card_row_ids=selected_row_ids,
+            breakdown=breakdown,
+            total_vc=total_vc,
+            total_cards=total_cards,
+            is_interaction=is_interaction
+        )
+
+        sent_msg = await send_response(embed=confirm_embed, view=view)
+        view.message = sent_msg
+
+    except Exception as e:
+        logger.error(f"Error in handle_nbasell: {e}", exc_info=True)
+        await send_response(f"❌ Error processing sell request: {e}")
+
+
 class NBATradeAddCardModal(discord.ui.Modal, title="🏀 Add Card to Trade Offer"):
     card_query = discord.ui.TextInput(
         label="Player Name or Card ID",
@@ -28845,29 +29260,519 @@ async def teamstats_slash_cmd(interaction: discord.Interaction, user: Optional[d
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="teamtop", description="🏆 View the top General Manager leaderboard ranked by career wins and rank tiers")
-@app_commands.describe(limit="Number of top GMs to display (5 to 25, default 10)")
-@app_commands.choices(limit=[
-    app_commands.Choice(name="Top 5", value=5),
-    app_commands.Choice(name="Top 10", value=10),
-    app_commands.Choice(name="Top 15", value=15),
-    app_commands.Choice(name="Top 20", value=20),
-    app_commands.Choice(name="Top 25", value=25),
+# ── Server Event & Tournament Slash Command Group ──────────────────────────
+
+event_group = app_commands.Group(name="event", description="🏆 Server Event & Tournament System")
+
+@event_group.command(name="create", description="👑 Creator: Launch a new server event or tournament")
+@app_commands.describe(
+    name="Event name (e.g. 'Summer Championship')",
+    prize_card="Exclusive card ID or player name (e.g. 'excl-jordan-99', 'Michael Jordan')",
+    duration_hours="Duration of event in hours (e.g. 24, 48, 72, default 48)",
+    event_type="Select event type / format",
+    description="Event description and lore",
+    rules="Specific rules or winning conditions",
+    boss_name="Name of Raid Boss (for Raid events only)",
+    boss_hp="Boss HP (for Raid events only, default 50000)"
+)
+@app_commands.choices(event_type=[
+    app_commands.Choice(name="🎯 Custom / Manual Challenge", value="custom"),
+    app_commands.Choice(name="🏆 Card Collector Race (First to complete a tier)", value="collector_race"),
+    app_commands.Choice(name="🌟 Fuse Frenzy (Most Holo Foil cards created)", value="fuse_frenzy"),
+    app_commands.Choice(name="📦 Pack Opening Marathon (Most packs ripped)", value="pack_marathon"),
+    app_commands.Choice(name="👾 Community Raid Boss (Server defeats Boss together)", value="raid"),
 ])
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 @app_commands.guild_only()
-async def teamtop_slash_cmd(interaction: discord.Interaction, limit: Optional[int] = 10):
+async def event_create_slash_cmd(
+    interaction: discord.Interaction,
+    name: str,
+    prize_card: str,
+    duration_hours: Optional[float] = 48.0,
+    event_type: Optional[str] = "custom",
+    description: Optional[str] = "",
+    rules: Optional[str] = "",
+    boss_name: Optional[str] = "Titan Mecha Giannis",
+    boss_hp: Optional[int] = 50000
+):
     try:
-        lim = max(1, min(limit or 10, 25))
-        rows = await db.get_top_battle_records(lim)
-        embed = build_gm_leaderboard_embed(rows)
+        if not is_event_creator(interaction.user):
+            await interaction.response.send_message("❌ Only the Bot Creator (`<@719932313919684670>`) can create events.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        active = await db.get_active_nba_event(interaction.guild_id)
+        if active:
+            await interaction.followup.send(f"❌ There is already an active event in this server: **{active['name']}** (ID #{active['id']}).\nUse `/event end` or `/event cancel` before launching a new event.", ephemeral=True)
+            return
+
+        prize_obj = get_nba_card(prize_card)
+        if not prize_obj:
+            await interaction.followup.send(f"❌ Prize card `{prize_card}` not found in catalog.", ephemeral=True)
+            return
+
+        if prize_obj.get("tier") != "exclusive" and not prize_obj.get("is_exclusive"):
+            pname = prize_obj.get("name", "").lower()
+            excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
+            if excl_cand:
+                prize_obj = excl_cand
+
+        ev_type = event_type or "custom"
+        b_name = boss_name if ev_type == "raid" else ""
+        b_hp = max(1000, boss_hp or 50000) if ev_type == "raid" else 0
+        dur = max(0.5, float(duration_hours or 48.0))
+
+        event_id = await db.create_nba_event(
+            guild_id=interaction.guild_id,
+            name=name,
+            description=description or f"Compete in the {name} event!",
+            event_type=ev_type,
+            prize_card_id=prize_obj["id"],
+            prize_card_name=prize_obj["name"],
+            channel_id=interaction.channel_id,
+            duration_hours=dur,
+            rules=rules or "Standard server event rules apply.",
+            boss_name=b_name,
+            boss_hp=b_hp
+        )
+
+        if not event_id:
+            await interaction.followup.send("❌ Failed to create event in database. Please try again.", ephemeral=True)
+            return
+
+        ends_at = int(time.time() + (dur * 3600))
+        
+        type_labels = {
+            "custom": "🎯 **Custom / Manual Challenge**",
+            "collector_race": "🏆 **Card Collector Race** — First member to complete a specific tier wins!",
+            "fuse_frenzy": "🌟 **Fuse Frenzy** — Most Holo Foil cards created using `/nbafuse` wins!",
+            "pack_marathon": "📦 **Pack Opening Marathon** — Most card packs opened using `/openpack` wins!",
+            "raid": f"👾 **Community Raid Boss Battle** — Server members team up with `/event raid` to defeat **{b_name}** ({b_hp:,} HP)! Top damage dealer wins the Exclusive card!"
+        }
+
+        ann_embed = discord.Embed(
+            title=f"🏆 NEW SERVER EVENT: {name}",
+            description=(
+                f"{type_labels.get(ev_type, '🎯 **Special Server Event**')}\n\n"
+                f"📝 **Description:**\n{description or 'The Creator has initiated a new competitive event!'}\n\n"
+                f"📜 **Rules & Conditions:**\n{rules or 'Open to all server members. Play fair and have fun!'}\n\n"
+                f"👑 **Grand Prize:** 👑 **[{prize_obj['ovr']} OVR] {prize_obj['name']}** *(Exclusive Immortal Card)*\n"
+                f"• **Card ID:** `{prize_obj['id']}`\n"
+                f"• **Badges:** {', '.join(prize_obj.get('badges', []))}\n\n"
+                f"⏳ **Event Ends:** <t:{ends_at}:R> (<t:{ends_at}:F>)\n"
+                f"👑 **Hosted by Creator:** <@719932313919684670>"
+            ),
+            color=0xFF1493
+        )
+        ann_embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon else None)
+        ann_embed.set_footer(text=f"Event ID: #{event_id} • Use /event status or /event raid to participate")
+        ann_embed.timestamp = discord.utils.utcnow()
+
+        img_io = generate_nba_card_graphic(prize_obj)
+        img_io.seek(0)
+        ann_file = discord.File(img_io, filename=f"prize_{prize_obj['id']}.png")
+        ann_embed.set_image(url=f"attachment://prize_{prize_obj['id']}.png")
+
+        saved_channel_id = await db.get_nba_event_channel(interaction.guild_id)
+        target_channel = interaction.guild.get_channel(saved_channel_id) if saved_channel_id and interaction.guild else interaction.channel
+
+        if target_channel and target_channel.id != interaction.channel_id:
+            await target_channel.send(embed=ann_embed, file=ann_file)
+            await interaction.followup.send(f"✅ Event **{name}** (ID #{event_id}) created and announced in {target_channel.mention}!", ephemeral=True)
+        else:
+            await interaction.followup.send(embed=ann_embed, file=ann_file)
+
+    except Exception as e:
+        logger.error(f"Error in /event create: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error creating event: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error creating event: {e}", ephemeral=True)
+
+
+@event_group.command(name="end", description="👑 Creator: Conclude and close the active server event")
+@app_commands.guild_only()
+async def event_end_slash_cmd(interaction: discord.Interaction):
+    try:
+        if not is_event_creator(interaction.user):
+            await interaction.response.send_message("❌ Only the Bot Creator (`<@719932313919684670>`) can end events.", ephemeral=True)
+            return
+
+        active = await db.get_active_nba_event(interaction.guild_id)
+        if not active:
+            await interaction.response.send_message("❌ There is no active event in this server to end.", ephemeral=True)
+            return
+
+        await db.end_nba_event(active["id"])
+
+        embed = discord.Embed(
+            title=f"🏁 EVENT CONCLUDED: {active['name']}",
+            description=(
+                f"The event **{active['name']}** (ID #{active['id']}) has officially concluded!\n\n"
+                f"👑 The Creator (<@719932313919684670>) will now review the final results and reward the winners with their Exclusive cards using `/event reward <user> <card>`.\n\n"
+                f"Thank you to everyone who participated!"
+            ),
+            color=discord.Color.gold()
+        )
+        embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
     except Exception as e:
-        logger.error(f"Error in /teamtop: {e}")
+        logger.error(f"Error in /event end: {e}", exc_info=True)
         if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ Error ending event: {e}", ephemeral=True)
         else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Error ending event: {e}", ephemeral=True)
+
+
+@event_group.command(name="reward", description="👑 Creator: Manually reward a winner with a real Exclusive Immortal card")
+@app_commands.describe(
+    user="The winner to receive the Exclusive card",
+    card="Exclusive card ID or player name (e.g. 'excl-jordan-99', 'Michael Jordan')",
+    event_id="Optional event ID (defaults to the latest event in this server)"
+)
+@app_commands.guild_only()
+async def event_reward_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str, event_id: Optional[int] = None):
+    try:
+        if not is_event_creator(interaction.user):
+            await interaction.response.send_message("❌ Only the Bot Creator (`<@719932313919684670>`) can reward event winners.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        if event_id:
+            event = await db.get_nba_event_by_id(event_id)
+        else:
+            events = await db.get_all_nba_events(interaction.guild_id, limit=1)
+            event = events[0] if events else None
+
+        eid = event["id"] if event else 0
+        event_name = event["name"] if event else "NBA Championship Event"
+
+        card_obj = get_nba_card(card)
+        if not card_obj:
+            await interaction.followup.send(f"❌ Card `{card}` not found in catalog.", ephemeral=True)
+            return
+
+        if card_obj.get("tier") != "exclusive" and not card_obj.get("is_exclusive"):
+            pname = card_obj.get("name", "").lower()
+            excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
+            if excl_cand:
+                card_obj = excl_cand
+
+        success = await db.reward_nba_event_winner(
+            event_id=eid,
+            user_id=user.id,
+            card_id=card_obj["id"],
+            card_name=card_obj["name"],
+            rewarded_by="719932313919684670"
+        )
+
+        if not success:
+            await interaction.followup.send("❌ Failed to reward winner in database. Please check logs.", ephemeral=True)
+            return
+
+        img_io = generate_nba_card_graphic(card_obj)
+        img_io.seek(0)
+        img_bytes = img_io.getvalue()
+
+        # Send DM to winner
+        dm_embed = discord.Embed(
+            title="👑 CONGRATULATIONS! YOU WON AN EVENT!",
+            description=(
+                f"🎉 You have officially been rewarded an **Exclusive Immortal NBA Card** by the Creator for your triumph in **{event_name}**!\n\n"
+                f"👑 **Card:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}**\n"
+                f"• **Card ID:** `{card_obj['id']}`\n"
+                f"• **Position:** `{card_obj.get('pos', 'G')}`\n"
+                f"• **Tier:** `👑 Exclusive / Immortal`\n"
+                f"• **Badges:** {', '.join(card_obj.get('badges', []))}\n"
+                f"• **Historic Moment:** {get_nba_card_moment(card_obj)}\n\n"
+                f"✨ *This card is now in your Card Binder (`/nbadex`) and ready to equip in your Starting 5 (`/buildteam`)!*"
+            ),
+            color=0xFF1493
+        )
+        dm_embed.set_image(url=f"attachment://{card_obj['id']}.png")
+        dm_embed.timestamp = discord.utils.utcnow()
+
+        try:
+            dm_file = discord.File(io.BytesIO(img_bytes), filename=f"{card_obj['id']}.png")
+            await user.send(embed=dm_embed, file=dm_file)
+        except Exception as dm_err:
+            logger.warning(f"Could not send DM to event winner {user.id}: {dm_err}")
+
+        # Send Server Announcement
+        ann_embed = discord.Embed(
+            title="👑 EVENT WINNER CROWNED!",
+            description=(
+                f"🎉 **Huge Congratulations to {user.mention}!**\n\n"
+                f"🏆 **Event:** **{event_name}**\n"
+                f"👑 **Exclusive Reward:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}** (`{card_obj['id']}`)\n\n"
+                f"✨ *This masterpiece Exclusive Immortal card has been added directly to their collection with full stats, badges, and OVR!*"
+            ),
+            color=0xFF1493
+        )
+        ann_embed.set_author(name="Awarded by Bot Creator", icon_url=interaction.user.display_avatar.url if hasattr(interaction.user, 'display_avatar') else None)
+        ann_embed.set_image(url=f"attachment://winner_{card_obj['id']}.png")
+        ann_embed.timestamp = discord.utils.utcnow()
+
+        ann_file = discord.File(io.BytesIO(img_bytes), filename=f"winner_{card_obj['id']}.png")
+        await interaction.followup.send(embed=ann_embed, file=ann_file)
+
+    except Exception as e:
+        logger.error(f"Error in /event reward: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error rewarding winner: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error rewarding winner: {e}", ephemeral=True)
+
+
+@event_group.command(name="list", description="🏆 View all active and past server events, prizes, and winners")
+@app_commands.guild_only()
+async def event_list_slash_cmd(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+        events = await db.get_all_nba_events(interaction.guild_id, limit=10)
+        if not events:
+            await interaction.followup.send("📋 No events have been hosted in this server yet.\nThe Creator can start one with `/event create`!")
+            return
+
+        embed = discord.Embed(
+            title="🏆 NBA Server Events & History",
+            description="All active, concluded, and past server events and rewarded winners.",
+            color=0xFF1493
+        )
+
+        for ev in events:
+            eid = ev["id"]
+            status = ev.get("status", "ended").upper()
+            status_emoji = "🟢 ACTIVE" if status == "ACTIVE" else ("🏁 CONCLUDED" if status == "ENDED" else "❌ CANCELLED")
+            ends_at = int(ev.get("ends_at", 0))
+            prize_name = ev.get("prize_card_name", "Exclusive Card")
+            ev_type = ev.get("event_type", "custom")
+
+            winners = await db.get_nba_event_winners(eid)
+            if winners:
+                win_text = "\n".join([f"• <@{w['user_id']}> — 👑 **{w.get('card_name', 'Exclusive')}**" for w in winners])
+            else:
+                win_text = "*No winners crowned yet.*"
+
+            field_val = (
+                f"• **Status:** `{status_emoji}`\n"
+                f"• **Type:** `{ev_type.replace('_', ' ').title()}`\n"
+                f"• **Prize:** 👑 **{prize_name}**\n"
+                f"• **Ends / Ended:** <t:{ends_at}:R>\n"
+                f"• **Winners:**\n{win_text}"
+            )
+            embed.add_field(name=f"#{eid} — {ev['name']}", value=field_val, inline=False)
+
+        embed.set_footer(text="Sweety NBA Tournament System • Permanent History")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /event list: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error fetching event list: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error fetching event list: {e}", ephemeral=True)
+
+
+@event_group.command(name="status", description="🏆 View live status, time remaining, and Raid Boss HP for the active event")
+@app_commands.guild_only()
+async def event_status_slash_cmd(interaction: discord.Interaction):
+    try:
+        active = await db.get_active_nba_event(interaction.guild_id)
+        if not active:
+            await interaction.response.send_message("❌ There is no active event running in this server right now.", ephemeral=True)
+            return
+
+        eid = active["id"]
+        ends_at = int(active.get("ends_at", 0))
+        ev_type = active.get("event_type", "custom")
+        prize_name = active.get("prize_card_name", "Exclusive Card")
+        rules = active.get("rules", "Standard server event rules.")
+
+        embed = discord.Embed(
+            title=f"🏆 ACTIVE EVENT: {active['name']}",
+            description=(
+                f"📝 **Description:**\n{active.get('description', '')}\n\n"
+                f"📜 **Rules:**\n{rules}\n\n"
+                f"👑 **Prize:** 👑 **{prize_name}** *(Exclusive Immortal Card)*\n"
+                f"⏳ **Ends In:** <t:{ends_at}:R> (<t:{ends_at}:F>)"
+            ),
+            color=0xFF1493
+        )
+
+        if ev_type == "raid":
+            boss_name = active.get("boss_name", "Raid Boss")
+            cur_hp = int(active.get("boss_hp", 0))
+            max_hp = int(active.get("boss_max_hp") or cur_hp or 50000)
+            pct = max(0.0, min(1.0, cur_hp / max(1, max_hp)))
+            bar_len = 16
+            filled = int(pct * bar_len)
+            bar = "█" * filled + "░" * (bar_len - filled)
+
+            lb = await db.get_nba_raid_leaderboard(eid, limit=5)
+            lb_lines = []
+            for idx, r in enumerate(lb, start=1):
+                lb_lines.append(f"`#{idx}` <@{r['user_id']}> — **💥 {r['damage_dealt']:,} DMG**")
+
+            embed.add_field(
+                name=f"👾 Raid Boss: {boss_name}",
+                value=(
+                    f"**HP:** `[{bar}]` **{cur_hp:,} / {max_hp:,}** ({int(pct*100)}%)\n\n"
+                    f"⚔️ *Use `/event raid` to attack the Boss with your Starting 5!*"
+                ),
+                inline=False
+            )
+            embed.add_field(
+                name="🏆 Top Damage Leaderboard",
+                value="\n".join(lb_lines) if lb_lines else "*No attacks recorded yet.*",
+                inline=False
+            )
+
+        embed.set_footer(text=f"Event ID: #{eid} • Hosted by Creator (719932313919684670)")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /event status: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error fetching event status: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error fetching event status: {e}", ephemeral=True)
+
+
+@event_group.command(name="raid", description="⚔️ Attack the active Community Raid Boss with your Starting 5 team")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 15.0, key=lambda i: (i.guild_id, i.user.id))
+async def event_raid_slash_cmd(interaction: discord.Interaction):
+    try:
+        active = await db.get_active_nba_event(interaction.guild_id)
+        if not active or active.get("event_type") != "raid":
+            await interaction.response.send_message("❌ There is no active Community Raid Boss event in this server right now.", ephemeral=True)
+            return
+
+        cur_hp = int(active.get("boss_hp", 0))
+        if cur_hp <= 0:
+            await interaction.response.send_message("🎉 The Raid Boss has already been defeated! Wait for the Creator to crown the winner.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        # Calculate team power
+        team_row = await db.get_dream_team(interaction.user.id)
+        team_ovr = 75
+        if team_row:
+            team_cards = []
+            for pos_key in ["pg_id", "sg_id", "sf_id", "pf_id", "c_id"]:
+                cid = team_row.get(pos_key)
+                if cid:
+                    c = get_nba_card(cid)
+                    if c:
+                        team_cards.append(c)
+            if team_cards:
+                team_ovr = int(sum(c.get("ovr", 80) for c in team_cards) / len(team_cards))
+
+        base_dmg = int(team_ovr * random.randint(15, 25) + random.randint(50, 300))
+        is_crit = (random.random() < 0.20)
+        if is_crit:
+            base_dmg = int(base_dmg * 1.75)
+
+        new_hp, total_dmg = await db.record_nba_raid_damage(active["id"], interaction.user.id, base_dmg)
+
+        boss_max = int(active.get("boss_max_hp") or active.get("boss_hp") or 50000)
+        pct = max(0.0, min(1.0, new_hp / max(1, boss_max)))
+        bar_len = 16
+        filled = int(pct * bar_len)
+        bar = "█" * filled + "░" * (bar_len - filled)
+
+        lb = await db.get_nba_raid_leaderboard(active["id"], limit=5)
+        lb_lines = []
+        for idx, r in enumerate(lb, start=1):
+            marker = "⭐ " if str(r["user_id"]) == str(interaction.user.id) else ""
+            lb_lines.append(f"`#{idx}` {marker}<@{r['user_id']}> — **💥 {r['damage_dealt']:,} DMG**")
+
+        crit_text = " 💥 **CRITICAL HIT!**" if is_crit else ""
+        embed = discord.Embed(
+            title=f"⚔️ Raid Attack: {active.get('boss_name', 'World Boss')}",
+            description=(
+                f"{interaction.user.mention} charged into battle with their Starting 5 (OVR {team_ovr}) and dealt **💥 {base_dmg:,} DMG**!{crit_text}\n\n"
+                f"👾 **Boss HP:** `[{bar}]` **{new_hp:,} / {boss_max:,} HP** ({int(pct*100)}%)\n"
+                f"👤 **Your Career Raid Damage:** **{total_dmg:,} DMG**"
+            ),
+            color=0xFF4500 if is_crit else 0xFF1493
+        )
+
+        if new_hp <= 0:
+            embed.add_field(
+                name="🎉 BOSS DEFEATED!",
+                value="The server has united and brought down the Raid Boss! The Creator will now review the top damage dealer and award the Exclusive card!",
+                inline=False
+            )
+
+        embed.add_field(
+            name="🏆 Top Damage Dealers",
+            value="\n".join(lb_lines) if lb_lines else "*No attacks recorded yet.*",
+            inline=False
+        )
+        embed.set_footer(text=f"Event ID: #{active['id']} • Starting 5 Team OVR: {team_ovr}")
+        embed.timestamp = discord.utils.utcnow()
+
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /event raid: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error during raid attack: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error during raid attack: {e}", ephemeral=True)
+
+
+@event_group.command(name="cancel", description="👑 Creator: Cancel an active server event with no rewards given")
+@app_commands.guild_only()
+async def event_cancel_slash_cmd(interaction: discord.Interaction):
+    try:
+        if not is_event_creator(interaction.user):
+            await interaction.response.send_message("❌ Only the Bot Creator (`<@719932313919684670>`) can cancel events.", ephemeral=True)
+            return
+
+        active = await db.get_active_nba_event(interaction.guild_id)
+        if not active:
+            await interaction.response.send_message("❌ There is no active event to cancel.", ephemeral=True)
+            return
+
+        await db.cancel_nba_event(active["id"])
+        embed = discord.Embed(
+            title="❌ EVENT CANCELLED",
+            description=f"The event **{active['name']}** (ID #{active['id']}) has been cancelled by the Creator with no rewards granted.",
+            color=discord.Color.red()
+        )
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /event cancel: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error cancelling event: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error cancelling event: {e}", ephemeral=True)
+
+
+@event_group.command(name="setchannel", description="👑 Creator: Set the designated channel for NBA event announcements")
+@app_commands.describe(channel="The channel where event announcements will be posted")
+@app_commands.guild_only()
+async def event_setchannel_slash_cmd(interaction: discord.Interaction, channel: discord.TextChannel):
+    try:
+        if not is_event_creator(interaction.user):
+            await interaction.response.send_message("❌ Only the Bot Creator (`<@719932313919684670>`) can configure event channels.", ephemeral=True)
+            return
+
+        await db.set_nba_event_channel(interaction.guild_id, channel.id)
+        await interaction.response.send_message(f"✅ Event announcements for this server will now be posted in {channel.mention}!", ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /event setchannel: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error setting event channel: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error setting event channel: {e}", ephemeral=True)
+
+bot.tree.add_command(event_group)
 
 
 @bot.tree.command(name="dailynba", description="🏀 Face today's Daily Boss Starting 5 to earn daily GM wins")
@@ -29694,48 +30599,42 @@ async def nbabal_slash_cmd(interaction: discord.Interaction, user: Optional[disc
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="nbasell", description="💰 Quick-sell an NBA card for instant VC Virtual Currency")
-@app_commands.describe(card="Card ID or Player Name to sell (e.g. 'gold-naz-82', 'Naz Reid')")
+@bot.tree.command(name="nbasell", description="💰 Sell NBA cards for instant VC (single, quantity, duplicates, or full tier)")
+@app_commands.describe(
+    card="Card ID or Player Name (e.g. 'Curry', 'gold-naz-82')",
+    quantity="Quantity to sell (e.g. '5') or 'dupes' to sell all duplicates of this card",
+    tier="Sell all cards in a specific tier (e.g. Gold, Ruby, Diamond, Dark Matter)",
+    all_dupes="Sell all duplicate cards across your entire collection at once (keeps 1 copy of each)"
+)
+@app_commands.choices(tier=[
+    app_commands.Choice(name="🟡 Gold / Emerald", value="gold"),
+    app_commands.Choice(name="🔴 Ruby / Sapphire", value="ruby"),
+    app_commands.Choice(name="🔮 Amethyst", value="amethyst"),
+    app_commands.Choice(name="💎 Diamond / Pink Diamond", value="diamond"),
+    app_commands.Choice(name="✨ Galaxy Opal", value="galaxy_opal"),
+    app_commands.Choice(name="🌌 Dark Matter / GOAT", value="dark_matter"),
+    app_commands.Choice(name="👑 Exclusive / Immortal", value="exclusive"),
+])
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def nbasell_slash_cmd(interaction: discord.Interaction, card: str):
+async def nbasell_slash_cmd(
+    interaction: discord.Interaction,
+    card: Optional[str] = None,
+    quantity: Optional[str] = None,
+    tier: Optional[str] = None,
+    all_dupes: Optional[bool] = False
+):
     try:
         await interaction.response.defer()
-        card_obj = get_nba_card(card)
-        if not card_obj:
-            await interaction.followup.send(f"❌ Card `{card}` not found in catalog.", ephemeral=True)
-            return
-
-        user_cards = await db.get_user_nba_cards(interaction.user.id)
-        matching = [c for c in user_cards if c["card_id"].lower() == card_obj["id"].lower()]
-        if not matching:
-            await interaction.followup.send(f"❌ You do not own any copies of **{card_obj['name']}** (`{card_obj['id']}`).", ephemeral=True)
-            return
-
-        tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
-        sell_price = tier_info["quick_sell"]
-        if card_obj.get("is_holo"):
-            sell_price = int(sell_price * 1.5)
-
-        removed = await db.remove_user_nba_card(interaction.user.id, card_obj["id"])
-        if not removed:
-            await interaction.followup.send("❌ Failed to sell card. Please try again.", ephemeral=True)
-            return
-
-        new_bal = await db.add_user_vc(interaction.user.id, sell_price)
-        remaining_copies = len(matching) - 1
-
-        embed = discord.Embed(
-            title="💰 Card Quick-Sold!",
-            description=(
-                f"✅ Successfully sold 1x {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}** for `💰 {sell_price:,} VC`!\n\n"
-                f"• **Remaining Copies:** `{remaining_copies}`\n"
-                f"• 💰 **New VC Balance:** `{new_bal:,} VC`"
-            ),
-            color=discord.Color.green()
+        await handle_nbasell(
+            user=interaction.user,
+            send_response=interaction.followup.send,
+            card_query=card,
+            quantity=quantity,
+            tier_filter=tier,
+            all_dupes=bool(all_dupes),
+            is_interaction=True
         )
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.followup.send(embed=embed)
     except Exception as e:
         logger.error(f"Error in /nbasell: {e}", exc_info=True)
         if interaction.response.is_done():
@@ -33652,47 +34551,447 @@ async def nbabal_prefix_cmd(ctx: commands.Context, target: Optional[discord.Memb
 @bot.command(name="nbasell", aliases=["sellcard", "quicksell"])
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
-async def nbasell_prefix_cmd(ctx: commands.Context, *, card_query: str):
-    """Quick-sell an NBA card for instant VC: !nbasell <card_id or name>"""
+async def nbasell_prefix_cmd(ctx: commands.Context, *, card_query: Optional[str] = None):
+    """Quick-sell NBA cards for instant VC (single, quantity, duplicates, or full tier): !nbasell <card [qty|dupes] | [tier] all | dupes all>"""
     try:
-        card_obj = get_nba_card(card_query)
-        if not card_obj:
-            await ctx.send(f"❌ Card `{card_query}` not found in catalog.")
-            return
-
-        user_cards = await db.get_user_nba_cards(ctx.author.id)
-        matching = [c for c in user_cards if c["card_id"].lower() == card_obj["id"].lower()]
-        if not matching:
-            await ctx.send(f"❌ You do not own any copies of **{card_obj['name']}** (`{card_obj['id']}`).")
-            return
-
-        tier_info = NBA_2K_TIERS.get(card_obj["tier"], NBA_2K_TIERS["gold"])
-        sell_price = tier_info["quick_sell"]
-        if card_obj.get("is_holo"):
-            sell_price = int(sell_price * 1.5)
-
-        removed = await db.remove_user_nba_card(ctx.author.id, card_obj["id"])
-        if not removed:
-            await ctx.send("❌ Failed to sell card. Please try again.")
-            return
-
-        new_bal = await db.add_user_vc(ctx.author.id, sell_price)
-        remaining_copies = len(matching) - 1
-
-        embed = discord.Embed(
-            title="💰 Card Quick-Sold!",
-            description=(
-                f"✅ Successfully sold 1x {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}** for `💰 {sell_price:,} VC`!\n\n"
-                f"• **Remaining Copies:** `{remaining_copies}`\n"
-                f"• 💰 **New VC Balance:** `{new_bal:,} VC`"
-            ),
-            color=discord.Color.green()
+        await handle_nbasell(
+            user=ctx.author,
+            send_response=ctx.send,
+            card_query=card_query,
+            is_interaction=False
         )
-        embed.timestamp = discord.utils.utcnow()
-        await ctx.send(embed=embed)
     except Exception as e:
         logger.error(f"Error in !nbasell: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="event", aliases=["nbaevent", "events", "tournament"])
+@commands.guild_only()
+async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, *, rest: Optional[str] = None):
+    """Server Event & Tournament System: !event [create|end|reward|list|status|raid|cancel|setchannel]"""
+    try:
+        act = (action or "").lower().strip()
+
+        # 1. RAID / ATTACK
+        if act in ["raid", "attack", "hit", "fight", "boss"]:
+            active = await db.get_active_nba_event(ctx.guild.id)
+            if not active or active.get("event_type") != "raid":
+                await ctx.send("❌ There is no active Community Raid Boss event in this server right now.")
+                return
+
+            cur_hp = int(active.get("boss_hp", 0))
+            if cur_hp <= 0:
+                await ctx.send("🎉 The Raid Boss has already been defeated! Wait for the Creator to crown the winner.")
+                return
+
+            team_row = await db.get_dream_team(ctx.author.id)
+            team_ovr = 75
+            if team_row:
+                team_cards = []
+                for pos_key in ["pg_id", "sg_id", "sf_id", "pf_id", "c_id"]:
+                    cid = team_row.get(pos_key)
+                    if cid:
+                        c = get_nba_card(cid)
+                        if c:
+                            team_cards.append(c)
+                if team_cards:
+                    team_ovr = int(sum(c.get("ovr", 80) for c in team_cards) / len(team_cards))
+
+            base_dmg = int(team_ovr * random.randint(15, 25) + random.randint(50, 300))
+            is_crit = (random.random() < 0.20)
+            if is_crit:
+                base_dmg = int(base_dmg * 1.75)
+
+            new_hp, total_dmg = await db.record_nba_raid_damage(active["id"], ctx.author.id, base_dmg)
+            boss_max = int(active.get("boss_max_hp") or active.get("boss_hp") or 50000)
+            pct = max(0.0, min(1.0, new_hp / max(1, boss_max)))
+            bar_len = 16
+            filled = int(pct * bar_len)
+            bar = "█" * filled + "░" * (bar_len - filled)
+
+            lb = await db.get_nba_raid_leaderboard(active["id"], limit=5)
+            lb_lines = []
+            for idx, r in enumerate(lb, start=1):
+                marker = "⭐ " if str(r["user_id"]) == str(ctx.author.id) else ""
+                lb_lines.append(f"`#{idx}` {marker}<@{r['user_id']}> — **💥 {r['damage_dealt']:,} DMG**")
+
+            crit_text = " 💥 **CRITICAL HIT!**" if is_crit else ""
+            embed = discord.Embed(
+                title=f"⚔️ Raid Attack: {active.get('boss_name', 'World Boss')}",
+                description=(
+                    f"{ctx.author.mention} charged into battle with their Starting 5 (OVR {team_ovr}) and dealt **💥 {base_dmg:,} DMG**!{crit_text}\n\n"
+                    f"👾 **Boss HP:** `[{bar}]` **{new_hp:,} / {boss_max:,} HP** ({int(pct*100)}%)\n"
+                    f"👤 **Your Career Raid Damage:** **{total_dmg:,} DMG**"
+                ),
+                color=0xFF4500 if is_crit else 0xFF1493
+            )
+            if new_hp <= 0:
+                embed.add_field(name="🎉 BOSS DEFEATED!", value="The server has united and brought down the Raid Boss! The Creator will now review the top damage dealer and award the Exclusive card!", inline=False)
+            embed.add_field(name="🏆 Top Damage Dealers", value="\n".join(lb_lines) if lb_lines else "*No attacks recorded yet.*", inline=False)
+            embed.set_footer(text=f"Event ID: #{active['id']} • Starting 5 Team OVR: {team_ovr}")
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+            return
+
+        # 2. LIST
+        if act in ["list", "history", "all"]:
+            events = await db.get_all_nba_events(ctx.guild.id, limit=10)
+            if not events:
+                await ctx.send("📋 No events have been hosted in this server yet.\nThe Creator can start one with `!event create`!")
+                return
+
+            embed = discord.Embed(
+                title="🏆 NBA Server Events & History",
+                description="All active, concluded, and past server events and rewarded winners.",
+                color=0xFF1493
+            )
+            for ev in events:
+                eid = ev["id"]
+                status = ev.get("status", "ended").upper()
+                status_emoji = "🟢 ACTIVE" if status == "ACTIVE" else ("🏁 CONCLUDED" if status == "ENDED" else "❌ CANCELLED")
+                ends_at = int(ev.get("ends_at", 0))
+                prize_name = ev.get("prize_card_name", "Exclusive Card")
+                ev_type = ev.get("event_type", "custom")
+                winners = await db.get_nba_event_winners(eid)
+                if winners:
+                    win_text = "\n".join([f"• <@{w['user_id']}> — 👑 **{w.get('card_name', 'Exclusive')}**" for w in winners])
+                else:
+                    win_text = "*No winners crowned yet.*"
+
+                field_val = (
+                    f"• **Status:** `{status_emoji}`\n"
+                    f"• **Type:** `{ev_type.replace('_', ' ').title()}`\n"
+                    f"• **Prize:** 👑 **{prize_name}**\n"
+                    f"• **Ends / Ended:** <t:{ends_at}:R>\n"
+                    f"• **Winners:**\n{win_text}"
+                )
+                embed.add_field(name=f"#{eid} — {ev['name']}", value=field_val, inline=False)
+
+            embed.set_footer(text="Sweety NBA Tournament System • Permanent History")
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+            return
+
+        # 3. CREATE (Creator only)
+        if act in ["create", "start", "new"]:
+            if not is_event_creator(ctx.author):
+                await ctx.send("❌ Only the Bot Creator (`<@719932313919684670>`) can create events.")
+                return
+
+            active = await db.get_active_nba_event(ctx.guild.id)
+            if active:
+                await ctx.send(f"❌ There is already an active event in this server: **{active['name']}** (ID #{active['id']}).\nUse `!event end` or `!event cancel` first.")
+                return
+
+            if not rest:
+                await ctx.send("ℹ️ **Usage:** `!event create <Name> | <Prize Card> | [Duration Hours] | [Type] | [Description]`\n*Example:* `!event create Summer Slam | excl-jordan-99 | 48 | custom | Win 10 battles!`")
+                return
+
+            parts = [p.strip() for p in rest.split("|")]
+            name = parts[0]
+            prize_card = parts[1] if len(parts) > 1 else "excl-jordan-99"
+            dur_str = parts[2] if len(parts) > 2 else "48"
+            ev_type = parts[3].lower() if len(parts) > 3 else "custom"
+            desc = parts[4] if len(parts) > 4 else f"Compete in the {name} event!"
+
+            dur = 48.0
+            try:
+                dur = float(dur_str)
+            except Exception:
+                pass
+
+            prize_obj = get_nba_card(prize_card)
+            if not prize_obj:
+                await ctx.send(f"❌ Prize card `{prize_card}` not found in catalog.")
+                return
+
+            if prize_obj.get("tier") != "exclusive" and not prize_obj.get("is_exclusive"):
+                pname = prize_obj.get("name", "").lower()
+                excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
+                if excl_cand:
+                    prize_obj = excl_cand
+
+            b_name = "Titan Mecha Giannis" if ev_type == "raid" else ""
+            b_hp = 50000 if ev_type == "raid" else 0
+
+            event_id = await db.create_nba_event(
+                guild_id=ctx.guild.id,
+                name=name,
+                description=desc,
+                event_type=ev_type,
+                prize_card_id=prize_obj["id"],
+                prize_card_name=prize_obj["name"],
+                channel_id=ctx.channel.id,
+                duration_hours=dur,
+                rules="Standard server event rules apply.",
+                boss_name=b_name,
+                boss_hp=b_hp
+            )
+
+            ends_at = int(time.time() + (dur * 3600))
+            ann_embed = discord.Embed(
+                title=f"🏆 NEW SERVER EVENT: {name}",
+                description=(
+                    f"📝 **Description:**\n{desc}\n\n"
+                    f"👑 **Grand Prize:** 👑 **[{prize_obj['ovr']} OVR] {prize_obj['name']}** *(Exclusive Immortal Card)*\n"
+                    f"• **Card ID:** `{prize_obj['id']}`\n"
+                    f"• **Badges:** {', '.join(prize_obj.get('badges', []))}\n\n"
+                    f"⏳ **Event Ends:** <t:{ends_at}:R> (<t:{ends_at}:F>)\n"
+                    f"👑 **Hosted by Creator:** <@719932313919684670>"
+                ),
+                color=0xFF1493
+            )
+            ann_embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+            ann_embed.set_footer(text=f"Event ID: #{event_id} • Use !event status or !event raid to participate")
+            ann_embed.timestamp = discord.utils.utcnow()
+
+            img_io = generate_nba_card_graphic(prize_obj)
+            img_io.seek(0)
+            ann_file = discord.File(img_io, filename=f"prize_{prize_obj['id']}.png")
+            ann_embed.set_image(url=f"attachment://prize_{prize_obj['id']}.png")
+
+            saved_channel_id = await db.get_nba_event_channel(ctx.guild.id)
+            target_channel = ctx.guild.get_channel(saved_channel_id) if saved_channel_id else ctx.channel
+
+            if target_channel and target_channel.id != ctx.channel.id:
+                await target_channel.send(embed=ann_embed, file=ann_file)
+                await ctx.send(f"✅ Event **{name}** (ID #{event_id}) created and announced in {target_channel.mention}!")
+            else:
+                await ctx.send(embed=ann_embed, file=ann_file)
+            return
+
+        # 4. END (Creator only)
+        if act in ["end", "finish", "close", "stop"]:
+            if not is_event_creator(ctx.author):
+                await ctx.send("❌ Only the Bot Creator (`<@719932313919684670>`) can end events.")
+                return
+
+            active = await db.get_active_nba_event(ctx.guild.id)
+            if not active:
+                await ctx.send("❌ There is no active event in this server to end.")
+                return
+
+            await db.end_nba_event(active["id"])
+            embed = discord.Embed(
+                title=f"🏁 EVENT CONCLUDED: {active['name']}",
+                description=(
+                    f"The event **{active['name']}** (ID #{active['id']}) has officially concluded!\n\n"
+                    f"👑 The Creator (<@719932313919684670>) will now review the final results and reward the winners with their Exclusive cards using `!event reward <@user> <card>`.\n\n"
+                    f"Thank you to everyone who participated!"
+                ),
+                color=discord.Color.gold()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+            return
+
+        # 5. REWARD (Creator only)
+        if act in ["reward", "winner", "grant", "giveprize"]:
+            if not is_event_creator(ctx.author):
+                await ctx.send("❌ Only the Bot Creator (`<@719932313919684670>`) can reward event winners.")
+                return
+
+            if not rest:
+                await ctx.send("ℹ️ **Usage:** `!event reward <@user> <card_name_or_id>`\n*Example:* `!event reward @User excl-jordan-99`")
+                return
+
+            parts = rest.split()
+            target_user = None
+            if ctx.message.mentions:
+                target_user = ctx.message.mentions[0]
+                card_part = " ".join([p for p in parts if not p.startswith("<@")])
+            elif parts:
+                uid_cand = parts[0].strip("<@!>")
+                if uid_cand.isdigit():
+                    target_user = ctx.guild.get_member(int(uid_cand))
+                card_part = " ".join(parts[1:])
+            else:
+                card_part = ""
+
+            if not target_user:
+                await ctx.send("❌ Please mention the winning member: `!event reward @user <card>`")
+                return
+
+            card_obj = get_nba_card(card_part)
+            if not card_obj:
+                await ctx.send(f"❌ Card `{card_part}` not found in catalog.")
+                return
+
+            if card_obj.get("tier") != "exclusive" and not card_obj.get("is_exclusive"):
+                pname = card_obj.get("name", "").lower()
+                excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
+                if excl_cand:
+                    card_obj = excl_cand
+
+            events = await db.get_all_nba_events(ctx.guild.id, limit=1)
+            event = events[0] if events else None
+            eid = event["id"] if event else 0
+            event_name = event["name"] if event else "NBA Championship Event"
+
+            success = await db.reward_nba_event_winner(
+                event_id=eid,
+                user_id=target_user.id,
+                card_id=card_obj["id"],
+                card_name=card_obj["name"],
+                rewarded_by="719932313919684670"
+            )
+
+            if not success:
+                await ctx.send("❌ Failed to reward winner in database.")
+                return
+
+            img_io = generate_nba_card_graphic(card_obj)
+            img_io.seek(0)
+            img_bytes = img_io.getvalue()
+
+            dm_embed = discord.Embed(
+                title="👑 CONGRATULATIONS! YOU WON AN EVENT!",
+                description=(
+                    f"🎉 You have officially been rewarded an **Exclusive Immortal NBA Card** by the Creator for your triumph in **{event_name}**!\n\n"
+                    f"👑 **Card:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}**\n"
+                    f"• **Card ID:** `{card_obj['id']}`\n"
+                    f"• **Position:** `{card_obj.get('pos', 'G')}`\n"
+                    f"• **Tier:** `👑 Exclusive / Immortal`\n"
+                    f"• **Badges:** {', '.join(card_obj.get('badges', []))}\n"
+                    f"• **Historic Moment:** {get_nba_card_moment(card_obj)}\n\n"
+                    f"✨ *This card is now in your Card Binder (`!nbadex`) and ready to equip in your Starting 5 (`!buildteam`)!*"
+                ),
+                color=0xFF1493
+            )
+            dm_embed.set_image(url=f"attachment://{card_obj['id']}.png")
+            dm_embed.timestamp = discord.utils.utcnow()
+
+            try:
+                dm_file = discord.File(io.BytesIO(img_bytes), filename=f"{card_obj['id']}.png")
+                await target_user.send(embed=dm_embed, file=dm_file)
+            except Exception as dm_err:
+                logger.warning(f"Could not DM winner {target_user.id}: {dm_err}")
+
+            ann_embed = discord.Embed(
+                title="👑 EVENT WINNER CROWNED!",
+                description=(
+                    f"🎉 **Huge Congratulations to {target_user.mention}!**\n\n"
+                    f"🏆 **Event:** **{event_name}**\n"
+                    f"👑 **Exclusive Reward:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}** (`{card_obj['id']}`)\n\n"
+                    f"✨ *This masterpiece Exclusive Immortal card has been added directly to their collection with full stats, badges, and OVR!*"
+                ),
+                color=0xFF1493
+            )
+            ann_embed.set_author(name="Awarded by Bot Creator", icon_url=ctx.author.display_avatar.url if hasattr(ctx.author, 'display_avatar') else None)
+            ann_embed.set_image(url=f"attachment://winner_{card_obj['id']}.png")
+            ann_embed.timestamp = discord.utils.utcnow()
+
+            ann_file = discord.File(io.BytesIO(img_bytes), filename=f"winner_{card_obj['id']}.png")
+            await ctx.send(embed=ann_embed, file=ann_file)
+            return
+
+        # 6. CANCEL (Creator only)
+        if act in ["cancel", "abort"]:
+            if not is_event_creator(ctx.author):
+                await ctx.send("❌ Only the Bot Creator (`<@719932313919684670>`) can cancel events.")
+                return
+
+            active = await db.get_active_nba_event(ctx.guild.id)
+            if not active:
+                await ctx.send("❌ There is no active event to cancel.")
+                return
+
+            await db.cancel_nba_event(active["id"])
+            embed = discord.Embed(
+                title="❌ EVENT CANCELLED",
+                description=f"The event **{active['name']}** (ID #{active['id']}) has been cancelled by the Creator with no rewards granted.",
+                color=discord.Color.red()
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
+            return
+
+        # 7. SETCHANNEL (Creator only)
+        if act in ["setchannel", "channel"]:
+            if not is_event_creator(ctx.author):
+                await ctx.send("❌ Only the Bot Creator (`<@719932313919684670>`) can configure event channels.")
+                return
+
+            target_ch = ctx.message.channel_mentions[0] if ctx.message.channel_mentions else ctx.channel
+            await db.set_nba_event_channel(ctx.guild.id, target_ch.id)
+            await ctx.send(f"✅ Event announcements for this server will now be posted in {target_ch.mention}!")
+            return
+
+        # DEFAULT: STATUS / HELP
+        active = await db.get_active_nba_event(ctx.guild.id)
+        if not active:
+            help_embed = discord.Embed(
+                title="🏆 NBA Server Event System",
+                description=(
+                    "Participate in server-wide events and compete for real **Exclusive Immortal Cards**!\n\n"
+                    "**Member Commands:**\n"
+                    "• `!event status` — View active event status and Raid Boss HP\n"
+                    "• `!event raid` — Attack the active Community Raid Boss\n"
+                    "• `!event list` — View past events, prizes, and winners\n\n"
+                    "**Creator Commands (`719932313919684670`):**\n"
+                    "• `!event create <Name> | <Prize Card> | [Hours] | [Type] | [Desc]`\n"
+                    "• `!event end` — Conclude active event\n"
+                    "• `!event reward <@user> <card_id>` — Award Exclusive card to winner\n"
+                    "• `!event cancel` — Cancel active event\n"
+                    "• `!event setchannel <#channel>` — Set announcement channel"
+                ),
+                color=0xFF1493
+            )
+            await ctx.send(embed=help_embed)
+            return
+
+        eid = active["id"]
+        ends_at = int(active.get("ends_at", 0))
+        ev_type = active.get("event_type", "custom")
+        prize_name = active.get("prize_card_name", "Exclusive Card")
+        rules = active.get("rules", "Standard server event rules.")
+
+        embed = discord.Embed(
+            title=f"🏆 ACTIVE EVENT: {active['name']}",
+            description=(
+                f"📝 **Description:**\n{active.get('description', '')}\n\n"
+                f"📜 **Rules:**\n{rules}\n\n"
+                f"👑 **Prize:** 👑 **{prize_name}** *(Exclusive Immortal Card)*\n"
+                f"⏳ **Ends In:** <t:{ends_at}:R> (<t:{ends_at}:F>)"
+            ),
+            color=0xFF1493
+        )
+
+        if ev_type == "raid":
+            boss_name = active.get("boss_name", "Raid Boss")
+            cur_hp = int(active.get("boss_hp", 0))
+            max_hp = int(active.get("boss_max_hp") or cur_hp or 50000)
+            pct = max(0.0, min(1.0, cur_hp / max(1, max_hp)))
+            bar_len = 16
+            filled = int(pct * bar_len)
+            bar = "█" * filled + "░" * (bar_len - filled)
+
+            lb = await db.get_nba_raid_leaderboard(eid, limit=5)
+            lb_lines = []
+            for idx, r in enumerate(lb, start=1):
+                lb_lines.append(f"`#{idx}` <@{r['user_id']}> — **💥 {r['damage_dealt']:,} DMG**")
+
+            embed.add_field(
+                name=f"👾 Raid Boss: {boss_name}",
+                value=(
+                    f"**HP:** `[{bar}]` **{cur_hp:,} / {max_hp:,}** ({int(pct*100)}%)\n\n"
+                    f"⚔️ *Use `!event raid` to attack the Boss with your Starting 5!*"
+                ),
+                inline=False
+            )
+            embed.add_field(
+                name="🏆 Top Damage Leaderboard",
+                value="\n".join(lb_lines) if lb_lines else "*No attacks recorded yet.*",
+                inline=False
+            )
+
+        embed.set_footer(text=f"Event ID: #{eid} • Hosted by Creator (719932313919684670)")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+
+    except Exception as e:
+        logger.error(f"Error in !event: {e}", exc_info=True)
+        await ctx.send(f"❌ Error in !event: {e}")
 
 
 @bot.command(name="nbafuse", aliases=["fusecard", "cardfuse", "craftcard", "holo"])
