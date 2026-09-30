@@ -1737,53 +1737,57 @@ class DatabaseManager:
         catalog_exclusive_ids: Optional[List[str]] = None
     ) -> Tuple[int, int]:
         """Strips/deletes all Exclusive-tier cards from a specific user or globally across all users (excluding creator).
+        Also resets Starting 5 lineups containing exclusive cards.
         Returns (total_cards_deleted, affected_users_count).
         """
         try:
             excl_ids = catalog_exclusive_ids or []
-            lower_ids = [cid.lower().strip() for cid in excl_ids if cid]
-
-            id_conditions = [
-                "LOWER(card_id) LIKE 'excl-%'",
-                "LOWER(card_id) LIKE 'excl_%'",
-                "LOWER(card_id) LIKE 'exclusive%'"
-            ]
-            params = []
-            if lower_ids:
-                placeholders = ", ".join(["?"] * len(lower_ids))
-                id_conditions.append(f"LOWER(card_id) IN ({placeholders})")
-                params.extend(lower_ids)
-
-            where_cards = f"({' OR '.join(id_conditions)})"
+            lower_ids = set(cid.lower().strip() for cid in excl_ids if cid)
 
             if target_user_id:
                 t_user = str(target_user_id)
-                full_where = f"WHERE user_id = ? AND {where_cards}"
-                count_params = [t_user] + params
-                count_query = f"SELECT COUNT(*) as cnt FROM user_nba_cards {full_where}"
-                count_rows = await self.fetch(count_query, *count_params)
-                total_cnt = count_rows[0]["cnt"] if count_rows and "cnt" in count_rows[0] else 0
-
-                if total_cnt > 0:
-                    del_query = f"DELETE FROM user_nba_cards {full_where}"
-                    await self.execute(del_query, *count_params)
-                logger.info(f"[DB] strip_exclusive_cards removed {total_cnt} cards for user {t_user}.")
-                return int(total_cnt), (1 if total_cnt > 0 else 0)
+                query = "SELECT id, user_id, card_id, source FROM user_nba_cards WHERE user_id = ?"
+                rows = await self.fetch(query, t_user)
             else:
                 c_id = str(exclude_creator_id)
-                full_where = f"WHERE user_id != ? AND {where_cards}"
-                count_params = [c_id] + params
+                query = "SELECT id, user_id, card_id, source FROM user_nba_cards WHERE user_id != ?"
+                rows = await self.fetch(query, c_id)
 
-                summary_query = f"SELECT COUNT(*) as total_cards, COUNT(DISTINCT user_id) as total_users FROM user_nba_cards {full_where}"
-                sum_rows = await self.fetch(summary_query, *count_params)
-                total_cards = sum_rows[0]["total_cards"] if sum_rows and "total_cards" in sum_rows[0] else 0
-                total_users = sum_rows[0]["total_users"] if sum_rows and "total_users" in sum_rows[0] else 0
+            row_ids_to_delete = []
+            affected_users = set()
 
-                if total_cards > 0:
-                    del_query = f"DELETE FROM user_nba_cards {full_where}"
-                    await self.execute(del_query, *count_params)
-                logger.info(f"[DB] strip_exclusive_cards globally stripped {total_cards} cards across {total_users} users (creator {c_id} preserved).")
-                return int(total_cards), int(total_users)
+            for r in rows:
+                cid = str(r.get("card_id", "")).strip().lower()
+                is_excl = (
+                    cid.startswith("excl-") or
+                    cid.startswith("excl_") or
+                    cid.startswith("exclusive") or
+                    cid in lower_ids or
+                    r.get("source") == "creator_grant"
+                )
+
+                if is_excl:
+                    row_ids_to_delete.append(r["id"])
+                    affected_users.add(str(r["user_id"]))
+
+            total_deleted = len(row_ids_to_delete)
+            if total_deleted > 0:
+                # Delete in batches of 500
+                for i in range(0, total_deleted, 500):
+                    batch = row_ids_to_delete[i:i+500]
+                    placeholders = ", ".join(["?"] * len(batch))
+                    await self.execute(f"DELETE FROM user_nba_cards WHERE id IN ({placeholders})", *batch)
+
+                # Reset dream teams for affected users
+                for u in affected_users:
+                    dt = await self.get_dream_team(u)
+                    if dt:
+                        team_data_str = str(dt.get("team_data", ""))
+                        if "exclusive" in team_data_str.lower() or "excl-" in team_data_str.lower():
+                            await self.delete_dream_team(u)
+
+            logger.info(f"[DB] strip_exclusive_cards purged {total_deleted} cards across {len(affected_users)} users.")
+            return total_deleted, len(affected_users)
         except Exception as e:
             logger.error(f"[DB] Error in strip_exclusive_cards: {e}", exc_info=True)
             return 0, 0

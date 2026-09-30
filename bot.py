@@ -35449,23 +35449,27 @@ async def stripexclusives_prefix_cmd(ctx: commands.Context, *, raw_args: str = "
 
         excl_catalog_ids = [c["id"] for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive"]
 
-        target_user = None
+        target_uid = None
+        target_display = None
         if ctx.message.mentions:
-            target_user = ctx.message.mentions[0]
-        elif raw.split()[0].isdigit() and len(raw.split()[0]) >= 17:
-            uid = int(raw.split()[0])
-            target_user = ctx.guild.get_member(uid) if ctx.guild else None
+            target_uid = str(ctx.message.mentions[0].id)
+            target_display = ctx.message.mentions[0].mention
+        else:
+            first_word = raw.split()[0].strip("<@!>") if raw.split() else ""
+            if first_word.isdigit() and len(first_word) >= 17:
+                target_uid = first_word
+                target_display = f"<@{first_word}> (`{first_word}`)"
 
-        if target_user:
+        if target_uid:
             total_deleted, affected = await db.strip_exclusive_cards(
-                target_user_id=target_user.id,
+                target_user_id=target_uid,
                 catalog_exclusive_ids=excl_catalog_ids
             )
             embed = discord.Embed(
                 title="🛡️ [ EXCLUSIVE STRIP ] • CARDS REVOKED",
                 description=(
-                    f"✅ Successfully stripped **`{total_deleted:,}` Exclusive cards** from {target_user.mention}!\n\n"
-                    f"• **Target User:** {target_user.mention} (`{target_user.id}`)\n"
+                    f"✅ Successfully stripped **`{total_deleted:,}` Exclusive cards** from {target_display}!\n\n"
+                    f"• **Target User:** {target_display}\n"
                     f"• **Cards Removed:** `{total_deleted:,}`\n"
                     f"• **Action Executed By:** {ctx.author.mention}"
                 ),
@@ -35496,7 +35500,7 @@ async def stripexclusives_prefix_cmd(ctx: commands.Context, *, raw_args: str = "
             embed.timestamp = discord.utils.utcnow()
             return await ctx.send(embed=embed)
 
-        return await ctx.send("❌ Invalid syntax. Use `!stripexclusives @user` or `!stripexclusives all`.")
+        return await ctx.send("❌ Invalid syntax. Use `!stripexclusives @user` or `!stripexclusives <user_id>` or `!stripexclusives all`.")
     except Exception as e:
         logger.error(f"Error in !stripexclusives: {e}", exc_info=True)
         await ctx.send(f"❌ Error stripping exclusive cards: {e}")
