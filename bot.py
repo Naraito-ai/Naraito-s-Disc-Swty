@@ -31459,21 +31459,6 @@ async def catch_slash_cmd(interaction: discord.Interaction, player_name: str):
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="nbaclaim", description="🏀 Guess and enter a player's name to catch an active wild NBA card drop")
-@app_commands.describe(player_name="The name of the wild NBA player")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 1.0, key=lambda i: (i.guild_id, i.user.id))
-async def nbaclaim_slash_cmd(interaction: discord.Interaction, player_name: str):
-    try:
-        await handle_catch_attempt(interaction, player_name.strip())
-    except Exception as e:
-        logger.error(f"Error in /nbaclaim: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-
-
 @bot.tree.command(name="nbahint", description="💡 Reveal missing letters for the active wild NBA card drop")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
@@ -37200,9 +37185,9 @@ async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
         await ctx.reply(f"❌ Failed to answer question: {e}")
 
 
-@bot.tree.command(name="setaireply", description="Configure AI Auto-Reply: set target channel and question mark mode")
+@bot.tree.command(name="setaireply", description="Configure AI Auto-Reply: toggle status, set target channel & question mark mode")
 @app_commands.describe(
-    enabled="Turn AI Auto-Reply on or off",
+    enabled="Turn AI Auto-Reply on (True) or off (False)",
     channel="Channel to restrict AI replies to (leave blank to allow all channels)",
     require_question_mark="Require messages to contain '?' to trigger AI auto-reply",
     reset_channel="Set to True to remove channel lock and allow in all channels"
@@ -37212,13 +37197,14 @@ async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
 @app_commands.guild_only()
 async def set_ai_reply_command(
     interaction: discord.Interaction,
-    enabled: bool = None,
-    channel: discord.TextChannel = None,
-    require_question_mark: bool = None,
+    enabled: Optional[bool] = None,
+    channel: Optional[discord.TextChannel] = None,
+    require_question_mark: Optional[bool] = None,
     reset_channel: bool = False
 ):
     try:
         guild_id = interaction.guild.id
+        has_update = (enabled is not None) or (channel is not None) or (require_question_mark is not None) or reset_channel
         
         if enabled is not None:
             await db.set_config(guild_id, "ai_auto_reply", enabled)
@@ -37237,18 +37223,18 @@ async def set_ai_reply_command(
         need_q = await db.get_config(guild_id, "ai_reply_require_qmark", False)
         
         chan_str = f"<#{chan_id}>" if chan_id else "🌐 **All Channels**"
-        q_str = "❓ **Required** (Only answers messages with `?`)" if need_q else "💬 **Optional** (Answers `?` and phrases like *how to*, *what is*, etc.)"
+        q_str = "❓ **Required** (Only answers messages with `?`)" if need_q else "💬 **Optional** (Answers `?` and questions like *how to*, *what is*)"
         status_str = "🟢 **Enabled**" if is_enabled else "🔴 **Disabled**"
 
         embed = discord.Embed(
-            title="⚙️ AI Auto-Reply Configuration Updated",
+            title="⚙️ AI Auto-Reply Configuration Updated" if has_update else "🤖 Current AI Auto-Reply Settings",
             color=discord.Color.green() if is_enabled else discord.Color.red()
         )
         embed.add_field(name="Auto-Reply Status", value=status_str, inline=False)
         embed.add_field(name="Active Channel", value=chan_str, inline=True)
         embed.add_field(name="Question Mark Mode", value=q_str, inline=True)
-        embed.set_footer(text="Tip: Tagging @Sweety will always work in any channel!")
-        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        embed.set_footer(text="Tip: Tagging @Sweety or /ask always works in any channel!")
+        embed.timestamp = discord.utils.utcnow()
 
         await interaction.response.send_message(embed=embed)
     except Exception as e:
@@ -37257,58 +37243,6 @@ async def set_ai_reply_command(
             await interaction.response.send_message("❌ Failed to update AI Auto-Reply configuration.", ephemeral=True)
         else:
             await interaction.followup.send("❌ Failed to update AI Auto-Reply configuration.", ephemeral=True)
-
-
-@bot.tree.command(name="showaireply", description="View current AI Auto-Reply channel & question mark settings")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def show_ai_reply_command(interaction: discord.Interaction):
-    try:
-        guild_id = interaction.guild.id
-        is_enabled = await db.get_config(guild_id, "ai_auto_reply", False)
-        chan_id = await db.get_config(guild_id, "ai_reply_channel_id", None)
-        need_q = await db.get_config(guild_id, "ai_reply_require_qmark", False)
-        
-        chan_str = f"<#{chan_id}>" if chan_id else "🌐 **All Channels**"
-        q_str = "❓ **Required** (Must contain `?`)" if need_q else "💬 **Optional** (Answers `?` or phrases like *explain*, *what is*)"
-        status_str = "🟢 **Enabled**" if is_enabled else "🔴 **Disabled**"
-
-        embed = discord.Embed(
-            title="🤖 AI Auto-Reply Settings",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="Status", value=status_str, inline=False)
-        embed.add_field(name="Channel Filter", value=chan_str, inline=True)
-        embed.add_field(name="Question Mark Mode", value=q_str, inline=True)
-        embed.set_footer(text="Use /setaireply to customize active channel & '?' requirement")
-        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-
-        await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /showaireply command: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message("❌ Failed to retrieve AI Auto-Reply settings.", ephemeral=True)
-        else:
-            await interaction.followup.send("❌ Failed to retrieve AI Auto-Reply settings.", ephemeral=True)
-
-
-@bot.tree.command(name="toggleaireply", description="Quick toggle automatic AI answers in server chat")
-@app_commands.default_permissions(manage_guild=True)
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def toggle_ai_reply_command(interaction: discord.Interaction):
-    try:
-        current = await db.get_config(interaction.guild.id, "ai_auto_reply", False)
-        new_state = not current
-        await db.set_config(interaction.guild.id, "ai_auto_reply", new_state)
-        state_str = "🟢 **ENABLED** (The bot will automatically reply to questions in chat)" if new_state else "🔴 **DISABLED** (The bot will only reply when /ask is used or when tagged)"
-        await interaction.response.send_message(f"AI Auto-Reply has been set to: {state_str}")
-    except Exception as e:
-        logger.error(f"Error in /toggleaireply command: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message("❌ Failed to toggle AI Auto-Reply.", ephemeral=True)
-        else:
-            await interaction.followup.send("❌ Failed to toggle AI Auto-Reply.", ephemeral=True)
 
 
 @bot.command(name="creator", aliases=["developer", "dev", "whoiscreator"])
