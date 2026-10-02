@@ -36179,13 +36179,24 @@ async def distribute_raid_boss_rewards(event: Dict[str, Any], guild: Optional[di
         return []
 
     results = []
-    # 1. 1st Place -> Exclusive prize
+    # 1. 1st Place -> Award exact event prize card & count
     p1 = lb[0]
     u1_id = p1["user_id"]
-    prize_id = event.get("prize_card_id", "excl-jordan-99")
-    prize_name = event.get("prize_card_name", "Exclusive Card")
-    await db.reward_nba_event_winner(eid, u1_id, prize_id, prize_name, rewarded_by="719932313919684670")
-    results.append({"rank": 1, "user_id": u1_id, "prize": f"👑 {prize_name} (Exclusive Immortal)", "dmg": p1["damage_dealt"]})
+    prize_id = event.get("prize_card_id", "dm-kobe-99")
+    prize_name = event.get("prize_card_name", "Dark Matter Card")
+    prize_card_obj = get_nba_card(prize_id)
+    tier_info = NBA_2K_TIERS.get(prize_card_obj.get("tier", "dark_matter") if prize_card_obj else "dark_matter", NBA_2K_TIERS["dark_matter"])
+    
+    prize_count = max(1, min(int(event.get("prize_count") or 1), 50))
+    await db.reward_nba_event_winner(eid, u1_id, prize_id, prize_name, count=prize_count, rewarded_by="719932313919684670")
+    
+    count_str = f" `[x{prize_count}]`" if prize_count > 1 else ""
+    results.append({
+        "rank": 1,
+        "user_id": u1_id,
+        "prize": f"{tier_info['emoji']} [{prize_card_obj.get('ovr', 99) if prize_card_obj else 99} OVR] **{prize_name}**{count_str} ({tier_info['name']})",
+        "dmg": p1["damage_dealt"]
+    })
 
     # 2. 2nd & 3rd Place -> Dark Matter
     dm_cards = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "dark_matter"]
@@ -36312,7 +36323,8 @@ event_group = app_commands.Group(name="event", description="🏆 Server Event & 
 @event_group.command(name="create", description="👑 Creator: Launch a new server event or tournament")
 @app_commands.describe(
     name="Event name (e.g. 'Summer Championship')",
-    prize_card="Exclusive card ID or player name (e.g. 'excl-jordan-99', 'Michael Jordan')",
+    prize_card="Card ID or player name (e.g. 'dm-kobe-99', 'Kobe Bryant', 'excl-jordan-99')",
+    prize_count="Number of copies of the prize card to award (default 1)",
     duration_hours="Duration of event in hours (e.g. 24, 48, 72, default 48)",
     event_type="Select event type / format",
     description="Event description and lore",
@@ -36332,6 +36344,7 @@ async def event_create_slash_cmd(
     interaction: discord.Interaction,
     name: str,
     prize_card: str,
+    prize_count: Optional[int] = 1,
     duration_hours: Optional[float] = 48.0,
     event_type: Optional[str] = "custom",
     description: Optional[str] = "",
@@ -36356,16 +36369,11 @@ async def event_create_slash_cmd(
             await interaction.followup.send(f"❌ Prize card `{prize_card}` not found in catalog.", ephemeral=True)
             return
 
-        if prize_obj.get("tier") != "exclusive" and not prize_obj.get("is_exclusive"):
-            pname = prize_obj.get("name", "").lower()
-            excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
-            if excl_cand:
-                prize_obj = excl_cand
-
         ev_type = event_type or "custom"
         b_name = boss_name if ev_type == "raid" else ""
         b_hp = max(1000, boss_hp or 50000) if ev_type == "raid" else 0
         dur = max(0.5, float(duration_hours or 48.0))
+        p_count = max(1, min(prize_count or 1, 50))
 
         event_id = await db.create_nba_event(
             guild_id=interaction.guild_id,
@@ -36386,13 +36394,15 @@ async def event_create_slash_cmd(
             return
 
         ends_at = int(time.time() + (dur * 3600))
+        tier_info = NBA_2K_TIERS.get(prize_obj.get("tier", "dark_matter"), NBA_2K_TIERS["gold"])
+        count_str = f" `[x{p_count}]`" if p_count > 1 else ""
         
         type_labels = {
             "custom": "🎯 **Custom / Manual Challenge**",
             "collector_race": "🏆 **Card Collector Race** — First member to complete a specific tier wins!",
             "fuse_frenzy": "🌟 **Fuse Frenzy** — Most Holo Foil cards created using `/nbafuse` wins!",
             "pack_marathon": "📦 **Pack Opening Marathon** — Most card packs opened using `/openpack` wins!",
-            "raid": f"👾 **Community Raid Boss Battle** — Server members team up with `/event raid` to defeat **{b_name}** ({b_hp:,} HP)! Top damage dealer wins the Exclusive card!"
+            "raid": f"👾 **Community Raid Boss Battle** — Server members team up with `/event raid` to defeat **{b_name}** ({b_hp:,} HP)! Top damage dealer wins the prize!"
         }
 
         ann_embed = discord.Embed(
@@ -36401,7 +36411,7 @@ async def event_create_slash_cmd(
                 f"{type_labels.get(ev_type, '🎯 **Special Server Event**')}\n\n"
                 f"📝 **Description:**\n{description or 'The Creator has initiated a new competitive event!'}\n\n"
                 f"📜 **Rules & Conditions:**\n{rules or 'Open to all server members. Play fair and have fun!'}\n\n"
-                f"👑 **Grand Prize:** 👑 **[{prize_obj['ovr']} OVR] {prize_obj['name']}** *(Exclusive Immortal Card)*\n"
+                f"👑 **Grand Prize:** {tier_info['emoji']} **[{prize_obj['ovr']} OVR] {prize_obj['name']}**{count_str} *({tier_info['name']})*\n"
                 f"• **Card ID:** `{prize_obj['id']}`\n"
                 f"• **Badges:** {', '.join(prize_obj.get('badges', []))}\n\n"
                 f"⏳ **Event Ends:** <t:{ends_at}:R> (<t:{ends_at}:F>)\n"
@@ -36472,14 +36482,23 @@ async def event_end_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error ending event: {e}", ephemeral=True)
 
 
-@event_group.command(name="reward", description="👑 Creator: Manually reward a winner with a real Exclusive Immortal card")
+@event_group.command(name="reward", description="👑 Creator: Manually reward a winner with custom cards & VC")
 @app_commands.describe(
-    user="The winner to receive the Exclusive card",
-    card="Exclusive card ID or player name (e.g. 'excl-jordan-99', 'Michael Jordan')",
+    user="The winner to receive the reward",
+    card="Card ID or player name (e.g. 'dm-kobe-99', 'Kobe Bryant', 'excl-jordan-99')",
+    count="Number of copies of the card to grant (default 1)",
+    vc="Optional VC to grant alongside the card (default 0)",
     event_id="Optional event ID (defaults to the latest event in this server)"
 )
 @app_commands.guild_only()
-async def event_reward_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str, event_id: Optional[int] = None):
+async def event_reward_slash_cmd(
+    interaction: discord.Interaction,
+    user: discord.Member,
+    card: str,
+    count: Optional[int] = 1,
+    vc: Optional[int] = 0,
+    event_id: Optional[int] = None
+):
     try:
         if not is_event_creator(interaction.user):
             await interaction.response.send_message("❌ Only the Bot Creator (`<@719932313919684670>`) can reward event winners.", ephemeral=True)
@@ -36501,17 +36520,16 @@ async def event_reward_slash_cmd(interaction: discord.Interaction, user: discord
             await interaction.followup.send(f"❌ Card `{card}` not found in catalog.", ephemeral=True)
             return
 
-        if card_obj.get("tier") != "exclusive" and not card_obj.get("is_exclusive"):
-            pname = card_obj.get("name", "").lower()
-            excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
-            if excl_cand:
-                card_obj = excl_cand
+        grant_count = max(1, min(count or 1, 50))
+        grant_vc = max(0, vc or 0)
 
         success = await db.reward_nba_event_winner(
             event_id=eid,
             user_id=user.id,
             card_id=card_obj["id"],
             card_name=card_obj["name"],
+            count=grant_count,
+            vc_amount=grant_vc,
             rewarded_by="719932313919684670"
         )
 
@@ -36523,17 +36541,21 @@ async def event_reward_slash_cmd(interaction: discord.Interaction, user: discord
         img_io.seek(0)
         img_bytes = img_io.getvalue()
 
+        tier_info = NBA_2K_TIERS.get(card_obj.get("tier", "dark_matter"), NBA_2K_TIERS["gold"])
+        count_str = f" `[x{grant_count}]`" if grant_count > 1 else ""
+        vc_str = f"\n• 💰 **Bonus VC Awarded:** `💰 +{grant_vc:,} VC`" if grant_vc > 0 else ""
+
         # Send DM to winner
         dm_embed = discord.Embed(
-            title="👑 CONGRATULATIONS! YOU WON AN EVENT!",
+            title="👑 CONGRATULATIONS! YOU WON AN EVENT REWARD!",
             description=(
-                f"🎉 You have officially been rewarded an **Exclusive Immortal NBA Card** by the Creator for your triumph in **{event_name}**!\n\n"
-                f"👑 **Card:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}**\n"
+                f"🎉 You have officially been rewarded by the Creator for your triumph in **{event_name}**!\n\n"
+                f"🎴 **Card:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**{count_str}\n"
                 f"• **Card ID:** `{card_obj['id']}`\n"
                 f"• **Position:** `{card_obj.get('pos', 'G')}`\n"
-                f"• **Tier:** `👑 Exclusive / Immortal`\n"
+                f"• **Tier:** `{tier_info['name']}`\n"
                 f"• **Badges:** {', '.join(card_obj.get('badges', []))}\n"
-                f"• **Historic Moment:** {get_nba_card_moment(card_obj)}\n\n"
+                f"• **Historic Moment:** {get_nba_card_moment(card_obj)}{vc_str}\n\n"
                 f"✨ *This card is now in your Card Binder (`/nbadex`) and ready to equip in your Starting 5 (`/buildteam`)!*"
             ),
             color=0xFF1493
@@ -36553,8 +36575,8 @@ async def event_reward_slash_cmd(interaction: discord.Interaction, user: discord
             description=(
                 f"🎉 **Huge Congratulations to {user.mention}!**\n\n"
                 f"🏆 **Event:** **{event_name}**\n"
-                f"👑 **Exclusive Reward:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}** (`{card_obj['id']}`)\n\n"
-                f"✨ *This masterpiece Exclusive Immortal card has been added directly to their collection with full stats, badges, and OVR!*"
+                f"🎴 **Reward:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**{count_str} (`{card_obj['id']}`){vc_str}\n\n"
+                f"✨ *The reward has been added directly to their collection!*"
             ),
             color=0xFF1493
         )
@@ -41815,13 +41837,7 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
             prize_obj = get_nba_card(prize_card)
             if not prize_obj:
                 await ctx.send(f"❌ Prize card `{prize_card}` not found in catalog.")
-                return
-
-            if prize_obj.get("tier") != "exclusive" and not prize_obj.get("is_exclusive"):
-                pname = prize_obj.get("name", "").lower()
-                excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
-                if excl_cand:
-                    prize_obj = excl_cand
+            tier_info = NBA_2K_TIERS.get(prize_obj.get("tier", "dark_matter"), NBA_2K_TIERS["gold"])
 
             b_name = "Titan Mecha Giannis" if ev_type == "raid" else ""
             b_hp = 50000 if ev_type == "raid" else 0
@@ -41845,13 +41861,13 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 title=f"🏆 NEW SERVER EVENT: {name}",
                 description=(
                     f"📝 **Description:**\n{desc}\n\n"
-                    f"👑 **Grand Prize:** 👑 **[{prize_obj['ovr']} OVR] {prize_obj['name']}** *(Exclusive Immortal Card)*\n"
+                    f"👑 **Grand Prize:** {tier_info['emoji']} **[{prize_obj['ovr']} OVR] {prize_obj['name']}** *({tier_info['name']})*\n"
                     f"• **Card ID:** `{prize_obj['id']}`\n"
                     f"• **Badges:** {', '.join(prize_obj.get('badges', []))}\n\n"
                     f"⏳ **Event Ends:** <t:{ends_at}:R> (<t:{ends_at}:F>)\n"
                     f"👑 **Hosted by Creator:** <@719932313919684670>"
                 ),
-                color=0xFF1493
+                color=tier_info["color"]
             )
             ann_embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
             ann_embed.set_footer(text=f"Event ID: #{event_id} • Use !event status or !event raid to participate")
@@ -41906,36 +41922,37 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 return
 
             if not rest:
-                await ctx.send("ℹ️ **Usage:** `!event reward <@user> <card_name_or_id>`\n*Example:* `!event reward @User excl-jordan-99`")
+                await ctx.send("ℹ️ **Usage:** `!event reward <@user> [count] <card_name_or_id>`\n*Example:* `!event reward @User 3 dm-kobe-99`")
                 return
 
             parts = rest.split()
             target_user = None
             if ctx.message.mentions:
                 target_user = ctx.message.mentions[0]
-                card_part = " ".join([p for p in parts if not p.startswith("<@")])
+                non_mention_parts = [p for p in parts if not p.startswith("<@")]
             elif parts:
                 uid_cand = parts[0].strip("<@!>")
                 if uid_cand.isdigit():
                     target_user = ctx.guild.get_member(int(uid_cand))
-                card_part = " ".join(parts[1:])
+                non_mention_parts = parts[1:]
             else:
-                card_part = ""
+                non_mention_parts = []
 
             if not target_user:
-                await ctx.send("❌ Please mention the winning member: `!event reward @user <card>`")
+                await ctx.send("❌ Please mention the winning member: `!event reward @user [count] <card>`")
                 return
+
+            count = 1
+            if non_mention_parts and non_mention_parts[0].isdigit() and len(non_mention_parts[0]) <= 3:
+                count = max(1, min(int(non_mention_parts[0]), 50))
+                card_part = " ".join(non_mention_parts[1:]).strip()
+            else:
+                card_part = " ".join(non_mention_parts).strip()
 
             card_obj = get_nba_card(card_part)
             if not card_obj:
                 await ctx.send(f"❌ Card `{card_part}` not found in catalog.")
                 return
-
-            if card_obj.get("tier") != "exclusive" and not card_obj.get("is_exclusive"):
-                pname = card_obj.get("name", "").lower()
-                excl_cand = next((c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "exclusive" and pname in c.get("name", "").lower()), None)
-                if excl_cand:
-                    card_obj = excl_cand
 
             events = await db.get_all_nba_events(ctx.guild.id, limit=1)
             event = events[0] if events else None
@@ -41947,12 +41964,16 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 user_id=target_user.id,
                 card_id=card_obj["id"],
                 card_name=card_obj["name"],
+                count=count,
                 rewarded_by="719932313919684670"
             )
 
             if not success:
                 await ctx.send("❌ Failed to reward winner in database.")
                 return
+
+            tier_info = NBA_2K_TIERS.get(card_obj.get("tier", "dark_matter"), NBA_2K_TIERS["gold"])
+            count_str = f" `[x{count}]`" if count > 1 else ""
 
             img_io = generate_nba_card_graphic(card_obj)
             img_io.seek(0)
@@ -41961,16 +41982,16 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
             dm_embed = discord.Embed(
                 title="👑 CONGRATULATIONS! YOU WON AN EVENT!",
                 description=(
-                    f"🎉 You have officially been rewarded an **Exclusive Immortal NBA Card** by the Creator for your triumph in **{event_name}**!\n\n"
-                    f"👑 **Card:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}**\n"
+                    f"🎉 You have officially been rewarded **{tier_info['name']} NBA Card(s)** by the Creator for your triumph in **{event_name}**!\n\n"
+                    f"👑 **Card:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**{count_str}\n"
                     f"• **Card ID:** `{card_obj['id']}`\n"
                     f"• **Position:** `{card_obj.get('pos', 'G')}`\n"
-                    f"• **Tier:** `👑 Exclusive / Immortal`\n"
+                    f"• **Tier:** `{tier_info['name']}`\n"
                     f"• **Badges:** {', '.join(card_obj.get('badges', []))}\n"
                     f"• **Historic Moment:** {get_nba_card_moment(card_obj)}\n\n"
-                    f"✨ *This card is now in your Card Binder (`!nbadex`) and ready to equip in your Starting 5 (`!buildteam`)!*"
+                    f"✨ *Added directly to your Card Binder (`!nbadex`) and ready for your Starting 5 (`!buildteam`)!*"
                 ),
-                color=0xFF1493
+                color=tier_info["color"]
             )
             dm_embed.set_image(url=f"attachment://{card_obj['id']}.png")
             dm_embed.timestamp = discord.utils.utcnow()
@@ -41986,10 +42007,10 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 description=(
                     f"🎉 **Huge Congratulations to {target_user.mention}!**\n\n"
                     f"🏆 **Event:** **{event_name}**\n"
-                    f"👑 **Exclusive Reward:** 👑 **[{card_obj['ovr']} OVR] {card_obj['name']}** (`{card_obj['id']}`)\n\n"
-                    f"✨ *This masterpiece Exclusive Immortal card has been added directly to their collection with full stats, badges, and OVR!*"
+                    f"👑 **Reward:** {tier_info['emoji']} **[{card_obj['ovr']} OVR] {card_obj['name']}**{count_str} (`{card_obj['id']}`)\n\n"
+                    f"✨ *This card has been added directly to their collection with full stats, badges, and OVR!*"
                 ),
-                color=0xFF1493
+                color=tier_info["color"]
             )
             ann_embed.set_author(name="Awarded by Bot Creator", icon_url=ctx.author.display_avatar.url if hasattr(ctx.author, 'display_avatar') else None)
             ann_embed.set_image(url=f"attachment://winner_{card_obj['id']}.png")

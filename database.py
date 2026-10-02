@@ -2217,8 +2217,8 @@ class DatabaseManager:
             logger.error(f"Error cancelling event {event_id}: {e}")
             return False
 
-    async def reward_nba_event_winner(self, event_id: int, user_id: Any, card_id: str, card_name: str, rewarded_by: str = "719932313919684670") -> bool:
-        """Records a winner and awards the real Exclusive card to their inventory."""
+    async def reward_nba_event_winner(self, event_id: int, user_id: Any, card_id: str, card_name: str, count: int = 1, vc_amount: int = 0, rewarded_by: str = "719932313919684670") -> bool:
+        """Records a winner and awards the custom cards and VC to their inventory."""
         u = str(user_id)
         now = time.time()
         try:
@@ -2227,9 +2227,14 @@ class DatabaseManager:
                 "INSERT INTO nba_event_winners (event_id, user_id, card_id, card_name, rewarded_at, rewarded_by) VALUES (?, ?, ?, ?, ?, ?)",
                 int(event_id), u, card_id, card_name, now, rewarded_by
             )
-            # 2. Add real card to inventory with source 'event_reward'
-            await self.add_user_nba_card(u, card_id, source="event_reward")
-            logger.info(f"👑 [EVENT REWARD] User {u} rewarded with card {card_id} for event {event_id}.")
+            # 2. Add custom count of cards to inventory
+            count_to_grant = max(1, min(count, 50))
+            for _ in range(count_to_grant):
+                await self.add_user_nba_card(u, card_id, source="event_reward")
+            # 3. Add VC if specified
+            if vc_amount > 0:
+                await self.add_user_vc(u, vc_amount)
+            logger.info(f"👑 [EVENT REWARD] User {u} rewarded with {count_to_grant}x {card_id} and {vc_amount} VC for event {event_id}.")
             return True
         except Exception as e:
             logger.error(f"Error rewarding event winner: {e}", exc_info=True)
