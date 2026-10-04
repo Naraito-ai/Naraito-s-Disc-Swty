@@ -17251,10 +17251,17 @@ class GeminiBot(commands.Bot):
         except Exception as bl_err:
             logger.error(f"❌ Blacklist cache load failed: {bl_err}")
         
-        # Step 4: Global Slash Command Sync
+        # Step 4: Global & Instant Guild Slash Command Sync
         try:
-            synced = await self.tree.sync()
-            logger.info(f"✅ Synced {len(synced)} global slash commands to Discord")
+            synced_global = await self.tree.sync()
+            logger.info(f"✅ Synced {len(synced_global)} global slash commands to Discord")
+            for guild in self.guilds:
+                try:
+                    self.tree.copy_global_to(guild=guild)
+                    synced_g = await self.tree.sync(guild=guild)
+                    logger.info(f"⚡ Instant-synced {len(synced_g)} slash commands to guild: {guild.name}")
+                except Exception as g_err:
+                    logger.warning(f"Could not sync slash commands to guild {guild.name}: {g_err}")
         except Exception as e:
             logger.warning(f"Global command sync notice on ready: {e}")
 
@@ -26490,6 +26497,13 @@ async def on_guild_join(guild: discord.Guild):
         return
 
     logger.info(f"Joined new guild: {guild.name} ({guild.id}) with {guild.member_count} members.")
+    try:
+        bot.tree.copy_global_to(guild=guild)
+        await bot.tree.sync(guild=guild)
+        logger.info(f"⚡ Instant-synced slash commands to newly joined guild: {guild.name}")
+    except Exception as sync_err:
+        logger.warning(f"Could not sync slash commands to new guild {guild.name}: {sync_err}")
+
     try:
         await db.upsert_guild(
             guild_id=guild.id,
