@@ -1570,7 +1570,7 @@ class DatabaseManager:
             )
             matching_rows = []
             for r in all_rows:
-                cid_in_db = str(r.get("card_id", "")).strip().lower()
+                cid_in_db = str(r.get("card_id", "") if isinstance(r, dict) else r[1]).strip().lower()
                 canon_in_db = (legacy_map.get(cid_in_db, cid_in_db) if legacy_map else cid_in_db).lower()
                 if canon_in_db == canonical_cid:
                     matching_rows.append(r)
@@ -1579,7 +1579,7 @@ class DatabaseManager:
                 return False, f"You only own **{len(matching_rows)}** cop{'ies' if len(matching_rows) != 1 else 'y'} of `{canonical_cid}`, but tried to gift **{count}**.", None
 
             selected = matching_rows[:count]
-            row_ids = [r["id"] for r in selected]
+            row_ids = [(r["id"] if isinstance(r, dict) and "id" in r else r[0]) for r in selected]
             placeholders = ", ".join(["?"] * len(row_ids))
             await self.execute(f"UPDATE user_nba_cards SET user_id = ? WHERE id IN ({placeholders})", u_to, *row_ids)
             return True, f"Successfully gifted {count}x `{canonical_cid}`!", {"count": count, "card_id": canonical_cid}
