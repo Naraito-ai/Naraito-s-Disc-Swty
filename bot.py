@@ -27458,6 +27458,23 @@ async def run_fastapi_server():
         except Exception as api_err:
             logger.warning(f"FastAPI dashboard startup error: {api_err}")
 
+async def cleanup_and_reset_bot(bot_instance):
+    """Cleanly closes bot HTTP session/connection and resets internal state for a clean retry."""
+    try:
+        if not bot_instance.is_closed():
+            await bot_instance.close()
+        elif hasattr(bot_instance, "http") and bot_instance.http:
+            await bot_instance.http.close()
+    except Exception as ce:
+        logger.debug(f"Bot session close notice: {ce}")
+    finally:
+        bot_instance._closing_task = None
+        bot_instance._ready = asyncio.Event()
+        try:
+            bot_instance.loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+
 async def run_bot_gateway():
     global bot, _gateway_state
     _gateway_state["token_configured"] = bool(DISCORD_TOKEN and DISCORD_TOKEN != "your_token_here")
@@ -27476,6 +27493,7 @@ async def run_bot_gateway():
             _gateway_state["last_error"] = f"LoginFailure: {login_err}"
             _gateway_state["last_error_time"] = time.time()
             logger.error(f"❌ Discord Login Failure (check DISCORD_TOKEN): {login_err}. Waiting {backoff}s while keeping web server active...")
+            await cleanup_and_reset_bot(bot)
             if time.time() - started > 900:
                 backoff = 600
             await asyncio.sleep(backoff)
@@ -27485,6 +27503,7 @@ async def run_bot_gateway():
             _gateway_state["last_error"] = f"PrivilegedIntentsRequired: {intent_err}"
             _gateway_state["last_error_time"] = time.time()
             logger.error(f"❌ Privileged Intents Error: {intent_err}. Please enable Server Members Intent and Message Content Intent in Discord Developer Portal!")
+            await cleanup_and_reset_bot(bot)
             if time.time() - started > 900:
                 backoff = 600
             await asyncio.sleep(backoff)
@@ -27497,6 +27516,7 @@ async def run_bot_gateway():
                 logger.warning(f"⚠️ Discord Cloudflare 429 Rate Limit (Error 1015) detected. Keeping container alive and waiting {backoff}s before clean retry...")
             else:
                 logger.error(f"HTTP error: {http_err}. Retrying in {backoff}s...")
+            await cleanup_and_reset_bot(bot)
             if time.time() - started > 900:
                 backoff = 600
             await asyncio.sleep(backoff)
@@ -27506,6 +27526,7 @@ async def run_bot_gateway():
             _gateway_state["last_error"] = f"{type(e).__name__}: {e}"
             _gateway_state["last_error_time"] = time.time()
             logger.error(f"Bot session disconnected: {e}. Retrying in {backoff}s...", exc_info=True)
+            await cleanup_and_reset_bot(bot)
             if time.time() - started > 900:
                 backoff = 600
             await asyncio.sleep(backoff)

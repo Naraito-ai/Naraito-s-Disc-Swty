@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: sweety-bot-service
+    runtime: python
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: "10000"
+      - key: DISABLE_API
+        value: "false"
+      - key: ENABLE_DOCS
+        value: "false"
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: MASTER_API_KEY
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_REDIRECT_URI
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        sync: false
+      - key: UPTIME_API_KEY
+        sync: false
