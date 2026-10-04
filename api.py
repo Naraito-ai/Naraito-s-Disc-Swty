@@ -54,6 +54,8 @@ active_event_websockets = set()
 async def seed_dashboard_data(db):
     """Seeds some default data if the tables are empty, for instant beautiful charts."""
     try:
+        if not getattr(db, "sqlite_conn", None) and not getattr(db, "pg_pool", None):
+            await db.initialize()
         rows = await db.fetch("SELECT COUNT(*) as count FROM guilds")
         count = 0
         if rows:
@@ -169,9 +171,13 @@ async def health_check():
 async def health():
     """Detailed health check endpoint for monitoring Discord Gateway and bot status."""
     bot = getattr(app.state, "bot", None)
-    bot_status = "unknown"
+    gw_state = getattr(app.state, "gateway_state", {})
+    bot_status = gw_state.get("status", "unknown")
     bot_latency = None
-    bot_user = "not_initialized"
+    bot_user = gw_state.get("user") or "not_initialized"
+    guilds_count = gw_state.get("guilds", 0)
+    commands_count = gw_state.get("commands", 0)
+    cogs_list = gw_state.get("cogs", [])
     try:
         if bot:
             if bot.user:
@@ -183,8 +189,9 @@ async def health():
                     bot_latency = round(lat * 1000, 2)
             elif bot.user:
                 bot_status = "connecting"
-            else:
-                bot_status = "starting"
+            guilds_count = len(bot.guilds) if hasattr(bot, "guilds") else guilds_count
+            commands_count = len(bot.commands) if hasattr(bot, "commands") else commands_count
+            cogs_list = list(bot.cogs.keys()) if hasattr(bot, "cogs") else cogs_list
     except Exception as e:
         bot_status = f"error: {e}"
 
@@ -192,7 +199,11 @@ async def health():
         "status": "ok",
         "bot": bot_user,
         "gateway": bot_status,
-        "latency_ms": bot_latency
+        "latency_ms": bot_latency,
+        "guilds": guilds_count,
+        "commands": commands_count,
+        "cogs": cogs_list,
+        "diagnostics": gw_state
     }
 
 @app.get("/terms", response_class=HTMLResponse)
@@ -633,7 +644,7 @@ async def websocket_events(websocket: WebSocket):
 # Uvicorn startup handler
 _fastapi_server_instance = None
 
-async def start_fastapi(bot, db, port: int):
+async def start_fastapi(bot, db, port: int, gateway_state: Optional[Dict[str, Any]] = None):
     """Initializes and runs the Uvicorn FastAPI server inside the bot's async event loop."""
     global _fastapi_server_instance
     if _fastapi_server_instance is not None:
@@ -642,6 +653,7 @@ async def start_fastapi(bot, db, port: int):
     
     app.state.bot = bot
     app.state.db = db
+    app.state.gateway_state = gateway_state or {}
     
     # Run seed in background task so uvicorn binds port IMMEDIATELY
     asyncio.create_task(seed_dashboard_data(db))
