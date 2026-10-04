@@ -7813,6 +7813,37 @@ def get_nba_player_moment_photo(player_name: str, card: Optional[Dict[str, Any]]
     return None
 
 
+def get_tier_default_moment_image(tier_key: str) -> Optional[Image.Image]:
+    """Generates a stylish tier-themed fallback moment background image when no player photo is available."""
+    try:
+        t_info = NBA_2K_TIERS.get(tier_key, NBA_2K_TIERS.get("gold", {}))
+        color = t_info.get("color", (255, 180, 0))
+        if isinstance(color, int):
+            r = (color >> 16) & 255
+            g = (color >> 8) & 255
+            b = color & 255
+            color_rgb = (r, g, b)
+        elif isinstance(color, (tuple, list)):
+            color_rgb = tuple(color[:3])
+        else:
+            color_rgb = (220, 160, 40)
+
+        img = Image.new("RGBA", (480, 420), (15, 20, 30, 255))
+        draw = ImageDraw.Draw(img)
+
+        # Draw diagonal subtle gradient rays
+        for i in range(0, 480, 30):
+            draw.polygon([(i, 0), (i + 15, 0), (i + 80, 420), (i + 65, 420)], fill=(*color_rgb, 35))
+
+        # Center glowing ring & basketball outline
+        draw.ellipse([(140, 110), (340, 310)], outline=(*color_rgb, 120), width=4)
+        draw.ellipse([(170, 140), (310, 280)], outline=(*color_rgb, 180), width=2)
+        return img
+    except Exception as e:
+        logger.warning(f"Error in get_tier_default_moment_image: {e}")
+        return None
+
+
 def _draw_star_polygon(draw: ImageDraw.Draw, center: Tuple[int, int], size: int, color: Tuple[int, int, int, int]):
     """Draws a crisp gold star polygon on PIL canvas."""
     cx, cy = center
