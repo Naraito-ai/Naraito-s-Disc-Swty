@@ -8,7 +8,7 @@ import datetime
 from typing import Optional, Union, Tuple, List, Dict, Any
 import discord
 from discord.ext import commands
-import database as db
+from database import db
 
 logger = logging.getLogger("SweetyBot.Utils")
 

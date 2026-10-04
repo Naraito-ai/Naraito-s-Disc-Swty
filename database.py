@@ -640,6 +640,40 @@ class DatabaseManager:
         """
         await self.execute(query, str(guild_id), key, str(value))
         
+    async def set_autorole(self, guild_id: Any, role_id: Optional[Any] = None) -> bool:
+        """Sets or clears the auto-assign role for new members joining the guild."""
+        await self.set_config(guild_id, "auto_role_id", role_id)
+        return True
+
+    async def upsert_guild(self, guild_id: Any, name: str, icon: Optional[str] = None, owner_id: Optional[Any] = None, member_count: int = 0) -> bool:
+        """Upserts a guild record into the guilds table."""
+        if self.is_postgres:
+            query = """
+            INSERT INTO guilds (id, name, icon, owner_id, member_count)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                icon = EXCLUDED.icon,
+                owner_id = EXCLUDED.owner_id,
+                member_count = EXCLUDED.member_count
+            """
+        else:
+            query = """
+            INSERT INTO guilds (id, name, icon, owner_id, member_count)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                name = excluded.name,
+                icon = excluded.icon,
+                owner_id = excluded.owner_id,
+                member_count = excluded.member_count
+            """
+        try:
+            await self.execute(query, str(guild_id), str(name), str(icon) if icon else None, str(owner_id) if owner_id else None, int(member_count))
+            return True
+        except Exception as e:
+            logger.error(f"Error upserting guild {guild_id}: {e}")
+            return False
+
         # Update cache
         self._config_cache[(str(guild_id), key)] = str(value)
 
@@ -861,6 +895,12 @@ class DatabaseManager:
         """Updates the delivery method for a reminder."""
         query = "UPDATE reminders SET delivery_method = ? WHERE id = ?"
         await self.execute(query, str(delivery_method), str(reminder_id))
+        return True
+
+    async def clear_user_reminders(self, user_id: Any) -> bool:
+        """Deletes all active pending reminders for a user."""
+        query = "DELETE FROM reminders WHERE user_id = ?"
+        await self.execute(query, str(user_id))
         return True
 
     # ── AFK System Methods ──────────────────────────────────────────────────
@@ -1371,6 +1411,10 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error resolving appeal ticket in DB: {e}")
             return False
+
+    async def close_appeal_ticket(self, guild_id: Any, channel_id: Any, reason: str = "Closed", closed_by: Any = None) -> bool:
+        """Closes an appeal ticket and marks status as closed."""
+        return await self.resolve_appeal_ticket(channel_id, "closed", closed_by or "system")
 
     # ── User Memory System (Persistent AI Memory) ─────────────────────────
 

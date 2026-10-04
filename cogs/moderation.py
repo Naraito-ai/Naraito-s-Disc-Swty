@@ -9,7 +9,7 @@ from typing import Optional, Union, Tuple, List, Dict, Any
 import discord
 from discord.ext import commands
 from discord import app_commands
-import database as db
+from database import db
 from utils import (
     is_creator, is_protected, log_mod_action, get_mod_log_channel,
     parse_duration_string, parse_time_string, format_time_elapsed,
