@@ -25873,47 +25873,79 @@ async def roleallremove_command(interaction: discord.Interaction, role: discord.
 # ── User Profile & Comprehensive Server Audit (/whois & /userinfo) ──────────
 
 class UserProfileView(discord.ui.View):
-    def __init__(self, target_user: discord.User, target_member: discord.Member):
+    def __init__(self, target_user: Any, target_member: Any):
         super().__init__(timeout=120.0)
         self.target_user = target_user
         self.target_member = target_member
         
-        if target_member.display_avatar:
-            self.add_item(discord.ui.Button(label="🖼️ View Avatar", url=target_member.display_avatar.url, style=discord.ButtonStyle.link))
+        avatar_url = getattr(getattr(target_member, 'display_avatar', None), 'url', None) or getattr(getattr(target_user, 'display_avatar', None), 'url', None)
+        if avatar_url:
+            self.add_item(discord.ui.Button(label="🖼️ View Avatar", url=avatar_url, style=discord.ButtonStyle.link))
         
-        if getattr(target_user, 'banner', None):
-            self.add_item(discord.ui.Button(label="🎨 View Banner", url=target_user.banner.url, style=discord.ButtonStyle.link))
+        banner = getattr(target_user, 'banner', None)
+        banner_url = getattr(banner, 'url', None) if banner else None
+        if banner_url:
+            self.add_item(discord.ui.Button(label="🎨 View Banner", url=banner_url, style=discord.ButtonStyle.link))
 
 
-@bot.tree.command(name="whois", description="🔍 Deep audit of a member — bio, roles, permissions, activity & moderation history")
-@app_commands.describe(member="The server member to inspect (defaults to yourself)")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def whois_command(interaction: discord.Interaction, member: discord.Member = None):
-    try:
-        target = member or interaction.user
-        await interaction.response.defer(thinking=True)
-        
-        # 1. Fetch full Discord user profile (gets bio, banner, accent color)
+async def _build_whois_embed_and_view(guild: discord.Guild, author: Union[discord.Member, discord.User], target_raw: Any) -> Tuple[discord.Embed, discord.ui.View]:
+    """Helper function to build a comprehensive whois audit embed for a member or user."""
+    target = None
+    if isinstance(target_raw, (discord.Member, discord.User)):
+        target = target_raw
+    elif target_raw:
         try:
-            user_profile = await bot.fetch_user(target.id)
+            uid = int(re.sub(r'\D', '', str(target_raw)))
+            target = guild.get_member(uid)
+            if not target:
+                try:
+                    target = await guild.fetch_member(uid)
+                except Exception:
+                    try:
+                        target = await bot.fetch_user(uid)
+                    except Exception:
+                        target = None
         except Exception:
-            user_profile = target
+            target = None
 
-        # 2. Roles Overview
-        roles = [r for r in target.roles if r != interaction.guild.default_role]
-        roles.reverse()
-        roles_count = len(roles)
-        if roles_count > 0:
-            roles_str = ", ".join([r.mention for r in roles[:15]])
-            if roles_count > 15:
-                roles_str += f" ...and `{roles_count - 15}` more"
-        else:
-            roles_str = "`No custom roles`"
+    if not target:
+        target = author
 
-        # 3. Key Permissions ("What he can do / permissions")
-        perms = target.guild_permissions
-        key_perms = []
+    if not isinstance(target, discord.Member) and hasattr(guild, 'get_member'):
+        mem = guild.get_member(target.id)
+        if not mem:
+            try:
+                mem = await guild.fetch_member(target.id)
+            except Exception:
+                mem = None
+        if mem:
+            target = mem
+
+    # Fetch full Discord user profile (gets bio, banner, accent color)
+    try:
+        user_profile = await bot.fetch_user(target.id)
+    except Exception:
+        user_profile = target
+
+    # Roles Overview
+    raw_roles = getattr(target, 'roles', [])
+    roles = [r for r in raw_roles if r != guild.default_role]
+    roles.reverse()
+    roles_count = len(roles)
+    if roles_count > 0:
+        roles_str = ", ".join([r.mention for r in roles[:15]])
+        if roles_count > 15:
+            roles_str += f" ...and `{roles_count - 15}` more"
+    else:
+        roles_str = "`No custom roles`"
+
+    top_role = getattr(target, 'top_role', None)
+    top_role_str = top_role.mention if top_role else "`None`"
+
+    # Key Permissions
+    perms = getattr(target, 'guild_permissions', None)
+    key_perms = []
+    if perms:
         if perms.administrator:
             key_perms.append("👑 Administrator (Full Control)")
         else:
@@ -25931,125 +25963,175 @@ async def whois_command(interaction: discord.Interaction, member: discord.Member
             if perms.deafen_members: key_perms.append("🙉 Voice Deafen")
             if perms.move_members: key_perms.append("🔀 Move Members")
 
-        if not key_perms:
-            perms_str = "👤 `Standard Member (No elevated permissions)`"
-        else:
-            perms_str = "\n".join([f"• {p}" for p in key_perms[:10]])
-            if len(key_perms) > 10:
-                perms_str += f"\n• ...and `{len(key_perms) - 10}` more permissions"
+    if not key_perms:
+        perms_str = "👤 `Standard Member (No elevated permissions)`"
+    else:
+        perms_str = "\n".join([f"• {p}" for p in key_perms[:10]])
+        if len(key_perms) > 10:
+            perms_str += f"\n• ...and `{len(key_perms) - 10}` more permissions"
 
-        # 4. Moderation & Server Activity Record ("What he did")
-        warn_count = 0
-        timeout_count = 0
-        cmd_count = 0
-        try:
-            stats = await db.get_member_moderation_stats(interaction.guild.id, target.id)
-            warn_count = stats.get("warnings", 0)
-            timeout_count = stats.get("timeouts", 0)
-            cmd_count = stats.get("commands", 0)
-        except Exception as db_err:
-            logger.warning(f"Error fetching DB stats for whois: {db_err}")
+    # Moderation & Server Activity Record
+    warn_count = 0
+    timeout_count = 0
+    cmd_count = 0
+    try:
+        stats = await db.get_member_moderation_stats(guild.id, target.id)
+        warn_count = stats.get("warnings", 0)
+        timeout_count = stats.get("timeouts", 0)
+        cmd_count = stats.get("commands", 0)
+    except Exception as db_err:
+        logger.warning(f"Error fetching DB stats for whois: {db_err}")
 
-        # Immunity tier
-        if target.id == interaction.guild.owner_id:
-            immunity_status = "👑 **Server Owner (Absolute Immunity)**"
-        elif perms.administrator:
-            immunity_status = "🛡️ **Server Administrator (Immune)**"
-        elif perms.manage_guild or perms.manage_messages or perms.kick_members:
-            immunity_status = "⚔️ **Server Moderator (Immune)**"
-        else:
-            immunity_status = "👤 **Standard Member**"
+    # Immunity tier
+    if target.id == guild.owner_id:
+        immunity_status = "👑 **Server Owner (Absolute Immunity)**"
+    elif perms and perms.administrator:
+        immunity_status = "🛡️ **Server Administrator (Immune)**"
+    elif perms and (perms.manage_guild or perms.manage_messages or perms.kick_members):
+        immunity_status = "⚔️ **Server Moderator (Immune)**"
+    else:
+        immunity_status = "👤 **Standard Member**"
 
-        # Join Position calculation
-        sorted_members = sorted([m for m in interaction.guild.members if m.joined_at is not None], key=lambda m: m.joined_at)
+    # Join Position calculation
+    join_pos_str = ""
+    try:
+        sorted_members = sorted([m for m in guild.members if getattr(m, 'joined_at', None) is not None], key=lambda m: m.joined_at)
         join_pos = next((idx + 1 for idx, m in enumerate(sorted_members) if m.id == target.id), None)
-        join_pos_str = f" (#{join_pos} of {interaction.guild.member_count})" if join_pos else ""
+        if join_pos:
+            join_pos_str = f" (#{join_pos} of {guild.member_count})"
+    except Exception:
+        pass
 
-        # Booster status
-        booster_str = f"🚀 Boosting since <t:{int(target.premium_since.timestamp())}:R>" if target.premium_since else "❌ Not boosting"
+    # Booster status
+    premium_since = getattr(target, 'premium_since', None)
+    booster_str = f"🚀 Boosting since <t:{int(premium_since.timestamp())}:R>" if premium_since else "❌ Not boosting"
 
-        # Badges / Flags
-        flags = [flag.name.replace("_", " ").title() for flag, value in target.public_flags if value]
+    # Badges / Flags
+    flags_list = getattr(target, 'public_flags', None)
+    if flags_list:
+        flags = [flag.name.replace("_", " ").title() for flag, value in flags_list if value]
         flags_str = ", ".join(flags) if flags else "`None`"
+    else:
+        flags_str = "`None`"
 
-        # User Bio (About Me)
-        bio_str = user_profile.bio if (hasattr(user_profile, 'bio') and user_profile.bio) else None
+    # User Bio
+    bio_str = user_profile.bio if (hasattr(user_profile, 'bio') and user_profile.bio) else None
 
-        # Build Embed
-        embed = discord.Embed(
-            title=f"🔍 Member Dossier & Audit — {target.display_name}",
-            color=target.color if target.color.value != 0 else discord.Color.blurple()
-        )
-        if bio_str:
-            embed.description = f"💬 **About Me:**\n> {bio_str}\n"
+    # Embed color
+    color = getattr(target, 'color', None)
+    embed_color = color if (color and getattr(color, 'value', 0) != 0) else discord.Color.blurple()
 
-        embed.set_thumbnail(url=target.display_avatar.url)
-        if hasattr(user_profile, 'banner') and user_profile.banner:
-            embed.set_image(url=user_profile.banner.url)
+    embed = discord.Embed(
+        title=f"🔍 Member Dossier & Audit — {target.display_name}",
+        color=embed_color
+    )
+    if bio_str:
+        embed.description = f"💬 **About Me:**\n> {bio_str}\n"
 
-        # General Identity
-        embed.add_field(
-            name="👤 **User Identity**",
-            value=(
-                f"• **Username:** {target.name} (`{target.id}`)\n"
-                f"• **Mention:** {target.mention}\n"
-                f"• **Account Type:** `{'🤖 Bot' if target.bot else '🧑 Human'}`\n"
-                f"• **Badges:** {flags_str}\n"
-                f"• **Immunity Tier:** {immunity_status}"
-            ),
-            inline=False
-        )
+    avatar_url = getattr(getattr(target, 'display_avatar', None), 'url', None)
+    if avatar_url:
+        embed.set_thumbnail(url=avatar_url)
 
-        # Server Timeline
-        created_ts = int(target.created_at.timestamp())
-        joined_ts = int(target.joined_at.timestamp()) if target.joined_at else created_ts
-        embed.add_field(
-            name="📅 **Server Timeline & History**",
-            value=(
-                f"• **Account Created:** <t:{created_ts}:F> (<t:{created_ts}:R>)\n"
-                f"• **Joined Server:** <t:{joined_ts}:F> (<t:{joined_ts}:R>){join_pos_str}\n"
-                f"• **Server Booster:** {booster_str}"
-            ),
-            inline=False
-        )
+    banner_url = getattr(getattr(user_profile, 'banner', None), 'url', None)
+    if banner_url:
+        embed.set_image(url=banner_url)
 
-        # Roles
-        embed.add_field(
-            name=f"🎭 **Roles ({roles_count})**",
-            value=f"• **Highest Role:** {target.top_role.mention}\n• **Assigned Roles:** {roles_str}",
-            inline=False
-        )
+    # General Identity
+    is_bot = getattr(target, 'bot', False)
+    embed.add_field(
+        name="👤 **User Identity**",
+        value=(
+            f"• **Username:** {target.name} (`{target.id}`)\n"
+            f"• **Mention:** {target.mention}\n"
+            f"• **Account Type:** `{'🤖 Bot' if is_bot else '🧑 Human'}`\n"
+            f"• **Badges:** {flags_str}\n"
+            f"• **Immunity Tier:** {immunity_status}"
+        ),
+        inline=False
+    )
 
-        # Permissions
-        embed.add_field(
-            name="🛡️ **Key Permissions & Abilities**",
-            value=perms_str,
-            inline=False
-        )
+    # Server Timeline
+    created_at = getattr(target, 'created_at', None)
+    created_ts = int(created_at.timestamp()) if created_at else int(time.time())
+    joined_at = getattr(target, 'joined_at', None)
+    joined_ts = int(joined_at.timestamp()) if joined_at else created_ts
 
-        # Moderation & Bot Usage Record
-        mod_status_str = (
-            f"• **Bot Commands Used:** `{cmd_count}` commands\n"
-            f"• **Warnings Received:** `{warn_count}`\n"
-            f"• **Timeouts Received:** `{timeout_count}`\n"
-            f"• **Record Status:** `{'✅ Clean Record' if (warn_count == 0 and timeout_count == 0) else '⚠️ Infractions on file'}`"
-        )
-        embed.add_field(
-            name="📊 **Server Activity & Mod Record**",
-            value=mod_status_str,
-            inline=False
-        )
+    embed.add_field(
+        name="📅 **Server Timeline & History**",
+        value=(
+            f"• **Account Created:** <t:{created_ts}:F> (<t:{created_ts}:R>)\n"
+            f"• **Joined Server:** <t:{joined_ts}:F> (<t:{joined_ts}:R>){join_pos_str}\n"
+            f"• **Server Booster:** {booster_str}"
+        ),
+        inline=False
+    )
 
-        embed.set_footer(text=f"Requested by {interaction.user.display_name} • Sweety Deep Audit", icon_url=interaction.user.display_avatar.url)
-        
-        view = UserProfileView(user_profile, target)
+    # Roles
+    embed.add_field(
+        name=f"🎭 **Roles ({roles_count})**",
+        value=f"• **Highest Role:** {top_role_str}\n• **Assigned Roles:** {roles_str}",
+        inline=False
+    )
+
+    # Permissions
+    embed.add_field(
+        name="🛡️ **Key Permissions & Abilities**",
+        value=perms_str,
+        inline=False
+    )
+
+    # Moderation Record
+    mod_status_str = (
+        f"• **Bot Commands Used:** `{cmd_count}` commands\n"
+        f"• **Warnings Received:** `{warn_count}`\n"
+        f"• **Timeouts Received:** `{timeout_count}`\n"
+        f"• **Record Status:** `{'✅ Clean Record' if (warn_count == 0 and timeout_count == 0) else '⚠️ Infractions on file'}`"
+    )
+    embed.add_field(
+        name="📊 **Server Activity & Mod Record**",
+        value=mod_status_str,
+        inline=False
+    )
+
+    req_name = author.display_name if hasattr(author, 'display_name') else author.name
+    req_avatar = getattr(getattr(author, 'display_avatar', None), 'url', None)
+    embed.set_footer(text=f"Requested by {req_name} • Sweety Deep Audit", icon_url=req_avatar)
+
+    view = UserProfileView(user_profile, target)
+    return embed, view
+
+
+@bot.tree.command(name="whois", description="🔍 Deep audit of a member — bio, roles, permissions, activity & moderation history")
+@app_commands.describe(member="The server member to inspect (defaults to yourself)")
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def whois_command(interaction: discord.Interaction, member: Optional[discord.Member] = None):
+    try:
+        await interaction.response.defer(thinking=True)
+        embed, view = await _build_whois_embed_and_view(interaction.guild, interaction.user, member)
         await interaction.followup.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in /whois command: {e}", exc_info=True)
+        msg = f"❌ Failed to retrieve user information due to an internal error: {e}"
         if not interaction.response.is_done():
-            await interaction.response.send_message("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
         else:
-            await interaction.followup.send("❌ Failed to retrieve user information due to an internal error.", ephemeral=True)
+            await interaction.followup.send(msg, ephemeral=True)
+
+
+@bot.command(name="whois", aliases=["profile", "user", "memberinfo"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def whois_prefix_cmd(ctx: commands.Context, *, member: Optional[str] = None):
+    """Deep audit and profile information for a member: !whois [@member or user_id]"""
+    try:
+        async with ctx.typing():
+            target_obj = ctx.message.mentions[0] if ctx.message.mentions else member
+            embed, view = await _build_whois_embed_and_view(ctx.guild, ctx.author, target_obj)
+            await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in !whois command: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to retrieve user information due to an internal error: {e}")
 
 
 
