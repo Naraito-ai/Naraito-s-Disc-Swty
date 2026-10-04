@@ -19488,7 +19488,7 @@ async def teamstats_slash_cmd(interaction: discord.Interaction, user: Optional[d
 
 async def distribute_raid_boss_rewards(event: Dict[str, Any], guild: Optional[discord.Guild] = None, channel: Optional[Any] = None) -> List[Dict[str, Any]]:
     """Distributes the multi-tier rewards for a completed Community Raid Boss:
-    - 1st Place (Top Damage): Exclusive Card
+    - 1st Place (Top Damage): VC Pool or Prize Card
     - 2nd Place: Random Dark Matter (99 OVR)
     - 3rd Place: Random Dark Matter (99 OVR)
     - All Participants: Boss Raid Victory Pack
@@ -19499,24 +19499,40 @@ async def distribute_raid_boss_rewards(event: Dict[str, Any], guild: Optional[di
         return []
 
     results = []
-    # 1. 1st Place -> Award exact event prize card & count
+    # 1. 1st Place -> Award exact event prize card or VC pool
     p1 = lb[0]
     u1_id = p1["user_id"]
     prize_id = event.get("prize_card_id", "dm-kobe-99")
     prize_name = event.get("prize_card_name", "Dark Matter Card")
-    prize_card_obj = get_nba_card(prize_id)
-    tier_info = NBA_2K_TIERS.get(prize_card_obj.get("tier", "dark_matter") if prize_card_obj else "dark_matter", NBA_2K_TIERS["dark_matter"])
-    
-    prize_count = max(1, min(int(event.get("prize_count") or 1), 50))
-    await db.reward_nba_event_winner(eid, u1_id, prize_id, prize_name, count=prize_count, rewarded_by="719932313919684670")
-    
-    count_str = f" `[x{prize_count}]`" if prize_count > 1 else ""
-    results.append({
-        "rank": 1,
-        "user_id": u1_id,
-        "prize": f"{tier_info['emoji']} [{prize_card_obj.get('ovr', 99) if prize_card_obj else 99} OVR] **{prize_name}**{count_str} ({tier_info['name']})",
-        "dmg": p1["damage_dealt"]
-    })
+
+    if str(prize_id).startswith("vc_"):
+        try:
+            vc_amt = int(re.sub(r'\D', '', prize_id))
+        except Exception:
+            vc_amt = 10000
+        await db.add_user_vc(u1_id, vc_amt)
+        await db.reward_nba_event_winner(eid, u1_id, prize_id, prize_name, count=1, rewarded_by="719932313919684670")
+        results.append({
+            "rank": 1,
+            "user_id": u1_id,
+            "prize": f"💰 **{vc_amt:,} VC Jackpot**",
+            "dmg": p1["damage_dealt"]
+        })
+    else:
+        prize_card_obj = get_nba_card(prize_id)
+        tier_info = NBA_2K_TIERS.get(prize_card_obj.get("tier", "dark_matter") if prize_card_obj else "dark_matter", NBA_2K_TIERS["dark_matter"])
+        prize_count = max(1, min(int(event.get("prize_count") or 1), 50))
+        if prize_card_obj:
+            await db.add_user_nba_card(u1_id, prize_card_obj["id"], source="event_raid_winner")
+        await db.reward_nba_event_winner(eid, u1_id, prize_id, prize_name, count=prize_count, rewarded_by="719932313919684670")
+        count_str = f" `[x{prize_count}]`" if prize_count > 1 else ""
+        ovr_str = f"[{prize_card_obj.get('ovr', 99)}] " if prize_card_obj else ""
+        results.append({
+            "rank": 1,
+            "user_id": u1_id,
+            "prize": f"{tier_info['emoji']} {ovr_str}**{prize_name}**{count_str} ({tier_info['name']})",
+            "dmg": p1["damage_dealt"]
+        })
 
     # 2. 2nd & 3rd Place -> Dark Matter
     dm_cards = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") == "dark_matter"]
@@ -19538,29 +19554,6 @@ async def distribute_raid_boss_rewards(event: Dict[str, Any], guild: Optional[di
         if isinstance(raid_card, tuple):
             raid_card = raid_card[0]
         await db.add_user_nba_card(p["user_id"], raid_card["id"], source="event_raid_pack")
-
-    # Build and post victory embed
-    lines = []
-    for r in results:
-        lines.append(f"• `#{r['rank']}` <@{r['user_id']}> — **{r['prize']}** *(💥 {r['dmg']:,} DMG)*")
-    
-    embed = discord.Embed(
-        title=f"👑 RAID BOSS DEFEATED: {event.get('boss_name', 'World Boss')}!",
-        description=(
-            f"The server has united and brought down **{event.get('boss_name', 'World Boss')}**! Rewards have been automatically distributed to top damage dealers and all participating managers:\n\n"
-            + "\n".join(lines) +
-            f"\n\n🎁 **All {len(lb)} participants** have received a **👑 Boss Raid Victory Pack** deposited into their binder!"
-        ),
-        color=0xFF1493
-    )
-    embed.set_footer(text=f"Event #{eid} Concluded • Check /nbadex for new cards")
-    embed.timestamp = discord.utils.utcnow()
-
-    if channel and hasattr(channel, "send"):
-        try:
-            await channel.send(embed=embed)
-        except Exception:
-            pass
 
     return results
 
@@ -24531,6 +24524,7 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
             return
 
         # 3. CREATE (Creator only)
+        # 3. CREATE (Creator only)
         if act in ["create", "start", "new"]:
             if not is_event_creator(ctx.author):
                 await ctx.send("❌ Only the Bot Creator (`<@719932313919684670>`) can create events.")
@@ -24542,29 +24536,72 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 return
 
             if not rest:
-                await ctx.send("ℹ️ **Usage:** `!event create <Name> | <Prize Card> | [Duration Hours] | [Type] | [Description]`\n*Example:* `!event create Summer Slam | excl-jordan-99 | 48 | custom | Win 10 battles!`")
+                await ctx.send("ℹ️ **Usage:**\n• **Raid Boss (VC Prize):** `!event create <Boss Name> | <HP> | vc | <amount>`\n  *Example:* `!event create Godzilla Shaq Raid | 50000 | vc | 100000`\n• **Raid Boss (Card Prize):** `!event create <Boss Name> | <HP> | card | <card_id>`\n  *Example:* `!event create Dark Matter Kobe Boss | 75000 | card | dm-jordan-99`")
                 return
 
             parts = [p.strip() for p in rest.split("|")]
             name = parts[0]
-            prize_card = parts[1] if len(parts) > 1 else "excl-jordan-99"
-            dur_str = parts[2] if len(parts) > 2 else "48"
-            ev_type = parts[3].lower() if len(parts) > 3 else "custom"
-            desc = parts[4] if len(parts) > 4 else f"Compete in the {name} event!"
 
-            dur = 48.0
-            try:
-                dur = float(dur_str)
-            except Exception:
-                pass
+            # Format A: Name | Boss HP (number) | Prize Type (vc/card/raid) | Prize Value
+            if len(parts) >= 3 and parts[1].isdigit() and parts[2].lower() in ["vc", "card", "raid"]:
+                boss_hp = max(1000, int(parts[1]))
+                ev_type = "raid"
+                prize_mode = parts[2].lower()
+                prize_val = parts[3] if len(parts) > 3 else ("10000" if prize_mode == "vc" else "dm-jordan-99")
 
-            prize_obj = get_nba_card(prize_card)
-            if not prize_obj:
-                await ctx.send(f"❌ Prize card `{prize_card}` not found in catalog.")
-            tier_info = NBA_2K_TIERS.get(prize_obj.get("tier", "dark_matter"), NBA_2K_TIERS["gold"])
+                if prize_mode == "vc" or prize_val.isdigit():
+                    vc_amt = int(prize_val) if prize_val.isdigit() else 10000
+                    prize_obj = {
+                        "id": f"vc_{vc_amt}",
+                        "name": f"💰 {vc_amt:,} VC Pool",
+                        "tier": "dark_matter",
+                        "ovr": 99,
+                        "theme": "Community Raid Payout",
+                        "badges": ["VC Jackpot", "Community Champion"]
+                    }
+                else:
+                    prize_obj = get_nba_card(prize_val)
+                    if not prize_obj:
+                        await ctx.send(f"❌ Prize card `{prize_val}` not found in catalog. Use a valid card ID (e.g. `dm-jordan-99`) or `vc` amount.")
+                        return
 
-            b_name = "Titan Mecha Giannis" if ev_type == "raid" else ""
-            b_hp = 50000 if ev_type == "raid" else 0
+                dur = 48.0
+                desc = f"Community Raid Boss Battle vs **{name}**! Attack with your Starting 5 to claim VC & Dark Matter rewards!"
+                boss_name = name
+            else:
+                # Format B (Legacy): Name | Prize Card | Duration | Type | Description
+                name = parts[0]
+                prize_card = parts[1] if len(parts) > 1 else "dm-jordan-99"
+                dur_str = parts[2] if len(parts) > 2 else "48"
+                ev_type = parts[3].lower() if len(parts) > 3 else "custom"
+                desc = parts[4] if len(parts) > 4 else f"Compete in the {name} event!"
+
+                dur = 48.0
+                try:
+                    dur = float(dur_str)
+                except Exception:
+                    dur = 48.0
+
+                if prize_card.lower().startswith("vc_") or (prize_card.isdigit() and int(prize_card) > 100):
+                    vc_amt = int(re.sub(r'\D', '', prize_card))
+                    prize_obj = {
+                        "id": f"vc_{vc_amt}",
+                        "name": f"💰 {vc_amt:,} VC Pool",
+                        "tier": "dark_matter",
+                        "ovr": 99,
+                        "theme": "Community Raid Payout",
+                        "badges": ["VC Jackpot", "Community Champion"]
+                    }
+                else:
+                    prize_obj = get_nba_card(prize_card)
+                    if not prize_obj:
+                        await ctx.send(f"❌ Prize card `{prize_card}` not found in catalog. Use a valid card ID (e.g. `dm-jordan-99`) or `vc` amount.")
+                        return
+
+                boss_hp = 50000 if ev_type == "raid" else 0
+                boss_name = name if ev_type == "raid" else ""
+
+            tier_info = NBA_2K_TIERS.get(prize_obj.get("tier", "dark_matter"), NBA_2K_TIERS["dark_matter"])
 
             event_id = await db.create_nba_event(
                 guild_id=ctx.guild.id,
@@ -24576,40 +24613,42 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
                 channel_id=ctx.channel.id,
                 duration_hours=dur,
                 rules="Standard server event rules apply.",
-                boss_name=b_name,
-                boss_hp=b_hp
+                boss_name=boss_name,
+                boss_hp=boss_hp
             )
 
             ends_at = int(time.time() + (dur * 3600))
+            badges_str = ", ".join(prize_obj.get("badges", ["Event Champion"]))
             ann_embed = discord.Embed(
                 title=f"🏆 NEW SERVER EVENT: {name}",
                 description=(
                     f"📝 **Description:**\n{desc}\n\n"
-                    f"👑 **Grand Prize:** {tier_info['emoji']} **[{prize_obj['ovr']} OVR] {prize_obj['name']}** *({tier_info['name']})*\n"
-                    f"• **Card ID:** `{prize_obj['id']}`\n"
-                    f"• **Badges:** {', '.join(prize_obj.get('badges', []))}\n\n"
+                    f"👑 **Grand Prize:** {tier_info['emoji']} **[{prize_obj.get('ovr', 99)} OVR] {prize_obj['name']}** *({tier_info['name']})*\n"
+                    f"• **Prize ID:** `{prize_obj['id']}`\n"
+                    f"• **Badges:** {badges_str}\n\n"
                     f"⏳ **Event Ends:** <t:{ends_at}:R> (<t:{ends_at}:F>)\n"
                     f"👑 **Hosted by Creator:** <@719932313919684670>"
                 ),
                 color=tier_info["color"]
             )
-            ann_embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+            if ctx.guild.icon:
+                ann_embed.set_thumbnail(url=ctx.guild.icon.url)
             ann_embed.set_footer(text=f"Event ID: #{event_id} • Use !event status or !event raid to participate")
             ann_embed.timestamp = discord.utils.utcnow()
 
-            img_io = generate_nba_card_graphic(prize_obj)
-            img_io.seek(0)
-            ann_file = discord.File(img_io, filename=f"prize_{prize_obj['id']}.png")
-            ann_embed.set_image(url=f"attachment://prize_{prize_obj['id']}.png")
+            card_file = None
+            if not str(prize_obj.get("id", "")).startswith("vc_"):
+                try:
+                    img_io = generate_nba_card_graphic(prize_obj)
+                    card_file = discord.File(fp=img_io, filename="prize_card.png")
+                    ann_embed.set_image(url="attachment://prize_card.png")
+                except Exception as img_err:
+                    logger.warning(f"Could not generate prize card graphic: {img_err}")
 
-            saved_channel_id = await db.get_nba_event_channel(ctx.guild.id)
-            target_channel = ctx.guild.get_channel(saved_channel_id) if saved_channel_id else ctx.channel
-
-            if target_channel and target_channel.id != ctx.channel.id:
-                await target_channel.send(embed=ann_embed, file=ann_file)
-                await ctx.send(f"✅ Event **{name}** (ID #{event_id}) created and announced in {target_channel.mention}!")
+            if card_file:
+                await ctx.send(embed=ann_embed, file=card_file)
             else:
-                await ctx.send(embed=ann_embed, file=ann_file)
+                await ctx.send(embed=ann_embed)
             return
 
         # 4. END (Creator only)
