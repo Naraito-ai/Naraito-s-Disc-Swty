@@ -17163,11 +17163,12 @@ class GeminiBot(commands.Bot):
             for filename in os.listdir(cogs_dir):
                 if filename.endswith(".py") and not filename.startswith("_"):
                     cog_name = f"cogs.{filename[:-3]}"
-                    try:
-                        await self.load_extension(cog_name)
-                        logger.info(f"[SWEETY] Successfully loaded cog: {filename}")
-                    except Exception as cog_err:
-                        logger.error(f"[SWEETY] Failed to load cog {filename}: {cog_err}", exc_info=True)
+                    if cog_name not in self.extensions:
+                        try:
+                            await self.load_extension(cog_name)
+                            logger.info(f"[SWEETY] Successfully loaded cog: {filename}")
+                        except Exception as cog_err:
+                            logger.error(f"[SWEETY] Failed to load cog {filename}: {cog_err}", exc_info=True)
         
         # 3. Start FastAPI dashboard in the same process & event loop (if not already running)
         disable_api = os.getenv("DISABLE_API", "false").lower() in ("true", "1", "yes")
