@@ -1931,7 +1931,7 @@ class DatabaseManager:
             )
             matching_rows = []
             for r in all_rows:
-                cid_in_db = str(r.get("card_id", "")).strip().lower()
+                cid_in_db = str(r.get("card_id", "") if isinstance(r, dict) else r[1]).strip().lower()
                 canon_in_db = (legacy_map.get(cid_in_db, cid_in_db) if legacy_map else cid_in_db).lower()
                 if canon_in_db == canonical_cid:
                     matching_rows.append(r)
@@ -1940,7 +1940,7 @@ class DatabaseManager:
                 return False, f"You need **3 copies** of `{canonical_cid}` to fuse a Holo Foil Edition. You currently own **{len(matching_rows)}/3**.", None
 
             # Delete 3 copies atomically
-            ids_to_consume = [r["id"] for r in matching_rows[:3]]
+            ids_to_consume = [(r["id"] if isinstance(r, dict) and "id" in r else r[0]) for r in matching_rows[:3]]
             placeholders = ", ".join(["?"] * len(ids_to_consume))
             await self.execute(f"DELETE FROM user_nba_cards WHERE id IN ({placeholders})", *ids_to_consume)
 

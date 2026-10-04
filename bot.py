@@ -7406,33 +7406,131 @@ async def handle_autoteam(target_user: Union[discord.Member, discord.User], guil
         await send_func(embed=embed, file=img_file)
 
 
-async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: str, send_func: Any, is_interaction: bool):
-    """Combines 3 duplicate copies of a card into a Holo Foil Edition (+5 OVR & +20% quicksell)."""
-    clean_q = card_query.strip().lower()
+async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: Optional[str], send_func: Any, is_interaction: bool):
+    """Combines 3 duplicate copies of a card into a Holo Foil Edition (+5 OVR & +20% quicksell), or displays fusable inventory if no query is given."""
+    if not card_query or not str(card_query).strip():
+        # Display fusable cards overview
+        user_rows = await db.get_user_nba_cards(user.id)
+        if not user_rows:
+            embed = discord.Embed(
+                title="🌟 NBA 2K Card Fusion Chamber",
+                description=(
+                    "Combine **3 duplicate copies** of any player card to craft a permanent **Holo / Foil Edition**!\n\n"
+                    "• 📈 **+5 OVR Boost** to all attributes\n"
+                    "• 💰 **+20% Quicksell VC** bonus\n"
+                    "• 🌈 **Radiant Holo Shimmer** card art\n\n"
+                    "❌ You do not have any cards in your binder yet. Open packs with `!nbapack` or catch drops with `!claim` to start collecting!"
+                ),
+                color=discord.Color.from_rgb(255, 215, 0)
+            )
+            embed.set_footer(text="Usage: !nbafuse <player name> | Example: !nbafuse curry")
+            return await send_func(embed=embed)
+
+        # Count cards by canonical ID
+        card_counts: Dict[str, int] = {}
+        for r in user_rows:
+            cid = str(r.get("card_id", "") if isinstance(r, dict) else r[1]).strip().lower()
+            if cid.startswith("holo_") or cid.startswith("holo-") or cid.endswith("_holo") or cid.endswith("-holo"):
+                continue
+            if cid.startswith("excl-") or cid.startswith("exclusive_") or cid.startswith("excl_"):
+                continue
+            canon = (NBA_LEGACY_CARD_MAPPINGS.get(cid, cid)).lower()
+            card_counts[canon] = card_counts.get(canon, 0) + 1
+
+        ready_to_fuse = []
+        in_progress = []
+        for cid, count in card_counts.items():
+            cobj = get_nba_card(cid)
+            if not cobj:
+                continue
+            t_info = NBA_2K_TIERS.get(cobj.get("tier", "gold"), NBA_2K_TIERS["gold"])
+            tier_emoji = t_info.get("emoji", "🎴")
+            entry = {
+                "id": cobj["id"],
+                "name": cobj["name"],
+                "ovr": cobj["ovr"],
+                "tier": cobj.get("tier", "gold"),
+                "count": count,
+                "emoji": tier_emoji
+            }
+            if count >= 3:
+                ready_to_fuse.append(entry)
+            elif count == 2:
+                in_progress.append(entry)
+
+        tier_order = {"dark_matter": 6, "galaxy_opal": 5, "diamond": 4, "amethyst": 3, "ruby": 2, "gold": 1}
+        ready_to_fuse.sort(key=lambda x: (tier_order.get(x["tier"], 0), x["ovr"]), reverse=True)
+        in_progress.sort(key=lambda x: (tier_order.get(x["tier"], 0), x["ovr"]), reverse=True)
+
+        embed = discord.Embed(
+            title="🌟 NBA 2K Card Fusion Chamber",
+            description=(
+                "Combine **3 duplicate copies** of any player card to craft a permanent **Holo / Foil Edition**!\n\n"
+                "• 📈 **+5 OVR Boost** to all attributes\n"
+                "• 💰 **+20% Quicksell VC** bonus\n"
+                "• 🌈 **Radiant Holo Shimmer** card art\n\n"
+                f"**How to Fuse:** Type `!nbafuse <player name>` or `/nbafuse card:<name>`\n"
+                f"*Example:* `!nbafuse {ready_to_fuse[0]['name'].lower() if ready_to_fuse else 'curry'}`"
+            ),
+            color=discord.Color.from_rgb(255, 215, 0)
+        )
+
+        if ready_to_fuse:
+            lines = []
+            for item in ready_to_fuse[:15]:
+                fuses_available = item['count'] // 3
+                fuse_suffix = f" *(x{fuses_available} ready)*" if fuses_available > 1 else ""
+                lines.append(f"• {item['emoji']} **[{item['ovr']} OVR] {item['name']}** — `{item['count']}/3 copies`{fuse_suffix} ➔ `!nbafuse {item['name'].lower()}`")
+            if len(ready_to_fuse) > 15:
+                lines.append(f"*...and {len(ready_to_fuse) - 15} more ready to fuse!*")
+            embed.add_field(name="✨ Ready to Fuse (3+ Copies)", value="\n".join(lines), inline=False)
+        else:
+            embed.add_field(
+                name="✨ Ready to Fuse (3+ Copies)",
+                value="*No cards currently have 3+ copies. Keep collecting duplicates from packs (`!nbapack`) or drops (`!claim`)!*",
+                inline=False
+            )
+
+        if in_progress:
+            prog_lines = []
+            for item in in_progress[:8]:
+                prog_lines.append(f"• {item['emoji']} **[{item['ovr']} OVR] {item['name']}** — `2/3 copies` *(Needs 1 more)*")
+            if len(in_progress) > 8:
+                prog_lines.append(f"*...and {len(in_progress) - 8} more at 2/3 copies*")
+            embed.add_field(name="⏳ In Progress (2/3 Copies)", value="\n".join(prog_lines), inline=False)
+
+        embed.set_footer(text=f"Requested by {user.display_name} • NBA 2K Mobile Card Fusion", icon_url=user.display_avatar.url if hasattr(user, "display_avatar") else None)
+        embed.timestamp = discord.utils.utcnow()
+        return await send_func(embed=embed)
+
+    clean_q = str(card_query).strip().lower()
     card_obj = get_nba_card(clean_q)
+
+    # Fallback to user binder search if not found directly
     if not card_obj:
-        msg = f"❌ Card `{card_query}` was not found in the NBA 2K catalog."
-        if is_interaction:
-            return await send_func(msg, ephemeral=True)
+        user_rows = await db.get_user_nba_cards(user.id)
+        for r in user_rows:
+            cid = str(r.get("card_id", "") if isinstance(r, dict) else r[1]).strip().lower()
+            cand = get_nba_card(cid)
+            if cand and (clean_q in cand["name"].lower() or clean_q in cand["id"].lower()):
+                card_obj = cand
+                break
+
+    if not card_obj:
+        msg = f"❌ Card `{card_query}` was not found in the NBA 2K catalog.\n💡 Tip: Run `!nbafuse` without arguments to see all your fusable cards!"
         return await send_func(msg)
 
     if card_obj.get("tier") == "exclusive" or str(card_obj.get("id", "")).startswith("excl-"):
         msg = f"❌ **{card_obj['name']}** is an Exclusive Edition card. Exclusive cards are uncraftable and cannot be fused!"
-        if is_interaction:
-            return await send_func(msg, ephemeral=True)
         return await send_func(msg)
 
     if card_obj.get("is_holo") or str(card_obj.get("id", "")).startswith("holo_"):
         msg = f"❌ **{card_obj['name']}** is already an upgraded Holo Foil Edition!"
-        if is_interaction:
-            return await send_func(msg, ephemeral=True)
         return await send_func(msg)
 
     success, msg, data = await db.fuse_nba_cards(user.id, card_obj["id"], legacy_map=NBA_LEGACY_CARD_MAPPINGS)
     if not success:
-        if is_interaction:
-            return await send_func(f"❌ {msg}", ephemeral=True)
-        return await send_func(f"❌ {msg}")
+        return await send_func(f"❌ {msg}\n💡 Tip: Run `!nbafuse` to check your duplicate card counts!")
 
     holo_card = get_nba_card(data["holo_id"])
     if not holo_card:
@@ -21097,17 +21195,17 @@ async def nbasell_slash_cmd(
 
 
 @bot.tree.command(name="nbafuse", description="🌟 Fuse 3 duplicate cards of a player into a permanent Holo / Foil Edition (+5 OVR & +20% VC)")
-@app_commands.describe(card="Card ID or Player Name to fuse (requires owning at least 3 copies)")
+@app_commands.describe(card="Card ID or Player Name to fuse (leave empty to view all fusable cards)")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 4.0, key=lambda i: (i.guild_id, i.user.id))
-async def nbafuse_slash_cmd(interaction: discord.Interaction, card: str):
+async def nbafuse_slash_cmd(interaction: discord.Interaction, card: Optional[str] = None):
     try:
         await interaction.response.defer()
         await handle_nbafuse(interaction.user, card, interaction.followup.send, is_interaction=True)
     except Exception as e:
         logger.error(f"Error in /nbafuse: {e}", exc_info=True)
         if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error during card fusion: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ Error during card fusion: {e}")
         else:
             await interaction.response.send_message(f"❌ Error during card fusion: {e}", ephemeral=True)
 
@@ -24937,11 +25035,11 @@ async def event_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, 
         await ctx.send(f"❌ Error in !event: {e}")
 
 
-@bot.command(name="nbafuse", aliases=["fusecard", "cardfuse", "craftcard", "holo"])
+@bot.command(name="nbafuse", aliases=["fusecard", "cardfuse", "craftcard", "holo", "fuse"])
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
-async def nbafuse_prefix_cmd(ctx: commands.Context, *, card: str):
-    """Fuse 3 duplicate cards of a player into a permanent Holo / Foil Edition (+5 OVR & +20% VC): !nbafuse <card_name_or_id>"""
+async def nbafuse_prefix_cmd(ctx: commands.Context, *, card: Optional[str] = None):
+    """Fuse 3 duplicate cards of a player into a permanent Holo / Foil Edition (+5 OVR & +20% VC): !nbafuse [card_name_or_id]"""
     try:
         await handle_nbafuse(ctx.author, card, ctx.send, is_interaction=False)
     except Exception as e:
