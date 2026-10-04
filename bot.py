@@ -13546,6 +13546,12 @@ def generate_nba_card_graphic(
 
 
 
+def format_stat_bar(val: int) -> str:
+    """Renders a clean progress bar for a player attribute."""
+    filled = min(10, max(1, round(int(val) / 10)))
+    return "█" * filled + "░" * (10 - filled)
+
+
 def build_nbacard_embed(card: Dict[str, Any], copies_owned: int = 0, is_fav: bool = False, owner_user: Optional[discord.User] = None) -> discord.Embed:
     """Builds a full-detail NBA 2K Mobile inspection card embed with prominent tier details."""
     tier_info = NBA_2K_TIERS.get(card.get("tier", "gold"), NBA_2K_TIERS["gold"])
