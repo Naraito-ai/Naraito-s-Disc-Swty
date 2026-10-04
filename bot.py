@@ -25472,13 +25472,13 @@ async def stripexclusives_prefix_cmd(ctx: commands.Context, *, raw_args: str = "
 
 @bot.tree.command(name="spawndrop", description="🏀 Instantly trigger a wild NBA 2K Mobile player card drop in chat (Staff)")
 @app_commands.describe(
-    tier="Specific card tier rarity to spawn (Dark Matter / Galaxy Opal reserved for Server Owner)",
+    tier="Specific card tier rarity to spawn (Staff - Max 2 drops per day)",
     channel="Target public text channel (defaults to current channel)"
 )
 @app_commands.choices(tier=[
     app_commands.Choice(name="🎲 Randomized Drop Roll", value="random"),
-    app_commands.Choice(name="🌌 Dark Matter (99 OVR - Owner Only)", value="dark_matter"),
-    app_commands.Choice(name="✨ Galaxy Opal (97-98 OVR - Owner Only)", value="galaxy_opal"),
+    app_commands.Choice(name="🌌 Dark Matter (99 OVR)", value="dark_matter"),
+    app_commands.Choice(name="✨ Galaxy Opal (97-98 OVR)", value="galaxy_opal"),
     app_commands.Choice(name="💎 Diamond (93-96 OVR)", value="diamond"),
     app_commands.Choice(name="🔮 Amethyst (88-92 OVR)", value="amethyst"),
     app_commands.Choice(name="🔴 Ruby (84-87 OVR)", value="ruby"),
@@ -25513,15 +25513,7 @@ async def spawndrop_slash_cmd(
 
         t_req = None if (not tier or tier == "random") else tier.lower().strip()
 
-        # 2. Anti-Abuse: Top tiers (Dark Matter / Galaxy Opal) are Server Owner exclusive
-        if t_req in ["dark_matter", "galaxy_opal"] and not is_owner:
-            return await interaction.response.send_message(
-                "❌ **Restricted Tier**: Manually spawning **Dark Matter (99 OVR)** or **Galaxy Opal (97-98 OVR)** cards is reserved exclusively for the Server Owner.\n"
-                "💡 *Staff members can spawn Diamond (93-96), Amethyst (88-92), Ruby (84-87), Gold (75-83), or Randomized Drop.*",
-                ephemeral=True
-            )
-
-        # 3. Anti-Abuse: Daily spawn limit (max 2 manual spawns per staff member per 24h)
+        # 2. Anti-Abuse: Daily spawn limit (max 2 manual spawns per staff member per 24h)
         allowed, cur_cnt, max_limit = check_staff_daily_spawn_limit(interaction.user.id, is_owner)
         if not allowed:
             return await interaction.response.send_message(
@@ -25529,7 +25521,7 @@ async def spawndrop_slash_cmd(
                 ephemeral=True
             )
 
-        # 4. Spawn drop with host spawner tracked (Host cannot claim their own drop)
+        # 3. Spawn drop with host spawner tracked (Host cannot claim their own drop)
         await spawn_nba_card_drop(target_chan, requested_tier=t_req, spawner=interaction.user)
         await interaction.response.send_message(f"🏀 Wild NBA card drop triggered in {target_chan.mention}! *(Host is disqualified from catching)*", ephemeral=True)
     except Exception as e:
@@ -25562,19 +25554,12 @@ async def spawndrop_prefix_cmd(ctx: commands.Context, tier: Optional[str] = None
 
         t_req = None if not tier or tier.lower() in ["random", "rand", "any"] else tier.lower().strip()
 
-        # 2. Anti-Abuse: Top tiers (Dark Matter / Galaxy Opal) are Server Owner exclusive
-        if t_req in ["dark_matter", "galaxy_opal"] and not is_owner:
-            return await ctx.send(
-                "❌ **Restricted Tier**: Manually spawning **Dark Matter (99 OVR)** or **Galaxy Opal (97-98 OVR)** cards is reserved exclusively for the Server Owner.\n"
-                "💡 *Staff members can spawn Diamond (93-96), Amethyst (88-92), Ruby (84-87), Gold (75-83), or Randomized Drop.*"
-            )
-
-        # 3. Anti-Abuse: Daily spawn limit (max 2 manual spawns per staff member per 24h)
+        # 2. Anti-Abuse: Daily spawn limit (max 2 manual spawns per staff member per 24h)
         allowed, cur_cnt, max_limit = check_staff_daily_spawn_limit(ctx.author.id, is_owner)
         if not allowed:
             return await ctx.send(f"⏳ **Daily Drop Limit Reached**: You have used **{cur_cnt}/{max_limit}** manual card drops for the day. Drops reset 24 hours after each use.")
 
-        # 4. Spawn drop with host spawner tracked (Host cannot claim their own drop)
+        # 3. Spawn drop with host spawner tracked (Host cannot claim their own drop)
         await spawn_nba_card_drop(ctx.channel, requested_tier=t_req, spawner=ctx.author)
     except Exception as e:
         logger.error(f"Error in !spawndrop: {e}", exc_info=True)
