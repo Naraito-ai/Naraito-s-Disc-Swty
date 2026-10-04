@@ -17313,6 +17313,9 @@ class GeminiBot(commands.Bot):
         logger.warning("⚠️ Gateway disconnected — will attempt reconnect")
 
     async def on_ready(self):
+        if getattr(self, "_ready_done", False):
+            return
+        self._ready_done = True
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
         
         # Step 1: Wait for gateway to fully stabilize
@@ -17355,13 +17358,6 @@ class GeminiBot(commands.Bot):
             logger.info(f"✅ Loaded {len(_blacklisted_user_ids)} blacklisted user IDs into cache")
         except Exception as bl_err:
             logger.error(f"❌ Blacklist cache load failed: {bl_err}")
-        
-        # Step 4: Global Slash Command Sync
-        try:
-            synced_global = await self.tree.sync()
-            logger.info(f"✅ Synced {len(synced_global)} global slash commands to Discord")
-        except Exception as e:
-            logger.warning(f"Global command sync notice on ready: {e}")
 
         # Update gateway diagnostics state
         _gateway_state["ready"] = True
@@ -27046,7 +27042,7 @@ async def on_message(message):
             await message.reply(embed=embed, view=view)
             return
 
-    # Owner / Admin instant force sync check
+    # Owner instant force sync check
     if message.content.strip().lower().startswith("!sync"):
         try:
             is_owner = False
@@ -27055,7 +27051,7 @@ async def on_message(message):
             except Exception:
                 pass
                 
-            if is_owner or (message.guild and (message.author.id == message.guild.owner_id or message.author.guild_permissions.administrator)) or message.author.id == 719932313919684670:
+            if is_owner or message.author.id == 719932313919684670:
                 bot.tree.copy_global_to(guild=message.guild)
                 synced_guild = await bot.tree.sync(guild=message.guild)
                 synced_global = await bot.tree.sync()
@@ -27465,7 +27461,9 @@ async def run_fastapi_server():
 async def run_bot_gateway():
     global bot, _gateway_state
     _gateway_state["token_configured"] = bool(DISCORD_TOKEN and DISCORD_TOKEN != "your_token_here")
+    backoff = 600
     while True:
+        started = time.time()
         _gateway_state["attempts"] += 1
         _gateway_state["status"] = "logging_in"
         logger.info(f"🌐 [GATEWAY] Attempt #{_gateway_state['attempts']} to start Discord bot gateway...")
@@ -27477,30 +27475,41 @@ async def run_bot_gateway():
             _gateway_state["status"] = "login_failure"
             _gateway_state["last_error"] = f"LoginFailure: {login_err}"
             _gateway_state["last_error_time"] = time.time()
-            logger.error(f"❌ Discord Login Failure (check DISCORD_TOKEN): {login_err}. Waiting 60s while keeping web server active...")
-            await asyncio.sleep(60)
+            logger.error(f"❌ Discord Login Failure (check DISCORD_TOKEN): {login_err}. Waiting {backoff}s while keeping web server active...")
+            if time.time() - started > 900:
+                backoff = 600
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 3600)
         except discord.errors.PrivilegedIntentsRequired as intent_err:
             _gateway_state["status"] = "privileged_intents_required"
             _gateway_state["last_error"] = f"PrivilegedIntentsRequired: {intent_err}"
             _gateway_state["last_error_time"] = time.time()
             logger.error(f"❌ Privileged Intents Error: {intent_err}. Please enable Server Members Intent and Message Content Intent in Discord Developer Portal!")
-            await asyncio.sleep(60)
+            if time.time() - started > 900:
+                backoff = 600
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 3600)
         except discord.errors.HTTPException as http_err:
             _gateway_state["status"] = f"http_error_{http_err.status}"
             _gateway_state["last_error"] = f"HTTPException {http_err.status}: {http_err}"
             _gateway_state["last_error_time"] = time.time()
             if http_err.status == 429:
-                logger.warning("⚠️ Discord Cloudflare 429 Rate Limit (Error 1015) detected. Keeping container alive and waiting 3 minutes before clean retry...")
-                await asyncio.sleep(180)
+                logger.warning(f"⚠️ Discord Cloudflare 429 Rate Limit (Error 1015) detected. Keeping container alive and waiting {backoff}s before clean retry...")
             else:
-                logger.error(f"HTTP error: {http_err}. Retrying in 15 seconds...")
-                await asyncio.sleep(15)
+                logger.error(f"HTTP error: {http_err}. Retrying in {backoff}s...")
+            if time.time() - started > 900:
+                backoff = 600
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 3600)
         except Exception as e:
             _gateway_state["status"] = f"error_{type(e).__name__}"
             _gateway_state["last_error"] = f"{type(e).__name__}: {e}"
             _gateway_state["last_error_time"] = time.time()
-            logger.error(f"Bot session disconnected: {e}. Retrying in 10 seconds...", exc_info=True)
-            await asyncio.sleep(10)
+            logger.error(f"Bot session disconnected: {e}. Retrying in {backoff}s...", exc_info=True)
+            if time.time() - started > 900:
+                backoff = 600
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 3600)
 
 async def main():
     # 1. Start FastAPI server immediately so Render port health check passes instantly (<500ms)
