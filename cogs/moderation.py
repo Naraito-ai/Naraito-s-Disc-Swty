@@ -519,6 +519,69 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
+    @app_commands.command(name="setnick", description="Set or change a server member's nickname so it appears to everyone")
+    @app_commands.describe(
+        member="The user whose nickname you want to set",
+        nickname="The new nickname to set (leave blank or type 'reset' to clear back to original username)"
+    )
+    @app_commands.default_permissions(manage_nicknames=True)
+    @app_commands.guild_only()
+    @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+    async def setnick_slash_cmd(self, interaction: discord.Interaction, member: discord.Member, nickname: Optional[str] = None):
+        """Slash command to set or reset a member's server nickname visible to everyone."""
+        try:
+            if not interaction.user.guild_permissions.manage_nicknames and not is_protected(interaction.user):
+                return await interaction.response.send_message("❌ You need the **Manage Nicknames** permission to set nicknames.", ephemeral=True)
+
+            if not interaction.guild.me.guild_permissions.manage_nicknames:
+                return await interaction.response.send_message("❌ I do not have the **Manage Nicknames** permission in this server.", ephemeral=True)
+
+            if member.id == interaction.guild.owner_id and interaction.user.id != interaction.guild.owner_id:
+                return await interaction.response.send_message("❌ You cannot change the Server Owner's nickname.", ephemeral=True)
+
+            if interaction.user.id != interaction.guild.owner_id and not is_creator(interaction.user):
+                if interaction.user.top_role <= member.top_role:
+                    return await interaction.response.send_message("❌ You cannot change the nickname of a member with an equal or higher role than yourself.", ephemeral=True)
+
+            if interaction.guild.me.top_role <= member.top_role and member.id != interaction.guild.me.id:
+                return await interaction.response.send_message("❌ I cannot change this member's nickname because their role is higher than or equal to my highest role.", ephemeral=True)
+
+            old_nick = member.display_name
+            clean_nick = nickname.strip() if nickname else ""
+
+            if not clean_nick or clean_nick.lower() in ["reset", "clear", "none", "off"]:
+                new_nick = None
+                action_text = f"Reset nickname for **{member.name}** back to original username."
+            else:
+                if len(clean_nick) > 32:
+                    return await interaction.response.send_message("❌ Nicknames must be **32 characters or fewer** in length.", ephemeral=True)
+                new_nick = clean_nick
+                action_text = f"Changed nickname for **{member.name}** to **{new_nick}**."
+
+            await member.edit(nick=new_nick, reason=f"Nickname changed by {interaction.user} ({interaction.user.id})")
+
+            embed = discord.Embed(
+                title="🏷️ Server Nickname Updated",
+                description=f"✅ {action_text}\nThis name is now visible to everyone in **{interaction.guild.name}**!",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="User", value=member.mention, inline=True)
+            embed.add_field(name="Old Name", value=f"`{old_nick}`", inline=True)
+            embed.add_field(name="New Name", value=f"`{new_nick or member.name}`", inline=True)
+            embed.set_footer(text=f"Updated by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.timestamp = discord.utils.utcnow()
+
+            await interaction.response.send_message(embed=embed)
+            log_mod_action(interaction.guild.id, "setnick", interaction.user, member, f"New nick: {new_nick or '[RESET]'}")
+        except discord.Forbidden:
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ Failed to set nickname. Missing permission or target member has a higher role hierarchy than the bot.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error in /setnick: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error setting nickname: {e}", ephemeral=True)
+
+
 
     @app_commands.command(name="lockdown", description="Freeze or unfreeze public chat channels in an emergency")
     @app_commands.describe(status="Lock or unlock the channels")
@@ -1235,6 +1298,61 @@ class ModerationCog(commands.Cog, name="Moderation"):
         except Exception as e:
             logger.error(f"Error in !removerole: {e}")
             await ctx.send(f"❌ Error: {e}")
+
+
+
+    @commands.command(name="setnick", aliases=["setname", "nickname", "nick", "rename", "changenick"])
+    @commands.guild_only()
+    @commands.has_permissions(manage_nicknames=True)
+    @commands.cooldown(1, 3.0, commands.BucketType.user)
+    async def setnick_prefix_cmd(self, ctx: commands.Context, member: discord.Member, *, nickname: Optional[str] = None):
+        """Set or change a server member's nickname visible to everyone: !setnick @user [new_nickname]"""
+        try:
+            if not ctx.guild.me.guild_permissions.manage_nicknames:
+                return await ctx.send("❌ I do not have the **Manage Nicknames** permission in this server.")
+
+            if member.id == ctx.guild.owner_id and ctx.author.id != ctx.guild.owner_id:
+                return await ctx.send("❌ You cannot change the Server Owner's nickname.")
+
+            if ctx.author.id != ctx.guild.owner_id and not is_creator(ctx.author):
+                if ctx.author.top_role <= member.top_role:
+                    return await ctx.send("❌ You cannot change the nickname of a member with an equal or higher role than yourself.")
+
+            if ctx.guild.me.top_role <= member.top_role and member.id != ctx.guild.me.id:
+                return await ctx.send("❌ I cannot change this member's nickname because their role is higher than or equal to my highest role.")
+
+            old_nick = member.display_name
+            clean_nick = nickname.strip() if nickname else ""
+
+            if not clean_nick or clean_nick.lower() in ["reset", "clear", "none", "off"]:
+                new_nick = None
+                action_text = f"Reset nickname for **{member.name}** back to original username."
+            else:
+                if len(clean_nick) > 32:
+                    return await ctx.send("❌ Nicknames must be **32 characters or fewer** in length.")
+                new_nick = clean_nick
+                action_text = f"Changed nickname for **{member.name}** to **{new_nick}**."
+
+            await member.edit(nick=new_nick, reason=f"Nickname changed by {ctx.author} ({ctx.author.id})")
+
+            embed = discord.Embed(
+                title="🏷️ Server Nickname Updated",
+                description=f"✅ {action_text}\nThis name is now visible to everyone in **{ctx.guild.name}**!",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="User", value=member.mention, inline=True)
+            embed.add_field(name="Old Name", value=f"`{old_nick}`", inline=True)
+            embed.add_field(name="New Name", value=f"`{new_nick or member.name}`", inline=True)
+            embed.set_footer(text=f"Updated by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+            embed.timestamp = discord.utils.utcnow()
+
+            await ctx.send(embed=embed)
+            log_mod_action(ctx.guild.id, "setnick", ctx.author, member, f"New nick: {new_nick or '[RESET]'}")
+        except discord.Forbidden:
+            await ctx.send("❌ Failed to set nickname. Missing permission or target member has a higher role hierarchy than the bot.")
+        except Exception as e:
+            logger.error(f"Error in !setnick: {e}")
+            await ctx.send(f"❌ Error setting nickname: {e}")
 
 
 
