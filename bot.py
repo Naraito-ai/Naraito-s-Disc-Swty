@@ -13513,10 +13513,13 @@ def build_nbadex_embed(
     owned_counts: Dict[str, int] = {}
     fav_status: Dict[str, bool] = {}
     for entry in cards_owned:
-        cid = entry["card_id"].lower()
-        owned_counts[cid] = owned_counts.get(cid, 0) + 1
-        if entry.get("is_favorite"):
-            fav_status[cid] = True
+        raw_cid = entry.get("card_id", "")
+        card_obj = get_nba_card(raw_cid)
+        if card_obj:
+            canonical_id = card_obj["id"].lower()
+            owned_counts[canonical_id] = owned_counts.get(canonical_id, 0) + 1
+            if entry.get("is_favorite"):
+                fav_status[canonical_id] = True
             
     resolved_owned_cards = []
     for cid, count in owned_counts.items():
@@ -13957,14 +13960,19 @@ class TierFilterSelect(discord.ui.Select):
 class CardInspectSelect(discord.ui.Select):
     def __init__(self, page_cards: List[Dict[str, Any]]):
         options = []
-        for c in page_cards[:25]:
+        seen_values = set()
+        for idx, c in enumerate(page_cards[:25]):
+            c_val = str(c.get("id", f"card_{idx}"))
+            if c_val in seen_values:
+                continue
+            seen_values.add(c_val)
             t_info = NBA_2K_TIERS.get(c.get("tier"), NBA_2K_TIERS["gold"])
             fav_tag = "⭐ " if c.get("is_fav") else ""
             dup_tag = f" (x{c['copies']})" if c.get("copies", 1) > 1 else ""
             options.append(
                 discord.SelectOption(
                     label=f"{fav_tag}[{c['ovr']}] {c['name']}{dup_tag}"[:100],
-                    value=c["id"],
+                    value=c_val,
                     description=f"{c['pos']} • {c['team']} • {c['theme']}"[:100],
                     emoji=t_info["emoji"]
                 )
