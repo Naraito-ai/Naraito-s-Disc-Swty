@@ -17046,7 +17046,6 @@ class GeminiBot(commands.Bot):
         
     async def setup_hook(self):
         # 1. Connect database & create tables
-        await self.load_extension("cogs.moderation")
         try:
             await db.initialize()
             logger.info("Database initialized successfully.")

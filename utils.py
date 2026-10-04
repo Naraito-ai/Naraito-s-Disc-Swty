@@ -177,34 +177,37 @@ async def get_mod_log_channel(guild: discord.Guild):
 
 
 
-async def log_mod_action(guild: discord.Guild, moderator: discord.User, target: discord.User, action: str, reason: str, details: str = None):
+async def log_mod_action(guild: Union[discord.Guild, int, str, None], moderator: Any, target: Any, action: str = "Mod Action", reason: str = "No reason provided", details: str = None):
     """Sends a detailed moderation action log embed to the configured logs channel and stores in database."""
-    # 1. Persist in database audit_logs
     try:
+        guild_id = getattr(guild, "id", guild)
+        if not guild_id:
+            return
         mod_id = getattr(moderator, "id", str(moderator))
-        target_name = getattr(target, "name", str(target))
-        target_id = getattr(target, "id", str(target))
-        audit_text = f"Target: {target_name} ({target_id}) | Reason: {reason}"
+        target_name = getattr(target, "name", str(target)) if target else "N/A"
+        target_id = getattr(target, "id", str(target)) if target else "N/A"
+        audit_text = f"Target: {target_name} ({target_id}) | Reason: {reason or 'No reason provided'}"
         if details:
             audit_text += f" | Details: {details}"
-        await db.log_audit(guild.id, mod_id, action, audit_text)
+        await db.log_audit(guild_id, mod_id, action, audit_text)
     except Exception as db_err:
         logger.debug(f"Failed to record audit log to DB: {db_err}")
 
-    # 2. Dispatch Live Embed to configured mod log channel (e.g., 1523742925266358272)
-    mod_log = await get_mod_log_channel(guild)
-    if mod_log:
-        embed = discord.Embed(title=f"🛡️ Mod Action: {action}", color=discord.Color.orange())
-        embed.add_field(name="Moderator", value=f"{moderator} ({getattr(moderator, 'id', 'N/A')})", inline=True)
-        embed.add_field(name="Target User", value=f"{target} ({getattr(target, 'id', 'N/A')})", inline=True)
-        embed.add_field(name="Reason", value=reason, inline=False)
-        if details:
-            embed.add_field(name="Details", value=details, inline=False)
-        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-        try:
-            await mod_log.send(embed=embed)
-        except Exception as e:
-            logger.error(f"Failed to send mod action log to channel: {e}")
+    # Dispatch Live Embed to configured mod log channel
+    try:
+        if isinstance(guild, discord.Guild):
+            mod_log = await get_mod_log_channel(guild)
+            if mod_log:
+                embed = discord.Embed(title=f"🛡️ Mod Action: {action}", color=discord.Color.orange())
+                embed.add_field(name="Moderator", value=f"{moderator} ({getattr(moderator, 'id', 'N/A')})", inline=True)
+                embed.add_field(name="Target User", value=f"{target} ({getattr(target, 'id', 'N/A')})", inline=True)
+                embed.add_field(name="Reason", value=reason or "No reason provided", inline=False)
+                if details:
+                    embed.add_field(name="Details", value=details, inline=False)
+                embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+                await mod_log.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Failed to send mod action log to channel: {e}")
 
 
 

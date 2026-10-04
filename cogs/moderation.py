@@ -572,7 +572,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             embed.timestamp = discord.utils.utcnow()
 
             await interaction.response.send_message(embed=embed)
-            log_mod_action(interaction.guild.id, "setnick", interaction.user, member, f"New nick: {new_nick or '[RESET]'}")
+            await log_mod_action(interaction.guild, interaction.user, member, "Set Nickname", f"New nick: {new_nick or '[RESET]'}")
         except discord.Forbidden:
             if not interaction.response.is_done():
                 await interaction.response.send_message("❌ Failed to set nickname. Missing permission or target member has a higher role hierarchy than the bot.", ephemeral=True)
@@ -1347,7 +1347,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             embed.timestamp = discord.utils.utcnow()
 
             await ctx.send(embed=embed)
-            log_mod_action(ctx.guild.id, "setnick", ctx.author, member, f"New nick: {new_nick or '[RESET]'}")
+            await log_mod_action(ctx.guild, ctx.author, member, "Set Nickname", f"New nick: {new_nick or '[RESET]'}")
         except discord.Forbidden:
             await ctx.send("❌ Failed to set nickname. Missing permission or target member has a higher role hierarchy than the bot.")
         except Exception as e:
