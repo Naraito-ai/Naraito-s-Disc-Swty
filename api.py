@@ -24,6 +24,24 @@ load_dotenv()
 # Logging Setup
 logger = logging.getLogger("GeminiBot.API")
 
+# ── Endpoint Access Filter (Silences /health and / while keeping other logs) ──
+class EndpointFilter(logging.Filter):
+    """Filters out access logs for /health and / while preserving all other route logs."""
+    def __init__(self, paths: Tuple[str, ...] = ("/health", "/")):
+        super().__init__()
+        self.paths = paths
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.args and len(record.args) >= 3:
+            path = str(record.args[2])
+            if path in self.paths or path.split("?")[0] in self.paths:
+                return False
+        msg = record.getMessage()
+        for p in self.paths:
+            if f" {p} " in msg or f' "{p}" ' in msg or f' "{p}?' in msg:
+                return False
+        return True
+
 # FastAPI App
 app = FastAPI(title="Discord Gemini Bot Dashboard API", version="1.0.0")
 
@@ -163,12 +181,17 @@ class ConfigUpdate(BaseModel):
 # ── REST API Router Endpoints ──────────────────────────────────────────────
 
 @app.api_route("/", methods=["GET", "HEAD", "POST", "OPTIONS"])
-async def health_check():
-    """Render and UptimeRobot health check ping route."""
-    return {"status": "ok", "message": "✅ Discord Gemini Bot is alive and running!"}
+async def root_ping():
+    """Fast, zero-overhead root ping endpoint."""
+    return {"status": "ok"}
 
 @app.api_route("/health", methods=["GET", "HEAD", "POST", "OPTIONS"])
 async def health():
+    """Fast, zero-overhead health check endpoint for Render and UptimeRobot."""
+    return {"status": "ok"}
+
+@app.api_route("/health/detail", methods=["GET", "HEAD", "POST", "OPTIONS"])
+async def health_detail():
     """Detailed health check endpoint for monitoring Discord Gateway and bot status."""
     bot = getattr(app.state, "bot", None)
     gw_state = getattr(app.state, "gateway_state", {})
@@ -670,6 +693,9 @@ async def start_fastapi(bot, db, port: int, gateway_state: Optional[Dict[str, An
         logging.getLogger().addHandler(ws_handler)
     except Exception as e:
         logger.warning(f"Could not attach websocket log handler: {e}")
+    
+    # Silence uvicorn access logging for /health and /
+    logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
     
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info", lifespan="off")
     server = uvicorn.Server(config)

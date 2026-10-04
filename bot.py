@@ -173,39 +173,33 @@ logger = logging.getLogger("GeminiBot")
 
 # ── Keep-alive background self-pinger for 24/7 cloud uptime (Render / Railway) ────────
 async def start_self_pinger():
-    """Pings both the internal health port and external URL so cloud hosting never sleeps."""
-    await asyncio.sleep(10)
-    port = int(os.getenv("PORT", 8080))
-    local_url = f"http://127.0.0.1:{port}/health"
-    
-    ext_url = os.getenv("RENDER_EXTERNAL_URL") or "https://discord-bot-cloud.onrender.com/health"
-    logger.info(f"🌐 Cloud 24/7 Self-Pinger active for external URL: {ext_url}")
+    """Pings the external Render URL every 5 minutes to prevent free instance idle sleep."""
+    ext_url = os.getenv("RENDER_EXTERNAL_URL", "").strip()
+    if not ext_url:
+        return
 
-    ping_count = 0
+    if not ext_url.endswith("/health") and not ext_url.endswith("/"):
+        ping_url = f"{ext_url}/health"
+    elif ext_url.endswith("/"):
+        ping_url = f"{ext_url}health"
+    else:
+        ping_url = ext_url
+
+    await asyncio.sleep(30)
     client_timeout = aiohttp.ClientTimeout(total=10)
-    async with aiohttp.ClientSession(timeout=client_timeout) as session:
-        while True:
-            # 1. Local event-loop & FastAPI health ping
-            try:
-                async with session.get(local_url) as resp:
-                    pass
-            except Exception:
-                pass
-
-            # 2. External Cloud keep-alive ping (keeps free Render containers permanently warm)
-            if ext_url:
+    try:
+        async with aiohttp.ClientSession(timeout=client_timeout) as session:
+            while True:
                 try:
-                    async with session.get(ext_url, headers={"User-Agent": "RenderKeepAlive/3.0"}) as resp:
+                    async with session.get(ping_url, headers={"User-Agent": "RenderKeepAlive/3.0"}):
                         pass
-                except Exception as ping_err:
-                    logger.debug(f"Keep-alive ping notice: {ping_err}")
+                except Exception:
+                    pass
 
-            ping_count += 1
-            # Free memory and trim glibc heap every 2 pings (2 minutes) to prevent 512MB RAM exhaustion
-            if ping_count % 2 == 0:
                 clean_memory()
-
-            await asyncio.sleep(60)
+                await asyncio.sleep(300)  # 5 minutes
+    except Exception:
+        pass
 
 # ───────────────────────────────────────────────────────────────────────────
 
@@ -232,29 +226,29 @@ def extract_json(text: str) -> str:
     return text
 
 async def register_uptime_monitor(api_key: str, url: str):
-    """Automatically registers this service with UptimeRobot to keep it awake on Render."""
+    """Optionally registers this service with UptimeRobot (runs once, fails silently if plan limit reached)."""
+    if not api_key or not url:
+        return
     try:
         payload = {
             "api_key": api_key,
-            "friendly_name": "Discord Gemini Bot (Render)",
+            "friendly_name": "Sweety Bot (Render)",
             "url": url,
             "type": "1",  # HTTP(s)
             "interval": "300",  # 5 minutes
             "format": "json"
         }
-        async with aiohttp.ClientSession() as session:
+        client_timeout = aiohttp.ClientTimeout(total=8)
+        async with aiohttp.ClientSession(timeout=client_timeout) as session:
             async with session.post("https://api.uptimerobot.com/v2/newMonitor", data=payload) as resp:
                 data = await resp.json()
-                if data.get("stat") == "ok":
+                stat = data.get("stat")
+                if stat == "ok":
                     logger.info(f"🚀 Successfully registered UptimeRobot monitor for: {url}")
                 else:
-                    err_msg = data.get("error", {}).get("message", "")
-                    if "already exists" in err_msg.lower() or "exists" in err_msg.lower():
-                        logger.info(f"ℹ️ UptimeRobot monitor already active for: {url}")
-                    else:
-                        logger.warning(f"⚠️ UptimeRobot registration feedback: {data}")
+                    logger.debug(f"UptimeRobot registration response: {data}")
     except Exception as e:
-        logger.error(f"Failed to register UptimeRobot monitor: {e}")
+        logger.debug(f"UptimeRobot check notice: {e}")
 
 
 async def call_ai_generation(prompt, system_instruction, json_mode=False):
