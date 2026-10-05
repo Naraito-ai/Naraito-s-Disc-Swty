@@ -153,6 +153,68 @@ async def assign_ballers_role(member: Union[discord.Member, discord.User], guild
         logger.debug(f"Failed to assign @Ballers role silently: {e}")
 
 
+async def sync_all_ballers_roles(bot: commands.Bot, guild: Optional[discord.Guild] = None) -> Dict[str, Any]:
+    """
+    Scans the database for all users who own NBA cards or have cards claimed / VC activity,
+    and retroactively assigns the @Ballers role across all guilds (or a specific guild).
+    """
+    synced_count = 0
+    total_found = 0
+    try:
+        # Fetch all user IDs with NBA cards or non-zero claimed cards
+        rows_cards = await db.fetch("SELECT DISTINCT user_id FROM user_nba_cards")
+        rows_eco = await db.fetch("SELECT DISTINCT user_id FROM user_nba_economy WHERE cards_claimed > 0 OR vc_balance != 1000")
+
+        user_ids: Set[int] = set()
+        for r in (rows_cards or []):
+            uid_val = r.get("user_id") if isinstance(r, dict) else r[0]
+            try:
+                user_ids.add(int(uid_val))
+            except Exception:
+                pass
+        for r in (rows_eco or []):
+            uid_val = r.get("user_id") if isinstance(r, dict) else r[0]
+            try:
+                user_ids.add(int(uid_val))
+            except Exception:
+                pass
+
+        total_found = len(user_ids)
+        logger.info(f"🏀 Found {total_found} unique NBA player accounts in DB for Ballers role sync.")
+
+        target_guilds = [guild] if guild else list(bot.guilds)
+        for g in target_guilds:
+            if not g:
+                continue
+            role = await get_or_create_ballers_role(g)
+            if not role:
+                continue
+
+            for uid in user_ids:
+                try:
+                    member = g.get_member(uid)
+                    if not member:
+                        try:
+                            member = await g.fetch_member(uid)
+                        except Exception:
+                            member = None
+
+                    if member and isinstance(member, discord.Member):
+                        if role not in member.roles and not any(r.name.lower() == "ballers" for r in member.roles):
+                            await member.add_roles(role, reason="Auto-assigned retroactive NBA Ballers role")
+                            synced_count += 1
+                            logger.info(f"🏀 Retroactively granted @Ballers to {member.display_name} in {g.name}")
+                            await asyncio.sleep(0.05)  # Rate-limit safety
+                except Exception as me:
+                    logger.debug(f"Could not assign @Ballers to {uid} in {g.name}: {me}")
+
+        logger.info(f"🏀 Ballers role sync complete. Assigned role to {synced_count} members across {len(target_guilds)} guild(s).")
+    except Exception as e:
+        logger.error(f"Error in sync_all_ballers_roles: {e}", exc_info=True)
+
+    return {"total_nba_users": total_found, "synced_members": synced_count}
+
+
 async def resolve_member_or_user(
     ctx_or_interaction: Union[commands.Context, discord.Interaction],
     argument: Optional[Union[discord.Member, discord.User, str]] = None

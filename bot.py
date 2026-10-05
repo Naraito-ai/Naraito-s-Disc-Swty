@@ -33,7 +33,7 @@ import aiohttp
 from typing import Optional, Union, List, Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from database import db
-from utils import get_or_create_ballers_role, assign_ballers_role
+from utils import get_or_create_ballers_role, assign_ballers_role, sync_all_ballers_roles
 
 def clean_memory():
     """Aggressively runs Python garbage collection and trims glibc heap memory on Linux to stay well under Render 512MB limit."""
@@ -17367,7 +17367,11 @@ class GeminiBot(commands.Bot):
         _gateway_state["commands"] = len(self.commands)
         _gateway_state["cogs"] = list(self.cogs.keys())
 
-
+        # Auto-sync @Ballers role to all existing NBA card collectors retroactively
+        try:
+            asyncio.create_task(sync_all_ballers_roles(self))
+        except Exception as sync_err:
+            logger.debug(f"Could not launch Ballers role startup sync: {sync_err}")
 
         # Step 5: Start presence keepalive loop
         try:
@@ -25761,6 +25765,40 @@ async def nbahint_prefix_cmd(ctx: commands.Context):
     except Exception as e:
         logger.error(f"Error in !nbahint: {e}", exc_info=True)
         await ctx.send(f"❌ Error: {e}")
+
+
+@bot.tree.command(name="syncballers", description="🏀 Retroactively assign @Ballers role to all existing NBA card collectors in this server (Admin)")
+@app_commands.guild_only()
+@app_commands.default_permissions(manage_roles=True)
+async def syncballers_slash_cmd(interaction: discord.Interaction):
+    """Retroactively scans database and assigns @Ballers role to all existing NBA card owners in this server."""
+    try:
+        await interaction.response.defer()
+        res = await sync_all_ballers_roles(bot, interaction.guild)
+        await interaction.followup.send(
+            f"✅ **Ballers Role Sync Complete!**\n• 🎴 **Total NBA Collectors in DB:** `{res['total_nba_users']}`\n• 🏀 **Assigned @Ballers to:** `{res['synced_members']}` member(s) in **{interaction.guild.name}**."
+        )
+    except Exception as e:
+        logger.error(f"Error in /syncballers: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Error during sync: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Error during sync: {e}", ephemeral=True)
+
+
+@bot.command(name="syncballers", aliases=["ballerssync", "syncballer", "syncnbaroles"])
+@commands.guild_only()
+async def syncballers_prefix_cmd(ctx: commands.Context):
+    """Retroactively scans database and assigns @Ballers role to all existing NBA card owners in this server: !syncballers"""
+    try:
+        if not (ctx.author.guild_permissions.manage_roles or ctx.author.guild_permissions.administrator or ctx.author.id == ctx.guild.owner_id or str(ctx.author.id) == "719932313919684670"):
+            return await ctx.send("❌ You need the **Manage Roles** permission to run this command.")
+        msg = await ctx.send("🏀 Scanning database for all existing NBA card collectors in this server...")
+        res = await sync_all_ballers_roles(bot, ctx.guild)
+        await msg.edit(content=f"✅ **Ballers Role Sync Complete!**\n• 🎴 **Total NBA Collectors in DB:** `{res['total_nba_users']}`\n• 🏀 **Assigned @Ballers to:** `{res['synced_members']}` member(s) in **{ctx.guild.name}**.")
+    except Exception as e:
+        logger.error(f"Error in !syncballers: {e}", exc_info=True)
+        await ctx.send(f"❌ Error during sync: {e}")
 
 
 # ── Comprehensive Prefix Moderation, Admin & Utility Commands ─────────────────
