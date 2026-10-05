@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: sweety-bot-service
+    name: sweety-discord-bot-fra
     runtime: python
     region: frankfurt
     plan: free
