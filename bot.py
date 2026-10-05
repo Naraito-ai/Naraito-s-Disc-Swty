@@ -33,6 +33,7 @@ import aiohttp
 from typing import Optional, Union, List, Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from database import db
+from utils import get_or_create_ballers_role, assign_ballers_role
 
 def clean_memory():
     """Aggressively runs Python garbage collection and trims glibc heap memory on Linux to stay well under Render 512MB limit."""
@@ -7526,6 +7527,7 @@ async def handle_nbafuse(user: Union[discord.Member, discord.User], card_query: 
     if not success:
         return await send_func(f"❌ {msg}\n💡 Tip: Run `!nbafuse` to check your duplicate card counts!")
 
+    asyncio.create_task(assign_ballers_role(user, getattr(user, "guild", None)))
     holo_card = get_nba_card(data["holo_id"])
     if not holo_card:
         holo_card = dict(card_obj)
@@ -15401,6 +15403,9 @@ class NBACardTradeView(discord.ui.View):
 
             if success:
                 self.status = "accepted"
+                guild_ref = getattr(message, "guild", None)
+                asyncio.create_task(assign_ballers_role(self.sender_user, guild_ref))
+                asyncio.create_task(assign_ballers_role(self.target_user, guild_ref))
                 embed = build_multi_trade_embed(
                     self.sender_user, self.target_user,
                     self.cards_a, self.cards_b,
@@ -15575,6 +15580,7 @@ async def handle_catch_attempt(
 
         await db.add_user_nba_card(user.id, card["id"], source="chat_catch")
         new_bal = await db.add_user_vc(user.id, 150)
+        asyncio.create_task(assign_ballers_role(user, getattr(interaction_or_ctx, "guild", None)))
         user_cards = await db.get_user_nba_cards(user.id)
         copies = sum(1 for c in user_cards if c["card_id"].lower() == card["id"].lower())
 
@@ -17527,6 +17533,26 @@ async def globally_block_blacklisted_users_interaction(interaction: discord.Inte
     return True
 
 bot.tree.interaction_check = globally_block_blacklisted_users_interaction
+
+
+@bot.event
+async def on_command_completion(ctx: commands.Context):
+    """Auto-assigns @Ballers role upon successful completion of any NBA prefix command."""
+    try:
+        if not ctx.guild or not ctx.author:
+            return
+        cmd_name = ctx.command.name.lower() if ctx.command else ""
+        nba_keywords = (
+            "nba", "card", "catch", "dex", "trade", "binder", "pack", "fuse",
+            "shootout", "lineup", "battle", "boss", "give", "sell", "fav",
+            "hint", "godmode", "grant", "3pt", "claim", "vc", "autoteam",
+            "buildteam", "teamqueue", "teambattle", "dailynba", "openpack",
+            "packodds", "spawndrop"
+        )
+        if any(kw in cmd_name for kw in nba_keywords):
+            asyncio.create_task(assign_ballers_role(ctx.author, ctx.guild))
+    except Exception as e:
+        logger.debug(f"Error in on_command_completion for @Ballers role: {e}")
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
@@ -20353,6 +20379,7 @@ async def dailynba_slash_cmd(interaction: discord.Interaction):
 async def openpack_slash_cmd(interaction: discord.Interaction, pack_type: Optional[str] = "starter"):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         pack_id = pack_type or "starter"
         pack_data = NBA_PACK_TYPES.get(pack_id, NBA_PACK_TYPES["starter"])
         cost = pack_data["cost"]
@@ -20423,6 +20450,7 @@ async def openpack_slash_cmd(interaction: discord.Interaction, pack_type: Option
 async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None, tier: Optional[str] = "all", page: Optional[int] = 1):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         target = user or interaction.user
         is_owner = (target.id == interaction.user.id)
 
@@ -20457,6 +20485,7 @@ async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[disc
 async def nbaprivacy_slash_cmd(interaction: discord.Interaction):
     """Toggle NBA binder & Dex privacy between Public and Private."""
     try:
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         new_state = await db.toggle_user_nba_privacy(interaction.user.id)
         status_tag = "🔒 **PRIVATE**" if new_state else "🌐 **PUBLIC**"
         expl = (
@@ -20490,6 +20519,7 @@ async def nbaprivacy_slash_cmd(interaction: discord.Interaction):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def packodds_slash_cmd(interaction: discord.Interaction, pack_name: Optional[str] = "all"):
     try:
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         pack_name_clean = (pack_name or "all").lower().strip()
         pack_data = NBA_PACK_TYPES.get(pack_name_clean)
         if pack_data and pack_name_clean != "all":
@@ -20535,6 +20565,8 @@ async def packodds_slash_cmd(interaction: discord.Interaction, pack_name: Option
 @app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id, i.user.id))
 async def vcbet_slash_cmd(interaction: discord.Interaction, opponent: discord.Member, bet_amount: int):
     try:
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
+        asyncio.create_task(assign_ballers_role(opponent, interaction.guild))
         if opponent.id == interaction.user.id:
             return await interaction.response.send_message("❌ You can't bet against yourself!", ephemeral=True)
 
@@ -20852,6 +20884,7 @@ async def ask_slash_cmd(interaction: discord.Interaction, question: str):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def shootout_slash_cmd(interaction: discord.Interaction, opponent: Optional[discord.Member] = None, wager: Optional[int] = 0):
     try:
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         if opponent:
             if opponent.id == interaction.user.id:
                 return await interaction.response.send_message("❌ You can't challenge yourself! Play solo without tagging an opponent.", ephemeral=True)
@@ -20938,6 +20971,7 @@ async def nba_card_autocomplete(
 async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         card_obj = get_nba_card(card)
         if not card_obj:
             await interaction.followup.send(
@@ -20970,6 +21004,7 @@ async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
 async def nbadaily_slash_cmd(interaction: discord.Interaction):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         success, new_bal, rem = await db.claim_nba_daily(interaction.user.id, 1000)
         if success:
             card = roll_reward_card(["gold", "ruby", "amethyst"])
@@ -21019,6 +21054,7 @@ async def nbadaily_slash_cmd(interaction: discord.Interaction):
 async def nbaweekly_slash_cmd(interaction: discord.Interaction):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         success, new_bal, rem = await db.claim_nba_weekly(interaction.user.id, 5000)
         if success:
             card = roll_reward_card(["ruby", "amethyst", "diamond"])
@@ -21069,6 +21105,7 @@ async def nbaweekly_slash_cmd(interaction: discord.Interaction):
 async def nbamonthly_slash_cmd(interaction: discord.Interaction):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         success, new_bal, rem = await db.claim_nba_monthly(interaction.user.id, 25000)
         if success:
             card = roll_reward_card(["diamond", "galaxy_opal", "dark_matter"])
@@ -21120,6 +21157,7 @@ async def nbamonthly_slash_cmd(interaction: discord.Interaction):
 async def nbabal_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         target = user or interaction.user
         vc = await db.get_user_vc(target.id)
         cards = await db.get_user_nba_cards(target.id)
@@ -21187,6 +21225,7 @@ async def nbasell_slash_cmd(
 ):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         await handle_nbasell(
             user=interaction.user,
             send_response=interaction.followup.send,
@@ -21211,6 +21250,7 @@ async def nbasell_slash_cmd(
 async def nbafuse_slash_cmd(interaction: discord.Interaction, card: Optional[str] = None):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         await handle_nbafuse(interaction.user, card, interaction.followup.send, is_interaction=True)
     except Exception as e:
         logger.error(f"Error in /nbafuse: {e}", exc_info=True)
@@ -21231,6 +21271,8 @@ async def nbafuse_slash_cmd(interaction: discord.Interaction, card: Optional[str
 async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str, count: int = 1):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
+        asyncio.create_task(assign_ballers_role(user, interaction.guild))
         if user.id == interaction.user.id:
             await interaction.followup.send("❌ You cannot gift cards to yourself!", ephemeral=True)
             return
@@ -21301,6 +21343,7 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
 @app_commands.guild_only()
 async def godmode_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None, count: int = 99, vc_amount: int = 10000000):
     try:
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         if not is_creator(interaction.user):
             await interaction.response.send_message("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).", ephemeral=True)
             return
@@ -21327,6 +21370,8 @@ async def godmode_slash_cmd(interaction: discord.Interaction, user: Optional[dis
 @app_commands.guild_only()
 async def nbagrant_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str, count: int = 1):
     try:
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
+        asyncio.create_task(assign_ballers_role(user, interaction.guild))
         if not is_creator(interaction.user):
             await interaction.response.send_message("❌ This command is strictly restricted to the Bot Creator (ID: `719932313919684670`).", ephemeral=True)
             return
@@ -21459,6 +21504,8 @@ async def nbatrade_slash_cmd(
 ):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
+        asyncio.create_task(assign_ballers_role(user, interaction.guild))
         if user.id == interaction.user.id or user.bot:
             await interaction.followup.send("❌ You cannot trade cards with yourself or bots.", ephemeral=True)
             return
@@ -21530,6 +21577,7 @@ async def nbatrade_slash_cmd(
 async def nbatop_slash_cmd(interaction: discord.Interaction, category: Optional[str] = "cards"):
     try:
         await interaction.response.defer()
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         cat = category or "cards"
         if cat == "vc":
             query = "SELECT user_id, vc_balance, cards_claimed FROM user_nba_economy WHERE user_id != '719932313919684670' ORDER BY vc_balance DESC LIMIT 10"
@@ -21585,6 +21633,7 @@ async def nbatop_slash_cmd(interaction: discord.Interaction, category: Optional[
 async def nbafav_slash_cmd(interaction: discord.Interaction, card: str):
     try:
         await interaction.response.defer(ephemeral=True)
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         card_obj = get_nba_card(card)
         if not card_obj:
             await interaction.followup.send(f"❌ Card `{card}` not found in catalog.", ephemeral=True)
@@ -21630,6 +21679,7 @@ async def catch_slash_cmd(interaction: discord.Interaction, player_name: str):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def nbahint_slash_cmd(interaction: discord.Interaction):
     try:
+        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
         drop = get_active_nba_drop(interaction.channel_id, interaction.guild_id)
         if not drop or drop.get("claimed"):
             await interaction.response.send_message("❌ There is no active wild card drop right now.", ephemeral=True)

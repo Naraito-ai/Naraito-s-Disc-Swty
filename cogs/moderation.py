@@ -16,7 +16,8 @@ from utils import (
     parse_duration_string, parse_time_string, format_time_elapsed,
     create_action_embed, ACTION_METADATA, ensure_muted_role,
     get_or_recover_appeal_ticket, restore_purged_messages,
-    _purge_history_buffer, _bot_deleted_message_ids, TICKET_CHANNEL_ID
+    _purge_history_buffer, _bot_deleted_message_ids, TICKET_CHANNEL_ID,
+    resolve_member_or_user
 )
 
 logger = logging.getLogger("SweetyBot.Moderation")
@@ -1473,9 +1474,15 @@ class ModerationCog(commands.Cog, name="Moderation"):
     @commands.has_permissions(moderate_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 3.0, commands.BucketType.user)
-    async def warn_prefix_cmd(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided"):
+    async def warn_prefix_cmd(self, ctx: commands.Context, member: str, *, reason: str = "No reason provided"):
         """Issue a warning or strike to a member: !warn @member [reason] or !strike @member [reason]"""
         try:
+            target = await resolve_member_or_user(ctx, member)
+            if not target or not isinstance(target, discord.Member):
+                if target:
+                    return await ctx.send(f"❌ **{target.name}** is not currently in this server.")
+                return await ctx.send(f"❌ Could not find member `{member}` in this server.")
+            member = target
             if is_protected(member):
                 await ctx.send("❌ This member is staff/immune and cannot be warned.")
                 return
@@ -1503,13 +1510,15 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 
 
-    @commands.command(name="warnings", aliases=["warns"])
+    @commands.command(name="warnings", aliases=["warns", "infractions", "strikes"])
     @commands.guild_only()
     @commands.cooldown(1, 5.0, commands.BucketType.user)
-    async def warnings_prefix_cmd(self, ctx: commands.Context, member: discord.Member = None):
+    async def warnings_prefix_cmd(self, ctx: commands.Context, *, member: Optional[str] = None):
         """Check active warnings for a member: !warnings [@member]"""
         try:
-            target = member or ctx.author
+            target = await resolve_member_or_user(ctx, member)
+            if not target:
+                return await ctx.send(f"❌ Could not find member or user `{member}` in this server or Discord.")
             warns = await db.get_warnings(ctx.guild.id, target.id)
             if not warns:
                 await ctx.send(f"✅ **{target.mention} has a clean record with 0 warnings!**")
@@ -1540,9 +1549,13 @@ class ModerationCog(commands.Cog, name="Moderation"):
     @commands.command(name="clearwarns", aliases=["clearwarnings", "removewarn"])
     @commands.guild_only()
     @commands.cooldown(1, 3.0, commands.BucketType.user)
-    async def clearwarns_prefix_cmd(self, ctx: commands.Context, member: discord.Member, amount: Optional[int] = None):
+    async def clearwarns_prefix_cmd(self, ctx: commands.Context, member: str, amount: Optional[int] = None):
         """Clear warnings for a member: !clearwarns @member [amount]"""
         try:
+            target = await resolve_member_or_user(ctx, member)
+            if not target:
+                return await ctx.send(f"❌ Could not find member or user `{member}`.")
+            member = target
             if not is_protected(ctx.author):
                 await ctx.send("❌ You do not have permission to clear warnings.")
                 return

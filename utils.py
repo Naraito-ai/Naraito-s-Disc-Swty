@@ -99,6 +99,134 @@ async def ensure_muted_role(guild: discord.Guild) -> Optional[discord.Role]:
 
     return muted_role
 
+BALLERS_ROLE_NAME = "Ballers"
+BALLERS_ROLE_COLOR = 0xFF6B00
+
+async def get_or_create_ballers_role(guild: discord.Guild) -> Optional[discord.Role]:
+    """
+    Finds or creates a @Ballers role in the guild with color 0xFF6B00 (orange).
+    """
+    if not guild:
+        return None
+    role = discord.utils.find(lambda r: r.name.lower() == "ballers", guild.roles)
+    if not role:
+        try:
+            role = await guild.create_role(
+                name=BALLERS_ROLE_NAME,
+                color=discord.Color(BALLERS_ROLE_COLOR),
+                reason="Auto-assigned NBA Ballers role"
+            )
+            logger.info(f"Created @Ballers role in guild '{guild.name}' ({guild.id})")
+        except Exception as e:
+            logger.debug(f"Could not create @Ballers role in {guild.name}: {e}")
+            return None
+    return role
+
+
+async def assign_ballers_role(member: Union[discord.Member, discord.User], guild: Optional[discord.Guild] = None) -> None:
+    """
+    Silently checks if the user has the Ballers role, fetches/creates it, and assigns it in the background.
+    """
+    try:
+        if not member:
+            return
+        actual_guild = guild or getattr(member, "guild", None)
+        actual_member = member
+        if not isinstance(actual_member, discord.Member) and actual_guild:
+            actual_member = actual_guild.get_member(member.id)
+            if not actual_member:
+                try:
+                    actual_member = await actual_guild.fetch_member(member.id)
+                except Exception:
+                    return
+        if not isinstance(actual_member, discord.Member) or not actual_guild:
+            return
+
+        if any(r.name.lower() == "ballers" for r in actual_member.roles):
+            return
+
+        ballers_role = await get_or_create_ballers_role(actual_guild)
+        if ballers_role and ballers_role not in actual_member.roles:
+            await actual_member.add_roles(ballers_role, reason="Auto-assigned NBA Ballers role")
+            logger.info(f"🏀 Auto-assigned @Ballers role to {actual_member.display_name} in '{actual_guild.name}'")
+    except Exception as e:
+        logger.debug(f"Failed to assign @Ballers role silently: {e}")
+
+
+async def resolve_member_or_user(
+    ctx_or_interaction: Union[commands.Context, discord.Interaction],
+    argument: Optional[Union[discord.Member, discord.User, str]] = None
+) -> Optional[Union[discord.Member, discord.User]]:
+    """
+    Robustly resolves a Discord Member or User from an argument:
+    - Member or User object directly
+    - User ID (<@123>, <@!123>, or raw digits)
+    - Username, Nickname, or Display Name (case-insensitive, with or without leading @)
+    - Defaults to the invoking user if argument is None
+    """
+    if argument is None:
+        return ctx_or_interaction.author if isinstance(ctx_or_interaction, commands.Context) else ctx_or_interaction.user
+
+    if isinstance(argument, (discord.Member, discord.User)):
+        return argument
+
+    raw = str(argument).strip()
+    if not raw:
+        return ctx_or_interaction.author if isinstance(ctx_or_interaction, commands.Context) else ctx_or_interaction.user
+
+    guild = ctx_or_interaction.guild
+    bot = ctx_or_interaction.bot if isinstance(ctx_or_interaction, commands.Context) else ctx_or_interaction.client
+
+    # Check for mention syntax <@123456789> or raw numeric ID
+    match = re.match(r"^<@!?(\d+)>$", raw)
+    user_id = int(match.group(1)) if match else (int(raw) if raw.isdigit() else None)
+
+    if user_id:
+        if guild:
+            m = guild.get_member(user_id)
+            if m:
+                return m
+            try:
+                m = await guild.fetch_member(user_id)
+                if m:
+                    return m
+            except Exception:
+                pass
+        try:
+            return await bot.fetch_user(user_id)
+        except Exception:
+            pass
+
+    # Clean leading '@' if present (e.g. "@quit" -> "quit")
+    clean_name = raw.lstrip("@").lower()
+
+    if guild:
+        # 1. Exact match on username, nickname, global_name, or display_name
+        for m in guild.members:
+            if (
+                m.name.lower() == clean_name or
+                m.display_name.lower() == clean_name or
+                (getattr(m, "global_name", None) and m.global_name.lower() == clean_name)
+            ):
+                return m
+
+        # 2. Substring match on guild members
+        for m in guild.members:
+            if clean_name in m.name.lower() or clean_name in m.display_name.lower():
+                return m
+
+    # 3. Search bot global user cache
+    for u in getattr(bot, "users", []):
+        if (
+            u.name.lower() == clean_name or
+            (getattr(u, "global_name", None) and u.global_name.lower() == clean_name) or
+            u.display_name.lower() == clean_name
+        ):
+            return u
+
+    return None
+
+
 async def get_or_recover_appeal_ticket(interaction: discord.Interaction) -> Optional[Dict[str, Any]]:
     """
     Robustly retrieves the appeal ticket from the database.
