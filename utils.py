@@ -99,16 +99,16 @@ async def ensure_muted_role(guild: discord.Guild) -> Optional[discord.Role]:
 
     return muted_role
 
-BALLERS_ROLE_NAME = "Ballers"
+BALLERS_ROLE_NAME = "🏀 Ballers"
 BALLERS_ROLE_COLOR = 0xFF6B00
 
 async def get_or_create_ballers_role(guild: discord.Guild) -> Optional[discord.Role]:
     """
-    Finds or creates a @Ballers role in the guild with color 0xFF6B00 (orange).
+    Finds or creates a @🏀 Ballers role in the guild with color 0xFF6B00 (orange).
     """
     if not guild:
         return None
-    role = discord.utils.find(lambda r: r.name.lower() == "ballers", guild.roles)
+    role = discord.utils.find(lambda r: "ballers" in r.name.lower(), guild.roles)
     if not role:
         try:
             role = await guild.create_role(
@@ -116,10 +116,17 @@ async def get_or_create_ballers_role(guild: discord.Guild) -> Optional[discord.R
                 color=discord.Color(BALLERS_ROLE_COLOR),
                 reason="Auto-assigned NBA Ballers role"
             )
-            logger.info(f"Created @Ballers role in guild '{guild.name}' ({guild.id})")
+            logger.info(f"Created @🏀 Ballers role in guild '{guild.name}' ({guild.id})")
         except Exception as e:
-            logger.debug(f"Could not create @Ballers role in {guild.name}: {e}")
+            logger.debug(f"Could not create @🏀 Ballers role in {guild.name}: {e}")
             return None
+    else:
+        # If the existing role is named "Ballers" without the emoji, update name to include the emoji
+        if "🏀" not in role.name:
+            try:
+                await role.edit(name=BALLERS_ROLE_NAME, reason="Upgrade Ballers role name with basketball emoji")
+            except Exception as re_err:
+                logger.debug(f"Could not edit role name with emoji in {guild.name}: {re_err}")
     return role
 
 
@@ -142,21 +149,21 @@ async def assign_ballers_role(member: Union[discord.Member, discord.User], guild
         if not isinstance(actual_member, discord.Member) or not actual_guild:
             return
 
-        if any(r.name.lower() == "ballers" for r in actual_member.roles):
+        if any("ballers" in r.name.lower() for r in actual_member.roles):
             return
 
         ballers_role = await get_or_create_ballers_role(actual_guild)
         if ballers_role and ballers_role not in actual_member.roles:
             await actual_member.add_roles(ballers_role, reason="Auto-assigned NBA Ballers role")
-            logger.info(f"🏀 Auto-assigned @Ballers role to {actual_member.display_name} in '{actual_guild.name}'")
+            logger.info(f"🏀 Auto-assigned @🏀 Ballers role to {actual_member.display_name} in '{actual_guild.name}'")
     except Exception as e:
-        logger.debug(f"Failed to assign @Ballers role silently: {e}")
+        logger.debug(f"Failed to assign @🏀 Ballers role silently: {e}")
 
 
 async def sync_all_ballers_roles(bot: commands.Bot, guild: Optional[discord.Guild] = None) -> Dict[str, Any]:
     """
     Scans the database for all users who own NBA cards or have cards claimed / VC activity,
-    and retroactively assigns the @Ballers role across all guilds (or a specific guild).
+    and retroactively assigns the @🏀 Ballers role across all guilds (or a specific guild).
     """
     synced_count = 0
     total_found = 0
@@ -200,13 +207,13 @@ async def sync_all_ballers_roles(bot: commands.Bot, guild: Optional[discord.Guil
                             member = None
 
                     if member and isinstance(member, discord.Member):
-                        if role not in member.roles and not any(r.name.lower() == "ballers" for r in member.roles):
+                        if role not in member.roles and not any("ballers" in r.name.lower() for r in member.roles):
                             await member.add_roles(role, reason="Auto-assigned retroactive NBA Ballers role")
                             synced_count += 1
-                            logger.info(f"🏀 Retroactively granted @Ballers to {member.display_name} in {g.name}")
+                            logger.info(f"🏀 Retroactively granted @🏀 Ballers to {member.display_name} in {g.name}")
                             await asyncio.sleep(0.05)  # Rate-limit safety
                 except Exception as me:
-                    logger.debug(f"Could not assign @Ballers to {uid} in {g.name}: {me}")
+                    logger.debug(f"Could not assign @🏀 Ballers to {uid} in {g.name}: {me}")
 
         logger.info(f"🏀 Ballers role sync complete. Assigned role to {synced_count} members across {len(target_guilds)} guild(s).")
     except Exception as e:
