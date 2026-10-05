@@ -1,4 +1,5 @@
 import os
+import asyncio
 import time
 import math
 import random
@@ -13,10 +14,122 @@ from database import db
 from utils import (
     is_creator, is_protected, log_mod_action, get_mod_log_channel,
     parse_duration_string, parse_time_string, format_time_elapsed,
-    create_action_embed, ACTION_METADATA
+    create_action_embed, ACTION_METADATA, ensure_muted_role,
+    get_or_recover_appeal_ticket, restore_purged_messages,
+    _purge_history_buffer, _bot_deleted_message_ids, TICKET_CHANNEL_ID
 )
 
 logger = logging.getLogger("SweetyBot.Moderation")
+
+async def issue_warning_logic(guild: discord.Guild, member: discord.Member, moderator: discord.Member, reason: str) -> tuple[int, str]:
+    """
+    Issues a formal warning / strike, tracks strike count, and enforces strike policies:
+    - 3 Strikes: 7-Day Server Timeout (Appeal via DM button, !appeal, or ticket)
+    - 6 Strikes: Permanent Server Ban
+    """
+    clean_reason = discord.utils.escape_mentions(reason[:500])
+    await db.add_warning(guild.id, member.id, moderator.id, clean_reason)
+    
+    warnings = await db.get_warnings(guild.id, member.id)
+    total_warns = len(warnings)
+    
+    escalation_action = ""
+    if total_warns == 3:
+        try:
+            if not is_protected(member):
+                await member.timeout(datetime.timedelta(days=7), reason=f"Auto-Escalation: 3 Strikes Reached ({clean_reason})")
+                muted_role = await ensure_muted_role(guild)
+                if muted_role:
+                    await member.add_roles(muted_role, reason="Auto-Escalation: 3 Strikes Reached (7-day role mute)")
+                await db.add_active_mute(guild.id, member.id, time.time() + (7 * 86400))
+
+            escalation_action = (
+                "\n\n🛑 **Auto-Escalation: 7-Day Timeout Applied**\n"
+                "• **Penalty:** Muted for **7 full days** (Reached 3 Strikes).\n"
+                "• **Appeal Options (3 Ways):**\n"
+                "  1. 📩 Click the **Submit Strike Appeal** button attached in DM.\n"
+                "  2. 💬 Reply with `!appeal <reason>` directly in DM to Sweety.\n"
+                "  3. 🎫 Open a ticket in <#1549080000328896583>.\n"
+                "• **Warning:** Accumulating 3 more strikes (6 total) will result in a **permanent ban**."
+            )
+        except Exception as e:
+            logger.warning(f"Failed to timeout member {member.id} for 7 days: {e}")
+    elif total_warns >= 6:
+        try:
+            if not is_protected(member):
+                await member.ban(reason=f"Auto-Escalation: 6 Strikes Reached - Permanent Server Ban ({clean_reason})", delete_message_days=0)
+            escalation_action = (
+                "\n\n⛔ **Auto-Escalation: Permanent Ban Applied**\n"
+                "• **Penalty:** **Permanently banned** from the server (Accumulated 6 Strikes)."
+            )
+        except Exception as e:
+            logger.warning(f"Failed to ban member {member.id} for 6 strikes: {e}")
+    elif total_warns > 3:
+        remaining = 6 - total_warns
+        escalation_action = f"\n\n⚠️ **Critical Notice:** Member has **{total_warns}/6 strikes** ({remaining} more strike{'s' if remaining != 1 else ''} will result in a **permanent ban**)."
+    else:
+        remaining = 3 - total_warns
+        escalation_action = f"\n\n🟡 **Notice:** Member has **{total_warns}/3 strikes** before a 7-day timeout ({remaining} strike{'s' if remaining != 1 else ''} remaining)."
+
+    try:
+        dm_color = discord.Color.red() if total_warns >= 3 else discord.Color.gold()
+        dm_embed = discord.Embed(
+            title=f"⚠️ Warning / Strike Issued in {guild.name}",
+            description=f"You have been formally issued a strike by **{moderator.display_name}**.",
+            color=dm_color
+        )
+        dm_embed.add_field(name="Reason", value=clean_reason, inline=False)
+        dm_embed.add_field(name="Total Strikes on Record", value=f"`{total_warns}` / 6 strikes", inline=True)
+        
+        if total_warns == 3:
+            dm_embed.add_field(
+                name="🛑 Penalty Applied: 7-Day Mute",
+                value=(
+                    "You have reached **3 strikes** and have been **muted for 7 full days**.\n\n"
+                    "📌 **How to Appeal (Choose Any Method):**\n"
+                    "1️⃣ **In-DM Button:** Click the **📩 Submit Strike Appeal** button below.\n"
+                    "2️⃣ **DM Command:** Reply to this DM with `!appeal <your reason here>`\n"
+                    "3️⃣ **Ticket Support:** Open a ticket in <#1549080000328896583> in the server.\n\n"
+                    "⚠️ *Note: Accumulating 3 more strikes (6 total) results in a permanent ban.*"
+                ),
+                inline=False
+            )
+        elif total_warns >= 6:
+            dm_embed.add_field(
+                name="⛔ Penalty Applied: Permanent Ban",
+                value="You have accumulated **6 strikes** and have been **permanently banned** from the server.",
+                inline=False
+            )
+        elif total_warns > 3:
+            dm_embed.add_field(
+                name="🚨 High Risk Notice",
+                value=f"You currently have **{total_warns}/6 strikes**. Reaching 6 strikes results in an immediate permanent ban.",
+                inline=False
+            )
+        else:
+            dm_embed.add_field(
+                name="📌 How to Appeal This Warning",
+                value="If you believe this warning was issued in error, click the button below or reply `!appeal <reason>`.",
+                inline=False
+            )
+
+        dm_embed.add_field(
+            name="📜 Server Strike Rules",
+            value=(
+                "• **3 Strikes:** Muted for 7 full days (Appeal via in-DM button, `!appeal`, or <#1549080000328896583>)\n"
+                "• **6 Strikes:** Permanent ban from the server"
+            ),
+            inline=False
+        )
+        dm_embed.set_footer(text="Please keep the community friendly and adhere to server rules.")
+        
+        dm_view = DMAppealLauncherView()
+        await member.send(embed=dm_embed, view=dm_view)
+    except Exception:
+        pass
+
+    await log_mod_action(guild, moderator, member, "Warning Issued", clean_reason, f"Total Strikes: {total_warns}{escalation_action}")
+    return total_warns, escalation_action
 
 class ModerationCog(commands.Cog, name="Moderation"):
     """Moderation, server management, warning system, and appeal tickets."""
@@ -48,7 +161,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
                         chan = interaction.guild.get_channel(int(channel_id_raw))
                         if not chan:
                             try:
-                                chan = await bot.fetch_channel(int(channel_id_raw))
+                                chan = await self.bot.fetch_channel(int(channel_id_raw))
                             except Exception:
                                 chan = None
                 except Exception:
@@ -324,7 +437,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             clean_reason = discord.utils.escape_mentions(reason[:500])
             try:
                 uid = int(user_id)
-                user = await bot.fetch_user(uid)
+                user = await self.bot.fetch_user(uid)
                 await interaction.guild.unban(user, reason=clean_reason)
                 await interaction.response.send_message(f"✅ **{user.display_name}** (ID: {user_id}) has been unbanned. (Reason: {clean_reason})")
                 await log_mod_action(interaction.guild, interaction.user, user, "Unban", clean_reason)
@@ -1090,7 +1203,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
     async def unban_prefix_cmd(self, ctx: commands.Context, user_id: int, *, reason: Optional[str] = "No reason provided"):
         """Unban a user by their user ID: !unban <user_id> [reason]"""
         try:
-            user = await bot.fetch_user(user_id)
+            user = await self.bot.fetch_user(user_id)
             await ctx.guild.unban(user, reason=reason)
             await ctx.send(f"✅ **{user.name}** (`{user.id}`) has been unbanned.")
             await log_mod_action(ctx.guild, ctx.author, user, "Unban", reason)
@@ -1576,7 +1689,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
                         chan = guild.get_channel(int(channel_id_raw))
                         if not chan:
                             try:
-                                chan = await bot.fetch_channel(int(channel_id_raw))
+                                chan = await self.bot.fetch_channel(int(channel_id_raw))
                             except Exception:
                                 chan = None
                 except Exception:
@@ -1740,7 +1853,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if not is_creator(ctx.author):
                 return
 
-            guilds = list(bot.guilds)
+            guilds = list(self.bot.guilds)
             total_members = sum(g.member_count or 0 for g in guilds)
             guilds_sorted = sorted(guilds, key=lambda g: g.member_count or 0, reverse=True)
 
@@ -1776,7 +1889,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             except ValueError:
                 return await ctx.reply("❌ Invalid numerical Guild ID.", mention_author=False)
 
-            guild = bot.get_guild(gid)
+            guild = self.bot.get_guild(gid)
             if not guild:
                 return await ctx.reply(f"❌ Server `{gid}` not found.", mention_author=False)
 

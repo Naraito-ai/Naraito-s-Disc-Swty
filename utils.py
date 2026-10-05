@@ -1,16 +1,215 @@
 import os
+import asyncio
 import time
 import math
 import random
 import re
 import logging
 import datetime
-from typing import Optional, Union, Tuple, List, Dict, Any
+from typing import Optional, Union, Tuple, List, Dict, Any, Set
 import discord
 from discord.ext import commands
 from database import db
 
 logger = logging.getLogger("SweetyBot.Utils")
+
+TICKET_CHANNEL_ID = 1549080000328896583
+_PURGE_BACKUP_TTL = 900  # 15 minutes
+_purge_history_buffer: Dict[int, List[Dict[str, Any]]] = {}
+_bot_deleted_message_ids: Set[int] = set()
+
+async def ensure_muted_role(guild: discord.Guild) -> Optional[discord.Role]:
+    """
+    Finds or creates a @Muted role in the guild with channel overrides:
+    - Ticket channels / ticket support: View Channel = True, Send Messages = True (so muted members can interact/appeal)
+    - All other channels: Send Messages = False, Add Reactions = False, Speak = False
+    """
+    if not guild:
+        return None
+    muted_role = discord.utils.find(lambda r: r.name.lower() == "muted", guild.roles)
+    if not muted_role:
+        try:
+            muted_role = await guild.create_role(
+                name="Muted",
+                color=discord.Color.dark_grey(),
+                reason="Auto-created @Muted role for 7-day strike timeouts and moderation",
+                permissions=discord.Permissions(send_messages=False, add_reactions=False, speak=False)
+            )
+            logger.info(f"Created @Muted role in guild {guild.name} ({guild.id})")
+        except Exception as e:
+            logger.warning(f"Could not create @Muted role in {guild.name}: {e}")
+            return None
+
+    # Apply category & channel overrides safely
+    for category in guild.categories:
+        try:
+            is_ticket_cat = any(term in category.name.lower() for term in ["ticket", "appeal", "support", "staff"])
+            if not is_ticket_cat:
+                overwrite = category.overwrites_for(muted_role)
+                if overwrite.send_messages is not False or overwrite.speak is not False:
+                    overwrite.send_messages = False
+                    overwrite.add_reactions = False
+                    overwrite.create_public_threads = False
+                    overwrite.create_private_threads = False
+                    overwrite.send_messages_in_threads = False
+                    overwrite.speak = False
+                    overwrite.stream = False
+                    await category.set_permissions(muted_role, overwrite=overwrite, reason="Apply @Muted category restrictions")
+                    await asyncio.sleep(0.05)
+        except Exception as ce:
+            logger.debug(f"Could not apply @Muted override to category {category.name}: {ce}")
+
+    for channel in guild.channels:
+        try:
+            is_ticket_channel = (
+                channel.id == TICKET_CHANNEL_ID or 
+                "ticket" in channel.name.lower() or 
+                "appeal" in channel.name.lower()
+            )
+            if is_ticket_channel:
+                if isinstance(channel, discord.TextChannel):
+                    overwrite = channel.overwrites_for(muted_role)
+                    if overwrite.view_channel is not True or overwrite.send_messages is not True:
+                        overwrite.view_channel = True
+                        overwrite.send_messages = True
+                        overwrite.read_message_history = True
+                        overwrite.attach_files = True
+                        await channel.set_permissions(muted_role, overwrite=overwrite, reason="Allow muted users in ticket support")
+                        await asyncio.sleep(0.05)
+            else:
+                if isinstance(channel, discord.TextChannel):
+                    overwrite = channel.overwrites_for(muted_role)
+                    if overwrite.send_messages is not False:
+                        overwrite.send_messages = False
+                        overwrite.add_reactions = False
+                        overwrite.create_public_threads = False
+                        overwrite.create_private_threads = False
+                        overwrite.send_messages_in_threads = False
+                        await channel.set_permissions(muted_role, overwrite=overwrite, reason="Apply @Muted restrictions")
+                        await asyncio.sleep(0.05)
+                elif isinstance(channel, discord.VoiceChannel):
+                    overwrite = channel.overwrites_for(muted_role)
+                    if overwrite.speak is not False:
+                        overwrite.speak = False
+                        overwrite.stream = False
+                        await channel.set_permissions(muted_role, overwrite=overwrite, reason="Apply @Muted voice restrictions")
+                        await asyncio.sleep(0.05)
+        except Exception as ch_err:
+            logger.debug(f"Could not apply @Muted override to channel {channel.name}: {ch_err}")
+
+    return muted_role
+
+async def get_or_recover_appeal_ticket(interaction: discord.Interaction) -> Optional[Dict[str, Any]]:
+    """
+    Robustly retrieves the appeal ticket from the database.
+    If the database record is missing, it reconstructs it from the channel context.
+    """
+    try:
+        ticket = await db.get_appeal_ticket_by_channel(interaction.channel_id)
+        if ticket:
+            return ticket
+    except Exception as e:
+        logger.warning(f"Error querying appeal ticket by channel {interaction.channel_id}: {e}")
+
+    channel = interaction.channel
+    guild = interaction.guild
+    if not channel or not guild:
+        return None
+
+    target_uid = None
+    if getattr(channel, "topic", None):
+        match = re.search(r'\((\d{17,20})\)', channel.topic)
+        if match:
+            target_uid = int(match.group(1))
+
+    if not target_uid and hasattr(channel, "overwrites"):
+        for target, ow in channel.overwrites.items():
+            if isinstance(target, (discord.Member, discord.User)) and not getattr(target, "bot", False):
+                if target.id != interaction.client.user.id and not is_protected(target):
+                    target_uid = target.id
+                    break
+
+    if not target_uid and getattr(channel, "name", "").startswith("appeal-"):
+        username_part = channel.name[len("appeal-"):].replace("-", "").lower()
+        for m in guild.members:
+            clean_m_name = re.sub(r'[^a-zA-Z0-9]', '', m.name.lower())
+            if clean_m_name and (clean_m_name in username_part or username_part in clean_m_name):
+                target_uid = m.id
+                break
+
+    if target_uid:
+        logger.info(f"🔄 Auto-recovered missing appeal ticket for user {target_uid} in channel {channel.id}")
+        await db.create_appeal_ticket(guild.id, target_uid, channel.id, "Auto-recovered appeal ticket", "Recovered by Sweety Auto-Recovery Engine")
+        return await db.get_appeal_ticket_by_channel(channel.id) or {
+            "guild_id": str(guild.id),
+            "user_id": str(target_uid),
+            "channel_id": str(channel.id),
+            "status": "open",
+            "reason": "Auto-recovered appeal ticket",
+            "additional_info": ""
+        }
+
+    return None
+
+async def restore_purged_messages(channel: discord.TextChannel) -> int:
+    """Restores purged messages in chronological order using Webhook clone."""
+    if not isinstance(channel, discord.TextChannel):
+        return 0
+    
+    backup = _purge_history_buffer.pop(channel.id, None)
+    if not backup:
+        return 0
+    
+    first_msg_purged_at = backup[0].get("purged_at", 0) if backup else 0
+    if time.time() - first_msg_purged_at > _PURGE_BACKUP_TTL:
+        return 0
+
+    restored_count = 0
+    webhook = None
+    try:
+        if channel.permissions_for(channel.guild.me).manage_webhooks:
+            try:
+                webhooks = await channel.webhooks()
+                for wh in webhooks:
+                    if wh.token:
+                        webhook = wh
+                        break
+                if not webhook:
+                    webhook = await channel.create_webhook(name="Sweety Restore")
+            except Exception as wh_err:
+                logger.warning(f"Could not initialize webhook for restore: {wh_err}")
+                webhook = None
+
+        for msg_data in backup:
+            author_name = msg_data.get("author_name") or "User"
+            avatar_url = msg_data.get("author_avatar")
+            content = msg_data.get("content") or ""
+            embeds = [discord.Embed.from_dict(e) for e in msg_data.get("embeds", [])]
+            
+            if webhook:
+                try:
+                    await webhook.send(
+                        content=content or None,
+                        username=author_name,
+                        avatar_url=avatar_url,
+                        embeds=embeds if embeds else discord.utils.MISSING
+                    )
+                    restored_count += 1
+                    await asyncio.sleep(0.3)
+                    continue
+                except Exception:
+                    pass
+            
+            if content or embeds:
+                restore_embed = discord.Embed(description=content, color=discord.Color.light_grey())
+                restore_embed.set_author(name=author_name, icon_url=avatar_url)
+                await channel.send(embed=restore_embed)
+                restored_count += 1
+                await asyncio.sleep(0.3)
+    except Exception as e:
+        logger.error(f"Error restoring purged messages: {e}")
+
+    return restored_count
 
 def is_creator(user: Union[discord.Member, discord.User, int, str, None]) -> bool:
     """Returns True if user is the Bot Creator/Owner (ID: 719932313919684670)."""
