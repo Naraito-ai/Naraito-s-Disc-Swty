@@ -24,11 +24,13 @@ YTDL_OPTIONS = {
     "no_warnings": True,
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
+    "extractor_args": {"youtube": {"skip": ["dash", "hls"]}},
 }
 
 FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
     "options": "-vn",
+    "executable": "ffmpeg",
 }
 
 ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
@@ -689,61 +691,63 @@ class Music(commands.Cog):
         if not interaction.user.voice:
             return await interaction.followup.send("❌ Join a voice channel first.", ephemeral=True)
 
-        vc = interaction.user.voice.channel
-        state = self.get_state(interaction.guild_id)
-        state.text_channel = interaction.channel
-
-        if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect()
-        elif state.voice_client.channel != vc:
-            await state.voice_client.move_to(vc)
-
         try:
+            vc = interaction.user.voice.channel
+            state = self.get_state(interaction.guild_id)
+            state.text_channel = interaction.channel
+
+            if not state.voice_client or not state.voice_client.is_connected():
+                state.voice_client = await vc.connect()
+            elif state.voice_client.channel != vc:
+                await state.voice_client.move_to(vc)
+
             result, is_playlist = await YTDLSource.from_url(
                 query, volume=state.volume, requester=str(interaction.user.display_name)
             )
-        except Exception as e:
-            logger.error(f"Error extracting audio for query '{query}': {e}", exc_info=True)
-            return await interaction.followup.send(f"❌ Couldn't fetch that: `{e}`")
 
-        if is_playlist:
-            for track in result:
-                state.queue.append(track)
-            embed = discord.Embed(
-                title="📋 Playlist Queued",
-                description=f"Added **{len(result)} tracks** to the queue.",
-                color=0x57F287
-            )
-            embed.set_footer(text=f"Requested by {interaction.user.display_name}")
-            await interaction.followup.send(embed=embed)
-            if not state.voice_client.is_playing():
-                await self.play_next(interaction.guild)
-        else:
-            if state.voice_client.is_playing() or state.voice_client.is_paused():
-                state.queue.append(result.data)
+            if is_playlist:
+                for track in result:
+                    state.queue.append(track)
                 embed = discord.Embed(
-                    title="➕ Added to Queue",
-                    description=f"[{result.title}]({result.url})",
-                    color=0x5865F2
+                    title="📋 Playlist Queued",
+                    description=f"Added **{len(result)} tracks** to the queue.",
+                    color=0x57F287
                 )
-                embed.set_thumbnail(url=result.thumbnail)
-                embed.add_field(name="Duration", value=fmt_duration(result.duration))
-                embed.add_field(name="Position", value=f"#{len(state.queue)}")
                 embed.set_footer(text=f"Requested by {interaction.user.display_name}")
-                return await interaction.followup.send(embed=embed)
+                await interaction.followup.send(embed=embed)
+                if not state.voice_client.is_playing():
+                    await self.play_next(interaction.guild)
             else:
-                state.current = result
-                state.start_time = time.time()
-                state.paused_elapsed = 0.0
-                state.pause_start = None
-                state.voice_client.play(
-                    result,
-                    after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
-                )
-                embed = await self.build_np_embed(state)
-                view = NowPlayingView(self, interaction.guild)
-                state.np_message = await interaction.followup.send(embed=embed, view=view)
-                state.update_task = self.bot.loop.create_task(self.live_updater(interaction.guild))
+                if state.voice_client.is_playing() or state.voice_client.is_paused():
+                    state.queue.append(result.data)
+                    embed = discord.Embed(
+                        title="➕ Added to Queue",
+                        description=f"[{result.title}]({result.url})",
+                        color=0x5865F2
+                    )
+                    embed.set_thumbnail(url=result.thumbnail)
+                    embed.add_field(name="Duration", value=fmt_duration(result.duration))
+                    embed.add_field(name="Position", value=f"#{len(state.queue)}")
+                    embed.set_footer(text=f"Requested by {interaction.user.display_name}")
+                    return await interaction.followup.send(embed=embed)
+                else:
+                    state.current = result
+                    state.start_time = time.time()
+                    state.paused_elapsed = 0.0
+                    state.pause_start = None
+                    state.voice_client.play(
+                        result,
+                        after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
+                    )
+                    embed = await self.build_np_embed(state)
+                    view = NowPlayingView(self, interaction.guild)
+                    state.np_message = await interaction.followup.send(embed=embed, view=view)
+                    state.update_task = self.bot.loop.create_task(self.live_updater(interaction.guild))
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            logger.error(f"Error in /play: {tb}")
+            return await interaction.followup.send(f"❌ Error:\n```{tb[-1500:]}```")
 
     @app_commands.command(name="search", description="Search for a song and pick from results")
     @app_commands.describe(query="Song name to search")
