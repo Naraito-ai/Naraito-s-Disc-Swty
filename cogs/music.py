@@ -1528,7 +1528,7 @@ class Music(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @app_commands.command(name="pause", description="Pause playback")
+    @app_commands.command(name="pause", description="Pause or resume music playback")
     async def pause(self, interaction: discord.Interaction):
         state = self.get_state(interaction.guild_id)
         if state.voice_client and state.voice_client.is_playing():
@@ -1536,19 +1536,40 @@ class Music(commands.Cog):
             state.on_pause()
             await self.set_vc_status(state.voice_client.channel, f"⏸️ Paused: {state.current.title}" if state.current else None)
             await interaction.response.send_message("⏸ Paused.")
-        else:
-            await interaction.response.send_message("Nothing playing.", ephemeral=True)
-
-    @app_commands.command(name="resume", description="Resume playback")
-    async def resume(self, interaction: discord.Interaction):
-        state = self.get_state(interaction.guild_id)
-        if state.voice_client and state.voice_client.is_paused():
+        elif state.voice_client and state.voice_client.is_paused():
             state.voice_client.resume()
             state.on_resume()
             await self.set_vc_status(state.voice_client.channel, f"🎶 {state.current.title}" if state.current else None)
             await interaction.response.send_message("▶️ Resumed.")
         else:
-            await interaction.response.send_message("Nothing paused.", ephemeral=True)
+            await interaction.response.send_message("Nothing is currently playing or paused.", ephemeral=True)
+
+    @commands.command(name="pause")
+    async def prefix_pause(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        if state.voice_client and state.voice_client.is_playing():
+            state.voice_client.pause()
+            state.on_pause()
+            await self.set_vc_status(state.voice_client.channel, f"⏸️ Paused: {state.current.title}" if state.current else None)
+            await ctx.send("⏸ Paused.")
+        elif state.voice_client and state.voice_client.is_paused():
+            state.voice_client.resume()
+            state.on_resume()
+            await self.set_vc_status(state.voice_client.channel, f"🎶 {state.current.title}" if state.current else None)
+            await ctx.send("▶️ Resumed.")
+        else:
+            await ctx.send("Nothing is currently playing or paused.")
+
+    @commands.command(name="resume", aliases=["unpause"])
+    async def prefix_resume(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        if state.voice_client and state.voice_client.is_paused():
+            state.voice_client.resume()
+            state.on_resume()
+            await self.set_vc_status(state.voice_client.channel, f"🎶 {state.current.title}" if state.current else None)
+            await ctx.send("▶️ Resumed.")
+        else:
+            await ctx.send("Nothing is paused.")
 
     @app_commands.command(name="volume", description="Set volume (1-100)")
     async def volume(self, interaction: discord.Interaction, level: int):
@@ -1917,11 +1938,10 @@ class Music(commands.Cog):
         embed.set_footer(text="Use !spotify playlists to view and play your playlists!")
         await ctx.send(embed=embed)
 
-    # ─── Playlist Commands (Grouped under /playlist to preserve global command budget) ───
+    # ─── Saved Playlist Commands (Integrated into /spotify to save global command slots) ───
 
-    playlist_group = app_commands.Group(name="playlist", description="Manage and play saved playlists")
-
-    @playlist_group.command(name="play", description="Load and play a saved playlist")
+    @spotify_group.command(name="saved_play", description="Load and play a saved playlist")
+    @app_commands.describe(name="The name of your saved playlist")
     async def playlist_play(self, interaction: discord.Interaction, name: str):
         await interaction.response.defer()
         if not interaction.user.voice:
@@ -1952,7 +1972,7 @@ class Music(commands.Cog):
         )
         await interaction.followup.send(embed=embed)
 
-    @playlist_group.command(name="list", description="Show your saved playlists")
+    @spotify_group.command(name="saved_list", description="Show your saved playlists")
     async def playlist_list(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
@@ -1964,13 +1984,14 @@ class Music(commands.Cog):
             return await interaction.followup.send(f"❌ DB error: {e}")
         if not rows:
             return await interaction.followup.send("No saved playlists.")
-        embed = discord.Embed(title="🎵 Your Playlists", color=0x5865F2)
+        embed = discord.Embed(title="🎵 Your Saved Playlists", color=0x5865F2)
         for row in rows:
             count = len(json.loads(row["tracks"]))
             embed.add_field(name=row["name"], value=f"{count} tracks", inline=True)
         await interaction.followup.send(embed=embed)
 
-    @playlist_group.command(name="delete", description="Delete a saved playlist")
+    @spotify_group.command(name="saved_delete", description="Delete a saved playlist")
+    @app_commands.describe(name="The name of the playlist to delete")
     async def playlist_delete(self, interaction: discord.Interaction, name: str):
         await interaction.response.defer(ephemeral=True)
         try:
@@ -1984,6 +2005,82 @@ class Music(commands.Cog):
                 await interaction.followup.send(f"🗑 Deleted **{name}**.")
         except Exception as e:
             await interaction.followup.send(f"❌ DB error: {e}")
+
+    # ─── Prefix Playlist Commands (!playlist play/list/delete) ──────────────────
+
+    @commands.group(name="playlist", invoke_without_command=True)
+    async def prefix_playlist_group(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="📋 Sweety Saved Playlists",
+            description=(
+                "`!playlist play <name>` — Load and play a saved playlist\n"
+                "`!playlist list` — View all your saved playlists\n"
+                "`!playlist delete <name>` — Delete a saved playlist"
+            ),
+            color=0x5865F2
+        )
+        await ctx.send(embed=embed)
+
+    @prefix_playlist_group.command(name="play")
+    async def prefix_playlist_play(self, ctx: commands.Context, *, name: str):
+        if not ctx.author.voice:
+            return await ctx.send("❌ Join a voice channel first.")
+        try:
+            row = await self.bot.db.fetchrow(
+                "SELECT tracks FROM music_playlists WHERE user_id=$1 AND name=$2",
+                ctx.author.id, name
+            )
+        except Exception as e:
+            return await ctx.send(f"❌ DB error: {e}")
+        if not row:
+            return await ctx.send(f"❌ No playlist named **{name}**.")
+        tracks = json.loads(row["tracks"])
+        state = self.get_state(ctx.guild.id)
+        state.text_channel = ctx.channel
+        vc = ctx.author.voice.channel
+        if not state.voice_client or not state.voice_client.is_connected():
+            state.voice_client = await vc.connect()
+        for t in tracks:
+            state.queue.append(t)
+        if not state.voice_client.is_playing():
+            await self.play_next(ctx.guild)
+        embed = discord.Embed(
+            title="📋 Playlist Loaded",
+            description=f"**{name}** — {len(tracks)} tracks queued.",
+            color=0x57F287
+        )
+        await ctx.send(embed=embed)
+
+    @prefix_playlist_group.command(name="list")
+    async def prefix_playlist_list(self, ctx: commands.Context):
+        try:
+            rows = await self.bot.db.fetch(
+                "SELECT name, tracks FROM music_playlists WHERE user_id=$1 ORDER BY created_at DESC",
+                ctx.author.id
+            )
+        except Exception as e:
+            return await ctx.send(f"❌ DB error: {e}")
+        if not rows:
+            return await ctx.send("No saved playlists.")
+        embed = discord.Embed(title="🎵 Your Saved Playlists", color=0x5865F2)
+        for row in rows:
+            count = len(json.loads(row["tracks"]))
+            embed.add_field(name=row["name"], value=f"{count} tracks", inline=True)
+        await ctx.send(embed=embed)
+
+    @prefix_playlist_group.command(name="delete")
+    async def prefix_playlist_delete(self, ctx: commands.Context, *, name: str):
+        try:
+            result = await self.bot.db.execute(
+                "DELETE FROM music_playlists WHERE user_id=$1 AND name=$2",
+                ctx.author.id, name
+            )
+            if result == "DELETE 0":
+                await ctx.send(f"No playlist named **{name}**.")
+            else:
+                await ctx.send(f"🗑 Deleted **{name}**.")
+        except Exception as e:
+            await ctx.send(f"❌ DB error: {e}")
 
 
 async def setup(bot):

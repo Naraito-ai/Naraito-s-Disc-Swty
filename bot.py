@@ -25243,56 +25243,55 @@ async def createchannel_prefix_cmd(ctx: commands.Context, name: str, category_na
         await ctx.send(f"❌ Failed to create channel: {e}")
 
 
-@bot.tree.command(name="deafen", description="Deafen a member in a voice channel")
-@app_commands.describe(member="The member to deafen", reason="The reason for deafening")
+@bot.tree.command(name="deafen", description="Deafen or undeafen a member in a voice channel")
+@app_commands.describe(
+    member="The member to deafen or undeafen",
+    action="Whether to deafen or undeafen the member",
+    reason="The reason for the action"
+)
+@app_commands.choices(action=[
+    app_commands.Choice(name="🔇 Deafen", value="deafen"),
+    app_commands.Choice(name="🔊 Undeafen", value="undeafen"),
+])
 @app_commands.default_permissions(deafen_members=True)
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def deafen_command(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+async def deafen_command(interaction: discord.Interaction, member: discord.Member, action: str = "deafen", reason: str = "No reason provided"):
     if member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
-        await interaction.response.send_message("❌ You cannot deafen this member because they have a higher or equal role than you.", ephemeral=True)
-        return
+        return await interaction.response.send_message(f"❌ You cannot {action} this member because they have a higher or equal role than you.", ephemeral=True)
     if member.top_role >= interaction.guild.me.top_role:
-        await interaction.response.send_message("❌ I cannot deafen this member because they have a higher or equal role than me.", ephemeral=True)
-        return
+        return await interaction.response.send_message(f"❌ I cannot {action} this member because they have a higher or equal role than me.", ephemeral=True)
         
     if not member.voice or not member.voice.channel:
-        await interaction.response.send_message(f"❌ **{member.display_name}** is not in a voice channel.", ephemeral=True)
-        return
+        return await interaction.response.send_message(f"❌ **{member.display_name}** is not in a voice channel.", ephemeral=True)
         
     try:
-        await member.edit(deafen=True, reason=reason)
-        await interaction.response.send_message(f"✅ **{member.display_name}** has been voice deafened. (Reason: {reason})")
-        await log_mod_action(interaction.guild, interaction.user, member, "Voice Deafen", reason)
+        is_deaf = (action == "deafen")
+        await member.edit(deafen=is_deaf, reason=reason)
+        verb = "voice deafened" if is_deaf else "voice undeafened"
+        action_name = "Voice Deafen" if is_deaf else "Voice Undeafen"
+        await interaction.response.send_message(f"✅ **{member.display_name}** has been {verb}. (Reason: {reason})")
+        await log_mod_action(interaction.guild, interaction.user, member, action_name, reason)
     except Exception as e:
         logger.error(f"Deafen command failed: {e}", exc_info=True)
-        await interaction.response.send_message("❌ Failed to deafen member due to an internal error.", ephemeral=True)
+        await interaction.response.send_message(f"❌ Failed to {action} member due to an internal error.", ephemeral=True)
 
 
-@bot.tree.command(name="undeafen", description="Undeafen a member in a voice channel")
-@app_commands.describe(member="The member to undeafen", reason="The reason for undeafening")
-@app_commands.default_permissions(deafen_members=True)
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def undeafen_command(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-    if member.top_role >= interaction.user.top_role and interaction.user.id != interaction.guild.owner_id:
-        await interaction.response.send_message("❌ You cannot undeafen this member because they have a higher or equal role than you.", ephemeral=True)
-        return
-    if member.top_role >= interaction.guild.me.top_role:
-        await interaction.response.send_message("❌ I cannot undeafen this member because they have a higher or equal role than me.", ephemeral=True)
-        return
-        
+@bot.command(name="undeafen")
+@commands.has_permissions(deafen_members=True)
+async def prefix_undeafen(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+        return await ctx.send("❌ You cannot undeafen this member because they have a higher or equal role than you.")
+    if member.top_role >= ctx.guild.me.top_role:
+        return await ctx.send("❌ I cannot undeafen this member because they have a higher or equal role than me.")
     if not member.voice or not member.voice.channel:
-        await interaction.response.send_message(f"❌ **{member.display_name}** is not in a voice channel.", ephemeral=True)
-        return
-        
+        return await ctx.send(f"❌ **{member.display_name}** is not in a voice channel.")
     try:
         await member.edit(deafen=False, reason=reason)
-        await interaction.response.send_message(f"✅ **{member.display_name}** has been voice undeafened. (Reason: {reason})")
-        await log_mod_action(interaction.guild, interaction.user, member, "Voice Undeafen", reason)
+        await ctx.send(f"✅ **{member.display_name}** has been voice undeafened.")
+        await log_mod_action(ctx.guild, ctx.author, member, "Voice Undeafen", reason)
     except Exception as e:
-        logger.error(f"Undeafen command failed: {e}", exc_info=True)
-        await interaction.response.send_message("❌ Failed to undeafen member due to an internal error.", ephemeral=True)
+        await ctx.send(f"❌ Failed to undeafen member: {e}")
 
 
 
