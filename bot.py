@@ -17151,6 +17151,7 @@ class GeminiBot(commands.Bot):
     async def setup_hook(self):
         # 1. Connect database & create tables
         try:
+            self.db = db
             await db.initialize()
             logger.info("Database initialized successfully.")
             # Purge any inadvertent starter cards so users only have genuine caught/earned cards
@@ -19069,65 +19070,6 @@ async def restore_purged_messages(channel: discord.TextChannel) -> int:
     return restored_count
 
 
-@bot.tree.command(name="snipe", description="View recently deleted messages in this or a specific channel")
-@app_commands.describe(
-    channel="Target channel to snipe from (defaults to current channel)",
-    index="Snipe history index (1 = most recent, 2 = 2nd most recent, etc.)"
-)
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def snipe_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None, index: Optional[int] = 1):
-    try:
-        target_channel = channel or interaction.channel
-        
-        # Permission check: Caller must have View Channel permission on target channel (Staff/Admins always bypass)
-        if not is_protected(interaction.user):
-            user_perms = target_channel.permissions_for(interaction.user)
-            if not user_perms.view_channel or not user_perms.read_message_history:
-                return await interaction.response.send_message("❌ You do not have permission to view messages in that channel.", ephemeral=True)
-
-        embed, err_msg = create_snipe_embed(target_channel, index=index or 1)
-        if err_msg:
-            await interaction.response.send_message(err_msg, ephemeral=True)
-        else:
-            await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /snipe: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="editsnipe", description="View recently edited messages in this or a specific channel")
-@app_commands.describe(
-    channel="Target channel to editsnipe from (defaults to current channel)",
-    index="Edit history index (1 = most recent, 2 = 2nd most recent, etc.)"
-)
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def editsnipe_slash_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None, index: Optional[int] = 1):
-    try:
-        target_channel = channel or interaction.channel
-        
-        # Permission check: Caller must have View Channel permission on target channel (Staff/Admins always bypass)
-        if not is_protected(interaction.user):
-            user_perms = target_channel.permissions_for(interaction.user)
-            if not user_perms.view_channel or not user_perms.read_message_history:
-                return await interaction.response.send_message("❌ You do not have permission to view messages in that channel.", ephemeral=True)
-
-        embed, err_msg = create_editsnipe_embed(target_channel, index=index or 1)
-        if err_msg:
-            await interaction.response.send_message(err_msg, ephemeral=True)
-        else:
-            await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /editsnipe: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
 
 @bot.tree.command(name="clearsnipe", description="Clear deleted and edited message snipe history for safety/privacy")
 @app_commands.describe(
@@ -19281,34 +19223,6 @@ async def antighostping_command(interaction: discord.Interaction, status: str):
             await interaction.response.send_message(f"❌ Error configuring Anti-Ghost-Ping: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="afk", description="Set your AFK status so Sweety notifies anyone who pings you while you are away")
-@app_commands.describe(reason="Reason for going AFK (e.g. 'Eating lunch', 'Studying', 'Sleeping')")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
-async def afk_slash_cmd(interaction: discord.Interaction, reason: Optional[str] = "AFK (Away From Keyboard)"):
-    try:
-        reason = (reason or "AFK (Away From Keyboard)").strip()[:200]
-        now = time.time()
-        _afk_cache[(interaction.guild.id, interaction.user.id)] = {
-            "reason": reason,
-            "since": now
-        }
-        await db.set_afk(interaction.user.id, interaction.guild.id, reason, now)
-
-        embed = discord.Embed(
-            title="💤 AFK Status Enabled",
-            description=f"{interaction.user.mention} is now **AFK**: {reason}\n\n*I will notify anyone who mentions you and automatically remove your AFK status when you chat again.*",
-            color=discord.Color.from_rgb(120, 140, 180)
-        )
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.response.send_message(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /afk: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error setting AFK: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error setting AFK: {e}", ephemeral=True)
-
 
 # ── NBA 2K Starting 5 Slash Commands ──────────────────────────────
 
@@ -19342,46 +19256,6 @@ async def autoteam_slash_cmd(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Error auto-equipping team: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="myteam", description="🏀 View your (or another member's) active Starting 5 card, career record & GM badges")
-@app_commands.describe(user="The member whose dream team you want to view (defaults to yourself)")
-@app_commands.checks.cooldown(1, 10.0, key=lambda i: (i.guild_id or 0, i.user.id))
-@app_commands.guild_only()
-async def myteam_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None):
-    try:
-        if not check_image_render_limit(interaction.guild_id or 0):
-            return await interaction.response.send_message(
-                "⏳ Image generation is on cooldown. Max 5 renders per minute per server. Try again shortly.",
-                ephemeral=True
-            )
-
-        await interaction.response.defer()
-        target = user or interaction.user
-        if getattr(target, "bot", False) or (bot.user and target.id == bot.user.id):
-            row = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=target.id)
-        else:
-            row = await db.get_dream_team(target.id)
-        
-        if not row:
-            if target.id == interaction.user.id:
-                await interaction.followup.send("❌ **You haven't set an NBA Starting 5 yet!**\nUse `/buildteam` to set your 5-man squad from your card collection.", ephemeral=True)
-            else:
-                await interaction.followup.send(f"❌ **{target.display_name}** hasn't set an NBA Starting 5 yet. Tell them to run `/buildteam`!", ephemeral=True)
-            return
-
-        card_embed, card_file = await build_myteam_embed(target, row)
-        if card_embed and card_file:
-            await interaction.followup.send(embed=card_embed, file=card_file)
-        elif card_file:
-            await interaction.followup.send(file=card_file)
-        elif card_embed:
-            await interaction.followup.send(embed=card_embed)
-    except Exception as e:
-        logger.error(f"Error in /myteam: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error displaying team card: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error displaying team card: {e}", ephemeral=True)
-
 
 @bot.tree.command(name="teamqueue", description="⚔️ Join the live matchmaking queue to battle another member's Starting 5")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
@@ -19396,108 +19270,6 @@ async def teamqueue_slash_cmd(interaction: discord.Interaction):
         else:
             await interaction.response.send_message(f"❌ Error joining queue: {e}", ephemeral=True)
 
-
-@bot.tree.command(name="teambattle", description="⚔️ Challenge another member's Starting 5 to a tactical live NBA card battle!")
-@app_commands.describe(opponent="The member whose dream team you want to challenge")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
-async def teambattle_slash_cmd(interaction: discord.Interaction, opponent: discord.Member):
-    try:
-        if opponent.id == interaction.user.id:
-            await interaction.response.send_message("❌ You cannot battle your own team! Challenge another server member or `@Sweety`.", ephemeral=True)
-            return
-
-        row_a = await db.get_dream_team(interaction.user.id)
-        if not row_a:
-            await interaction.response.send_message("❌ **You haven't set an NBA Starting 5 yet!**\nUse `/buildteam` to equip your squad from your card binder before challenging others.", ephemeral=True)
-            return
-
-        # Defer immediately to prevent 3-second interaction token expiration
-        await interaction.response.defer()
-
-        if getattr(opponent, "bot", False) or (bot.user and opponent.id == bot.user.id):
-            row_b = await ensure_sweety_ai_team(guild_id=interaction.guild.id if interaction.guild else None, target_id=opponent.id)
-            picks_a = extract_picks_from_row(row_a)
-            picks_b = extract_picks_from_row(row_b)
-            eval_a = evaluate_dream_team(picks_a)
-            eval_b = evaluate_dream_team(picks_b)
-            
-            live_view = InteractiveTeamBattleView(interaction.user, opponent, picks_a, picks_b, eval_a, eval_b, row_a, row_b)
-            embed = live_view.make_battle_embed()
-
-            # Attach 2K pre-game faceoff versus graphic
-            versus_file = None
-            try:
-                stats_a = await db.get_team_battle_stats(interaction.user.id)
-                stats_b = await db.get_team_battle_stats(opponent.id)
-                versus_buf = generate_versus_matchup_image(interaction.user.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
-                versus_file = discord.File(versus_buf, filename="versus_matchup.png")
-                embed.set_image(url="attachment://versus_matchup.png")
-            except Exception as e:
-                logger.debug(f"Could not attach versus image: {e}")
-
-            if versus_file:
-                await interaction.followup.send(
-                    content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
-                    embed=embed,
-                    file=versus_file,
-                    view=live_view
-                )
-            else:
-                await interaction.followup.send(
-                    content=f"🤖 **Challenge Accepted by {opponent.mention}! AI Coach Sweety has entered the court! Choose your live play call for Quarter 1 (PG Duel):**",
-                    embed=embed,
-                    view=live_view
-                )
-            return
-
-        row_b = await db.get_dream_team(opponent.id)
-        if not row_b:
-            await interaction.followup.send(f"❌ **{opponent.display_name}** hasn't set an NBA Starting 5 yet! Ask them to equip one with `/buildteam`.", ephemeral=True)
-            return
-
-        picks_a = extract_picks_from_row(row_a)
-        picks_b = extract_picks_from_row(row_b)
-        eval_a = evaluate_dream_team(picks_a)
-        eval_b = evaluate_dream_team(picks_b)
-
-        challenge_view = TeamBattleChallengeView(interaction.user, opponent, row_a, row_b, eval_a, eval_b)
-        challenge_embed = challenge_view.make_challenge_embed()
-        
-        # Attach 2K versus faceoff graphic to challenge embed
-        versus_file = None
-        try:
-            stats_a = await db.get_team_battle_stats(interaction.user.id)
-            stats_b = await db.get_team_battle_stats(opponent.id)
-            versus_buf = generate_versus_matchup_image(interaction.user.display_name, opponent.display_name, picks_a, picks_b, eval_a, eval_b, stats_a, stats_b)
-            versus_file = discord.File(versus_buf, filename="versus_matchup.png")
-            challenge_embed.set_image(url="attachment://versus_matchup.png")
-        except Exception as e:
-            logger.debug(f"Could not attach versus image to challenge: {e}")
-
-        if versus_file:
-            msg = await interaction.followup.send(
-                content=f"⚔️ {opponent.mention}, you have received an NBA Starting 5 battle challenge from {interaction.user.mention}!",
-                embed=challenge_embed,
-                file=versus_file,
-                view=challenge_view
-            )
-        else:
-            msg = await interaction.followup.send(
-                content=f"⚔️ {opponent.mention}, you have received an NBA Starting 5 battle challenge from {interaction.user.mention}!",
-                embed=challenge_embed,
-                view=challenge_view
-            )
-        try:
-            challenge_view.message = msg
-        except Exception:
-            pass
-    except Exception as e:
-        logger.error(f"Error in /teambattle: {e}")
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error starting battle: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error starting battle: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="teamleaderboard", description="🏀 View the server leaderboard of highest-rated Starting 5 teams")
@@ -20365,124 +20137,6 @@ async def dailynba_slash_cmd(interaction: discord.Interaction):
 
 
 
-# ── NBA 2K Mobile Card Dex & Economy Slash Commands ──────────────────────────
-
-@bot.tree.command(name="openpack", description="🏀 Buy and rip open an NBA 2K Mobile card pack")
-@app_commands.describe(pack_type="Select the card pack type to buy and rip open")
-@app_commands.choices(
-    pack_type=[
-        app_commands.Choice(name="📦 Starter Pack (250 VC) — Gold/Ruby + Amethyst Chance", value="starter"),
-        app_commands.Choice(name="🏀 Standard Pro Pack (750 VC) — Gold/Ruby/Amethyst + Diamond Chance", value="standard"),
-        app_commands.Choice(name="⭐ All-Star Gold Pack (1,500 VC) — Ruby/Amethyst/Diamond/Galaxy Opal", value="allstar"),
-        app_commands.Choice(name="🏆 Hall of Fame Elite Pack (3,000 VC) — Amethyst/Diamond/Galaxy Opal/Dark Matter", value="hof"),
-        app_commands.Choice(name="🐐 G.O.A.T. Dynasty Pack (5,000 VC) — Diamond/Galaxy Opal/99 Dark Matter", value="goat"),
-    ]
-)
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def openpack_slash_cmd(interaction: discord.Interaction, pack_type: Optional[str] = "starter"):
-    try:
-        await interaction.response.defer()
-        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
-        pack_id = pack_type or "starter"
-        pack_data = NBA_PACK_TYPES.get(pack_id, NBA_PACK_TYPES["starter"])
-        cost = pack_data["cost"]
-        bal = await db.get_user_vc(interaction.user.id)
-
-        if bal < cost:
-            embed = discord.Embed(
-                title="❌ Insufficient Virtual Currency (VC)",
-                description=(
-                    f"You need `💰 {cost:,} VC` to open a **{pack_data['name']}**, but you only have `💰 {bal:,} VC`.\n\n"
-                    f"**Ways to earn VC:**\n"
-                    f"• Claim your daily 1,000 VC with `/nbadaily`\n"
-                    f"• Quick-sell duplicate cards with `/nbasell`\n"
-                    f"• Claim wild 2K card drops in chat on the court!"
-                ),
-                color=discord.Color.red()
-            )
-            await interaction.followup.send(embed=embed)
-            return
-
-        deducted = await db.deduct_user_vc(interaction.user.id, cost)
-        if not deducted:
-            await interaction.followup.send("❌ Failed to process VC transaction. Please try again.")
-            return
-
-        card = roll_pack_card(pack_id, interaction.user.id)
-        existing_cards = await db.get_user_nba_cards(interaction.user.id)
-        existing_cids = [c["card_id"].lower() for c in existing_cards]
-        is_new = card["id"].lower() not in existing_cids
-        copies_now = existing_cids.count(card["id"].lower()) + 1
-
-        await db.add_user_nba_card(interaction.user.id, card["id"], source=f"pack_{pack_id}")
-        new_bal = await db.get_user_vc(interaction.user.id)
-        await check_nba_event_progress(interaction.user, interaction.guild_id, "card_acquired", interaction.channel)
-
-        embed = build_openpack_embed(interaction.user, pack_data, card, new_bal, is_new=is_new, copies=copies_now)
-        card_buf = generate_nba_card_graphic(card, is_mystery=False)
-        card_file = discord.File(fp=card_buf, filename="nba_card.png")
-        reveal_view = NBAPackOpenView(interaction.user, pack_id, card, new_bal, is_new, copies_now)
-        await interaction.followup.send(embed=embed, file=card_file, view=reveal_view)
-    except Exception as e:
-        logger.error(f"Error in /openpack: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="nbadex", description="🎴 View your (or another member's) NBA 2K Mobile card collection binder")
-@app_commands.describe(
-    user="The member whose collection you want to view (defaults to yourself)",
-    tier="Filter cards by rarity tier",
-    page="Starting page number"
-)
-@app_commands.choices(
-    tier=[
-        app_commands.Choice(name="All Tiers (Full Collection)", value="all"),
-        app_commands.Choice(name="🌌 Dark Matter / G.O.A.T. (99 OVR)", value="dark_matter"),
-        app_commands.Choice(name="✨ Galaxy Opal (97-98 OVR)", value="galaxy_opal"),
-        app_commands.Choice(name="💎 Diamond / Pink Diamond (93-96 OVR)", value="diamond"),
-        app_commands.Choice(name="🔮 Amethyst (88-92 OVR)", value="amethyst"),
-        app_commands.Choice(name="🔴 Ruby (84-87 OVR)", value="ruby"),
-        app_commands.Choice(name="🟡 Gold (75-83 OVR)", value="gold"),
-    ]
-)
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def nbadex_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None, tier: Optional[str] = "all", page: Optional[int] = 1):
-    try:
-        await interaction.response.defer()
-        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
-        target = user or interaction.user
-        is_owner = (target.id == interaction.user.id)
-
-        # Check collection privacy if viewing another user's collection
-        if not is_owner:
-            is_priv = await db.get_user_nba_privacy(target.id)
-            if is_priv and not is_creator(interaction.user):
-                return await interaction.followup.send(
-                    f"🔒 **Private Collection**: **{target.display_name}** has set their NBA card binder & Dex to **Private**.",
-                    ephemeral=True
-                )
-
-        cards = await db.get_user_nba_cards(target.id)
-        vc = await db.get_user_vc(target.id)
-        is_priv_state = await db.get_user_nba_privacy(target.id)
-        pg = max(1, page or 1)
-
-        embed, _, _ = build_nbadex_embed(target, cards, tier or "all", pg, 6, vc)
-        view = NBADexView(interaction.user, target, cards, tier or "all", pg, vc, is_private=is_priv_state)
-        await interaction.followup.send(embed=embed, view=view)
-    except Exception as e:
-        logger.error(f"Error in /nbadex: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-
 @bot.tree.command(name="nbaprivacy", description="🔒 Toggle public/private visibility for your NBA 2K Card Dex")
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
@@ -20635,62 +20289,6 @@ async def vcbet_slash_cmd(interaction: discord.Interaction, opponent: discord.Me
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="remindme", description="⏰ Set a private reminder with custom note")
-@app_commands.describe(time="Duration string (e.g. 10m, 2h, 1d)", note="Reminder note or message")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def remindme_slash_cmd(interaction: discord.Interaction, time: str, note: Optional[str] = "Reminder"):
-    try:
-        seconds = parse_duration_string(time)
-        if not seconds:
-            return await interaction.response.send_message("❌ **Invalid time format!**\nExamples: `10m`, `2h`, `1d`", ephemeral=True)
-        if seconds < MIN_REMINDER_SECONDS:
-            return await interaction.response.send_message(f"❌ Minimum duration is `{MIN_REMINDER_SECONDS}s`.", ephemeral=True)
-        if seconds > MAX_REMINDER_SECONDS:
-            return await interaction.response.send_message("❌ Maximum duration cannot exceed 365 days.", ephemeral=True)
-
-        clean_note = sanitize_reminder_text(note or "Reminder")
-        if not clean_note:
-            return await interaction.response.send_message("❌ Reminder text cannot be empty!", ephemeral=True)
-
-        active = await db.get_user_reminders(interaction.user.id)
-        if active and len(active) >= 10:
-            return await interaction.response.send_message("❌ You already have 10 active reminders! Use `/reminders` to manage them.", ephemeral=True)
-
-        now = time_module.time() if 'time_module' in globals() else time.time()
-        remind_at = now + seconds
-        rem_id = f"rem_{interaction.user.id}_{int(remind_at)}_{int(now)}"
-
-        await db.add_reminder(
-            reminder_id=rem_id,
-            user_id=interaction.user.id,
-            guild_id=interaction.guild_id,
-            channel_id=interaction.channel_id,
-            reminder_text=clean_note,
-            remind_at=remind_at,
-            created_at=now,
-            delivery_method="dm"
-        )
-
-        embed = discord.Embed(
-            title="🔒 Reminder Scheduled (Private)!",
-            description=f"I will remind you <t:{int(remind_at)}:R> (<t:{int(remind_at)}:f>) via **Direct Message**.",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="📝 Note", value=f">>> {clean_note[:1000]}", inline=False)
-        embed.set_footer(text=f"ID: {rem_id[:16]} • Sweety Productivity Suite (Private)")
-        embed.timestamp = discord.utils.utcnow()
-
-        try:
-            await interaction.user.send(embed=embed)
-            await interaction.response.send_message("🔒 Your reminder has been set privately! I will DM you when it's time.", ephemeral=True)
-        except Exception:
-            await db.update_reminder_delivery(rem_id, "channel")
-            await interaction.response.send_message("⚠️ Your DMs are closed! I scheduled your reminder, but will alert you in this channel.", ephemeral=True)
-    except Exception as e:
-        logger.error(f"Error in /remindme: {e}", exc_info=True)
-        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
 
 @bot.tree.command(name="reminders", description="⏱️ View or clear your active scheduled reminders")
 @app_commands.describe(action="View active reminders or clear all")
@@ -20841,114 +20439,6 @@ async def forget_slash_cmd(interaction: discord.Interaction, key: str):
         await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="ask", description="🧠 Ask Sweety any question with personalized memory intelligence")
-@app_commands.describe(question="Your question or prompt for Sweety")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def ask_slash_cmd(interaction: discord.Interaction, question: str):
-    try:
-        await interaction.response.defer()
-        author_info = f"{interaction.user.name} ({interaction.user.display_name})"
-        server_info = f"in {interaction.guild.name}" if interaction.guild else "in DMs"
-        
-        mems = await db.get_user_memories(interaction.user.id, limit=10)
-        memory_lines = []
-        if mems:
-            for m in mems:
-                memory_lines.append(f"- {m['fact_key'].replace('_', ' ')}: {m['fact_value']}")
-        memory_section = f"\nWhat you know about this user:\n" + "\n".join(memory_lines) if memory_lines else ""
-
-        system_instruction = (
-            f"You are Sweety, a quick, charming, highly intelligent, and loving Discord AI companion {server_info} answering {author_info}.\n"
-            "RESPONSE GUIDELINES:\n"
-            "1. Reply naturally, intelligently, and contextually.\n"
-            "2. Keep everyday replies crisp and engaging (1-3 sentences maximum unless in-depth details requested).\n"
-            "3. Tone: warm, cute, expressive, and fun with occasional emojis (✨, ❤️, 🌸, ⚡).\n"
-            f"{memory_section}"
-        )
-        reply = await call_gemini_ai(question, system_instruction)
-        if not reply:
-            reply = "I'm having a little trouble thinking right now, but I'm here for you! ✨"
-        
-        if len(reply) <= 2000:
-            await interaction.followup.send(reply)
-        else:
-            embed = discord.Embed(description=reply[:4000], color=discord.Color.purple())
-            await interaction.followup.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /ask: {e}", exc_info=True)
-        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-
-
-@bot.tree.command(name="shootout", description="🎯 Play the fast-paced NBA All-Star 3-Point Shootout Contest")
-@app_commands.describe(
-    opponent="Optional member to challenge to a 1v1 shootout duel",
-    wager="Optional VC wager for the shootout duel"
-)
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def shootout_slash_cmd(interaction: discord.Interaction, opponent: Optional[discord.Member] = None, wager: Optional[int] = 0):
-    try:
-        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
-        if opponent:
-            if opponent.id == interaction.user.id:
-                return await interaction.response.send_message("❌ You can't challenge yourself! Play solo without tagging an opponent.", ephemeral=True)
-            if getattr(opponent, "bot", False):
-                return await interaction.response.send_message("❌ You cannot challenge a bot to a 3-point wager!", ephemeral=True)
-
-            wager_amt = max(0, wager or 0)
-            if wager_amt > 0:
-                bal_a = await db.get_user_vc(interaction.user.id)
-                bal_b = await db.get_user_vc(opponent.id)
-                if bal_a < wager_amt:
-                    return await interaction.response.send_message(f"❌ You don't have enough VC for a `{wager_amt:,} VC` wager! (Balance: `{bal_a:,} VC`)", ephemeral=True)
-                if bal_b < wager_amt:
-                    return await interaction.response.send_message(f"❌ **{opponent.display_name}** only has `{bal_b:,} VC`, which is less than the `{wager_amt:,} VC` wager.", ephemeral=True)
-
-            duel_view = ThreePointDuelChallengeView(interaction.user, opponent, wager_amt)
-            wager_line = f"\n💰 **Wager**: `{wager_amt:,} VC` each (Winner takes **`{wager_amt*2:,} VC`** pot!)" if wager_amt > 0 else ""
-            embed = discord.Embed(
-                title="🎯 1v1 NBA 3-POINT SHOOTOUT CHALLENGE",
-                description=(
-                    f"🏀 {interaction.user.mention} has challenged {opponent.mention} to an **NBA All-Star 3-Point Shootout Duel**!\n"
-                    f"{wager_line}\n\n"
-                    f"• **Format**: 7 Stations (5 Racks + 2 Deep Starry Balls) • Max 40 PTS\n"
-                    f"• {opponent.mention}, click **`🎯 Accept Shootout Duel`** to begin!"
-                ),
-                color=discord.Color.gold()
-            )
-            await interaction.response.send_message(content=opponent.mention, embed=embed, view=duel_view)
-            return
-
-        # Solo Shootout Run
-        now = time.time()
-        last_play = _SHOOTOUT_USER_COOLDOWNS.get(interaction.user.id, 0.0)
-        if now - last_play < 180.0:
-            rem = int(180.0 - (now - last_play))
-            return await interaction.response.send_message(
-                f"⏳ **Shootout Cooldown Active**: Please wait **{rem}s** before playing another solo 3-Point Shootout Contest!",
-                ephemeral=True
-            )
-
-        await interaction.response.defer()
-        shooter = await get_user_best_3pt_shooter(interaction.user.id)
-        view = ThreePointShootoutView(author=interaction.user, player=shooter)
-        embed = build_shootout_embed(
-            user=interaction.user,
-            player=shooter,
-            station_results=[],
-            current_station_idx=0,
-            total_score=0,
-            is_complete=False
-        )
-        await interaction.followup.send(embed=embed, view=view)
-
-    except Exception as e:
-        logger.error(f"Error in /shootout: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
 
 async def nba_card_autocomplete(
     interaction: discord.Interaction,
@@ -21001,55 +20491,6 @@ async def nbacard_slash_cmd(interaction: discord.Interaction, card: str):
         else:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
-
-@bot.tree.command(name="nbadaily", description="💰 Claim your daily 1,000 VC (Virtual Currency) & free player card reward")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def nbadaily_slash_cmd(interaction: discord.Interaction):
-    try:
-        await interaction.response.defer()
-        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
-        success, new_bal, rem = await db.claim_nba_daily(interaction.user.id, 1000)
-        if success:
-            card = roll_reward_card(["gold", "ruby", "amethyst"])
-            await db.add_user_nba_card(interaction.user.id, card["id"], source="daily_reward")
-            await check_nba_event_progress(interaction.user, interaction.guild_id, "card_acquired", interaction.channel)
-
-            tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
-            embed = discord.Embed(
-                title="🎉 Daily VC & Free Card Reward Claimed!",
-                description=(
-                    f"**+1,000 VC** has been deposited into your account!\n\n"
-                    f"• 💰 **New VC Balance:** `{new_bal:,} VC`\n"
-                    f"• 🎁 **Free Daily Card Dropped:** {tier_info['emoji']} **[{card['ovr']} OVR] {card['name']}** (`{card['id']}`)\n"
-                    f"• 📦 **Next Pack:** Starter Pack (`250 VC`), Standard (`750 VC`), All-Star (`1,500 VC`)\n\n"
-                    f"*Come back in 24 hours to claim your next reward!*"
-                ),
-                color=discord.Color.green()
-            )
-            embed.set_footer(text="NBA 2K Mobile Daily Rewards • Use /openpack to spend VC")
-            embed.timestamp = discord.utils.utcnow()
-            await interaction.followup.send(embed=embed)
-        else:
-            hours = int(rem // 3600)
-            minutes = int((rem % 3600) // 60)
-            embed = discord.Embed(
-                title="⏳ Daily VC Cooldown Active",
-                description=(
-                    f"You have already claimed today's reward!\n\n"
-                    f"• **Time Remaining:** `{hours}h {minutes}m`\n"
-                    f"• 💰 **Current Balance:** `{new_bal:,} VC`"
-                ),
-                color=discord.Color.orange()
-            )
-            embed.timestamp = discord.utils.utcnow()
-            await interaction.followup.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /nbadaily: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="nbaweekly", description="🎁 Claim your weekly 5,000 VC salary & guaranteed high-tier card reward")
@@ -21153,53 +20594,6 @@ async def nbamonthly_slash_cmd(interaction: discord.Interaction):
         else:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
-
-@bot.tree.command(name="nbabal", description="💰 Check your NBA 2K Mobile VC balance and card collector stats")
-@app_commands.describe(user="The member whose wallet/stats you want to view (defaults to yourself)")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def nbabal_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None):
-    try:
-        await interaction.response.defer()
-        asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
-        target = user or interaction.user
-        vc = await db.get_user_vc(target.id)
-        cards = await db.get_user_nba_cards(target.id)
-        stats = await db.get_user_nba_economy_stats(target.id)
-
-        unique_cids = set(c["card_id"].lower() for c in cards)
-        total_power = sum(get_nba_card(c["card_id"])["ovr"] for c in cards if get_nba_card(c["card_id"]))
-
-        highest_card = None
-        for c in cards:
-            c_obj = get_nba_card(c["card_id"])
-            if c_obj:
-                if not highest_card or c_obj["ovr"] > highest_card["ovr"]:
-                    highest_card = c_obj
-
-        best_card_str = f"{NBA_2K_TIERS[highest_card['tier']]['emoji']} [{highest_card['ovr']} OVR] **{highest_card['name']}**" if highest_card else "None yet"
-
-        embed = discord.Embed(
-            title=f"💰 {target.display_name}'s NBA 2K Mobile Wallet & Stats",
-            description=(
-                f"# 💰 `{vc:,} VC`\n\n"
-                f"• 🎴 **Cards in Binder:** `{len(cards)}` (`{len(unique_cids)}/{len(NBA_2K_MOBILE_CARDS)}` unique)\n"
-                f"• ⚡ **Total Collector Power:** `{total_power:,} OVR`\n"
-                f"• 🌟 **Highest OVR Card:** {best_card_str}\n"
-                f"• 📦 **Total Cards Pulled:** `{stats.get('cards_claimed', len(cards))}`\n\n"
-                f"*Claim daily VC with `/nbadaily` or open packs with `/openpack`.*"
-            ),
-            color=discord.Color.gold()
-        )
-        embed.set_footer(text="NBA 2K Mobile Economy Subsystem")
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.followup.send(embed=embed)
-    except Exception as e:
-        logger.error(f"Error in /nbabal: {e}", exc_info=True)
-        if interaction.response.is_done():
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="nbasell", description="💰 Sell NBA cards for instant VC (single, quantity, duplicates, or full tier)")
@@ -21662,20 +21056,6 @@ async def nbafav_slash_cmd(interaction: discord.Interaction, card: str):
         else:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
-
-@bot.tree.command(name="catch", description="🏀 Guess and enter a player's name to catch an active wild NBA card drop")
-@app_commands.describe(player_name="The full name or nickname of the wild NBA player (e.g. 'Stephen Curry', 'Wemby', 'MJ')")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 1.0, key=lambda i: (i.guild_id, i.user.id))
-async def catch_slash_cmd(interaction: discord.Interaction, player_name: str):
-    try:
-        await handle_catch_attempt(interaction, player_name.strip())
-    except Exception as e:
-        logger.error(f"Error in /catch: {e}", exc_info=True)
-        if not interaction.response.is_done():
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-        else:
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="nbahint", description="💡 Reveal missing letters for the active wild NBA card drop")
@@ -22429,12 +21809,6 @@ class WarningActionView(discord.ui.View):
         else:
             await interaction.followup.send(f"ℹ️ {self.target_member.mention} currently has no warnings.", ephemeral=True)
 
-
-@bot.tree.command(name="ping", description="🏓 Check bot latency and Discord Gateway connection status")
-@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def ping_slash_cmd(interaction: discord.Interaction):
-    lat = round(bot.latency * 1000, 1)
-    await interaction.response.send_message(f"🏓 **Pong!** Gateway Latency: `{lat}ms` • Bot is 100% online and responding!")
 
 
 @bot.command(name="ping", aliases=["pong", "latency", "test"])

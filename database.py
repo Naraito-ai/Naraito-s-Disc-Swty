@@ -483,6 +483,18 @@ class DatabaseManager:
                 last_attack_at REAL NOT NULL,
                 PRIMARY KEY (event_id, user_id)
             );
+            """,
+            # Music Playlists Table (Saved User Playlists)
+            """
+            CREATE TABLE IF NOT EXISTS music_playlists (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                name TEXT NOT NULL,
+                tracks JSONB NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, name)
+            );
             """
         ]
         
@@ -527,7 +539,7 @@ class DatabaseManager:
                 if "?" in query:
                     parts = query.split("?")
                     pg_query = "".join(f"{part}${i+1}" for i, part in enumerate(parts[:-1])) + parts[-1]
-                await conn.execute(pg_query, *args)
+                return await conn.execute(pg_query, *args)
         else:
             async with self._sqlite_lock:
                 sqlite_query = query
@@ -535,8 +547,21 @@ class DatabaseManager:
                     sqlite_query = re.sub(r'\$\d+', '?', sqlite_query)
                 if "SERIAL PRIMARY KEY" in sqlite_query:
                     sqlite_query = sqlite_query.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-                await self.sqlite_conn.execute(sqlite_query, args)
+                if "JSONB" in sqlite_query:
+                    sqlite_query = sqlite_query.replace("JSONB", "TEXT")
+                if "TIMESTAMPTZ" in sqlite_query:
+                    sqlite_query = sqlite_query.replace("TIMESTAMPTZ", "TIMESTAMP")
+                if "NOW()" in sqlite_query:
+                    sqlite_query = sqlite_query.replace("NOW()", "CURRENT_TIMESTAMP")
+                cursor = await self.sqlite_conn.execute(sqlite_query, args)
                 await self.sqlite_conn.commit()
+                if sqlite_query.strip().upper().startswith("DELETE"):
+                    return f"DELETE {cursor.rowcount}"
+                elif sqlite_query.strip().upper().startswith("UPDATE"):
+                    return f"UPDATE {cursor.rowcount}"
+                elif sqlite_query.strip().upper().startswith("INSERT"):
+                    return f"INSERT 0 {cursor.rowcount}"
+                return ""
 
     async def executemany(self, query: str, args_list: List[tuple]):
         """Executes a parameterized write query across multiple parameter tuples in a single transaction."""
