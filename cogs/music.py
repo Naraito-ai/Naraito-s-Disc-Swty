@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import urllib.parse
+import urllib.request
 from collections import deque
 from typing import Optional
 import yt_dlp
@@ -18,8 +19,8 @@ logger = logging.getLogger("SweetyBot.Music")
 
 # ─── Spotify Client ───────────────────────────────────────────────────────────
 
-spotify_client_id = os.environ.get("SPOTIFY_CLIENT_ID", "").strip()
-spotify_client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "").strip()
+spotify_client_id = os.environ.get("SPOTIFY_CLIENT_ID", "fe5d5375021842a698279b2b09bf30fe").strip()
+spotify_client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "a6cc6b6d69ed401ca24b59d2a65dec4a").strip()
 
 spotify = None
 if spotify_client_id and spotify_client_secret:
@@ -30,6 +31,20 @@ if spotify_client_id and spotify_client_secret:
         ))
     except Exception as e:
         logger.warning(f"Failed to initialize Spotify client: {e}")
+
+
+def fetch_oembed(oembed_url: str) -> Optional[dict]:
+    """Fetch public oEmbed metadata synchronously (safe for executor)."""
+    try:
+        req = urllib.request.Request(
+            oembed_url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None
+
 
 # ─── YT-DLP Config ────────────────────────────────────────────────────────────
 
@@ -48,7 +63,7 @@ YTDL_OPTIONS = {
     "extractor_args": {
         "youtube": {
             "skip": ["dash", "hls"],
-            "player_client": ["web", "android"],
+            "player_client": ["android", "ios", "mweb", "web"],
         }
     },
     "http_headers": {
@@ -104,6 +119,7 @@ class GuildMusicState:
         self.paused_elapsed: float = 0.0
         self.pause_start: Optional[float] = None
         self.update_task: Optional[asyncio.Task] = None
+        self.is_247: bool = False
 
     def clear(self):
         self.queue.clear()
@@ -153,69 +169,145 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.view_count = data.get("view_count", 0)
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, volume=0.5, requester="Unknown"):
+    async def _search_and_extract(cls, search_query: str, *, loop=None, volume=0.5, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
+        data = None
 
-        if not url.startswith("http"):
-            search_query = url
-            # 1. Try SoundCloud first (instant response, no bot challenge or datacenter hang)
+        # 1. Try SoundCloud first (fast, resilient against datacenter bot blocks)
+        try:
+            sc_data = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: ytdl.extract_info(f"scsearch5:{search_query}", download=False)
+                ),
+                timeout=5.0
+            )
+            sc_entries = [e for e in sc_data.get("entries", []) if e]
+            for candidate in sc_entries:
+                s_url = candidate.get("url")
+                if not s_url:
+                    fmts = [f for f in candidate.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
+                    if fmts:
+                        s_url = fmts[-1]["url"]
+                if s_url and not candidate.get("drm"):
+                    data = candidate
+                    break
+        except Exception as sc_err:
+            logger.warning(f"SoundCloud primary search failed for '{search_query}': {sc_err}")
+            data = None
+
+        # 2. Fallback to YouTube if SoundCloud didn't return a playable stream
+        if not data or not (data.get("url") or data.get("formats")):
             try:
-                sc_data = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None,
-                        lambda: ytdl.extract_info(f"scsearch3:{search_query}", download=False)
-                    ),
-                    timeout=6.0
+                data = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch1:{search_query}", download=False)),
+                    timeout=5.0
                 )
-                sc_entries = [e for e in sc_data.get("entries", []) if e]
-                for candidate in sc_entries:
-                    s_url = candidate.get("url")
-                    if not s_url:
-                        fmts = [f for f in candidate.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
-                        if fmts:
-                            s_url = fmts[-1]["url"]
-                    if s_url:
-                        data = candidate
-                        break
-            except Exception as sc_err:
-                logger.warning(f"SoundCloud primary search failed for '{search_query}': {sc_err}")
+                entries = [e for e in data.get("entries", []) if e]
+                if entries:
+                    data = entries[0]
+                    if not data.get("url"):
+                        web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
+                        data = await asyncio.wait_for(
+                            loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False)),
+                            timeout=5.0
+                        )
+                else:
+                    data = None
+            except Exception as e:
+                logger.warning(f"YouTube search extraction failed for '{search_query}': {e}")
                 data = None
 
-            # 2. Fallback to YouTube with strict timeout if SoundCloud didn't return a stream
-            if not data or not (data.get("url") or data.get("formats")):
+        if not data:
+            raise ValueError(f"Could not find or stream '{search_query}'. Try a different song name.")
+
+        stream_url = data.get("url")
+        if not stream_url:
+            formats = data.get("formats", [])
+            audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+            if not audio_formats:
+                raise ValueError(f"No streamable audio found for '{search_query}'.")
+            stream_url = audio_formats[-1]["url"]
+
+        data["requester"] = requester
+        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+        return cls(source, data=data, volume=volume), False
+
+    @classmethod
+    async def from_url(cls, url, *, loop=None, volume=0.5, requester="Unknown"):
+        loop = loop or asyncio.get_event_loop()
+        url = url.strip()
+
+        # ── 1. Spotify URL Handler ───────────────────────────────────────────
+        if "spotify.com" in url or url.startswith("spotify:"):
+            # Check for Spotify playlist or album
+            if "/playlist/" in url or "/album/" in url:
+                if spotify:
+                    try:
+                        if "/playlist/" in url:
+                            playlist_id = url.split("/playlist/")[1].split("?")[0]
+                            res = await loop.run_in_executor(None, lambda: spotify.playlist_items(playlist_id, limit=50))
+                            raw_items = res.get("items", [])
+                            items = [i.get("track") for i in raw_items if i and i.get("track")]
+                        else:
+                            album_id = url.split("/album/")[1].split("?")[0]
+                            res = await loop.run_in_executor(None, lambda: spotify.album_tracks(album_id, limit=50))
+                            items = [i for i in res.get("items", []) if i]
+
+                        entries = []
+                        for t in items:
+                            t_title = f"{t.get('name', 'Unknown')} {t['artists'][0]['name'] if t.get('artists') else ''}".strip()
+                            entries.append({
+                                "title": t_title,
+                                "webpage_url": t_title,
+                                "duration": int(t.get("duration_ms", 0) / 1000),
+                                "requester": requester,
+                            })
+                        if entries:
+                            return entries, True
+                    except Exception as sp_err:
+                        logger.warning(f"Spotify playlist extraction failed: {sp_err}")
+
+            # Single Spotify Track
+            track_search_term = None
+            if spotify and "/track/" in url:
                 try:
-                    data = await asyncio.wait_for(
-                        loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch1:{search_query}", download=False)),
-                        timeout=6.0
-                    )
-                    entries = [e for e in data.get("entries", []) if e]
-                    if entries:
-                        data = entries[0]
-                        if not data.get("url"):
-                            web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
-                            data = await asyncio.wait_for(
-                                loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False)),
-                                timeout=6.0
-                            )
-                    else:
-                        data = None
+                    track_id = url.split("/track/")[1].split("?")[0]
+                    t_data = await loop.run_in_executor(None, lambda: spotify.track(track_id))
+                    if t_data and t_data.get("name"):
+                        artist = t_data["artists"][0]["name"] if t_data.get("artists") else ""
+                        track_search_term = f"{t_data['name']} {artist}".strip()
                 except Exception as e:
-                    logger.warning(f"YouTube search extraction failed for '{search_query}': {e}")
-                    data = None
+                    logger.debug(f"Spotify API track lookup failed: {e}")
 
-            if not data:
-                raise ValueError("Could not find or stream this track. Please try a different song or URL.")
-        else:
-            # direct URL
+            if not track_search_term:
+                # Fallback to public Spotify oEmbed
+                oembed_data = await loop.run_in_executor(
+                    None,
+                    lambda: fetch_oembed(f"https://open.spotify.com/oembed?url={urllib.parse.quote(url)}")
+                )
+                if oembed_data and oembed_data.get("title"):
+                    track_search_term = oembed_data["title"]
+
+            if track_search_term:
+                return await cls._search_and_extract(track_search_term, loop=loop, volume=volume, requester=requester)
+            else:
+                raise ValueError("Could not extract song info from Spotify link. Try searching by song name.")
+
+        # ── 2. Direct HTTP/HTTPS URLs (YouTube, SoundCloud, direct audio) ─────
+        if url.startswith("http://") or url.startswith("https://"):
+            data = None
             try:
-                data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-            except yt_dlp.utils.DownloadError as e:
-                raise ValueError(f"yt-dlp failed: {e}")
+                data = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False)),
+                    timeout=7.0
+                )
+            except Exception as e:
+                logger.warning(f"Direct yt-dlp extraction failed for {url}: {e}")
+                data = None
 
-            if data is None:
-                raise ValueError("yt-dlp returned nothing.")
-
-            if "entries" in data:
+            # Handle playlists
+            if data and "entries" in data:
                 entries = [e for e in data["entries"] if e]
                 if not entries:
                     raise ValueError("Playlist is empty or all entries failed.")
@@ -229,27 +321,74 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     data = entries[0]
                     if not data.get("url"):
                         web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
-                        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
+                        try:
+                            data = await asyncio.wait_for(
+                                loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False)),
+                                timeout=5.0
+                            )
+                        except Exception:
+                            pass
 
-        stream_url = data.get("url")
-        if not stream_url:
-            formats = data.get("formats", [])
-            audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
-            if not audio_formats:
-                raise ValueError("No streamable audio URL found.")
-            stream_url = audio_formats[-1]["url"]
+            # If direct extraction failed on YouTube URL, fallback to YouTube oEmbed + search!
+            if (not data or not (data.get("url") or data.get("formats"))) and ("youtube.com" in url or "youtu.be" in url):
+                logger.info(f"YouTube direct extraction failed for {url}, attempting oEmbed fallback...")
+                oembed = await loop.run_in_executor(
+                    None,
+                    lambda: fetch_oembed(f"https://www.youtube.com/oembed?url={urllib.parse.quote(url)}&format=json")
+                )
+                if oembed and oembed.get("title"):
+                    title = oembed["title"]
+                    return await cls._search_and_extract(title, loop=loop, volume=volume, requester=requester)
 
-        data["requester"] = requester
-        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
-        return cls(source, data=data, volume=volume), False
+            if not data:
+                raise ValueError("Could not stream this link. Please try searching by song name instead.")
+
+            stream_url = data.get("url")
+            if not stream_url:
+                formats = data.get("formats", [])
+                audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+                if not audio_formats:
+                    # Final fallback: if title exists, search via SoundCloud
+                    title = data.get("title")
+                    if title:
+                        return await cls._search_and_extract(title, loop=loop, volume=volume, requester=requester)
+                    raise ValueError("No streamable audio URL found.")
+                stream_url = audio_formats[-1]["url"]
+
+            data["requester"] = requester
+            source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+            return cls(source, data=data, volume=volume), False
+
+        # ── 3. Plain Text Search Query ────────────────────────────────────────
+        return await cls._search_and_extract(url, loop=loop, volume=volume, requester=requester)
 
     @classmethod
     async def regrab_stream(cls, data, volume=0.5):
         loop = asyncio.get_event_loop()
         web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
-        fresh = await loop.run_in_executor(
-            None, lambda: ytdl.extract_info(web_url, download=False)
-        )
+        fresh = None
+
+        if web_url and web_url.startswith("http"):
+            try:
+                fresh = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False)),
+                    timeout=5.0
+                )
+            except Exception:
+                fresh = None
+
+        if not fresh or not (fresh.get("url") or fresh.get("formats")):
+            # Fallback to searching track by title
+            title = data.get("title", "")
+            if title and title != "Unknown":
+                source, _ = await cls._search_and_extract(
+                    title, loop=loop, volume=volume, requester=data.get("requester", "Unknown")
+                )
+                return source
+
+        if not fresh:
+            raise ValueError("Could not regrab stream for this track.")
+
         fresh["requester"] = data.get("requester", "Unknown")
         stream_url = fresh.get("url")
         if not stream_url:
@@ -259,6 +398,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 if f.get("acodec") != "none" and f.get("url")
             ]
             if not audio_formats:
+                # Fallback to searching track by title
+                title = data.get("title", "")
+                if title and title != "Unknown":
+                    source, _ = await cls._search_and_extract(
+                        title, loop=loop, volume=volume, requester=data.get("requester", "Unknown")
+                    )
+                    return source
                 raise ValueError("Could not regrab audio stream URL.")
             stream_url = audio_formats[-1]["url"]
 
@@ -342,15 +488,17 @@ class NowPlayingView(discord.ui.View):
         if state.voice_client:
             state.clear()
             state.voice_client.stop()
-            await state.voice_client.disconnect()
-            state.voice_client = None
+            if not state.is_247:
+                await state.voice_client.disconnect()
+                state.voice_client = None
 
         for child in self.children:
             child.disabled = True
 
+        desc = "Music stopped and queue cleared." if not state.is_247 else "Music stopped and queue cleared. *(24/7 mode active — staying in VC)*"
         embed = discord.Embed(
             title="⏹ Stopped",
-            description="Music stopped and queue cleared.",
+            description=desc,
             color=0x2b2d31
         )
         await interaction.response.edit_message(embed=embed, view=self)
@@ -626,35 +774,52 @@ async def play_autocomplete(
         return _autocomplete_cache[q]
     try:
         loop = asyncio.get_event_loop()
+        choices = []
         if spotify:
-            results = await loop.run_in_executor(
-                None,
-                lambda: spotify.search(q=current, type="track", limit=5)
-            )
-            tracks = results.get("tracks", {}).get("items", [])
-            choices = [
-                app_commands.Choice(
-                    name=f"{t['name']} — {t['artists'][0]['name']}"[:80],
-                    value=f"{t['name']} {t['artists'][0]['name']}"
+            try:
+                results = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda: spotify.search(q=current, type="track", limit=5)
+                    ),
+                    timeout=2.0
                 )
-                for t in tracks if t and t.get("name") and t.get("artists")
-            ]
-        else:
-            data = await loop.run_in_executor(
-                None,
-                lambda: ytdl.extract_info(f"ytsearch5:{current}", download=False)
-            )
-            entries = data.get("entries", [])
-            choices = [
-                app_commands.Choice(
-                    name=f"{e.get('title', 'Unknown')[:80]}",
-                    value=f"{e.get('title', current)}"
+                tracks = results.get("tracks", {}).get("items", [])
+                choices = [
+                    app_commands.Choice(
+                        name=f"{t['name']} — {t['artists'][0]['name']}"[:80],
+                        value=f"{t['name']} {t['artists'][0]['name']}"
+                    )
+                    for t in tracks if t and t.get("name") and t.get("artists")
+                ]
+            except Exception as e:
+                logger.debug(f"Spotify autocomplete search failed: {e}")
+
+        if not choices:
+            # Fallback to fast SoundCloud autocomplete search (never blocked, super fast)
+            try:
+                data = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda: ytdl.extract_info(f"scsearch5:{current}", download=False)
+                    ),
+                    timeout=2.5
                 )
-                for e in entries if e and e.get("title")
-            ][:5]
-        if len(_autocomplete_cache) > 200:
-            _autocomplete_cache.clear()
-        _autocomplete_cache[q] = choices
+                entries = data.get("entries", [])
+                choices = [
+                    app_commands.Choice(
+                        name=f"{e.get('title', 'Unknown')[:80]}",
+                        value=f"{e.get('title', current)}"
+                    )
+                    for e in entries if e and e.get("title")
+                ][:5]
+            except Exception as e:
+                logger.debug(f"SoundCloud autocomplete search failed: {e}")
+
+        if choices:
+            if len(_autocomplete_cache) > 200:
+                _autocomplete_cache.clear()
+            _autocomplete_cache[q] = choices
         return choices
     except Exception as e:
         logger.warning(f"Autocomplete error: {e}")
@@ -671,7 +836,32 @@ class Music(commands.Cog):
     def get_state(self, guild_id: int) -> GuildMusicState:
         if guild_id not in self.states:
             self.states[guild_id] = GuildMusicState()
+            if hasattr(self.bot, "db") and self.bot.db:
+                self.bot.loop.create_task(self._restore_247(guild_id))
         return self.states[guild_id]
+
+    async def _restore_247(self, guild_id: int):
+        try:
+            val = await self.bot.db.get_config(guild_id, "music_247", "false")
+            if str(val).lower() == "true":
+                if guild_id in self.states:
+                    self.states[guild_id].is_247 = True
+        except Exception:
+            pass
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        """Auto-reconnect if 24/7 mode is active and bot gets disconnected."""
+        if member.id == self.bot.user.id and after.channel is None and before.channel is not None:
+            state = self.get_state(member.guild.id)
+            if state.is_247:
+                await asyncio.sleep(2.0)
+                try:
+                    if not state.voice_client or not state.voice_client.is_connected():
+                        state.voice_client = await before.channel.connect()
+                        logger.info(f"Reconnected 24/7 voice client in {member.guild.name} ({before.channel.name})")
+                except Exception as e:
+                    logger.warning(f"24/7 auto-reconnect failed in {member.guild.name}: {e}")
 
     async def build_np_embed(self, state: GuildMusicState) -> discord.Embed:
         src = state.current
@@ -782,12 +972,16 @@ class Music(commands.Cog):
         if not state.queue:
             state.current = None
             if state.np_message:
+                desc = "📻 **24/7 mode active** — staying in voice channel." if state.is_247 else "Add more tracks with `/play`."
                 embed = discord.Embed(
                     title="✅ Queue Finished",
-                    description="Add more tracks with `/play`.",
-                    color=0x57F287
+                    description=desc,
+                    color=0x57F287 if state.is_247 else 0x5865F2
                 )
-                await state.np_message.edit(embed=embed, view=None)
+                try:
+                    await state.np_message.edit(embed=embed, view=None)
+                except Exception:
+                    pass
                 state.np_message = None
             return
 
@@ -960,9 +1154,98 @@ class Music(commands.Cog):
         if state.voice_client:
             state.clear()
             state.voice_client.stop()
-            await state.voice_client.disconnect()
-            state.voice_client = None
-        await interaction.response.send_message("⏹ Stopped.")
+            if not state.is_247:
+                await state.voice_client.disconnect()
+                state.voice_client = None
+                await interaction.response.send_message("⏹ Stopped and disconnected.")
+            else:
+                await interaction.response.send_message("⏹ Stopped playback. *(24/7 mode active — staying in VC)*")
+        else:
+            await interaction.response.send_message("Nothing playing.", ephemeral=True)
+
+    @app_commands.command(name="247", description="Toggle 24/7 mode so Sweety stays in the voice channel")
+    async def toggle_247(self, interaction: discord.Interaction):
+        state = self.get_state(interaction.guild_id)
+
+        if not state.voice_client or not state.voice_client.is_connected():
+            if not interaction.user.voice:
+                return await interaction.response.send_message(
+                    "❌ Join a voice channel first to enable 24/7 mode.", ephemeral=True
+                )
+            vc = interaction.user.voice.channel
+            state.voice_client = await vc.connect()
+            state.text_channel = interaction.channel
+
+        state.is_247 = not state.is_247
+
+        try:
+            await self.bot.db.set_config(
+                interaction.guild_id, "music_247", "true" if state.is_247 else "false"
+            )
+        except Exception as e:
+            logger.debug(f"Failed to persist 24/7 config: {e}")
+
+        ch_name = state.voice_client.channel.name if state.voice_client and state.voice_client.channel else "voice channel"
+
+        if state.is_247:
+            embed = discord.Embed(
+                title="📻 24/7 Mode Enabled",
+                description=f"Sweety will now stay in **{ch_name}** 24/7, even when the queue finishes.",
+                color=0x57F287
+            )
+            embed.set_footer(text="Use /247 again to disable.")
+        else:
+            embed = discord.Embed(
+                title="📻 24/7 Mode Disabled",
+                description="Sweety will now leave the voice channel when inactive.",
+                color=0xED4245
+            )
+            if not state.queue and not state.current and state.voice_client:
+                await state.voice_client.disconnect()
+                state.voice_client = None
+
+        await interaction.response.send_message(embed=embed)
+
+    @commands.command(name="247", help="Toggle 24/7 mode in voice channel")
+    async def toggle_247_prefix(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+
+        if not state.voice_client or not state.voice_client.is_connected():
+            if not ctx.author.voice:
+                return await ctx.send("❌ Join a voice channel first to enable 24/7 mode.")
+            vc = ctx.author.voice.channel
+            state.voice_client = await vc.connect()
+            state.text_channel = ctx.channel
+
+        state.is_247 = not state.is_247
+
+        try:
+            await self.bot.db.set_config(
+                ctx.guild.id, "music_247", "true" if state.is_247 else "false"
+            )
+        except Exception as e:
+            logger.debug(f"Failed to persist 24/7 config: {e}")
+
+        ch_name = state.voice_client.channel.name if state.voice_client and state.voice_client.channel else "voice channel"
+
+        if state.is_247:
+            embed = discord.Embed(
+                title="📻 24/7 Mode Enabled",
+                description=f"Sweety will now stay in **{ch_name}** 24/7, even when the queue finishes.",
+                color=0x57F287
+            )
+            embed.set_footer(text="Use !247 or /247 again to disable.")
+        else:
+            embed = discord.Embed(
+                title="📻 24/7 Mode Disabled",
+                description="Sweety will now leave the voice channel when inactive.",
+                color=0xED4245
+            )
+            if not state.queue and not state.current and state.voice_client:
+                await state.voice_client.disconnect()
+                state.voice_client = None
+
+        await ctx.send(embed=embed)
 
     @app_commands.command(name="pause", description="Pause playback")
     async def pause(self, interaction: discord.Interaction):
