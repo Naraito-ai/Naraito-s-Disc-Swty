@@ -11,7 +11,25 @@ from typing import Optional
 import yt_dlp
 import time
 
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+
 logger = logging.getLogger("SweetyBot.Music")
+
+# ─── Spotify Client ───────────────────────────────────────────────────────────
+
+spotify_client_id = os.environ.get("SPOTIFY_CLIENT_ID", "").strip()
+spotify_client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "").strip()
+
+spotify = None
+if spotify_client_id and spotify_client_secret:
+    try:
+        spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+            client_id=spotify_client_id,
+            client_secret=spotify_client_secret
+        ))
+    except Exception as e:
+        logger.warning(f"Failed to initialize Spotify client: {e}")
 
 # ─── YT-DLP Config ────────────────────────────────────────────────────────────
 
@@ -19,20 +37,20 @@ YTDL_OPTIONS = {
     "format": "bestaudio/best",
     "noplaylist": False,
     "nocheckcertificate": True,
-    "ignoreerrors": False,
+    "ignoreerrors": True,
     "logtostderr": False,
     "quiet": True,
     "no_warnings": True,
-    "default_search": "scsearch",
+    "default_search": "ytsearch",
     "source_address": "0.0.0.0",
     "extractor_args": {
         "youtube": {
-            "player_client": ["android", "ios", "mweb"],
             "skip": ["dash", "hls"],
+            "player_client": ["web", "android"],
         }
     },
     "http_headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
     },
 }
 
@@ -137,35 +155,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
         loop = loop or asyncio.get_event_loop()
 
         if not url.startswith("http"):
-            # try up to 5 results, skip DRM ones
-            for i in range(1, 6):
-                try:
-                    data = await loop.run_in_executor(
-                        None,
-                        lambda i=i: ytdl.extract_info(f"scsearch{i}:{url}", download=False)
-                    )
-                    entries = [e for e in data.get("entries", []) if e]
-                    if not entries:
-                        continue
-                    entry = entries[-1]  # get the i-th result
-                    stream_url = entry.get("url")
-                    if not stream_url:
-                        formats = entry.get("formats", [])
-                        audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
-                        if not audio_formats:
-                            continue
-                        stream_url = audio_formats[-1]["url"]
+            url = f"ytsearch1:{url}"
 
-                    entry["requester"] = requester
-                    source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
-                    return cls(source, data=entry, volume=volume), False
-                except yt_dlp.utils.DownloadError as e:
-                    if "DRM" in str(e):
-                        continue  # skip, try next result
-                    raise ValueError(f"yt-dlp failed: {e}")
-            raise ValueError("All results were DRM protected. Try a different song.")
-
-        # direct URL
+        # direct URL or single ytsearch query
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
         except yt_dlp.utils.DownloadError as e:
@@ -178,9 +170,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
             entries = [e for e in data["entries"] if e]
             if not entries:
                 raise ValueError("Playlist is empty or all entries failed.")
-            for entry in entries:
-                entry["requester"] = requester
-            return entries, True
+
+            is_playlist_url = url.startswith("http") and any(param in url for param in ("list=", "/playlist"))
+            if is_playlist_url:
+                for entry in entries:
+                    entry["requester"] = requester
+                return entries, True
+            else:
+                data = entries[0]
+                if not data.get("url"):
+                    web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
+                    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
 
         stream_url = data.get("url")
         if not stream_url:
@@ -572,28 +572,34 @@ async def play_autocomplete(
         return []
     try:
         loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(
-            None,
-            lambda: ytdl.extract_info(f"scsearch8:{current}", download=False)
-        )
-        entries = data.get("entries", [])
-        choices = []
-        for e in entries:
-            if not e or not e.get("title") or not e.get("webpage_url"):
-                continue
-            # skip entries flagged as DRM in metadata
-            if e.get("has_drm"):
-                continue
-            choices.append(
-                app_commands.Choice(
-                    name=e.get("title", "Unknown")[:80],
-                    value=e.get("webpage_url", "")
-                )
+        if spotify:
+            results = await loop.run_in_executor(
+                None,
+                lambda: spotify.search(q=current, type="track", limit=5)
             )
-            if len(choices) == 5:
-                break
-        return choices
-    except Exception:
+            tracks = results.get("tracks", {}).get("items", [])
+            return [
+                app_commands.Choice(
+                    name=f"{t['name']} — {t['artists'][0]['name']}"[:80],
+                    value=f"{t['name']} {t['artists'][0]['name']}"
+                )
+                for t in tracks if t and t.get("name") and t.get("artists")
+            ]
+        else:
+            data = await loop.run_in_executor(
+                None,
+                lambda: ytdl.extract_info(f"ytsearch5:{current}", download=False)
+            )
+            entries = data.get("entries", [])
+            return [
+                app_commands.Choice(
+                    name=f"{e.get('title', 'Unknown')[:80]}",
+                    value=f"{e.get('title', current)}"
+                )
+                for e in entries if e and e.get("title")
+            ][:5]
+    except Exception as e:
+        logger.warning(f"Autocomplete error: {e}")
         return []
 
 
@@ -833,7 +839,7 @@ class Music(commands.Cog):
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl.extract_info(f"scsearch5:{query}", download=False)
+                lambda: ytdl.extract_info(f"ytsearch5:{query}", download=False)
             )
         except Exception as e:
             return await interaction.followup.send(f"❌ Search failed: `{e}`")

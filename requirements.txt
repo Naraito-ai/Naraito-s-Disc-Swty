@@ -16,3 +16,4 @@ pillow>=10.0.0
 yt-dlp
 PyNaCl
 davey
+spotipy
