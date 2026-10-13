@@ -219,22 +219,23 @@ ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def fmt_duration(seconds):
-    if not seconds:
-        return "🔴 Live"
-    m, s = divmod(int(seconds), 60)
+    if seconds is None or seconds < 0:
+        return "00:00"
+    seconds = int(seconds)
+    m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
-    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
 
 
 def progress_bar(elapsed, total, length=16):
     if not total or total <= 0:
-        return "🔴 `LIVE STREAM`"
+        return "━" * length
     percent = min(1.0, max(0.0, elapsed / total))
     filled = int(percent * length)
     filled = min(filled, length)
     unfilled = length - filled
-    # Real music player design: bold played track + knob + light remaining track
-    return "━" * filled + "🔘" + "─" * unfilled
+    # Spotify-style realistic player: bold played track + knob + light remaining track
+    return "━" * filled + "●" + "─" * unfilled
 
 
 # ─── Guild Music State ────────────────────────────────────────────────────────
@@ -246,7 +247,7 @@ class GuildMusicState:
         self.loop: bool = False
         self.loop_queue: bool = False
         self.volume: float = 1.0
-        self.user_volume_level: int = 50
+        self.user_volume_level: int = 100
         self.voice_client: Optional[discord.VoiceClient] = None
         self.text_channel: Optional[discord.TextChannel] = None
         self.skip_votes: set = set()
@@ -263,7 +264,7 @@ class GuildMusicState:
         self.loop = False
         self.loop_queue = False
         self.volume = 1.0
-        self.user_volume_level = 50
+        self.user_volume_level = 100
         self.skip_votes.clear()
         self.np_message = None
         self.start_time = None
@@ -295,7 +296,7 @@ class GuildMusicState:
 # ─── YTDLSource ───────────────────────────────────────────────────────────────
 
 class YTDLSource(discord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=0.5):
+    def __init__(self, source, *, data, volume=1.0):
         super().__init__(source, volume)
         self.data = data
         self.title = data.get("title", "Unknown")
@@ -306,8 +307,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.uploader = data.get("uploader", "Unknown")
         self.view_count = data.get("view_count", 0)
 
+    def read(self) -> bytes:
+        ret = self.original.read()
+        if not ret:
+            return b""
+        import audioop
+        # Direct audio scaling: 1.0 = standard 100% loudness, 0.5 = 50%, 1.5 = 150% boost
+        vol = max(0.0, min(float(self.volume), 2.0))
+        return audioop.mul(ret, 2, vol)
+
     @classmethod
-    async def _search_and_extract(cls, search_query: str, *, loop=None, volume=0.5, requester="Unknown"):
+    async def _search_and_extract(cls, search_query: str, *, loop=None, volume=1.0, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
         data = None
 
@@ -372,7 +382,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(source, data=data, volume=volume), False
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, volume=0.5, requester="Unknown"):
+    async def from_url(cls, url, *, loop=None, volume=1.0, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
         url = url.strip()
 
@@ -501,7 +511,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return await cls._search_and_extract(url, loop=loop, volume=volume, requester=requester)
 
     @classmethod
-    async def regrab_stream(cls, data, volume=0.5):
+    async def regrab_stream(cls, data, volume=1.0):
         loop = asyncio.get_event_loop()
         web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
         fresh = None
@@ -688,8 +698,10 @@ class NowPlayingView(discord.ui.View):
     @discord.ui.button(emoji="🔉", style=discord.ButtonStyle.secondary, row=1)
     async def vol_down_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
-        state.volume = max(0.1, round(state.volume - 0.2, 2))
-        state.user_volume_level = int(round(state.volume * 50))
+        cur_level = getattr(state, "user_volume_level", None) or int(round(state.volume * 100))
+        new_level = max(10, cur_level - 10)
+        state.user_volume_level = new_level
+        state.volume = round(new_level / 100.0, 3)
         if state.current and hasattr(state.current, "volume"):
             state.current.volume = state.volume
         if state.voice_client and state.voice_client.source and hasattr(state.voice_client.source, "volume"):
@@ -700,8 +712,10 @@ class NowPlayingView(discord.ui.View):
     @discord.ui.button(emoji="🔊", style=discord.ButtonStyle.secondary, row=1)
     async def vol_up_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
-        state.volume = min(2.0, round(state.volume + 0.2, 2))
-        state.user_volume_level = int(round(state.volume * 50))
+        cur_level = getattr(state, "user_volume_level", None) or int(round(state.volume * 100))
+        new_level = min(150, cur_level + 10)
+        state.user_volume_level = new_level
+        state.volume = round(new_level / 100.0, 3)
         if state.current and hasattr(state.current, "volume"):
             state.current.volume = state.volume
         if state.voice_client and state.voice_client.source and hasattr(state.voice_client.source, "volume"):
@@ -1144,7 +1158,8 @@ class Music(commands.Cog):
         total = src.duration or 0
 
         is_paused = state.voice_client and state.voice_client.is_paused()
-        status = "⏸ Paused" if is_paused else "▶️ Playing"
+        status_text = "Paused" if is_paused else "Playing"
+        status_icon = "⏸" if is_paused else "▶"
 
         if state.loop:
             loop_str = "🔂 Track"
@@ -1153,10 +1168,14 @@ class Music(commands.Cog):
         else:
             loop_str = "Off"
 
-        bar = progress_bar(elapsed, total)
+        vol_display = getattr(state, "user_volume_level", None)
+        if vol_display is None:
+            vol_display = int(round(state.volume * 100))
+
+        bar = progress_bar(elapsed, total, length=16)
         elapsed_str = fmt_duration(elapsed)
-        total_str = fmt_duration(total)
-        percent_str = f"{int(min(1.0, elapsed / total) * 100)}%" if total else "Live"
+        total_str = fmt_duration(total) if total > 0 else "LIVE"
+        percent_str = f"{int(min(1.0, elapsed / total) * 100)}%" if total > 0 else "Live"
 
         # Dynamic visualizer wave
         if is_paused:
@@ -1173,33 +1192,42 @@ class Music(commands.Cog):
             views_str = f"{views/1_000_000:.1f}M"
         elif views >= 1_000:
             views_str = f"{views/1_000:.1f}K"
-        else:
+        elif views > 0:
             views_str = str(views)
+        else:
+            views_str = "N/A"
 
-        vol_display = getattr(state, "user_volume_level", None) or int(round(state.volume * 50))
+        vol_icon = "🔊" if vol_display >= 60 else ("🔉" if vol_display >= 20 else "🔈")
+
+        is_sp = "spotify" in src.url.lower() or "spotify" in src.title.lower()
         embed = discord.Embed(
             title=src.title,
-            url=src.url,
-            color=0x5865F2
+            url=src.url if src.url.startswith("http") else None,
+            color=0x1DB954 if is_sp else 0x5865F2
         )
         embed.set_author(
-            name=f"🎵  {status}  •  Vol {vol_display}%  •  Loop {loop_str}"
+            name=f"🎵 {status_text} • Vol {vol_display}% • Loop {loop_str}"
         )
-        embed.set_thumbnail(url=src.thumbnail)
+        if src.thumbnail:
+            embed.set_thumbnail(url=src.thumbnail)
+
+        # Monospace Spotify-style media player bar
+        player_box = f"```\n{status_icon}  {elapsed_str}  {bar}  {total_str}\n```"
+
         embed.add_field(
-            name=f"Progress  •  {percent_str}",
-            value=f"`{elapsed_str}` {bar} `{total_str}`\n{wave}  •  *Live Audio*",
+            name=f"Progress • {percent_str}",
+            value=f"{player_box}{wave}  •  {vol_icon} `{vol_display}%`  •  Loop: `{loop_str}`",
             inline=False
         )
         embed.add_field(name="👤 Requested by", value=src.requester, inline=True)
-        embed.add_field(name="🎙️ Channel", value=src.uploader, inline=True)
+        embed.add_field(name="🎙️ Channel", value=src.uploader or "Unknown", inline=True)
         embed.add_field(name="👁️ Views", value=views_str, inline=True)
         embed.add_field(
             name=f"📋 Queue — {queue_len} track{'s' if queue_len != 1 else ''} up next",
             value=f"Next: **{next_track}**" if queue_len else "Nothing queued",
             inline=False
         )
-        embed.set_footer(text="Sweety Music  •  Live Dynamic Progress")
+        embed.set_footer(text="Sweety Music • Spotify Style Player")
         return embed
 
     async def live_updater(self, guild: discord.Guild):
@@ -1608,13 +1636,13 @@ class Music(commands.Cog):
         else:
             await ctx.send("Nothing is paused.")
 
-    @app_commands.command(name="volume", description="Set volume level (1-100%)")
-    @app_commands.describe(level="Volume percentage from 1 to 100")
+    @app_commands.command(name="volume", description="Set volume level (1-150%)")
+    @app_commands.describe(level="Volume percentage from 1 to 150% (100% is standard)")
     async def volume(self, interaction: discord.Interaction, level: int):
-        if not 1 <= level <= 100:
-            return await interaction.response.send_message("❌ Volume must be between 1 and 100.", ephemeral=True)
+        if not 1 <= level <= 150:
+            return await interaction.response.send_message("❌ Volume must be between 1 and 150%.", ephemeral=True)
         state = self.get_state(interaction.guild_id)
-        factor = round(level / 50.0, 3)
+        factor = round(level / 100.0, 3)
         state.volume = factor
         state.user_volume_level = level
 
@@ -1630,14 +1658,15 @@ class Music(commands.Cog):
             except Exception:
                 pass
 
-        await interaction.response.send_message(f"🔊 Volume set to **{level}%**")
+        vol_icon = "🔊" if level >= 60 else ("🔉" if level >= 20 else "🔈")
+        await interaction.response.send_message(f"{vol_icon} Volume set to **{level}%**")
 
     @commands.command(name="volume", aliases=["vol"])
     async def prefix_volume(self, ctx: commands.Context, level: int):
-        if not 1 <= level <= 100:
-            return await ctx.send("❌ Volume must be between 1 and 100.")
+        if not 1 <= level <= 150:
+            return await ctx.send("❌ Volume must be between 1 and 150%.")
         state = self.get_state(ctx.guild.id)
-        factor = round(level / 50.0, 3)
+        factor = round(level / 100.0, 3)
         state.volume = factor
         state.user_volume_level = level
 
@@ -1653,7 +1682,8 @@ class Music(commands.Cog):
             except Exception:
                 pass
 
-        await ctx.send(f"🔊 Volume set to **{level}%**")
+        vol_icon = "🔊" if level >= 60 else ("🔉" if level >= 20 else "🔈")
+        await ctx.send(f"{vol_icon} Volume set to **{level}%**")
 
     @app_commands.command(name="loop", description="Toggle loop mode")
     @app_commands.choices(mode=[
