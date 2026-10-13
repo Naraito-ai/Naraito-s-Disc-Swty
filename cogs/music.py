@@ -155,32 +155,74 @@ class YTDLSource(discord.PCMVolumeTransformer):
         loop = loop or asyncio.get_event_loop()
 
         if not url.startswith("http"):
-            url = f"ytsearch1:{url}"
+            search_query = url
+            # 1. Try YouTube search first
+            try:
+                data = await loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch1:{search_query}", download=False))
+                entries = [e for e in data.get("entries", []) if e]
+                if entries:
+                    data = entries[0]
+                    if not data.get("url"):
+                        web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
+                        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
+                else:
+                    data = None
+            except Exception as e:
+                logger.warning(f"YouTube search extraction failed for '{search_query}': {e}")
+                data = None
 
-        # direct URL or single ytsearch query
-        try:
-            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-        except yt_dlp.utils.DownloadError as e:
-            raise ValueError(f"yt-dlp failed: {e}")
+            # 2. If YouTube failed or was blocked by bot check, seamlessly fallback to SoundCloud
+            if not data or not (data.get("url") or data.get("formats")):
+                for i in range(1, 6):
+                    try:
+                        sc_data = await loop.run_in_executor(
+                            None,
+                            lambda i=i: ytdl.extract_info(f"scsearch{i}:{search_query}", download=False)
+                        )
+                        sc_entries = [e for e in sc_data.get("entries", []) if e]
+                        if not sc_entries:
+                            continue
+                        candidate = sc_entries[-1]
+                        # Verify candidate has audio format or url
+                        s_url = candidate.get("url")
+                        if not s_url:
+                            fmts = [f for f in candidate.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
+                            if fmts:
+                                s_url = fmts[-1]["url"]
+                        if s_url:
+                            data = candidate
+                            break
+                    except Exception as sc_err:
+                        logger.warning(f"SoundCloud fallback attempt {i} failed: {sc_err}")
+                        continue
 
-        if data is None:
-            raise ValueError("yt-dlp returned nothing.")
+            if not data:
+                raise ValueError("Could not find or stream this track from any provider. Please try a different song or URL.")
+        else:
+            # direct URL
+            try:
+                data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+            except yt_dlp.utils.DownloadError as e:
+                raise ValueError(f"yt-dlp failed: {e}")
 
-        if "entries" in data:
-            entries = [e for e in data["entries"] if e]
-            if not entries:
-                raise ValueError("Playlist is empty or all entries failed.")
+            if data is None:
+                raise ValueError("yt-dlp returned nothing.")
 
-            is_playlist_url = url.startswith("http") and any(param in url for param in ("list=", "/playlist"))
-            if is_playlist_url:
-                for entry in entries:
-                    entry["requester"] = requester
-                return entries, True
-            else:
-                data = entries[0]
-                if not data.get("url"):
-                    web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
-                    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
+            if "entries" in data:
+                entries = [e for e in data["entries"] if e]
+                if not entries:
+                    raise ValueError("Playlist is empty or all entries failed.")
+
+                is_playlist_url = any(param in url for param in ("list=", "/playlist"))
+                if is_playlist_url:
+                    for entry in entries:
+                        entry["requester"] = requester
+                    return entries, True
+                else:
+                    data = entries[0]
+                    if not data.get("url"):
+                        web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
+                        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
 
         stream_url = data.get("url")
         if not stream_url:
