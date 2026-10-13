@@ -6,6 +6,8 @@ import time
 import math
 import logging
 import asyncio
+import base64
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Union, Tuple, Set
 
@@ -403,21 +405,39 @@ async def auth_callback(body: dict):
 @app.get("/api/spotify/login")
 async def spotify_oauth_login(user_id: int):
     """Initiates Spotify OAuth2 flow for a specific Discord user."""
-    payload = {
-        "user_id": user_id,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=15)
-    }
-    state = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    scope = "user-read-private playlist-read-private"
-    spotify_auth_url = (
-        f"https://accounts.spotify.com/authorize?"
-        f"client_id={SPOTIFY_CLIENT_ID}&"
-        f"response_type=code&"
-        f"redirect_uri={urllib.parse.quote(SPOTIFY_REDIRECT_URI)}&"
-        f"scope={urllib.parse.quote(scope)}&"
-        f"state={state}"
-    )
-    return RedirectResponse(url=spotify_auth_url)
+    try:
+        payload = {
+            "user_id": user_id,
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=15)
+        }
+        state = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        if isinstance(state, bytes):
+            state = state.decode("utf-8")
+        scope = "user-read-private playlist-read-private"
+        spotify_auth_url = (
+            f"https://accounts.spotify.com/authorize?"
+            f"client_id={SPOTIFY_CLIENT_ID}&"
+            f"response_type=code&"
+            f"redirect_uri={urllib.parse.quote(SPOTIFY_REDIRECT_URI)}&"
+            f"scope={urllib.parse.quote(scope)}&"
+            f"state={state}"
+        )
+        return RedirectResponse(url=spotify_auth_url)
+    except Exception as e:
+        logger.error(f"Spotify OAuth login error: {e}", exc_info=True)
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html><body style="font-family:sans-serif;background:#121212;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+                <div style="text-align:center;background:#1e1e1e;padding:40px;border-radius:12px;max-width:400px;border:1px solid #333;">
+                    <h2 style="color:#ff5555;margin-top:0;">❌ Login Error</h2>
+                    <p style="color:#aaa;">Failed to initialize Spotify authorization: {e}</p>
+                    <p style="color:#888;font-size:14px;">Please return to Discord and try again.</p>
+                </div>
+            </body></html>
+            """,
+            status_code=500
+        )
 
 
 @app.get("/api/spotify/callback", response_class=HTMLResponse)
