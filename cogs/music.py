@@ -8,19 +8,23 @@ from collections import deque
 from typing import Optional
 import time
 
+import logging
+import urllib.parse
+
+logger = logging.getLogger("SweetyBot.Music")
+
 # ─── YT-DLP Config ───────────────────────────────────────────────────────────
 
 YTDL_OPTIONS = {
     "format": "bestaudio/best",
     "noplaylist": False,
     "nocheckcertificate": True,
-    "ignoreerrors": False,
+    "ignoreerrors": True,
     "logtostderr": False,
     "quiet": True,
     "no_warnings": True,
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
-    "extract_flat": "in_playlist",
 }
 
 FFMPEG_OPTIONS = {
@@ -67,30 +71,63 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None, volume=0.5, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
+        parsed = urllib.parse.urlparse(url)
+        is_url = bool(parsed.scheme and parsed.netloc)
+        target = url if is_url else f"ytsearch:{url}"
+
         data = await loop.run_in_executor(
-            None, lambda: ytdl.extract_info(url, download=False)
+            None, lambda: ytdl.extract_info(target, download=False)
         )
+        if not data:
+            raise ValueError("No video or audio stream found for query.")
+
         if "entries" in data:
-            tracks = []
-            for entry in data["entries"]:
-                if entry:
+            entries = [e for e in data["entries"] if e]
+            if not entries:
+                raise ValueError("No matching track results found.")
+            
+            # If query was a natural search phrase rather than an explicit playlist URL
+            is_playlist_url = is_url and any(param in url for param in ("list=", "/playlist"))
+            if not is_playlist_url:
+                # Use top search result
+                entry = entries[0]
+                if not entry.get("url"):
+                    # Extract single video details if entries only has partial info
+                    web_url = entry.get("webpage_url") or entry.get("url") or f"https://www.youtube.com/watch?v={entry.get('id')}"
+                    entry = await loop.run_in_executor(
+                        None, lambda: ytdl.extract_info(web_url, download=False)
+                    )
+                entry["requester"] = requester
+                stream_url = entry.get("url")
+                if not stream_url:
+                    raise ValueError("Could not extract playable stream URL.")
+                source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+                return cls(source, data=entry, volume=volume), False
+            else:
+                tracks = []
+                for entry in entries:
                     entry["requester"] = requester
                     tracks.append(entry)
-            return tracks, True
+                return tracks, True
 
         data["requester"] = requester
-        stream_url = data["url"]
+        stream_url = data.get("url")
+        if not stream_url:
+            raise ValueError("Could not extract playable stream URL.")
         source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
         return cls(source, data=data, volume=volume), False
 
     @classmethod
     async def regrab_stream(cls, data, volume=0.5):
         loop = asyncio.get_event_loop()
+        web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
         fresh = await loop.run_in_executor(
-            None, lambda: ytdl.extract_info(data["webpage_url"], download=False)
+            None, lambda: ytdl.extract_info(web_url, download=False)
         )
         fresh["requester"] = data.get("requester", "Unknown")
-        stream_url = fresh["url"]
+        stream_url = fresh.get("url")
+        if not stream_url:
+            raise ValueError("Could not regrab audio stream URL.")
         source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
         return cls(source, data=fresh, volume=volume)
 
@@ -186,7 +223,8 @@ class Music(commands.Cog):
                 query, volume=state.volume, requester=str(interaction.user)
             )
         except Exception as e:
-            return await interaction.followup.send(f"❌ Error: {e}")
+            logger.error(f"Error extracting audio for query '{query}': {e}", exc_info=True)
+            return await interaction.followup.send(f"❌ Could not load track: `{e}`")
 
         if is_playlist:
             for track in result:
