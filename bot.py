@@ -17374,6 +17374,26 @@ class GeminiBot(commands.Bot):
         except Exception as sync_err:
             logger.debug(f"Could not launch Ballers role startup sync: {sync_err}")
 
+        # Step 4.5: Auto-sync application slash commands to all guilds and global Discord cache
+        async def _startup_command_sync():
+            try:
+                await asyncio.sleep(5)  # brief grace period for gateway stabilization
+                for g in self.guilds:
+                    try:
+                        self.tree.copy_global_to(guild=g)
+                        await self.tree.sync(guild=g)
+                    except Exception as ge:
+                        logger.debug(f"Startup guild command sync notice for {g.id}: {ge}")
+                synced_global = await self.tree.sync()
+                logger.info(f"⚡ Startup slash command sync complete: {len(synced_global)} global commands registered to {len(self.guilds)} guilds.")
+            except Exception as se:
+                logger.warning(f"Startup command sync notice: {se}")
+
+        try:
+            asyncio.create_task(_startup_command_sync())
+        except Exception as st_err:
+            logger.debug(f"Could not launch startup command sync: {st_err}")
+
         # Step 5: Start presence keepalive loop
         try:
             if not self.presence_keepalive.is_running():
@@ -26506,7 +26526,17 @@ async def on_message(message):
             except Exception:
                 pass
                 
-            if is_owner or message.author.id == 719932313919684670:
+            is_authorized = (
+                is_owner or
+                message.author.id == 719932313919684670 or
+                (message.guild and (
+                    message.author.id == message.guild.owner_id or
+                    getattr(getattr(message.author, "guild_permissions", None), "administrator", False) or
+                    getattr(getattr(message.author, "guild_permissions", None), "manage_guild", False) or
+                    any(getattr(r, "name", "").lower() in ("admin", "administrator", "mod", "moderator", "staff") for r in getattr(message.author, "roles", []))
+                ))
+            )
+            if is_authorized:
                 bot.tree.copy_global_to(guild=message.guild)
                 synced_guild = await bot.tree.sync(guild=message.guild)
                 synced_global = await bot.tree.sync()

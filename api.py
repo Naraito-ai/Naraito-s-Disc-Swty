@@ -198,6 +198,27 @@ async def health():
     """Fast, zero-overhead health check endpoint for Render and UptimeRobot."""
     return {"status": "ok"}
 
+@app.api_route("/api/sync", methods=["GET", "POST"])
+async def trigger_sync():
+    """Trigger instant slash command sync across all guilds and global Discord cache."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        return {"error": "Bot not connected yet"}
+    results = {}
+    for g in getattr(bot, "guilds", []):
+        try:
+            bot.tree.copy_global_to(guild=g)
+            synced_g = await bot.tree.sync(guild=g)
+            results[g.name] = len(synced_g)
+        except Exception as e:
+            results[g.name] = f"error: {e}"
+    try:
+        synced_global = await bot.tree.sync()
+        total_global = len(synced_global)
+    except Exception as e:
+        total_global = f"error: {e}"
+    return {"status": "ok", "global": total_global, "guilds": results}
+
 @app.api_route("/health/detail", methods=["GET", "HEAD", "POST", "OPTIONS"])
 async def health_detail():
     """Detailed health check endpoint for monitoring Discord Gateway and bot status."""
