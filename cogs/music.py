@@ -18,13 +18,16 @@ YTDL_OPTIONS = {
     "format": "bestaudio/best",
     "noplaylist": False,
     "nocheckcertificate": True,
-    "ignoreerrors": True,
+    "ignoreerrors": False,
     "logtostderr": False,
     "quiet": True,
     "no_warnings": True,
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
     "extractor_args": {"youtube": {"skip": ["dash", "hls"]}},
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    },
 }
 
 FFMPEG_OPTIONS = {
@@ -123,46 +126,49 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None, volume=0.5, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
-        parsed = urllib.parse.urlparse(url)
-        is_url = bool(parsed.scheme and parsed.netloc)
-        target = url if is_url else f"ytsearch:{url}"
 
-        data = await loop.run_in_executor(
-            None, lambda: ytdl.extract_info(target, download=False)
-        )
-        if not data:
-            raise ValueError("No video or audio stream found for query.")
+        # If it's a plain search query, prefix it
+        if not url.startswith("http"):
+            url = f"ytsearch1:{url}"
 
+        try:
+            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+        except yt_dlp.utils.DownloadError as e:
+            raise ValueError(f"yt-dlp failed: {e}")
+
+        if data is None:
+            raise ValueError("yt-dlp returned nothing.")
+
+        # playlist or search collection
         if "entries" in data:
             entries = [e for e in data["entries"] if e]
             if not entries:
-                raise ValueError("No matching track results found.")
+                raise ValueError("Playlist is empty or all entries failed.")
 
-            is_playlist_url = is_url and any(param in url for param in ("list=", "/playlist"))
-            if not is_playlist_url:
-                entry = entries[0]
-                if not entry.get("url"):
-                    web_url = entry.get("webpage_url") or entry.get("url") or f"https://www.youtube.com/watch?v={entry.get('id')}"
-                    entry = await loop.run_in_executor(
-                        None, lambda: ytdl.extract_info(web_url, download=False)
-                    )
-                entry["requester"] = requester
-                stream_url = entry.get("url")
-                if not stream_url:
-                    raise ValueError("Could not extract playable stream URL.")
-                source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
-                return cls(source, data=entry, volume=volume), False
-            else:
-                tracks = []
+            is_playlist_url = url.startswith("http") and any(param in url for param in ("list=", "/playlist"))
+            if is_playlist_url:
                 for entry in entries:
                     entry["requester"] = requester
-                    tracks.append(entry)
-                return tracks, True
+                return entries, True
+            else:
+                data = entries[0]
+                if not data.get("url"):
+                    web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
+                    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
 
-        data["requester"] = requester
+        # single track — make sure there's a streamable URL
         stream_url = data.get("url")
         if not stream_url:
-            raise ValueError("Could not extract playable stream URL.")
+            formats = data.get("formats", [])
+            audio_formats = [
+                f for f in formats
+                if f.get("acodec") != "none" and f.get("url")
+            ]
+            if not audio_formats:
+                raise ValueError("No streamable audio URL found.")
+            stream_url = audio_formats[-1]["url"]
+
+        data["requester"] = requester
         source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
         return cls(source, data=data, volume=volume), False
 
@@ -176,7 +182,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
         fresh["requester"] = data.get("requester", "Unknown")
         stream_url = fresh.get("url")
         if not stream_url:
-            raise ValueError("Could not regrab audio stream URL.")
+            formats = fresh.get("formats", [])
+            audio_formats = [
+                f for f in formats
+                if f.get("acodec") != "none" and f.get("url")
+            ]
+            if not audio_formats:
+                raise ValueError("Could not regrab audio stream URL.")
+            stream_url = audio_formats[-1]["url"]
+
         source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
         return cls(source, data=fresh, volume=volume)
 
