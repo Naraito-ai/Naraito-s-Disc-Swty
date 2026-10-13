@@ -17176,6 +17176,9 @@ class GeminiBot(commands.Bot):
                             logger.info(f"[SWEETY] Successfully loaded cog: {filename}")
                         except Exception as cog_err:
                             logger.error(f"[SWEETY] Failed to load cog {filename}: {cog_err}", exc_info=True)
+                            if "cog_errors" not in _gateway_state:
+                                _gateway_state["cog_errors"] = {}
+                            _gateway_state["cog_errors"][filename] = str(cog_err)
         
         # 3. Start FastAPI dashboard in the same process & event loop (if not already running)
         disable_api = os.getenv("DISABLE_API", "false").lower() in ("true", "1", "yes")

@@ -219,6 +219,28 @@ async def trigger_sync():
         total_global = f"error: {e}"
     return {"status": "ok", "global": total_global, "guilds": results}
 
+@app.api_route("/api/load_music", methods=["GET", "POST"])
+async def load_music_endpoint():
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        return {"error": "no bot"}
+    try:
+        if "cogs.music" in bot.extensions:
+            await bot.reload_extension("cogs.music")
+        else:
+            await bot.load_extension("cogs.music")
+        for g in getattr(bot, "guilds", []):
+            try:
+                bot.tree.copy_global_to(guild=g)
+                await bot.tree.sync(guild=g)
+            except Exception:
+                pass
+        synced_global = await bot.tree.sync()
+        return {"status": "ok", "cogs": list(bot.cogs.keys()), "commands": len(synced_global)}
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
 @app.api_route("/health/detail", methods=["GET", "HEAD", "POST", "OPTIONS"])
 async def health_detail():
     """Detailed health check endpoint for monitoring Discord Gateway and bot status."""
