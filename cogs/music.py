@@ -803,9 +803,9 @@ class LiveKaraokeView(discord.ui.View):
                 display.append(f"`{lines[n][1]}`")
             body = "\n".join(display)
 
-        cur_min, cur_sec = divmod(int(elapsed), 60)
-        tot_min, tot_sec = divmod(duration, 60)
-        pct = min(1.0, max(0.0, elapsed / duration)) if duration > 0 else 0
+        cur_min, cur_sec = divmod(int(elapsed or 0), 60)
+        tot_min, tot_sec = divmod(int(duration or 0), 60)
+        pct = min(1.0, max(0.0, float(elapsed or 0) / float(duration))) if duration and duration > 0 else 0
         bar_len = 16
         filled = int(pct * bar_len)
         bar = "▬" * filled + "🔘" + "▬" * (bar_len - filled)
@@ -830,7 +830,7 @@ class LiveKaraokeView(discord.ui.View):
 
                 if self.mode == "live" and self.message:
                     elapsed = state.get_elapsed()
-                    dur = getattr(state.current, "duration", 0) or int(self.timed_lines[-1][0] + 15)
+                    dur = int(getattr(state.current, "duration", 0) or 0) or int(self.timed_lines[-1][0] + 15)
                     embed = self.build_teleprompter_embed(elapsed, dur)
                     embed_desc = embed.description
                     if embed_desc != self.last_text:
@@ -884,7 +884,7 @@ class LiveKaraokeView(discord.ui.View):
             self.update_controls()
             state = self.cog.get_state(self.guild.id)
             elapsed = state.get_elapsed() if state else 0
-            dur = getattr(state.current, "duration", 0) if state and state.current else int(self.timed_lines[-1][0] + 15)
+            dur = int(getattr(state.current, "duration", 0) or 0) if state and state.current else int(self.timed_lines[-1][0] + 15)
             embed = self.build_teleprompter_embed(elapsed, dur)
             await interaction.response.edit_message(embed=embed, view=self)
 
@@ -1164,6 +1164,7 @@ class NowPlayingView(discord.ui.View):
         state = self.get_state()
         if not state.current:
             return await interaction.response.send_message("Nothing playing.", ephemeral=True)
+        await interaction.response.defer()
         await self.cog.display_lyrics(interaction, state.current.title, ephemeral=False)
 
     @discord.ui.button(emoji="🎛️", label="Filter", style=discord.ButtonStyle.secondary, row=2)
@@ -1929,7 +1930,7 @@ class Music(commands.Cog):
 
             view = LiveKaraokeView(self, guild, track_name, artist_name, timed_lines, pages, user.id)
             elapsed = state.get_elapsed()
-            dur = getattr(state.current, "duration", 0) or int(timed_lines[-1][0] + 15)
+            dur = int(getattr(state.current, "duration", 0) or 0) or int(timed_lines[-1][0] + 15)
             initial_embed = view.build_teleprompter_embed(elapsed, dur)
 
             if hasattr(interaction_or_ctx, "response"):
