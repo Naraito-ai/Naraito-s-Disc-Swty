@@ -245,7 +245,8 @@ class GuildMusicState:
         self.current: Optional["YTDLSource"] = None
         self.loop: bool = False
         self.loop_queue: bool = False
-        self.volume: float = 0.5
+        self.volume: float = 1.0
+        self.user_volume_level: int = 50
         self.voice_client: Optional[discord.VoiceClient] = None
         self.text_channel: Optional[discord.TextChannel] = None
         self.skip_votes: set = set()
@@ -261,6 +262,8 @@ class GuildMusicState:
         self.current = None
         self.loop = False
         self.loop_queue = False
+        self.volume = 1.0
+        self.user_volume_level = 50
         self.skip_votes.clear()
         self.np_message = None
         self.start_time = None
@@ -685,18 +688,24 @@ class NowPlayingView(discord.ui.View):
     @discord.ui.button(emoji="🔉", style=discord.ButtonStyle.secondary, row=1)
     async def vol_down_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
-        state.volume = max(0.1, state.volume - 0.1)
-        if state.current:
+        state.volume = max(0.1, round(state.volume - 0.2, 2))
+        state.user_volume_level = int(round(state.volume * 50))
+        if state.current and hasattr(state.current, "volume"):
             state.current.volume = state.volume
+        if state.voice_client and state.voice_client.source and hasattr(state.voice_client.source, "volume"):
+            state.voice_client.source.volume = state.volume
         embed = await self.cog.build_np_embed(state)
         await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(emoji="🔊", style=discord.ButtonStyle.secondary, row=1)
     async def vol_up_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
-        state.volume = min(1.0, state.volume + 0.1)
-        if state.current:
+        state.volume = min(2.0, round(state.volume + 0.2, 2))
+        state.user_volume_level = int(round(state.volume * 50))
+        if state.current and hasattr(state.current, "volume"):
             state.current.volume = state.volume
+        if state.voice_client and state.voice_client.source and hasattr(state.voice_client.source, "volume"):
+            state.voice_client.source.volume = state.volume
         embed = await self.cog.build_np_embed(state)
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -1167,13 +1176,14 @@ class Music(commands.Cog):
         else:
             views_str = str(views)
 
+        vol_display = getattr(state, "user_volume_level", None) or int(round(state.volume * 50))
         embed = discord.Embed(
             title=src.title,
             url=src.url,
             color=0x5865F2
         )
         embed.set_author(
-            name=f"🎵  {status}  •  Vol {int(state.volume * 100)}%  •  Loop {loop_str}"
+            name=f"🎵  {status}  •  Vol {vol_display}%  •  Loop {loop_str}"
         )
         embed.set_thumbnail(url=src.thumbnail)
         embed.add_field(
@@ -1598,15 +1608,52 @@ class Music(commands.Cog):
         else:
             await ctx.send("Nothing is paused.")
 
-    @app_commands.command(name="volume", description="Set volume (1-100)")
+    @app_commands.command(name="volume", description="Set volume level (1-100%)")
+    @app_commands.describe(level="Volume percentage from 1 to 100")
     async def volume(self, interaction: discord.Interaction, level: int):
         if not 1 <= level <= 100:
-            return await interaction.response.send_message("Between 1 and 100.", ephemeral=True)
+            return await interaction.response.send_message("❌ Volume must be between 1 and 100.", ephemeral=True)
         state = self.get_state(interaction.guild_id)
-        state.volume = level / 100
-        if state.current:
-            state.current.volume = state.volume
-        await interaction.response.send_message(f"🔊 Volume → **{level}%**")
+        factor = round(level / 50.0, 3)
+        state.volume = factor
+        state.user_volume_level = level
+
+        if state.current and hasattr(state.current, "volume"):
+            state.current.volume = factor
+        if state.voice_client and state.voice_client.source and hasattr(state.voice_client.source, "volume"):
+            state.voice_client.source.volume = factor
+
+        if state.np_message:
+            try:
+                embed = await self.build_np_embed(state)
+                await state.np_message.edit(embed=embed)
+            except Exception:
+                pass
+
+        await interaction.response.send_message(f"🔊 Volume set to **{level}%**")
+
+    @commands.command(name="volume", aliases=["vol"])
+    async def prefix_volume(self, ctx: commands.Context, level: int):
+        if not 1 <= level <= 100:
+            return await ctx.send("❌ Volume must be between 1 and 100.")
+        state = self.get_state(ctx.guild.id)
+        factor = round(level / 50.0, 3)
+        state.volume = factor
+        state.user_volume_level = level
+
+        if state.current and hasattr(state.current, "volume"):
+            state.current.volume = factor
+        if state.voice_client and state.voice_client.source and hasattr(state.voice_client.source, "volume"):
+            state.voice_client.source.volume = factor
+
+        if state.np_message:
+            try:
+                embed = await self.build_np_embed(state)
+                await state.np_message.edit(embed=embed)
+            except Exception:
+                pass
+
+        await ctx.send(f"🔊 Volume set to **{level}%**")
 
     @app_commands.command(name="loop", description="Toggle loop mode")
     @app_commands.choices(mode=[
