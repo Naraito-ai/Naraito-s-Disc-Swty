@@ -252,28 +252,36 @@ def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Opti
         executable="ffmpeg"
     )
 
+def parse_lrc(text: str) -> list[tuple[float, str]]:
+    timed_lines = []
+    pattern = re.compile(r'\[(\d{1,2}):(\d{2}(?:\.\d{1,3})?)\](.*)')
+    for line in text.splitlines():
+        m = pattern.match(line.strip())
+        if m:
+            mins, secs, lyric = m.groups()
+            total_sec = int(mins) * 60 + float(secs)
+            clean_lyric = lyric.strip()
+            if clean_lyric:
+                timed_lines.append((total_sec, clean_lyric))
+    timed_lines.sort(key=lambda x: x[0])
+    return timed_lines
+
 def fetch_lyrics(title: str, artist: str = "") -> Optional[dict]:
-    """Fetch lyrics from LrcLib API synchronously (safe for run_in_executor)."""
+    """Fetch lyrics from LrcLib API synchronously with intelligent accuracy ranking."""
     clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
-    clean_title = re.sub(r'(feat\.|ft\.|official|video|audio|lyrics|hd|4k|sped up|slowed).*', '', clean_title, flags=re.IGNORECASE).strip()
+    clean_title = re.sub(r'(feat\.|ft\.|official|video|audio|lyrics|hd|4k|sped up|slowed|remix).*', '', clean_title, flags=re.IGNORECASE).strip()
 
-    # 1. Try search endpoint
-    try:
-        q = urllib.parse.quote(f"{clean_title} {artist}".strip())
-        req = urllib.request.Request(f"https://lrclib.net/api/search?q={q}", headers={"User-Agent": "SweetyBot/1.0"})
-        with urllib.request.urlopen(req, timeout=4.5) as resp:
-            results = json.loads(resp.read().decode())
-            if results and isinstance(results, list):
-                for item in results:
-                    if item.get("plainLyrics") or item.get("syncedLyrics"):
-                        return item
-    except Exception as e:
-        logger.debug(f"LrcLib search failed: {e}")
+    extracted_artist = artist
+    extracted_track = clean_title
+    if ' - ' in clean_title and not artist:
+        parts = clean_title.split(' - ', 1)
+        extracted_artist = parts[0].strip()
+        extracted_track = parts[1].strip()
 
-    # 2. Try exact get if artist is available
-    if artist and artist.lower() not in ["unknown", ""]:
+    # 1. Try exact get if artist is available
+    if extracted_artist and extracted_artist.lower() not in ["unknown", ""]:
         try:
-            params = urllib.parse.urlencode({"track_name": clean_title, "artist_name": artist})
+            params = urllib.parse.urlencode({"track_name": extracted_track, "artist_name": extracted_artist})
             req = urllib.request.Request(f"https://lrclib.net/api/get?{params}", headers={"User-Agent": "SweetyBot/1.0"})
             with urllib.request.urlopen(req, timeout=4.0) as resp:
                 data = json.loads(resp.read().decode())
@@ -281,6 +289,48 @@ def fetch_lyrics(title: str, artist: str = "") -> Optional[dict]:
                     return data
         except Exception:
             pass
+
+    # 2. Search endpoint with intelligent ranking
+    try:
+        q = urllib.parse.quote(f"{extracted_track} {extracted_artist}".strip())
+        req = urllib.request.Request(f"https://lrclib.net/api/search?q={q}", headers={"User-Agent": "SweetyBot/1.0"})
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
+            results = json.loads(resp.read().decode())
+            if results and isinstance(results, list):
+                best = None
+                best_score = -1
+                for item in results:
+                    t_name = (item.get("trackName") or "").lower()
+                    a_name = (item.get("artistName") or "").lower()
+                    has_synced = bool(item.get("syncedLyrics"))
+                    has_plain = bool(item.get("plainLyrics"))
+
+                    if not (has_synced or has_plain):
+                        continue
+
+                    score = 0
+                    if has_synced:
+                        score += 100
+                    if has_plain:
+                        score += 10
+
+                    if extracted_artist and extracted_artist.lower() in a_name:
+                        score += 80
+
+                    clean_target = extracted_track.lower()
+                    if t_name == clean_target:
+                        score += 60
+                    elif clean_target in t_name or t_name in clean_target:
+                        score += 30
+
+                    if score > best_score:
+                        best_score = score
+                        best = item
+
+                if best:
+                    return best
+    except Exception as e:
+        logger.debug(f"LrcLib search failed: {e}")
 
     return None
 
@@ -673,6 +723,152 @@ class LyricsPaginationView(discord.ui.View):
         self.current_page = min(len(self.pages) - 1, self.current_page + 1)
         self.update_buttons()
         await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+
+class LiveKaraokeView(discord.ui.View):
+    def __init__(self, cog: "Music", guild: discord.Guild, track_name: str, artist_name: str, timed_lines: list[tuple[float, str]], pages: list[discord.Embed], user_id: int):
+        super().__init__(timeout=300)
+        self.cog = cog
+        self.guild = guild
+        self.track_name = track_name
+        self.artist_name = artist_name
+        self.timed_lines = timed_lines
+        self.pages = pages
+        self.user_id = user_id
+        self.mode = "live"
+        self.current_page = 0
+        self.message: Optional[discord.Message] = None
+        self.update_task: Optional[asyncio.Task] = None
+        self.last_text = ""
+        self.update_controls()
+
+    def update_controls(self):
+        if self.mode == "live":
+            self.prev_btn.disabled = True
+            self.next_btn.disabled = True
+            self.toggle_mode_btn.label = "📜 Full Lyrics"
+            self.toggle_mode_btn.emoji = "📜"
+        else:
+            self.prev_btn.disabled = (self.current_page == 0)
+            self.next_btn.disabled = (self.current_page >= len(self.pages) - 1)
+            self.toggle_mode_btn.label = "🎙️ Live Karaoke"
+            self.toggle_mode_btn.emoji = "🎙️"
+
+    def build_teleprompter_embed(self, elapsed: float, duration: int) -> discord.Embed:
+        lines = self.timed_lines
+        idx = -1
+        for i, (t, _) in enumerate(lines):
+            if elapsed >= t:
+                idx = i
+            else:
+                break
+
+        if idx == -1:
+            body = "🎵 *(Intro instrumental playing...)*\n\n▶️ **Next:** " + lines[0][1]
+        else:
+            display = []
+            for p in range(max(0, idx - 2), idx):
+                display.append(f"*{lines[p][1]}*")
+            display.append(f"▶️ **🔥 {lines[idx][1]} 🔥**")
+            for n in range(idx + 1, min(len(lines), idx + 3)):
+                display.append(f"`{lines[n][1]}`")
+            body = "\n".join(display)
+
+        cur_min, cur_sec = divmod(int(elapsed), 60)
+        tot_min, tot_sec = divmod(duration, 60)
+        pct = min(1.0, max(0.0, elapsed / duration)) if duration > 0 else 0
+        bar_len = 16
+        filled = int(pct * bar_len)
+        bar = "▬" * filled + "🔘" + "▬" * (bar_len - filled)
+        prog_header = f"`{cur_min}:{cur_sec:02d}` {bar} `{tot_min}:{tot_sec:02d}`"
+
+        embed = discord.Embed(
+            title=f"🎙️ Live Karaoke — {self.track_name}",
+            description=f"**Artist:** {self.artist_name}\n{prog_header}\n\n{body}",
+            color=0x1DB954
+        )
+        embed.set_footer(text="Live Synced Karaoke • Real-time line-by-line sync")
+        return embed
+
+    async def karaoke_loop(self):
+        state = self.cog.get_state(self.guild.id)
+        while not self.is_finished():
+            try:
+                if not state.current or not state.voice_client or not state.voice_client.is_connected():
+                    break
+                if not (state.voice_client.is_playing() or state.voice_client.is_paused()):
+                    break
+
+                if self.mode == "live" and self.message:
+                    elapsed = state.get_elapsed()
+                    dur = getattr(state.current, "duration", 0) or int(self.timed_lines[-1][0] + 15)
+                    embed = self.build_teleprompter_embed(elapsed, dur)
+                    embed_desc = embed.description
+                    if embed_desc != self.last_text:
+                        self.last_text = embed_desc
+                        await self.message.edit(embed=embed, view=self)
+
+                await asyncio.sleep(2.5)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"Karaoke loop notice: {e}")
+                await asyncio.sleep(3.0)
+
+    @discord.ui.button(emoji="◀️", label="Prev", style=discord.ButtonStyle.secondary, row=0)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Only the requester can paginate.", ephemeral=True)
+        self.current_page = max(0, self.current_page - 1)
+        self.update_controls()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(emoji="▶️", label="Next", style=discord.ButtonStyle.secondary, row=0)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Only the requester can paginate.", ephemeral=True)
+        self.current_page = min(len(self.pages) - 1, self.current_page + 1)
+        self.update_controls()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(emoji="📜", label="Full Lyrics", style=discord.ButtonStyle.primary, row=0)
+    async def toggle_mode_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Only the requester can switch modes.", ephemeral=True)
+        if self.mode == "live":
+            self.mode = "pages"
+            self.update_controls()
+            await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+        else:
+            self.mode = "live"
+            self.update_controls()
+            state = self.cog.get_state(self.guild.id)
+            elapsed = state.get_elapsed() if state else 0
+            dur = getattr(state.current, "duration", 0) if state and state.current else int(self.timed_lines[-1][0] + 15)
+            embed = self.build_teleprompter_embed(elapsed, dur)
+            await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(emoji="⏹", label="Stop Sync", style=discord.ButtonStyle.danger, row=0)
+    async def stop_sync_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Only the requester can stop sync.", ephemeral=True)
+        if self.update_task and not self.update_task.done():
+            self.update_task.cancel()
+        self.stop()
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(view=self)
+
+    async def on_timeout(self):
+        if self.update_task and not self.update_task.done():
+            self.update_task.cancel()
+        for child in self.children:
+            child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
 
 
 class FilterSelect(discord.ui.Select):
@@ -1629,6 +1825,8 @@ class Music(commands.Cog):
 
         target_query = query
         target_artist = ""
+        is_playing_track = False
+
         if not target_query:
             if not state.current:
                 msg = "❌ Nothing is currently playing. Specify a song name: `/lyrics <song>`"
@@ -1639,6 +1837,14 @@ class Music(commands.Cog):
                 return await interaction_or_ctx.send(msg)
             target_query = state.current.title
             target_artist = state.current.uploader or ""
+            is_playing_track = True
+        else:
+            if state.current and (query.lower() in state.current.title.lower() or state.current.title.lower() in query.lower()):
+                is_playing_track = True
+                target_artist = state.current.uploader or ""
+
+        if hasattr(interaction_or_ctx, "response") and not interaction_or_ctx.response.is_done():
+            await interaction_or_ctx.response.defer(ephemeral=ephemeral)
 
         lyrics_data = await self.bot.loop.run_in_executor(
             None, lambda: fetch_lyrics(target_query, target_artist)
@@ -1647,16 +1853,16 @@ class Music(commands.Cog):
         if not lyrics_data or not (lyrics_data.get("plainLyrics") or lyrics_data.get("syncedLyrics")):
             msg = f"❌ No lyrics found for **{target_query}**."
             if hasattr(interaction_or_ctx, "response"):
-                if not interaction_or_ctx.response.is_done():
-                    return await interaction_or_ctx.response.send_message(msg, ephemeral=ephemeral)
                 return await interaction_or_ctx.followup.send(msg, ephemeral=ephemeral)
             return await interaction_or_ctx.send(msg)
 
         track_name = lyrics_data.get("trackName") or target_query
         artist_name = lyrics_data.get("artistName") or target_artist or "Unknown Artist"
 
-        raw_text = lyrics_data.get("syncedLyrics") or lyrics_data.get("plainLyrics") or ""
-        lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+        # Prepare clean lines for full static pagination (strip any raw timestamps)
+        raw_text = lyrics_data.get("plainLyrics") or lyrics_data.get("syncedLyrics") or ""
+        clean_text = re.sub(r'\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]', '', raw_text)
+        lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
 
         chunk_size = 24
         chunks = [lines[i:i + chunk_size] for i in range(0, len(lines), chunk_size)]
@@ -1674,15 +1880,29 @@ class Music(commands.Cog):
             embed.set_footer(text=f"Page {idx+1}/{len(chunks)} • Sweety Karaoke Lyrics")
             pages.append(embed)
 
-        view = LyricsPaginationView(pages, user.id) if len(pages) > 1 else None
+        synced_raw = lyrics_data.get("syncedLyrics")
+        timed_lines = parse_lrc(synced_raw) if synced_raw else []
 
-        if hasattr(interaction_or_ctx, "response"):
-            if not interaction_or_ctx.response.is_done():
-                await interaction_or_ctx.response.send_message(embed=pages[0], view=view, ephemeral=ephemeral)
+        # If current song is playing and has synced timestamps, launch LiveKaraokeView!
+        if is_playing_track and timed_lines and state.voice_client and (state.voice_client.is_playing() or state.voice_client.is_paused()):
+            view = LiveKaraokeView(self, guild, track_name, artist_name, timed_lines, pages, user.id)
+            elapsed = state.get_elapsed()
+            dur = getattr(state.current, "duration", 0) or int(timed_lines[-1][0] + 15)
+            initial_embed = view.build_teleprompter_embed(elapsed, dur)
+
+            if hasattr(interaction_or_ctx, "response"):
+                sent_msg = await interaction_or_ctx.followup.send(embed=initial_embed, view=view, ephemeral=ephemeral)
             else:
-                await interaction_or_ctx.followup.send(embed=pages[0], view=view, ephemeral=ephemeral)
+                sent_msg = await interaction_or_ctx.send(embed=initial_embed, view=view)
+
+            view.message = sent_msg
+            view.update_task = self.bot.loop.create_task(view.karaoke_loop())
         else:
-            await interaction_or_ctx.send(embed=pages[0], view=view)
+            view = LyricsPaginationView(pages, user.id) if len(pages) > 1 else None
+            if hasattr(interaction_or_ctx, "response"):
+                await interaction_or_ctx.followup.send(embed=pages[0], view=view, ephemeral=ephemeral)
+            else:
+                await interaction_or_ctx.send(embed=pages[0], view=view)
 
     async def play_next(self, guild: discord.Guild):
         state = self.get_state(guild.id)
