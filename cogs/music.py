@@ -549,6 +549,32 @@ class SavePlaylistModal(discord.ui.Modal, title="💾 Save to Playlist"):
             await interaction.response.send_message(f"❌ DB error: {e}", ephemeral=True)
 
 
+# ─── Autocomplete ─────────────────────────────────────────────────────────────
+
+async def play_autocomplete(
+    interaction: discord.Interaction,
+    current: str
+) -> list[app_commands.Choice[str]]:
+    if len(current.strip()) < 2:
+        return []
+    try:
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(
+            None,
+            lambda: ytdl.extract_info(f"scsearch5:{current}", download=False)
+        )
+        entries = data.get("entries", [])
+        return [
+            app_commands.Choice(
+                name=entry.get("title", "Unknown")[:80],
+                value=entry.get("webpage_url", entry.get("url", ""))
+            )
+            for entry in entries if entry and entry.get("title")
+        ][:5]
+    except Exception:
+        return []
+
+
 # ─── Music Cog ────────────────────────────────────────────────────────────────
 
 class Music(commands.Cog):
@@ -706,8 +732,9 @@ class Music(commands.Cog):
 
         state.update_task = self.bot.loop.create_task(self.live_updater(guild))
 
-    @app_commands.command(name="play", description="Play a song or playlist — YouTube, SoundCloud, or search")
-    @app_commands.describe(query="Song name, YouTube URL, SoundCloud URL, or playlist URL")
+    @app_commands.command(name="play", description="Play a song — search by name or paste a URL")
+    @app_commands.describe(query="Song name or URL")
+    @app_commands.autocomplete(query=play_autocomplete)
     async def play(self, interaction: discord.Interaction, query: str):
         await interaction.response.defer()
 
@@ -774,6 +801,7 @@ class Music(commands.Cog):
 
     @app_commands.command(name="search", description="Search for a song and pick from results")
     @app_commands.describe(query="Song name to search")
+    @app_commands.autocomplete(query=play_autocomplete)
     async def search(self, interaction: discord.Interaction, query: str):
         await interaction.response.defer()
 
