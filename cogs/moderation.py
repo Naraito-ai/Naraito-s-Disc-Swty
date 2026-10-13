@@ -936,7 +936,9 @@ class ModerationCog(commands.Cog, name="Moderation"):
     # ── Interactive Warning Management UI ──────────────────────────────────────────
 
 
-    @app_commands.command(name="warnings", description="View all active warnings and infraction history for a member")
+    warns_group = app_commands.Group(name="warns", description="Server warning management commands")
+
+    @warns_group.command(name="list", description="View all active warnings and infraction history for a member")
     @app_commands.describe(member="The member to check (defaults to yourself)")
     @app_commands.guild_only()
     @app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
@@ -995,7 +997,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 
 
-    @app_commands.command(name="clearwarns", description="Clear warnings for a member (all or a specific amount)")
+    @warns_group.command(name="clear", description="Clear warnings for a member (all or a specific amount)")
     @app_commands.describe(
         member="The member whose warnings will be cleared",
         amount="Number of warnings to remove (Select from dropdown or leave empty to clear all)"
@@ -1055,7 +1057,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 
 
-    @app_commands.command(name="delwarn", description="Delete a single warning by its specific Warning ID")
+    @warns_group.command(name="delete", description="Delete a single warning by its specific Warning ID")
     @app_commands.describe(warn_id="The ID of the warning to delete (found using /warnings)")
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.guild_only()
@@ -1088,7 +1090,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 
 
-    @app_commands.command(name="warnleaderboard", description="Display the server leaderboard of members with the most warnings")
+    @warns_group.command(name="leaderboard", description="Display the server leaderboard of members with the most warnings")
     @app_commands.describe(limit="Number of top warned users to display (5 to 25, default 10)")
     @app_commands.choices(limit=[
         app_commands.Choice(name="Top 5", value=5),

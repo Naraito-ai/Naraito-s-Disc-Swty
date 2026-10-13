@@ -1931,7 +1931,6 @@ class Music(commands.Cog):
         else:
             await interaction.response.send_message("Nothing playing.", ephemeral=True)
 
-    @app_commands.command(name="247", description="Toggle 24/7 mode so Sweety stays in the voice channel")
     async def toggle_247(self, interaction: discord.Interaction):
         state = self.get_state(interaction.guild_id)
 
@@ -2159,6 +2158,24 @@ class Music(commands.Cog):
         count = len(state.queue)
         state.queue.clear()
         await interaction.response.send_message(f"🗑 Cleared **{count}** tracks from the queue.")
+
+    @queue_group.command(name="autoplay", description="Toggle smart autoplay to recommend and queue similar tracks")
+    @app_commands.describe(mode="Enable or disable autoplay (leave blank to toggle)")
+    @app_commands.choices(mode=[
+        app_commands.Choice(name="Toggle", value="toggle"),
+        app_commands.Choice(name="Enable (On)", value="on"),
+        app_commands.Choice(name="Disable (Off)", value="off"),
+    ])
+    async def queue_autoplay_slash(self, interaction: discord.Interaction, mode: Optional[str] = "toggle"):
+        state = self.get_state(interaction.guild_id)
+        if mode == "on":
+            state.autoplay = True
+        elif mode == "off":
+            state.autoplay = False
+        else:
+            state.autoplay = not state.autoplay
+        status_str = "**Enabled** 🟢" if state.autoplay else "**Disabled** 🔴"
+        await interaction.response.send_message(f"📻 Smart Autoplay is now {status_str}! When the queue ends, Sweety will automatically find and play similar songs.")
 
     async def shuffle(self, interaction: discord.Interaction):
         import random
@@ -2895,6 +2912,10 @@ class Music(commands.Cog):
     async def radio_stop_slash(self, interaction: discord.Interaction):
         await self.start_radio_station(interaction, "stop")
 
+    @radio_group.command(name="stay", description="Toggle 24/7 mode so Sweety stays connected to the voice channel")
+    async def radio_stay_slash(self, interaction: discord.Interaction):
+        await self.toggle_247(interaction)
+
     @commands.group(name="radio", invoke_without_command=True)
     async def radio_prefix_group(self, ctx: commands.Context, station: Optional[str] = None):
         if not station:
@@ -2963,25 +2984,7 @@ class Music(commands.Cog):
         state.np_message = await ctx.send(embed=embed, view=view)
         state.update_task = self.bot.loop.create_task(self.live_updater(ctx.guild))
 
-    # ─── Smart Autoplay (/autoplay) ───────────────────────────────────────────
-
-    @app_commands.command(name="autoplay", description="Toggle smart autoplay to recommend and queue similar tracks")
-    @app_commands.describe(mode="Enable or disable autoplay (leave blank to toggle)")
-    @app_commands.choices(mode=[
-        app_commands.Choice(name="Enable", value="on"),
-        app_commands.Choice(name="Disable", value="off"),
-    ])
-    async def autoplay_slash(self, interaction: discord.Interaction, mode: Optional[str] = None):
-        state = self.get_state(interaction.guild_id)
-        if mode == "on":
-            state.autoplay = True
-        elif mode == "off":
-            state.autoplay = False
-        else:
-            state.autoplay = not state.autoplay
-
-        status_str = "**Enabled** 🟢" if state.autoplay else "**Disabled** 🔴"
-        await interaction.response.send_message(f"📻 Smart Autoplay is now {status_str}! When the queue ends, Sweety will automatically find and play similar songs.")
+    # ─── Smart Autoplay (!autoplay / /queue autoplay) ───────────────────────────
 
     @commands.command(name="autoplay")
     async def autoplay_prefix(self, ctx: commands.Context):
