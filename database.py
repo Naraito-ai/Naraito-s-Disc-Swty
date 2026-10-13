@@ -537,6 +537,14 @@ class DatabaseManager:
                 await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS is_private INTEGER DEFAULT 0;")
                 await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS last_weekly_claim REAL DEFAULT 0.0;")
                 await self.execute("ALTER TABLE user_nba_economy ADD COLUMN IF NOT EXISTS last_monthly_claim REAL DEFAULT 0.0;")
+
+            if not self.is_postgres:
+                s_cols = await self.fetch("PRAGMA table_info(user_spotify_profiles);")
+                s_col_names = [c["name"] for c in s_cols] if s_cols else []
+                if "playlists" not in s_col_names:
+                    await self.execute("ALTER TABLE user_spotify_profiles ADD COLUMN playlists TEXT;")
+            else:
+                await self.execute("ALTER TABLE user_spotify_profiles ADD COLUMN IF NOT EXISTS playlists TEXT;")
         except Exception as alter_err:
             logger.debug(f"Column check for team_battle_stats/economy: {alter_err}")
             
@@ -2428,7 +2436,7 @@ class DatabaseManager:
     async def get_spotify_profile(self, user_id: Any) -> Optional[dict]:
         """Retrieves a linked Spotify profile for a user."""
         try:
-            query = "SELECT user_id, spotify_id, display_name, profile_url, avatar_url FROM user_spotify_profiles WHERE user_id = ?"
+            query = "SELECT user_id, spotify_id, display_name, profile_url, avatar_url, playlists FROM user_spotify_profiles WHERE user_id = ?"
             row = await self.fetchrow(query, int(user_id))
             if row:
                 return dict(row)
@@ -2437,20 +2445,34 @@ class DatabaseManager:
             logger.error(f"Error getting Spotify profile for {user_id}: {e}")
             return None
 
-    async def set_spotify_profile(self, user_id: Any, spotify_id: str, display_name: str, profile_url: str, avatar_url: Optional[str] = None) -> bool:
+    async def set_spotify_profile(self, user_id: Any, spotify_id: str, display_name: str, profile_url: str, avatar_url: Optional[str] = None, playlists: Optional[str] = None) -> bool:
         """Links or updates a user's Spotify profile."""
         try:
-            query = """
-            INSERT INTO user_spotify_profiles (user_id, spotify_id, display_name, profile_url, avatar_url, updated_at)
-            VALUES (?, ?, ?, ?, ?, NOW())
-            ON CONFLICT (user_id) DO UPDATE SET
-                spotify_id = EXCLUDED.spotify_id,
-                display_name = EXCLUDED.display_name,
-                profile_url = EXCLUDED.profile_url,
-                avatar_url = EXCLUDED.avatar_url,
-                updated_at = NOW();
-            """
-            await self.execute(query, int(user_id), spotify_id, display_name, profile_url, avatar_url)
+            if playlists is not None:
+                query = """
+                INSERT INTO user_spotify_profiles (user_id, spotify_id, display_name, profile_url, avatar_url, playlists, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    spotify_id = EXCLUDED.spotify_id,
+                    display_name = EXCLUDED.display_name,
+                    profile_url = EXCLUDED.profile_url,
+                    avatar_url = EXCLUDED.avatar_url,
+                    playlists = EXCLUDED.playlists,
+                    updated_at = NOW();
+                """
+                await self.execute(query, int(user_id), spotify_id, display_name, profile_url, avatar_url, playlists)
+            else:
+                query = """
+                INSERT INTO user_spotify_profiles (user_id, spotify_id, display_name, profile_url, avatar_url, updated_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    spotify_id = EXCLUDED.spotify_id,
+                    display_name = EXCLUDED.display_name,
+                    profile_url = EXCLUDED.profile_url,
+                    avatar_url = EXCLUDED.avatar_url,
+                    updated_at = NOW();
+                """
+                await self.execute(query, int(user_id), spotify_id, display_name, profile_url, avatar_url)
             return True
         except Exception as e:
             logger.error(f"Error setting Spotify profile for {user_id}: {e}")

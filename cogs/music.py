@@ -1766,16 +1766,38 @@ class Music(commands.Cog):
             msg = "You haven't linked a Spotify profile yet. Run `/spotify link <profile_url>` first!" if target.id == interaction.user.id else f"{target.display_name} has not linked a Spotify profile."
             return await interaction.followup.send(f"❌ {msg}", ephemeral=True)
 
+        playlists = []
+        if row.get("playlists"):
+            try:
+                playlists = json.loads(row["playlists"])
+            except Exception:
+                playlists = []
+
         info = await self.bot.loop.run_in_executor(
             None, lambda: fetch_spotify_profile_info(row["spotify_id"])
         )
-        if not info or not info.get("playlists"):
-            return await interaction.followup.send("❌ No public playlists found on this Spotify profile.", ephemeral=True)
+        if not info:
+            info = dict(row)
 
-        playlists = info["playlists"]
+        if not playlists and info.get("playlists"):
+            playlists = info["playlists"]
+        elif playlists:
+            info["playlists"] = playlists
+
+        if not playlists:
+            return await interaction.followup.send(
+                "❌ **No playlists found on this Spotify profile.**\n\n"
+                "**Why are your playlists missing?**\n"
+                "1️⃣ **Profile Visibility:** In Spotify, open your playlist ➔ click `...` ➔ select **'Add to profile'** so it is visible publicly.\n"
+                "2️⃣ **Direct Import:** You can also import any Spotify playlist directly into Sweety using:\n"
+                "`/spotify import playlist_url:<your playlist link>`\n"
+                "3️⃣ **Play Directly:** Or just play it anytime in VC using `/play <your playlist link>`!",
+                ephemeral=True
+            )
+
         embed = discord.Embed(
-            title=f"🎧 Public Playlists for {info['display_name']}",
-            description=f"Found **{len(playlists)} public playlists** on [{info['display_name']}'s Spotify]({info['profile_url']}).\nSelect a playlist below to **Play in VC** or **Save to Sweety**:",
+            title=f"🎧 Playlists for {info.get('display_name', row.get('display_name', 'User'))}",
+            description=f"Found **{len(playlists)} playlists** on [{info.get('display_name', 'Spotify Profile')}]({info.get('profile_url', row.get('profile_url'))}).\nSelect a playlist below to **Play in VC** or **Save to Sweety**:",
             color=0x1DB954
         )
         if info.get("avatar_url"):

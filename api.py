@@ -505,6 +505,22 @@ async def spotify_oauth_callback(code: Optional[str] = None, state: Optional[str
                 return HTMLResponse(content="<h3>❌ Failed to fetch Spotify profile.</h3>", status_code=400)
             me = await me_resp.json()
 
+        playlists_list = []
+        try:
+            async with session.get("https://api.spotify.com/v1/me/playlists?limit=50", headers=me_headers) as pl_resp:
+                if pl_resp.status == 200:
+                    pl_data = await pl_resp.json()
+                    for item in pl_data.get("items", []):
+                        if item and item.get("id"):
+                            playlists_list.append({
+                                "id": item["id"],
+                                "name": item.get("name", "Unnamed Playlist"),
+                                "url": item.get("external_urls", {}).get("spotify", f"https://open.spotify.com/playlist/{item['id']}"),
+                                "image": item.get("images", [{}])[0].get("url") if item.get("images") else None
+                            })
+        except Exception as pl_err:
+            logger.warning(f"Failed to fetch user playlists via OAuth: {pl_err}")
+
     spotify_id = me.get("id", "")
     display_name = me.get("display_name") or spotify_id
     profile_url = me.get("external_urls", {}).get("spotify") or f"https://open.spotify.com/user/{spotify_id}"
@@ -517,7 +533,8 @@ async def spotify_oauth_callback(code: Optional[str] = None, state: Optional[str
         db = fallback_db
 
     if db:
-        await db.set_spotify_profile(user_id, spotify_id, display_name, profile_url, avatar_url)
+        pl_json = json.dumps(playlists_list) if playlists_list else None
+        await db.set_spotify_profile(user_id, spotify_id, display_name, profile_url, avatar_url, pl_json)
 
     avatar_html = f'<img src="{avatar_url}" style="width:80px;height:80px;border-radius:50%;margin-bottom:15px;border:3px solid #1DB954;object-fit:cover;"/>' if avatar_url else ''
 
