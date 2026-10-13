@@ -13795,6 +13795,21 @@ def roll_pack_card(pack_id: str = "starter", user_id: Optional[int] = None) -> D
     return random.choice(matching)
 
 
+def roll_reward_card(allowed_tiers: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Rolls a reward card from specific tiers for daily claims and streak milestones."""
+    if not allowed_tiers:
+        allowed_tiers = ["gold", "ruby", "amethyst"]
+    matching = [
+        c for c in NBA_2K_MOBILE_CARDS
+        if c.get("tier") in allowed_tiers and not c.get("is_exclusive") and not c.get("is_holo")
+    ]
+    if not matching:
+        matching = [c for c in NBA_2K_MOBILE_CARDS if c.get("tier") in allowed_tiers]
+    if not matching:
+        matching = NBA_2K_MOBILE_CARDS
+    return random.choice(matching)
+
+
 def build_openpack_embed(user: discord.User, pack_data: Dict[str, Any], card: Dict[str, Any], new_vc: int, is_new: bool = True, copies: int = 1) -> discord.Embed:
     """Builds an authentic 2K Mobile pack reveal embed with transparent drop rates."""
     tier_info = NBA_2K_TIERS.get(card["tier"], NBA_2K_TIERS["gold"])
