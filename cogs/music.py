@@ -23,7 +23,7 @@ YTDL_OPTIONS = {
     "logtostderr": False,
     "quiet": True,
     "no_warnings": True,
-    "default_search": "ytsearch",
+    "default_search": "scsearch",
     "source_address": "0.0.0.0",
     "extractor_args": {
         "youtube": {
@@ -136,9 +136,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
     async def from_url(cls, url, *, loop=None, volume=0.5, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
 
-        # If it's a plain search query, prefix it
+        # If it's a plain search query, prefix it with SoundCloud search
         if not url.startswith("http"):
-            url = f"ytsearch1:{url}"
+            url = f"scsearch1:{url}"
 
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
@@ -783,7 +783,7 @@ class Music(commands.Cog):
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl.extract_info(f"ytsearch5:{query}", download=False)
+                lambda: ytdl.extract_info(f"scsearch5:{query}", download=False)
             )
         except Exception as e:
             return await interaction.followup.send(f"❌ Search failed: `{e}`")
