@@ -226,13 +226,15 @@ def fmt_duration(seconds):
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
-def progress_bar(elapsed, total, length=18):
-    if not total:
-        return "▬" * length
-    filled = int((elapsed / total) * length)
+def progress_bar(elapsed, total, length=16):
+    if not total or total <= 0:
+        return "🔴 `LIVE STREAM`"
+    percent = min(1.0, max(0.0, elapsed / total))
+    filled = int(percent * length)
     filled = min(filled, length)
-    bar = "▬" * filled + "🔘" + "▬" * (length - filled)
-    return bar
+    unfilled = length - filled
+    # Real music player design: bold played track + knob + light remaining track
+    return "━" * filled + "🔘" + "─" * unfilled
 
 
 # ─── Guild Music State ────────────────────────────────────────────────────────
@@ -1145,6 +1147,14 @@ class Music(commands.Cog):
         bar = progress_bar(elapsed, total)
         elapsed_str = fmt_duration(elapsed)
         total_str = fmt_duration(total)
+        percent_str = f"{int(min(1.0, elapsed / total) * 100)}%" if total else "Live"
+
+        # Dynamic visualizer wave
+        if is_paused:
+            wave = "⏸️ `PAUSED`"
+        else:
+            waves = [" ▂▃▅▆▇", "▃▅▇▆▅▃", "▅▆▇▅▃ ", "▇▆▅▃ ▂"]
+            wave = f"🎶 `{waves[int(elapsed) % len(waves)]}`"
 
         queue_len = len(state.queue)
         next_track = list(state.queue)[0].get("title", "Unknown")[:35] if queue_len else "Nothing"
@@ -1167,8 +1177,8 @@ class Music(commands.Cog):
         )
         embed.set_thumbnail(url=src.thumbnail)
         embed.add_field(
-            name="Progress",
-            value=f"`{elapsed_str}` {bar} `{total_str}`",
+            name=f"Progress  •  {percent_str}",
+            value=f"`{elapsed_str}` {bar} `{total_str}`\n{wave}  •  *Live Audio*",
             inline=False
         )
         embed.add_field(name="👤 Requested by", value=src.requester, inline=True)
@@ -1179,7 +1189,7 @@ class Music(commands.Cog):
             value=f"Next: **{next_track}**" if queue_len else "Nothing queued",
             inline=False
         )
-        embed.set_footer(text="Sweety Music  •  Updates every 2s")
+        embed.set_footer(text="Sweety Music  •  Live Dynamic Progress")
         return embed
 
     async def live_updater(self, guild: discord.Guild):
@@ -1199,15 +1209,20 @@ class Music(commands.Cog):
                 embed = await self.build_np_embed(state)
                 await state.np_message.edit(embed=embed)
             except discord.NotFound:
+                state.np_message = None
                 break
             except discord.HTTPException as e:
                 if e.status == 429:
                     retry_after = getattr(e, "retry_after", 2.0) or 2.0
                     await asyncio.sleep(retry_after)
                     continue
-                break
-            except Exception:
-                break
+                # For non-429 HTTP exceptions, wait briefly and keep loop alive
+                await asyncio.sleep(2.5)
+                continue
+            except Exception as e:
+                logger.debug(f"Live updater error in {guild.id}: {e}")
+                await asyncio.sleep(2.5)
+                continue
 
     async def play_next(self, guild: discord.Guild):
         state = self.get_state(guild.id)
@@ -1535,11 +1550,23 @@ class Music(commands.Cog):
             state.voice_client.pause()
             state.on_pause()
             await self.set_vc_status(state.voice_client.channel, f"⏸️ Paused: {state.current.title}" if state.current else None)
+            if state.np_message:
+                try:
+                    embed = await self.build_np_embed(state)
+                    await state.np_message.edit(embed=embed)
+                except Exception:
+                    pass
             await interaction.response.send_message("⏸ Paused.")
         elif state.voice_client and state.voice_client.is_paused():
             state.voice_client.resume()
             state.on_resume()
             await self.set_vc_status(state.voice_client.channel, f"🎶 {state.current.title}" if state.current else None)
+            if state.np_message:
+                try:
+                    embed = await self.build_np_embed(state)
+                    await state.np_message.edit(embed=embed)
+                except Exception:
+                    pass
             await interaction.response.send_message("▶️ Resumed.")
         else:
             await interaction.response.send_message("Nothing is currently playing or paused.", ephemeral=True)
