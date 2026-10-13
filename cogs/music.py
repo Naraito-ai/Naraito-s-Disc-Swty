@@ -136,10 +136,36 @@ class YTDLSource(discord.PCMVolumeTransformer):
     async def from_url(cls, url, *, loop=None, volume=0.5, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
 
-        # If it's a plain search query, prefix it with SoundCloud search
         if not url.startswith("http"):
-            url = f"scsearch1:{url}"
+            # try up to 5 results, skip DRM ones
+            for i in range(1, 6):
+                try:
+                    data = await loop.run_in_executor(
+                        None,
+                        lambda i=i: ytdl.extract_info(f"scsearch{i}:{url}", download=False)
+                    )
+                    entries = [e for e in data.get("entries", []) if e]
+                    if not entries:
+                        continue
+                    entry = entries[-1]  # get the i-th result
+                    stream_url = entry.get("url")
+                    if not stream_url:
+                        formats = entry.get("formats", [])
+                        audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+                        if not audio_formats:
+                            continue
+                        stream_url = audio_formats[-1]["url"]
 
+                    entry["requester"] = requester
+                    source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+                    return cls(source, data=entry, volume=volume), False
+                except yt_dlp.utils.DownloadError as e:
+                    if "DRM" in str(e):
+                        continue  # skip, try next result
+                    raise ValueError(f"yt-dlp failed: {e}")
+            raise ValueError("All results were DRM protected. Try a different song.")
+
+        # direct URL
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
         except yt_dlp.utils.DownloadError as e:
@@ -148,31 +174,18 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if data is None:
             raise ValueError("yt-dlp returned nothing.")
 
-        # playlist or search collection
         if "entries" in data:
             entries = [e for e in data["entries"] if e]
             if not entries:
                 raise ValueError("Playlist is empty or all entries failed.")
+            for entry in entries:
+                entry["requester"] = requester
+            return entries, True
 
-            is_playlist_url = url.startswith("http") and any(param in url for param in ("list=", "/playlist"))
-            if is_playlist_url:
-                for entry in entries:
-                    entry["requester"] = requester
-                return entries, True
-            else:
-                data = entries[0]
-                if not data.get("url"):
-                    web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
-                    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
-
-        # single track — make sure there's a streamable URL
         stream_url = data.get("url")
         if not stream_url:
             formats = data.get("formats", [])
-            audio_formats = [
-                f for f in formats
-                if f.get("acodec") != "none" and f.get("url")
-            ]
+            audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
             if not audio_formats:
                 raise ValueError("No streamable audio URL found.")
             stream_url = audio_formats[-1]["url"]
@@ -561,16 +574,25 @@ async def play_autocomplete(
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(
             None,
-            lambda: ytdl.extract_info(f"scsearch5:{current}", download=False)
+            lambda: ytdl.extract_info(f"scsearch8:{current}", download=False)
         )
         entries = data.get("entries", [])
-        return [
-            app_commands.Choice(
-                name=entry.get("title", "Unknown")[:80],
-                value=entry.get("webpage_url", entry.get("url", ""))
+        choices = []
+        for e in entries:
+            if not e or not e.get("title") or not e.get("webpage_url"):
+                continue
+            # skip entries flagged as DRM in metadata
+            if e.get("has_drm"):
+                continue
+            choices.append(
+                app_commands.Choice(
+                    name=e.get("title", "Unknown")[:80],
+                    value=e.get("webpage_url", "")
+                )
             )
-            for entry in entries if entry and entry.get("title")
-        ][:5]
+            if len(choices) == 5:
+                break
+        return choices
     except Exception:
         return []
 
