@@ -207,6 +207,83 @@ YTDL_OPTIONS = {
 if os.path.exists("cookies.txt"):
     YTDL_OPTIONS["cookiefile"] = "cookies.txt"
 
+AUDIO_FILTERS = {
+    "bassboost_low": "bass=g=5:f=110:w=0.6",
+    "bassboost": "bass=g=10:f=110:w=0.6",
+    "bassboost_high": "bass=g=16:f=110:w=0.6",
+    "nightcore": "asetrate=48000*1.25,aresample=48000,atempo=1.05",
+    "vaporwave": "asetrate=48000*0.85,aresample=48000,aecho=0.8:0.9:1000:0.3",
+    "8d": "apulsator=hz=0.125:amount=1",
+    "treble": "treble=g=5:f=3000:w=0.5",
+    "pop": "equalizer=f=1000:t=q:w=1:g=2,equalizer=f=4000:t=q:w=1:g=3",
+}
+
+RADIO_STATIONS = {
+    "lofi": {
+        "name": "☕ 24/7 Lofi Chill Beats",
+        "url": "https://live.hunter.fm/lofi_high",
+        "desc": "Chill lofi study & relaxing beats"
+    },
+    "synthwave": {
+        "name": "🌆 Nightride FM — 24/7 Synthwave",
+        "url": "https://stream.nightride.fm/nightride.mp3",
+        "desc": "Cyberpunk, synthwave & retrowave"
+    },
+    "jazz": {
+        "name": "🎷 Smooth Lounge & Jazz",
+        "url": "http://ice1.somafm.com/secretagent-128-mp3",
+        "desc": "Secret Agent lounge, jazz & spy vibes"
+    }
+}
+
+def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Optional[str] = None) -> discord.FFmpegPCMAudio:
+    before_opts = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+    if seek_seconds > 0:
+        before_opts = f"-ss {seek_seconds} " + before_opts
+
+    opts = "-vn"
+    if audio_filter and audio_filter in AUDIO_FILTERS:
+        opts += f" -af {AUDIO_FILTERS[audio_filter]}"
+
+    return discord.FFmpegPCMAudio(
+        stream_url,
+        before_options=before_opts,
+        options=opts,
+        executable="ffmpeg"
+    )
+
+def fetch_lyrics(title: str, artist: str = "") -> Optional[dict]:
+    """Fetch lyrics from LrcLib API synchronously (safe for run_in_executor)."""
+    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
+    clean_title = re.sub(r'(feat\.|ft\.|official|video|audio|lyrics|hd|4k|sped up|slowed).*', '', clean_title, flags=re.IGNORECASE).strip()
+
+    # 1. Try search endpoint
+    try:
+        q = urllib.parse.quote(f"{clean_title} {artist}".strip())
+        req = urllib.request.Request(f"https://lrclib.net/api/search?q={q}", headers={"User-Agent": "SweetyBot/1.0"})
+        with urllib.request.urlopen(req, timeout=4.5) as resp:
+            results = json.loads(resp.read().decode())
+            if results and isinstance(results, list):
+                for item in results:
+                    if item.get("plainLyrics") or item.get("syncedLyrics"):
+                        return item
+    except Exception as e:
+        logger.debug(f"LrcLib search failed: {e}")
+
+    # 2. Try exact get if artist is available
+    if artist and artist.lower() not in ["unknown", ""]:
+        try:
+            params = urllib.parse.urlencode({"track_name": clean_title, "artist_name": artist})
+            req = urllib.request.Request(f"https://lrclib.net/api/get?{params}", headers={"User-Agent": "SweetyBot/1.0"})
+            with urllib.request.urlopen(req, timeout=4.0) as resp:
+                data = json.loads(resp.read().decode())
+                if data and (data.get("plainLyrics") or data.get("syncedLyrics")):
+                    return data
+        except Exception:
+            pass
+
+    return None
+
 FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
     "options": "-vn",
@@ -257,6 +334,11 @@ class GuildMusicState:
         self.pause_start: Optional[float] = None
         self.update_task: Optional[asyncio.Task] = None
         self.is_247: bool = False
+        self.filter: Optional[str] = None
+        self.autoplay: bool = False
+        self.last_played_track: Optional[dict] = None
+        self.played_history: deque = deque(maxlen=30)
+        self.radio_station: Optional[str] = None
 
     def clear(self):
         self.queue.clear()
@@ -270,6 +352,8 @@ class GuildMusicState:
         self.start_time = None
         self.paused_elapsed = 0.0
         self.pause_start = None
+        self.filter = None
+        self.radio_station = None
         if self.update_task:
             self.update_task.cancel()
             self.update_task = None
@@ -317,7 +401,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return audioop.mul(ret, 2, vol)
 
     @classmethod
-    async def _search_and_extract(cls, search_query: str, *, loop=None, volume=1.0, requester="Unknown"):
+    async def _search_and_extract(cls, search_query: str, *, loop=None, volume=1.0, seek_seconds=0, audio_filter=None, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
         data = None
 
@@ -378,11 +462,11 @@ class YTDLSource(discord.PCMVolumeTransformer):
             stream_url = audio_formats[-1]["url"]
 
         data["requester"] = requester
-        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+        source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
         return cls(source, data=data, volume=volume), False
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, volume=1.0, requester="Unknown"):
+    async def from_url(cls, url, *, loop=None, volume=1.0, seek_seconds=0, audio_filter=None, requester="Unknown"):
         loop = loop or asyncio.get_event_loop()
         url = url.strip()
 
@@ -504,14 +588,14 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 stream_url = audio_formats[-1]["url"]
 
             data["requester"] = requester
-            source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+            source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
             return cls(source, data=data, volume=volume), False
 
         # ── 3. Plain Text Search Query ────────────────────────────────────────
-        return await cls._search_and_extract(url, loop=loop, volume=volume, requester=requester)
+        return await cls._search_and_extract(url, loop=loop, volume=volume, seek_seconds=seek_seconds, audio_filter=audio_filter, requester=requester)
 
     @classmethod
-    async def regrab_stream(cls, data, volume=1.0):
+    async def regrab_stream(cls, data, volume=1.0, seek_seconds=0, audio_filter=None):
         loop = asyncio.get_event_loop()
         web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
         fresh = None
@@ -530,7 +614,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             title = data.get("title", "")
             if title and title != "Unknown":
                 source, _ = await cls._search_and_extract(
-                    title, loop=loop, volume=volume, requester=data.get("requester", "Unknown")
+                    title, loop=loop, volume=volume, seek_seconds=seek_seconds, audio_filter=audio_filter, requester=data.get("requester", "Unknown")
                 )
                 return source
 
@@ -550,14 +634,126 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 title = data.get("title", "")
                 if title and title != "Unknown":
                     source, _ = await cls._search_and_extract(
-                        title, loop=loop, volume=volume, requester=data.get("requester", "Unknown")
+                        title, loop=loop, volume=volume, seek_seconds=seek_seconds, audio_filter=audio_filter, requester=data.get("requester", "Unknown")
                     )
                     return source
                 raise ValueError("Could not regrab audio stream URL.")
             stream_url = audio_formats[-1]["url"]
 
-        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+        source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
         return cls(source, data=fresh, volume=volume)
+
+
+# ─── Interactive Music Views ──────────────────────────────────────────────────
+
+class LyricsPaginationView(discord.ui.View):
+    def __init__(self, pages: list[discord.Embed], user_id: int):
+        super().__init__(timeout=180)
+        self.pages = pages
+        self.user_id = user_id
+        self.current_page = 0
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.prev_btn.disabled = (self.current_page == 0)
+        self.next_btn.disabled = (self.current_page >= len(self.pages) - 1)
+
+    @discord.ui.button(emoji="◀️", label="Prev", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Only the requester can paginate.", ephemeral=True)
+        self.current_page = max(0, self.current_page - 1)
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(emoji="▶️", label="Next", style=discord.ButtonStyle.secondary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("Only the requester can paginate.", ephemeral=True)
+        self.current_page = min(len(self.pages) - 1, self.current_page + 1)
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+
+class FilterSelect(discord.ui.Select):
+    def __init__(self, cog: "Music", guild: discord.Guild):
+        self.cog = cog
+        self.guild = guild
+        options = [
+            discord.SelectOption(label="Clear Filter", value="clear", emoji="🔄", description="Reset to standard clean audio"),
+            discord.SelectOption(label="Bassboost (Medium)", value="bassboost", emoji="🔊", description="+10dB rich bass punch"),
+            discord.SelectOption(label="Bassboost High (Extreme)", value="bassboost_high", emoji="💥", description="+16dB heavy bass"),
+            discord.SelectOption(label="Nightcore", value="nightcore", emoji="🌙", description="High pitch + 1.25x tempo"),
+            discord.SelectOption(label="Vaporwave", value="vaporwave", emoji="📼", description="Slowed 0.85x + retro echo reverb"),
+            discord.SelectOption(label="8D Audio", value="8d", emoji="🎧", description="Headphone 360° circle surround sound"),
+            discord.SelectOption(label="Pop Equalizer", value="pop", emoji="✨", description="Vocal and mid clarity boost"),
+            discord.SelectOption(label="Treble Boost", value="treble", emoji="⚡", description="Crisp high frequencies"),
+        ]
+        super().__init__(placeholder="Select an audio filter preset...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        choice = self.values[0]
+        state = self.cog.get_state(self.guild.id)
+        if choice == "clear":
+            state.filter = None
+            msg = "🔄 Audio filter reset to **Normal**."
+        else:
+            state.filter = choice
+            msg = f"🎛️ Audio filter set to **{choice}**!"
+
+        # Hot-swap current playing stream with the new filter
+        if state.voice_client and (state.voice_client.is_playing() or state.voice_client.is_paused()) and state.current:
+            try:
+                elapsed = int(state.get_elapsed())
+                new_source = await YTDLSource.regrab_stream(
+                    state.current.data,
+                    volume=state.volume,
+                    seek_seconds=elapsed,
+                    audio_filter=state.filter
+                )
+                new_source.title = state.current.title
+                state.current = new_source
+                state.voice_client.source = new_source
+            except Exception as e:
+                logger.warning(f"Error hot-swapping filter: {e}")
+
+        if state.np_message:
+            try:
+                embed = await self.cog.build_np_embed(state)
+                await state.np_message.edit(embed=embed)
+            except Exception:
+                pass
+
+        await interaction.response.send_message(msg, ephemeral=True)
+
+
+class FilterSelectView(discord.ui.View):
+    def __init__(self, cog: "Music", guild: discord.Guild):
+        super().__init__(timeout=60)
+        self.add_item(FilterSelect(cog, guild))
+
+
+class RadioSelect(discord.ui.Select):
+    def __init__(self, cog: "Music", guild: discord.Guild):
+        self.cog = cog
+        self.guild = guild
+        options = [
+            discord.SelectOption(label="Lofi Chill Beats", value="lofi", emoji="☕", description="24/7 relaxing study & sleep beats"),
+            discord.SelectOption(label="Nightride FM (Synthwave)", value="synthwave", emoji="🌆", description="24/7 cyberpunk & retrowave"),
+            discord.SelectOption(label="Smooth Lounge & Jazz", value="jazz", emoji="🎷", description="24/7 Secret Agent lounge & jazz"),
+            discord.SelectOption(label="Stop Radio", value="stop", emoji="⏹", description="Stop radio and disconnect"),
+        ]
+        super().__init__(placeholder="Select a 24/7 radio station...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        station_key = self.values[0]
+        await self.cog.start_radio_station(interaction, station_key)
+
+
+class RadioSelectView(discord.ui.View):
+    def __init__(self, cog: "Music", guild: discord.Guild):
+        super().__init__(timeout=60)
+        self.add_item(RadioSelect(cog, guild))
 
 
 # ─── Now Playing View ─────────────────────────────────────────────────────────
@@ -612,24 +808,26 @@ class NowPlayingView(discord.ui.View):
         if not state.voice_client or not state.voice_client.is_playing():
             return await interaction.response.send_message("Nothing to skip.", ephemeral=True)
 
-        is_admin = (
-            interaction.user.id == 719932313919684670
-            or interaction.user.guild_permissions.manage_guild
-        )
-        if is_admin:
+        is_dj = await self.cog.is_dj_or_admin(interaction.user)
+        if is_dj:
+            state.voice_client.stop()
+            return await interaction.response.send_message("⏭ Skipped by DJ / Admin.", ephemeral=True)
+
+        vc_members = [m for m in state.voice_client.channel.members if not m.bot]
+        if len(vc_members) <= 1:
             state.voice_client.stop()
             return await interaction.response.send_message("⏭ Skipped.", ephemeral=True)
 
-        vc_members = [m for m in state.voice_client.channel.members if not m.bot]
         state.skip_votes.add(interaction.user.id)
-        needed = max(2, len(vc_members) // 2)
+        needed = (len(vc_members) // 2) + 1
 
         if len(state.skip_votes) >= needed:
+            state.skip_votes.clear()
             state.voice_client.stop()
-            await interaction.response.send_message("⏭ Vote passed — skipped!", ephemeral=True)
+            await interaction.response.send_message("⏭ Vote passed — skipped!", ephemeral=False)
         else:
             await interaction.response.send_message(
-                f"🗳 {len(state.skip_votes)}/{needed} votes to skip.", ephemeral=True
+                f"🗳️ Vote recorded! **{len(state.skip_votes)}/{needed}** votes to skip.", ephemeral=False
             )
 
     @discord.ui.button(emoji="⏹", style=discord.ButtonStyle.danger, row=0)
@@ -725,13 +923,23 @@ class NowPlayingView(discord.ui.View):
 
     # ── Row 2 ─────────────────────────────────────────────────────────────────
 
-    @discord.ui.button(emoji="❤️", label="Save", style=discord.ButtonStyle.secondary, row=2)
-    async def save_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(emoji="🎤", label="Lyrics", style=discord.ButtonStyle.secondary, row=2)
+    async def lyrics_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
         if not state.current:
-            return await interaction.response.send_message("Nothing playing to save.", ephemeral=True)
-        modal = SavePlaylistModal(self.cog, state)
-        await interaction.response.send_modal(modal)
+            return await interaction.response.send_message("Nothing playing.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        await self.cog.display_lyrics(interaction, state.current.title, ephemeral=True)
+
+    @discord.ui.button(emoji="🎛️", label="Filter", style=discord.ButtonStyle.secondary, row=2)
+    async def filter_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = FilterSelectView(self.cog, interaction.guild)
+        await interaction.response.send_message("🎛️ Select an audio filter preset:", view=view, ephemeral=True)
+
+    @discord.ui.button(emoji="📻", label="Radio", style=discord.ButtonStyle.secondary, row=2)
+    async def radio_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = RadioSelectView(self.cog, interaction.guild)
+        await interaction.response.send_message("📻 Select a 24/7 radio station:", view=view, ephemeral=True)
 
     @discord.ui.button(emoji="📋", label="Queue", style=discord.ButtonStyle.secondary, row=2)
     async def queue_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -754,6 +962,14 @@ class NowPlayingView(discord.ui.View):
             color=0x5865F2
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(emoji="❤️", label="Save", style=discord.ButtonStyle.secondary, row=2)
+    async def save_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        state = self.get_state()
+        if not state.current:
+            return await interaction.response.send_message("Nothing playing to save.", ephemeral=True)
+        modal = SavePlaylistModal(self.cog, state)
+        await interaction.response.send_modal(modal)
 
 
 # ─── Search Results View ──────────────────────────────────────────────────────
@@ -1213,10 +1429,12 @@ class Music(commands.Cog):
 
         # Monospace Spotify-style media player bar
         player_box = f"```\n{status_icon}  {elapsed_str}  {bar}  {total_str}\n```"
+        filter_str = f" • Filter: `{state.filter}`" if state.filter else ""
+        autoplay_str = " • 📻 `Autoplay`" if state.autoplay else ""
 
         embed.add_field(
             name=f"Progress • {percent_str}",
-            value=f"{player_box}{wave}  •  {vol_icon} `{vol_display}%`  •  Loop: `{loop_str}`",
+            value=f"{player_box}{wave}  •  {vol_icon} `{vol_display}%`  •  Loop: `{loop_str}`{filter_str}{autoplay_str}",
             inline=False
         )
         embed.add_field(name="👤 Requested by", value=src.requester, inline=True)
@@ -1227,7 +1445,7 @@ class Music(commands.Cog):
             value=f"Next: **{next_track}**" if queue_len else "Nothing queued",
             inline=False
         )
-        embed.set_footer(text="Sweety Music • Spotify Style Player")
+        embed.set_footer(text="Sweety Music • Spotify Style Player • Click 🎤 for Lyrics")
         return embed
 
     async def live_updater(self, guild: discord.Guild):
@@ -1262,6 +1480,210 @@ class Music(commands.Cog):
                 await asyncio.sleep(2.5)
                 continue
 
+    async def is_dj_or_admin(self, member: discord.Member) -> bool:
+        if member.id == 719932313919684670:
+            return True
+        if member.guild_permissions.administrator or member.guild_permissions.manage_guild:
+            return True
+        dj_role_id = await self.bot.db.get_config(member.guild.id, "dj_role_id", None)
+        if dj_role_id:
+            try:
+                role_id = int(dj_role_id)
+                if any(r.id == role_id for r in member.roles):
+                    return True
+            except ValueError:
+                pass
+        if any(r.name.lower() == "dj" for r in member.roles):
+            return True
+        return False
+
+    async def find_recommendation(self, last_track: dict, history: deque) -> Optional[dict]:
+        """Finds a smart recommendation based on last played track."""
+        title = last_track.get("title", "")
+        clean = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
+        clean = re.sub(r'(feat\.|ft\.|official|video|audio|lyrics|hd|4k|sped up|slowed).*', '', clean, flags=re.IGNORECASE).strip()
+
+        seen_titles = {h.get("title", "").lower() for h in history if isinstance(h, dict)}
+        seen_titles.add(title.lower())
+
+        if spotify:
+            try:
+                s_res = await self.bot.loop.run_in_executor(
+                    None, lambda: spotify.search(q=clean, type="track", limit=5)
+                )
+                items = s_res.get("tracks", {}).get("items", [])
+                if items:
+                    seed_id = items[0]["id"]
+                    recs = await self.bot.loop.run_in_executor(
+                        None, lambda: spotify.recommendations(seed_tracks=[seed_id], limit=10)
+                    )
+                    rec_tracks = recs.get("tracks", [])
+                    for rt in rec_tracks:
+                        t_name = f"{rt['name']} {rt['artists'][0]['name'] if rt.get('artists') else ''}".strip()
+                        if t_name.lower() not in seen_titles:
+                            return {
+                                "title": t_name,
+                                "webpage_url": t_name,
+                                "duration": int(rt.get("duration_ms", 0) / 1000),
+                                "requester": "📻 Autoplay"
+                            }
+            except Exception as e:
+                logger.debug(f"Spotify autoplay recommendation error: {e}")
+
+        try:
+            query = f"ytsearch8:{clean} mix"
+            data = await asyncio.wait_for(
+                self.bot.loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False)),
+                timeout=6.0
+            )
+            entries = [e for e in data.get("entries", []) if e]
+            for candidate in entries:
+                c_title = candidate.get("title", "")
+                if c_title.lower() not in seen_titles:
+                    return {
+                        "title": c_title,
+                        "webpage_url": candidate.get("webpage_url") or candidate.get("url") or f"https://www.youtube.com/watch?v={candidate.get('id', '')}",
+                        "duration": candidate.get("duration", 0),
+                        "thumbnail": candidate.get("thumbnail", ""),
+                        "uploader": candidate.get("uploader", "Unknown"),
+                        "requester": "📻 Autoplay"
+                    }
+        except Exception as e:
+            logger.debug(f"YouTube autoplay recommendation error: {e}")
+
+        return None
+
+    async def start_radio_station(self, interaction: discord.Interaction, station_key: str):
+        if station_key == "stop":
+            state = self.get_state(interaction.guild_id)
+            state.clear()
+            if state.voice_client:
+                state.voice_client.stop()
+                await state.voice_client.disconnect()
+                state.voice_client = None
+            if not interaction.response.is_done():
+                return await interaction.response.send_message("⏹ Radio stopped.", ephemeral=True)
+            return await interaction.followup.send("⏹ Radio stopped.", ephemeral=True)
+
+        station = RADIO_STATIONS.get(station_key)
+        if not station:
+            if not interaction.response.is_done():
+                return await interaction.response.send_message("❌ Invalid radio station.", ephemeral=True)
+            return await interaction.followup.send("❌ Invalid radio station.", ephemeral=True)
+
+        if not interaction.user.voice:
+            if not interaction.response.is_done():
+                return await interaction.response.send_message("❌ Join a voice channel first.", ephemeral=True)
+            return await interaction.followup.send("❌ Join a voice channel first.", ephemeral=True)
+
+        vc = interaction.user.voice.channel
+        state = self.get_state(interaction.guild_id)
+        state.text_channel = interaction.channel
+        state.is_247 = True
+        state.radio_station = station_key
+        state.queue.clear()
+
+        if not state.voice_client or not state.voice_client.is_connected():
+            state.voice_client = await vc.connect()
+        elif state.voice_client.channel != vc:
+            await state.voice_client.move_to(vc)
+
+        source = make_ffmpeg_audio(station["url"], seek_seconds=0, audio_filter=state.filter)
+        radio_data = {
+            "title": station["name"],
+            "webpage_url": station["url"],
+            "thumbnail": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400",
+            "duration": 0,
+            "requester": interaction.user.display_name,
+            "uploader": station["desc"],
+            "view_count": 0,
+        }
+        ytdl_src = YTDLSource(source, data=radio_data, volume=state.volume)
+        state.current = ytdl_src
+        state.start_time = time.time()
+        state.paused_elapsed = 0.0
+        state.pause_start = None
+
+        if state.voice_client.is_playing() or state.voice_client.is_paused():
+            state.voice_client.stop()
+
+        state.voice_client.play(
+            ytdl_src,
+            after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
+        )
+        await self.set_vc_status(vc, f"📻 {station['name']}")
+
+        embed = await self.build_np_embed(state)
+        view = NowPlayingView(self, interaction.guild)
+        state.np_message = await interaction.channel.send(embed=embed, view=view)
+        state.update_task = self.bot.loop.create_task(self.live_updater(interaction.guild))
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"📻 Tuned in to **{station['name']}**! (24/7 Radio Mode)", ephemeral=True)
+        else:
+            await interaction.followup.send(f"📻 Tuned in to **{station['name']}**! (24/7 Radio Mode)", ephemeral=True)
+
+    async def display_lyrics(self, interaction_or_ctx, query: Optional[str] = None, ephemeral: bool = False):
+        guild = interaction_or_ctx.guild
+        user = interaction_or_ctx.user if hasattr(interaction_or_ctx, "user") else interaction_or_ctx.author
+        state = self.get_state(guild.id)
+
+        target_query = query
+        target_artist = ""
+        if not target_query:
+            if not state.current:
+                msg = "❌ Nothing is currently playing. Specify a song name: `/lyrics <song>`"
+                if hasattr(interaction_or_ctx, "response"):
+                    if not interaction_or_ctx.response.is_done():
+                        return await interaction_or_ctx.response.send_message(msg, ephemeral=True)
+                    return await interaction_or_ctx.followup.send(msg, ephemeral=True)
+                return await interaction_or_ctx.send(msg)
+            target_query = state.current.title
+            target_artist = state.current.uploader or ""
+
+        lyrics_data = await self.bot.loop.run_in_executor(
+            None, lambda: fetch_lyrics(target_query, target_artist)
+        )
+
+        if not lyrics_data or not (lyrics_data.get("plainLyrics") or lyrics_data.get("syncedLyrics")):
+            msg = f"❌ No lyrics found for **{target_query}**."
+            if hasattr(interaction_or_ctx, "response"):
+                if not interaction_or_ctx.response.is_done():
+                    return await interaction_or_ctx.response.send_message(msg, ephemeral=ephemeral)
+                return await interaction_or_ctx.followup.send(msg, ephemeral=ephemeral)
+            return await interaction_or_ctx.send(msg)
+
+        track_name = lyrics_data.get("trackName") or target_query
+        artist_name = lyrics_data.get("artistName") or target_artist or "Unknown Artist"
+
+        raw_text = lyrics_data.get("syncedLyrics") or lyrics_data.get("plainLyrics") or ""
+        lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+
+        chunk_size = 24
+        chunks = [lines[i:i + chunk_size] for i in range(0, len(lines), chunk_size)]
+        if not chunks:
+            chunks = [["[Instrumental / No lyrics]"]]
+
+        pages = []
+        for idx, chunk in enumerate(chunks):
+            page_text = "\n".join(chunk)
+            embed = discord.Embed(
+                title=f"🎤 {track_name}",
+                description=f"**Artist:** {artist_name}\n\n{page_text}",
+                color=0x1DB954
+            )
+            embed.set_footer(text=f"Page {idx+1}/{len(chunks)} • Sweety Karaoke Lyrics")
+            pages.append(embed)
+
+        view = LyricsPaginationView(pages, user.id) if len(pages) > 1 else None
+
+        if hasattr(interaction_or_ctx, "response"):
+            if not interaction_or_ctx.response.is_done():
+                await interaction_or_ctx.response.send_message(embed=pages[0], view=view, ephemeral=ephemeral)
+            else:
+                await interaction_or_ctx.followup.send(embed=pages[0], view=view, ephemeral=ephemeral)
+        else:
+            await interaction_or_ctx.send(embed=pages[0], view=view)
+
     async def play_next(self, guild: discord.Guild):
         state = self.get_state(guild.id)
 
@@ -1273,7 +1695,7 @@ class Music(commands.Cog):
             state.update_task = None
 
         if state.loop and state.current:
-            source = await YTDLSource.regrab_stream(state.current.data, state.volume)
+            source = await YTDLSource.regrab_stream(state.current.data, state.volume, audio_filter=state.filter)
             state.start_time = time.time()
             state.paused_elapsed = 0.0
             state.pause_start = None
@@ -1294,6 +1716,19 @@ class Music(commands.Cog):
             state.queue.append(state.current.data)
 
         if not state.queue:
+            if state.autoplay and state.last_played_track:
+                rec_track = await self.find_recommendation(state.last_played_track, state.played_history)
+                if rec_track:
+                    state.queue.append(rec_track)
+                    if state.text_channel:
+                        embed = discord.Embed(
+                            title="📻 Smart Autoplay",
+                            description=f"Queue finished. Auto-queued: **[{rec_track.get('title')}]({rec_track.get('webpage_url')})**",
+                            color=0x1DB954
+                        )
+                        await state.text_channel.send(embed=embed)
+
+        if not state.queue:
             state.current = None
             await self.set_vc_status(state.voice_client.channel, "📻 Sweety 24/7 — Idle" if state.is_247 else None)
             if state.np_message:
@@ -1311,7 +1746,9 @@ class Music(commands.Cog):
             return
 
         track_data = state.queue.popleft()
-        source = await YTDLSource.regrab_stream(track_data, state.volume)
+        state.last_played_track = track_data
+        state.played_history.append(track_data)
+        source = await YTDLSource.regrab_stream(track_data, state.volume, audio_filter=state.filter)
         state.current = source
         state.skip_votes.clear()
         state.start_time = time.time()
@@ -1459,21 +1896,22 @@ class Music(commands.Cog):
         state = self.get_state(interaction.guild_id)
         if not state.voice_client or not state.voice_client.is_playing():
             return await interaction.response.send_message("Nothing playing.", ephemeral=True)
-        is_admin = (
-            interaction.user.id == 719932313919684670
-            or interaction.user.guild_permissions.manage_guild
-        )
-        if is_admin:
+        is_dj = await self.is_dj_or_admin(interaction.user)
+        if is_dj:
+            state.voice_client.stop()
+            return await interaction.response.send_message("⏭ Skipped by DJ / Admin.")
+        vc_members = [m for m in state.voice_client.channel.members if not m.bot]
+        if len(vc_members) <= 1:
             state.voice_client.stop()
             return await interaction.response.send_message("⏭ Skipped.")
-        vc_members = [m for m in state.voice_client.channel.members if not m.bot]
         state.skip_votes.add(interaction.user.id)
-        needed = max(2, len(vc_members) // 2)
+        needed = (len(vc_members) // 2) + 1
         if len(state.skip_votes) >= needed:
+            state.skip_votes.clear()
             state.voice_client.stop()
             await interaction.response.send_message("⏭ Vote passed — skipped!")
         else:
-            await interaction.response.send_message(f"🗳 {len(state.skip_votes)}/{needed} votes to skip.")
+            await interaction.response.send_message(f"🗳️ Vote recorded! **{len(state.skip_votes)}/{needed}** votes to skip.")
 
     @app_commands.command(name="stop", description="Stop music and clear queue")
     async def stop(self, interaction: discord.Interaction):
@@ -1698,7 +2136,30 @@ class Music(commands.Cog):
         msgs = {"track": "🔂 Looping track.", "queue": "🔁 Looping queue.", "off": "Loop off."}
         await interaction.response.send_message(msgs[mode])
 
-    @app_commands.command(name="shuffle", description="Shuffle the queue")
+    # ─── Queue Management Commands (/queue) ───────────────────────────────────
+
+    queue_group = app_commands.Group(name="queue", description="View and manage the song queue")
+
+    @queue_group.command(name="view", description="Show the current queue")
+    async def queue_view_slash(self, interaction: discord.Interaction):
+        await self.queue_cmd(interaction)
+
+    @queue_group.command(name="remove", description="Remove a track from the queue by position")
+    @app_commands.describe(position="Track number in the queue")
+    async def queue_remove_slash(self, interaction: discord.Interaction, position: int):
+        await self.remove(interaction, position)
+
+    @queue_group.command(name="shuffle", description="Shuffle all tracks in the current queue")
+    async def queue_shuffle_slash(self, interaction: discord.Interaction):
+        await self.shuffle(interaction)
+
+    @queue_group.command(name="clear", description="Clear all queued songs")
+    async def queue_clear_slash(self, interaction: discord.Interaction):
+        state = self.get_state(interaction.guild_id)
+        count = len(state.queue)
+        state.queue.clear()
+        await interaction.response.send_message(f"🗑 Cleared **{count}** tracks from the queue.")
+
     async def shuffle(self, interaction: discord.Interaction):
         import random
         state = self.get_state(interaction.guild_id)
@@ -1709,7 +2170,6 @@ class Music(commands.Cog):
         state.queue = deque(q)
         await interaction.response.send_message("🔀 Shuffled.")
 
-    @app_commands.command(name="queue", description="Show the queue")
     async def queue_cmd(self, interaction: discord.Interaction):
         state = self.get_state(interaction.guild_id)
         if not state.current and not state.queue:
@@ -1732,7 +2192,6 @@ class Music(commands.Cog):
         embed.set_footer(text=f"Loop: {loop_str}  •  Vol: {int(state.volume*100)}%")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="remove", description="Remove a track from the queue by position")
     async def remove(self, interaction: discord.Interaction, position: int):
         state = self.get_state(interaction.guild_id)
         if position < 1 or position > len(state.queue):
@@ -1741,6 +2200,50 @@ class Music(commands.Cog):
         removed = q.pop(position - 1)
         state.queue = deque(q)
         await interaction.response.send_message(f"🗑 Removed **{removed.get('title','Unknown')}**.")
+
+    @commands.command(name="queue", aliases=["q"])
+    async def prefix_queue(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        if not state.current and not state.queue:
+            return await ctx.send("Queue empty.")
+        embed = discord.Embed(title="🎶 Queue", color=0x5865F2)
+        if state.current:
+            embed.add_field(
+                name="▶️ Now Playing",
+                value=f"[{state.current.title}]({state.current.url}) `{fmt_duration(state.current.duration)}`",
+                inline=False
+            )
+        if state.queue:
+            lines = []
+            for i, t in enumerate(list(state.queue)[:10], 1):
+                lines.append(f"`{i}.` {t.get('title','Unknown')[:45]} `{fmt_duration(t.get('duration',0))}`")
+            if len(state.queue) > 10:
+                lines.append(f"*+{len(state.queue)-10} more*")
+            embed.add_field(name="Up Next", value="\n".join(lines), inline=False)
+        loop_str = "🔂 Track" if state.loop else ("🔁 Queue" if state.loop_queue else "Off")
+        embed.set_footer(text=f"Loop: {loop_str}  •  Vol: {int(state.volume*100)}%")
+        await ctx.send(embed=embed)
+
+    @commands.command(name="shuffle")
+    async def prefix_shuffle(self, ctx: commands.Context):
+        import random
+        state = self.get_state(ctx.guild.id)
+        if not state.queue:
+            return await ctx.send("Queue empty.")
+        q = list(state.queue)
+        random.shuffle(q)
+        state.queue = deque(q)
+        await ctx.send("🔀 Shuffled.")
+
+    @commands.command(name="remove")
+    async def prefix_remove(self, ctx: commands.Context, position: int):
+        state = self.get_state(ctx.guild.id)
+        if position < 1 or position > len(state.queue):
+            return await ctx.send("Invalid position.")
+        q = list(state.queue)
+        removed = q.pop(position - 1)
+        state.queue = deque(q)
+        await ctx.send(f"🗑 Removed **{removed.get('title','Unknown')}**.")
 
     # ─── Spotify Commands (Grouped under /spotify) ─────────────────────────────
 
@@ -2232,6 +2735,318 @@ class Music(commands.Cog):
                 await ctx.send(f"🗑 Deleted **{name}**.")
         except Exception as e:
             await ctx.send(f"❌ DB error: {e}")
+
+    # ─── Live Lyrics & Karaoke ───────────────────────────────────────────────
+
+    @app_commands.command(name="lyrics", description="View synced karaoke lyrics for the current song or search query")
+    @app_commands.describe(query="Song title to search (leave blank for currently playing song)")
+    async def lyrics_slash(self, interaction: discord.Interaction, query: Optional[str] = None):
+        await interaction.response.defer()
+        await self.display_lyrics(interaction, query, ephemeral=False)
+
+    @commands.command(name="lyrics")
+    async def lyrics_prefix(self, ctx: commands.Context, *, query: Optional[str] = None):
+        await self.display_lyrics(ctx, query)
+
+    # ─── Audio Equalizer & Filters (/filter) ──────────────────────────────────
+
+    filter_group = app_commands.Group(name="filter", description="Audio equalizer and sound effect presets")
+
+    @filter_group.command(name="set", description="Apply an audio equalizer filter preset")
+    @app_commands.describe(preset="Audio filter preset to apply")
+    @app_commands.choices(preset=[
+        app_commands.Choice(name="Bassboost (Medium)", value="bassboost"),
+        app_commands.Choice(name="Bassboost High (Extreme)", value="bassboost_high"),
+        app_commands.Choice(name="Nightcore (High pitch + speed)", value="nightcore"),
+        app_commands.Choice(name="Vaporwave (Slowed + retro reverb)", value="vaporwave"),
+        app_commands.Choice(name="8D Audio (Surround circle)", value="8d"),
+        app_commands.Choice(name="Pop EQ (Mid & vocal boost)", value="pop"),
+        app_commands.Choice(name="Treble Boost", value="treble"),
+    ])
+    async def filter_set_slash(self, interaction: discord.Interaction, preset: str):
+        state = self.get_state(interaction.guild_id)
+        state.filter = preset
+        if state.voice_client and (state.voice_client.is_playing() or state.voice_client.is_paused()) and state.current:
+            try:
+                elapsed = int(state.get_elapsed())
+                new_source = await YTDLSource.regrab_stream(
+                    state.current.data,
+                    volume=state.volume,
+                    seek_seconds=elapsed,
+                    audio_filter=state.filter
+                )
+                new_source.title = state.current.title
+                state.current = new_source
+                state.voice_client.source = new_source
+            except Exception as e:
+                logger.warning(f"Error hot-swapping filter: {e}")
+
+        if state.np_message:
+            try:
+                embed = await self.build_np_embed(state)
+                await state.np_message.edit(embed=embed)
+            except Exception:
+                pass
+        await interaction.response.send_message(f"🎛️ Audio filter set to **{preset}**!")
+
+    @filter_group.command(name="clear", description="Clear audio filter and return to normal")
+    async def filter_clear_slash(self, interaction: discord.Interaction):
+        state = self.get_state(interaction.guild_id)
+        state.filter = None
+        if state.voice_client and (state.voice_client.is_playing() or state.voice_client.is_paused()) and state.current:
+            try:
+                elapsed = int(state.get_elapsed())
+                new_source = await YTDLSource.regrab_stream(
+                    state.current.data,
+                    volume=state.volume,
+                    seek_seconds=elapsed,
+                    audio_filter=None
+                )
+                new_source.title = state.current.title
+                state.current = new_source
+                state.voice_client.source = new_source
+            except Exception as e:
+                logger.warning(f"Error hot-swapping filter: {e}")
+
+        if state.np_message:
+            try:
+                embed = await self.build_np_embed(state)
+                await state.np_message.edit(embed=embed)
+            except Exception:
+                pass
+        await interaction.response.send_message("🔄 Audio filter reset to **Normal**.")
+
+    @filter_group.command(name="list", description="List all available audio filters")
+    async def filter_list_slash(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🎛️ Sweety Audio Filters",
+            description=(
+                "`/filter set bassboost` — Rich +10dB bass punch\n"
+                "`/filter set bassboost_high` — Heavy +16dB bass boost\n"
+                "`/filter set nightcore` — High pitch & 1.25x tempo\n"
+                "`/filter set vaporwave` — Slowed 0.85x + retro echo reverb\n"
+                "`/filter set 8d` — 360° surround headphone circle\n"
+                "`/filter set pop` — Vocal and mid equalizer boost\n"
+                "`/filter set treble` — Crisp high-frequency boost\n"
+                "`/filter clear` — Reset back to normal"
+            ),
+            color=0x5865F2
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @commands.group(name="filter", invoke_without_command=True)
+    async def filter_prefix_group(self, ctx: commands.Context, preset: Optional[str] = None):
+        if not preset:
+            embed = discord.Embed(
+                title="🎛️ Audio Filters",
+                description="Use `!filter <preset>` or `!filter clear`.\nPresets: `bassboost`, `bassboost_high`, `nightcore`, `vaporwave`, `8d`, `pop`, `treble`",
+                color=0x5865F2
+            )
+            return await ctx.send(embed=embed)
+        p = preset.lower()
+        state = self.get_state(ctx.guild.id)
+        if p in ["clear", "reset", "off"]:
+            state.filter = None
+            msg = "🔄 Audio filter reset to **Normal**."
+        elif p in AUDIO_FILTERS:
+            state.filter = p
+            msg = f"🎛️ Audio filter set to **{p}**!"
+        else:
+            return await ctx.send(f"❌ Unknown preset `{p}`. Available: {', '.join(AUDIO_FILTERS.keys())}")
+
+        if state.voice_client and (state.voice_client.is_playing() or state.voice_client.is_paused()) and state.current:
+            try:
+                elapsed = int(state.get_elapsed())
+                new_source = await YTDLSource.regrab_stream(
+                    state.current.data,
+                    volume=state.volume,
+                    seek_seconds=elapsed,
+                    audio_filter=state.filter
+                )
+                new_source.title = state.current.title
+                state.current = new_source
+                state.voice_client.source = new_source
+            except Exception as e:
+                logger.warning(f"Error hot-swapping filter: {e}")
+
+        if state.np_message:
+            try:
+                embed = await self.build_np_embed(state)
+                await state.np_message.edit(embed=embed)
+            except Exception:
+                pass
+        await ctx.send(msg)
+
+    # ─── 24/7 Radio Stations (/radio) ─────────────────────────────────────────
+
+    radio_group = app_commands.Group(name="radio", description="24/7 curated online radio stations")
+
+    @radio_group.command(name="play", description="Tune in to a 24/7 curated radio station")
+    @app_commands.describe(station="Radio station genre")
+    @app_commands.choices(station=[
+        app_commands.Choice(name="☕ 24/7 Lofi Chill Beats", value="lofi"),
+        app_commands.Choice(name="🌆 Nightride FM (24/7 Synthwave)", value="synthwave"),
+        app_commands.Choice(name="🎷 Smooth Lounge & Jazz", value="jazz"),
+    ])
+    async def radio_play_slash(self, interaction: discord.Interaction, station: str):
+        await self.start_radio_station(interaction, station)
+
+    @radio_group.command(name="stop", description="Stop radio stream playback")
+    async def radio_stop_slash(self, interaction: discord.Interaction):
+        await self.start_radio_station(interaction, "stop")
+
+    @commands.group(name="radio", invoke_without_command=True)
+    async def radio_prefix_group(self, ctx: commands.Context, station: Optional[str] = None):
+        if not station:
+            embed = discord.Embed(
+                title="📻 24/7 Curated Radio Stations",
+                description="`!radio lofi` — ☕ 24/7 Lofi Chill Beats\n`!radio synthwave` — 🌆 Nightride FM\n`!radio jazz` — 🎷 Smooth Lounge & Jazz\n`!radio stop` — Stop radio",
+                color=0x5865F2
+            )
+            return await ctx.send(embed=embed)
+        s = station.lower()
+        if s == "stop":
+            state = self.get_state(ctx.guild.id)
+            state.clear()
+            if state.voice_client:
+                state.voice_client.stop()
+                await state.voice_client.disconnect()
+                state.voice_client = None
+            return await ctx.send("⏹ Radio stopped.")
+
+        if s not in RADIO_STATIONS:
+            return await ctx.send("❌ Available stations: `lofi`, `synthwave`, `jazz`")
+
+        if not ctx.author.voice:
+            return await ctx.send("❌ Join a voice channel first.")
+
+        st_info = RADIO_STATIONS[s]
+        state = self.get_state(ctx.guild.id)
+        state.text_channel = ctx.channel
+        state.is_247 = True
+        state.radio_station = s
+        state.queue.clear()
+
+        vc = ctx.author.voice.channel
+        if not state.voice_client or not state.voice_client.is_connected():
+            state.voice_client = await vc.connect()
+        elif state.voice_client.channel != vc:
+            await state.voice_client.move_to(vc)
+
+        source = make_ffmpeg_audio(st_info["url"], seek_seconds=0, audio_filter=state.filter)
+        radio_data = {
+            "title": st_info["name"],
+            "webpage_url": st_info["url"],
+            "thumbnail": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400",
+            "duration": 0,
+            "requester": ctx.author.display_name,
+            "uploader": st_info["desc"],
+            "view_count": 0,
+        }
+        ytdl_src = YTDLSource(source, data=radio_data, volume=state.volume)
+        state.current = ytdl_src
+        state.start_time = time.time()
+        state.paused_elapsed = 0.0
+        state.pause_start = None
+
+        if state.voice_client.is_playing() or state.voice_client.is_paused():
+            state.voice_client.stop()
+
+        state.voice_client.play(
+            ytdl_src,
+            after=lambda e: self.bot.loop.create_task(self.play_next(ctx.guild))
+        )
+        await self.set_vc_status(vc, f"📻 {st_info['name']}")
+
+        embed = await self.build_np_embed(state)
+        view = NowPlayingView(self, ctx.guild)
+        state.np_message = await ctx.send(embed=embed, view=view)
+        state.update_task = self.bot.loop.create_task(self.live_updater(ctx.guild))
+
+    # ─── Smart Autoplay (/autoplay) ───────────────────────────────────────────
+
+    @app_commands.command(name="autoplay", description="Toggle smart autoplay to recommend and queue similar tracks")
+    @app_commands.describe(mode="Enable or disable autoplay (leave blank to toggle)")
+    @app_commands.choices(mode=[
+        app_commands.Choice(name="Enable", value="on"),
+        app_commands.Choice(name="Disable", value="off"),
+    ])
+    async def autoplay_slash(self, interaction: discord.Interaction, mode: Optional[str] = None):
+        state = self.get_state(interaction.guild_id)
+        if mode == "on":
+            state.autoplay = True
+        elif mode == "off":
+            state.autoplay = False
+        else:
+            state.autoplay = not state.autoplay
+
+        status_str = "**Enabled** 🟢" if state.autoplay else "**Disabled** 🔴"
+        await interaction.response.send_message(f"📻 Smart Autoplay is now {status_str}! When the queue ends, Sweety will automatically find and play similar songs.")
+
+    @commands.command(name="autoplay")
+    async def autoplay_prefix(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        state.autoplay = not state.autoplay
+        status_str = "**Enabled** 🟢" if state.autoplay else "**Disabled** 🔴"
+        await ctx.send(f"📻 Smart Autoplay is now {status_str}!")
+
+    # ─── DJ Role Configuration (/dj) ──────────────────────────────────────────
+
+    dj_group = app_commands.Group(name="dj", description="Configure DJ roles and music permissions")
+
+    @dj_group.command(name="set_role", description="Set the server DJ role")
+    @app_commands.describe(role="The role that will have DJ permissions")
+    async def dj_set_role(self, interaction: discord.Interaction, role: discord.Role):
+        if not (interaction.user.guild_permissions.manage_guild or interaction.user.guild_permissions.administrator or interaction.user.id == 719932313919684670):
+            return await interaction.response.send_message("❌ You need Manage Server permission to configure the DJ role.", ephemeral=True)
+        await self.bot.db.set_config(interaction.guild_id, "dj_role_id", str(role.id))
+        await interaction.response.send_message(f"🎧 DJ role set to {role.mention}. Members with this role can bypass vote-skip and control music.", ephemeral=False)
+
+    @dj_group.command(name="clear_role", description="Remove the configured DJ role")
+    async def dj_clear_role(self, interaction: discord.Interaction):
+        if not (interaction.user.guild_permissions.manage_guild or interaction.user.guild_permissions.administrator or interaction.user.id == 719932313919684670):
+            return await interaction.response.send_message("❌ You need Manage Server permission to configure the DJ role.", ephemeral=True)
+        await self.bot.db.set_config(interaction.guild_id, "dj_role_id", "")
+        await interaction.response.send_message("🎧 DJ role cleared. Any role named `DJ` or server admins will have DJ permissions.", ephemeral=False)
+
+    @dj_group.command(name="view", description="Check the current DJ role configuration")
+    async def dj_view(self, interaction: discord.Interaction):
+        dj_role_id = await self.bot.db.get_config(interaction.guild_id, "dj_role_id", None)
+        if dj_role_id:
+            role = interaction.guild.get_role(int(dj_role_id))
+            r_str = role.mention if role else f"ID: {dj_role_id} (Role Deleted)"
+        else:
+            r_str = "No specific role set (Default: Any role named `DJ` or Admins)"
+        await interaction.response.send_message(f"🎧 **Current DJ Role:** {r_str}")
+
+    @commands.group(name="dj", invoke_without_command=True)
+    async def dj_prefix_group(self, ctx: commands.Context):
+        dj_role_id = await self.bot.db.get_config(ctx.guild.id, "dj_role_id", None)
+        if dj_role_id:
+            role = ctx.guild.get_role(int(dj_role_id))
+            r_str = role.mention if role else f"ID: {dj_role_id}"
+        else:
+            r_str = "No specific role set (Default: Any role named `DJ` or Admins)"
+        embed = discord.Embed(
+            title="🎧 Server DJ Configuration",
+            description=f"**Current DJ Role:** {r_str}\n\n`!dj set <@role>` — Configure DJ role\n`!dj clear` — Reset DJ role",
+            color=0x5865F2
+        )
+        await ctx.send(embed=embed)
+
+    @dj_prefix_group.command(name="set")
+    async def dj_prefix_set(self, ctx: commands.Context, role: discord.Role):
+        if not (ctx.author.guild_permissions.manage_guild or ctx.author.guild_permissions.administrator or ctx.author.id == 719932313919684670):
+            return await ctx.send("❌ You need Manage Server permission to configure the DJ role.")
+        await self.bot.db.set_config(ctx.guild.id, "dj_role_id", str(role.id))
+        await ctx.send(f"🎧 DJ role set to {role.mention}.")
+
+    @dj_prefix_group.command(name="clear")
+    async def dj_prefix_clear(self, ctx: commands.Context):
+        if not (ctx.author.guild_permissions.manage_guild or ctx.author.guild_permissions.administrator or ctx.author.id == 719932313919684670):
+            return await ctx.send("❌ You need Manage Server permission to configure the DJ role.")
+        await self.bot.db.set_config(ctx.guild.id, "dj_role_id", "")
+        await ctx.send("🎧 DJ role cleared.")
 
 
 async def setup(bot):
