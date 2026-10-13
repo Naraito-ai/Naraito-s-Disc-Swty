@@ -447,11 +447,13 @@ class NowPlayingView(discord.ui.View):
             state.on_pause()
             button.emoji = "▶️"
             button.style = discord.ButtonStyle.success
+            await self.cog.set_vc_status(vc.channel, f"⏸️ Paused: {state.current.title}" if state.current else None)
         elif vc.is_paused():
             vc.resume()
             state.on_resume()
             button.emoji = "⏸"
             button.style = discord.ButtonStyle.primary
+            await self.cog.set_vc_status(vc.channel, f"🎶 {state.current.title}" if state.current else None)
 
         embed = await self.cog.build_np_embed(state)
         await interaction.response.edit_message(embed=embed, view=self)
@@ -486,11 +488,15 @@ class NowPlayingView(discord.ui.View):
     async def stop_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
         if state.voice_client:
+            vc_channel = state.voice_client.channel
             state.clear()
             state.voice_client.stop()
             if not state.is_247:
                 await state.voice_client.disconnect()
                 state.voice_client = None
+                await self.cog.set_vc_status(vc_channel, None)
+            else:
+                await self.cog.set_vc_status(vc_channel, "📻 Sweety 24/7 — Idle")
 
         for child in self.children:
             child.disabled = True
@@ -678,6 +684,7 @@ class SearchResultsView(discord.ui.View):
                         self.cog.play_next(interaction.guild)
                     )
                 )
+                await self.cog.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                 np_embed = await self.cog.build_np_embed(state)
                 np_view = NowPlayingView(self.cog, interaction.guild)
                 msg = await interaction.edit_original_response(embed=np_embed, view=np_view)
@@ -863,6 +870,16 @@ class Music(commands.Cog):
                 except Exception as e:
                     logger.warning(f"24/7 auto-reconnect failed in {member.guild.name}: {e}")
 
+    async def set_vc_status(self, channel: Optional[discord.VoiceChannel], status: Optional[str]):
+        """Sets the voice channel status message based on current track or state."""
+        if not channel:
+            return
+        try:
+            val = status[:500] if status else None
+            await self.bot.http.edit_voice_channel_status(val, channel_id=channel.id)
+        except Exception as e:
+            logger.debug(f"Could not set voice channel status in {channel.name}: {e}")
+
     async def build_np_embed(self, state: GuildMusicState) -> discord.Embed:
         src = state.current
         if not src:
@@ -918,13 +935,13 @@ class Music(commands.Cog):
             value=f"Next: **{next_track}**" if queue_len else "Nothing queued",
             inline=False
         )
-        embed.set_footer(text="Sweety Music  •  Updates every 15s")
+        embed.set_footer(text="Sweety Music  •  Updates every 2s")
         return embed
 
     async def live_updater(self, guild: discord.Guild):
         state = self.get_state(guild.id)
         while True:
-            await asyncio.sleep(15)
+            await asyncio.sleep(2)
             try:
                 if not state.np_message or not state.current:
                     break
@@ -932,9 +949,18 @@ class Music(commands.Cog):
                     state.voice_client.is_playing() or state.voice_client.is_paused()
                 ):
                     break
+                if state.voice_client.is_paused():
+                    continue
+
                 embed = await self.build_np_embed(state)
                 await state.np_message.edit(embed=embed)
-            except (discord.NotFound, discord.HTTPException):
+            except discord.NotFound:
+                break
+            except discord.HTTPException as e:
+                if e.status == 429:
+                    retry_after = getattr(e, "retry_after", 2.0) or 2.0
+                    await asyncio.sleep(retry_after)
+                    continue
                 break
             except Exception:
                 break
@@ -959,6 +985,7 @@ class Music(commands.Cog):
                 after=lambda e: self.bot.loop.create_task(self.play_next(guild))
             )
             state.current = source
+            await self.set_vc_status(state.voice_client.channel, f"🎶 {source.title}")
             if state.np_message:
                 embed = await self.build_np_embed(state)
                 view = NowPlayingView(self, guild)
@@ -971,6 +998,7 @@ class Music(commands.Cog):
 
         if not state.queue:
             state.current = None
+            await self.set_vc_status(state.voice_client.channel, "📻 Sweety 24/7 — Idle" if state.is_247 else None)
             if state.np_message:
                 desc = "📻 **24/7 mode active** — staying in voice channel." if state.is_247 else "Add more tracks with `/play`."
                 embed = discord.Embed(
@@ -997,6 +1025,7 @@ class Music(commands.Cog):
             source,
             after=lambda e: self.bot.loop.create_task(self.play_next(guild))
         )
+        await self.set_vc_status(state.voice_client.channel, f"🎶 {source.title}")
 
         embed = await self.build_np_embed(state)
         view = NowPlayingView(self, guild)
@@ -1069,6 +1098,7 @@ class Music(commands.Cog):
                         result,
                         after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
                     )
+                    await self.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                     embed = await self.build_np_embed(state)
                     view = NowPlayingView(self, interaction.guild)
                     state.np_message = await interaction.followup.send(embed=embed, view=view)
@@ -1152,13 +1182,16 @@ class Music(commands.Cog):
     async def stop(self, interaction: discord.Interaction):
         state = self.get_state(interaction.guild_id)
         if state.voice_client:
+            vc_channel = state.voice_client.channel
             state.clear()
             state.voice_client.stop()
             if not state.is_247:
                 await state.voice_client.disconnect()
                 state.voice_client = None
+                await self.set_vc_status(vc_channel, None)
                 await interaction.response.send_message("⏹ Stopped and disconnected.")
             else:
+                await self.set_vc_status(vc_channel, "📻 Sweety 24/7 — Idle")
                 await interaction.response.send_message("⏹ Stopped playback. *(24/7 mode active — staying in VC)*")
         else:
             await interaction.response.send_message("Nothing playing.", ephemeral=True)
@@ -1201,8 +1234,10 @@ class Music(commands.Cog):
                 color=0xED4245
             )
             if not state.queue and not state.current and state.voice_client:
+                vc_channel = state.voice_client.channel
                 await state.voice_client.disconnect()
                 state.voice_client = None
+                await self.set_vc_status(vc_channel, None)
 
         await interaction.response.send_message(embed=embed)
 
@@ -1242,8 +1277,10 @@ class Music(commands.Cog):
                 color=0xED4245
             )
             if not state.queue and not state.current and state.voice_client:
+                vc_channel = state.voice_client.channel
                 await state.voice_client.disconnect()
                 state.voice_client = None
+                await self.set_vc_status(vc_channel, None)
 
         await ctx.send(embed=embed)
 
@@ -1253,6 +1290,7 @@ class Music(commands.Cog):
         if state.voice_client and state.voice_client.is_playing():
             state.voice_client.pause()
             state.on_pause()
+            await self.set_vc_status(state.voice_client.channel, f"⏸️ Paused: {state.current.title}" if state.current else None)
             await interaction.response.send_message("⏸ Paused.")
         else:
             await interaction.response.send_message("Nothing playing.", ephemeral=True)
@@ -1263,6 +1301,7 @@ class Music(commands.Cog):
         if state.voice_client and state.voice_client.is_paused():
             state.voice_client.resume()
             state.on_resume()
+            await self.set_vc_status(state.voice_client.channel, f"🎶 {state.current.title}" if state.current else None)
             await interaction.response.send_message("▶️ Resumed.")
         else:
             await interaction.response.send_message("Nothing paused.", ephemeral=True)
