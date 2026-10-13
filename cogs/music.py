@@ -5,6 +5,7 @@ from discord import app_commands
 import asyncio
 import json
 import logging
+import re
 import urllib.parse
 import urllib.request
 from collections import deque
@@ -44,6 +45,138 @@ def fetch_oembed(oembed_url: str) -> Optional[dict]:
             return json.loads(resp.read().decode("utf-8"))
     except Exception:
         return None
+
+
+def parse_spotify_user_input(profile_input: str) -> tuple[str, str]:
+    """Parses raw profile input and returns (spotify_id, profile_url)."""
+    raw = profile_input.strip()
+    if "open.spotify.com/user/" in raw:
+        user_id = raw.split("open.spotify.com/user/")[1].split("?")[0].strip("/")
+    elif "spotify:user:" in raw:
+        user_id = raw.split("spotify:user:")[1].split("?")[0].strip()
+    else:
+        user_id = raw
+    return user_id, f"https://open.spotify.com/user/{user_id}"
+
+
+def fetch_spotify_profile_info(user_id: str) -> Optional[dict]:
+    """Fetches public Spotify profile metadata and public playlists."""
+    profile_url = f"https://open.spotify.com/user/{user_id}"
+    try:
+        req = urllib.request.Request(
+            profile_url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        with urllib.request.urlopen(req, timeout=6.0) as resp:
+            html = resp.read().decode("utf-8")
+    except Exception as e:
+        logger.warning(f"Failed to fetch Spotify profile HTML for {user_id}: {e}")
+        return None
+
+    og_title = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+    og_img = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+    og_desc = re.search(r'<meta property="og:description" content="([^"]+)"', html)
+
+    display_name = og_title.group(1).replace("&#39;", "'").replace("&amp;", "&") if og_title else user_id
+    avatar_url = og_img.group(1) if og_img else None
+    description = og_desc.group(1) if og_desc else None
+
+    # Parse public playlists
+    playlists = []
+    seen_ids = set()
+    matches = [m.start() for m in re.finditer(r'/playlist/', html)]
+    for idx in matches:
+        snippet = html[idx:idx+600]
+        p_id_m = re.search(r'/playlist/([a-zA-Z0-9]+)', snippet)
+        if not p_id_m:
+            continue
+        p_id = p_id_m.group(1)
+        if p_id in seen_ids:
+            continue
+        seen_ids.add(p_id)
+
+        p_name_m = re.search(r'data-encore-id="text">([^<]+)</span>', snippet)
+        p_name = p_name_m.group(1).replace("&#39;", "'").replace("&amp;", "&") if p_name_m else f"Playlist {len(playlists)+1}"
+
+        p_img_m = re.search(r'src="([^"]+)"', snippet)
+        p_img = p_img_m.group(1) if p_img_m else None
+
+        playlists.append({
+            "id": p_id,
+            "name": p_name,
+            "url": f"https://open.spotify.com/playlist/{p_id}",
+            "image": p_img
+        })
+
+    return {
+        "spotify_id": user_id,
+        "display_name": display_name,
+        "profile_url": profile_url,
+        "avatar_url": avatar_url,
+        "description": description,
+        "playlists": playlists
+    }
+
+
+def extract_spotify_playlist_tracks_public(playlist_id_or_url: str) -> list[dict]:
+    """Extracts track items from a Spotify playlist using the public embed JSON or Spotipy."""
+    p_id = playlist_id_or_url.strip()
+    if "/playlist/" in p_id:
+        p_id = p_id.split("/playlist/")[1].split("?")[0].strip("/")
+
+    # 1. Try public embed endpoint (fast, zero auth)
+    try:
+        req = urllib.request.Request(
+            f"https://open.spotify.com/embed/playlist/{p_id}",
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        with urllib.request.urlopen(req, timeout=6.0) as resp:
+            html = resp.read().decode("utf-8")
+        m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html)
+        if m:
+            data = json.loads(m.group(1))
+            entity = data.get("props", {}).get("pageProps", {}).get("state", {}).get("data", {}).get("entity", {})
+            raw_tracks = entity.get("trackList", [])
+            tracks = []
+            for t in raw_tracks:
+                title = t.get("title", "")
+                artist = t.get("subtitle", "")
+                dur_ms = t.get("duration", 0)
+                if title:
+                    tracks.append({
+                        "title": f"{title} {artist}".strip(),
+                        "url": f"{title} {artist}".strip(),
+                        "duration": int(dur_ms / 1000) if dur_ms else 0,
+                        "webpage_url": f"{title} {artist}".strip()
+                    })
+            if tracks:
+                return tracks
+    except Exception as e:
+        logger.debug(f"Public embed playlist fetch failed: {e}")
+
+    # 2. Try Spotipy client if available
+    if spotify:
+        try:
+            res = spotify.playlist_items(p_id, limit=50)
+            items = res.get("items", [])
+            tracks = []
+            for item in items:
+                t = item.get("track")
+                if t and t.get("name"):
+                    artist = t["artists"][0]["name"] if t.get("artists") else ""
+                    name = f"{t['name']} {artist}".strip()
+                    tracks.append({
+                        "title": name,
+                        "url": name,
+                        "duration": int(t.get("duration_ms", 0) / 1000),
+                        "webpage_url": name
+                    })
+            if tracks:
+                return tracks
+        except Exception as e:
+            logger.debug(f"Spotipy playlist fetch failed: {e}")
+
+    return []
 
 
 # ─── YT-DLP Config ────────────────────────────────────────────────────────────
@@ -833,6 +966,117 @@ async def play_autocomplete(
         return []
 
 
+# ─── Spotify Playlists View ───────────────────────────────────────────────────
+
+class SpotifyPlaylistsView(discord.ui.View):
+    def __init__(self, cog: "Music", user: discord.User | discord.Member, profile_data: dict):
+        super().__init__(timeout=120)
+        self.cog = cog
+        self.user = user
+        self.profile_data = profile_data
+        self.playlists = profile_data.get("playlists", [])
+        self.selected_url = self.playlists[0]["url"] if self.playlists else None
+        self.selected_name = self.playlists[0]["name"] if self.playlists else None
+
+        if self.playlists:
+            options = []
+            for p in self.playlists[:25]:
+                options.append(
+                    discord.SelectOption(
+                        label=p["name"][:90],
+                        value=p["url"],
+                        description=f"ID: {p['id'][:20]}",
+                        default=(p["url"] == self.selected_url)
+                    )
+                )
+
+            select = discord.ui.Select(
+                placeholder="Choose a Spotify playlist...",
+                min_values=1,
+                max_values=1,
+                options=options,
+                row=0
+            )
+            select.callback = self.select_callback
+            self.add_item(select)
+
+    async def select_callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message("❌ This menu belongs to someone else.", ephemeral=True)
+        self.selected_url = interaction.data["values"][0]
+        for p in self.playlists:
+            if p["url"] == self.selected_url:
+                self.selected_name = p["name"]
+                break
+        await interaction.response.defer()
+
+    @discord.ui.button(label="Play in VC", style=discord.ButtonStyle.success, emoji="▶️", row=1)
+    async def play_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.selected_url:
+            return await interaction.response.send_message("❌ No playlist selected.", ephemeral=True)
+
+        if not interaction.user.voice:
+            return await interaction.response.send_message("❌ Join a voice channel first.", ephemeral=True)
+
+        await interaction.response.defer()
+        vc = interaction.user.voice.channel
+        state = self.cog.get_state(interaction.guild_id)
+        state.text_channel = interaction.channel
+
+        if not state.voice_client or not state.voice_client.is_connected():
+            state.voice_client = await vc.connect()
+        elif state.voice_client.channel != vc:
+            await state.voice_client.move_to(vc)
+
+        tracks = await self.cog.bot.loop.run_in_executor(
+            None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
+        )
+        if not tracks:
+            return await interaction.followup.send("❌ Could not load tracks from this Spotify playlist.", ephemeral=True)
+
+        for t in tracks:
+            t["requester"] = str(interaction.user.display_name)
+            state.queue.append(t)
+
+        embed = discord.Embed(
+            title="📋 Spotify Playlist Queued",
+            description=f"Added **{len(tracks)} tracks** from **{self.selected_name}** to the queue.",
+            color=0x1DB954
+        )
+        embed.set_footer(text=f"Requested by {interaction.user.display_name}")
+        await interaction.followup.send(embed=embed)
+
+        if not state.voice_client.is_playing() and not state.voice_client.is_paused():
+            await self.cog.play_next(interaction.guild)
+
+    @discord.ui.button(label="Save to Sweety", style=discord.ButtonStyle.primary, emoji="💾", row=1)
+    async def save_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.selected_url:
+            return await interaction.response.send_message("❌ No playlist selected.", ephemeral=True)
+
+        await interaction.response.defer(ephemeral=True)
+        tracks = await self.cog.bot.loop.run_in_executor(
+            None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
+        )
+        if not tracks:
+            return await interaction.followup.send("❌ Could not fetch tracks to save.", ephemeral=True)
+
+        save_name = self.selected_name[:32] if self.selected_name else "spotify_mix"
+        try:
+            await self.cog.bot.db.execute("""
+                INSERT INTO music_playlists (user_id, name, tracks, created_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (user_id, name)
+                DO UPDATE SET tracks = $3, updated_at = NOW()
+            """, interaction.user.id, save_name, json.dumps(tracks))
+            await interaction.followup.send(
+                f"✅ Saved **{len(tracks)} tracks** to your Sweety playlist **{save_name}**!\nPlay it anytime with `/playlist play {save_name}`.",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.followup.send(f"❌ DB error saving playlist: {e}", ephemeral=True)
+
+
 # ─── Music Cog ────────────────────────────────────────────────────────────────
 
 class Music(commands.Cog):
@@ -1372,6 +1616,221 @@ class Music(commands.Cog):
         removed = q.pop(position - 1)
         state.queue = deque(q)
         await interaction.response.send_message(f"🗑 Removed **{removed.get('title','Unknown')}**.")
+
+    # ─── Spotify Commands (Grouped under /spotify) ─────────────────────────────
+
+    spotify_group = app_commands.Group(name="spotify", description="Spotify profile and playlist integration")
+
+    @spotify_group.command(name="link", description="Link your Spotify profile URL or username")
+    @app_commands.describe(profile="Your Spotify profile URL (e.g. open.spotify.com/user/...) or username")
+    async def spotify_link(self, interaction: discord.Interaction, profile: str):
+        await interaction.response.defer()
+        user_id, prof_url = parse_spotify_user_input(profile)
+        info = await self.bot.loop.run_in_executor(
+            None, lambda: fetch_spotify_profile_info(user_id)
+        )
+        if not info:
+            return await interaction.followup.send(
+                "❌ Could not find a Spotify profile for that URL or ID. Please check your link.",
+                ephemeral=True
+            )
+
+        ok = await self.bot.db.set_spotify_profile(
+            interaction.user.id,
+            info["spotify_id"],
+            info["display_name"],
+            info["profile_url"],
+            info.get("avatar_url")
+        )
+        if not ok:
+            return await interaction.followup.send("❌ Failed to save profile to database.", ephemeral=True)
+
+        embed = discord.Embed(
+            title="🔗 Spotify Profile Linked!",
+            description=f"Successfully linked **[{info['display_name']}]({info['profile_url']})** to your Discord account.",
+            color=0x1DB954
+        )
+        if info.get("avatar_url"):
+            embed.set_thumbnail(url=info["avatar_url"])
+        pl_count = len(info.get("playlists", []))
+        embed.add_field(name="Public Playlists", value=f"**{pl_count}** found", inline=True)
+        embed.add_field(name="Username / ID", value=f"`{info['spotify_id']}`", inline=True)
+        embed.set_footer(text="Use /spotify playlists to view and play your playlists!")
+        await interaction.followup.send(embed=embed)
+
+    @spotify_group.command(name="profile", description="View a member's linked Spotify profile")
+    @app_commands.describe(member="Member to view (defaults to yourself)")
+    async def spotify_profile(self, interaction: discord.Interaction, member: Optional[discord.Member] = None):
+        target = member or interaction.user
+        await interaction.response.defer()
+
+        row = await self.bot.db.get_spotify_profile(target.id)
+        if not row:
+            msg = "You haven't linked a Spotify profile yet. Run `/spotify link <profile_url>`!" if target.id == interaction.user.id else f"{target.display_name} has not linked a Spotify profile."
+            return await interaction.followup.send(f"❌ {msg}", ephemeral=True)
+
+        info = await self.bot.loop.run_in_executor(
+            None, lambda: fetch_spotify_profile_info(row["spotify_id"])
+        )
+        data = info or row
+
+        embed = discord.Embed(
+            title=f"🎵 {data.get('display_name', 'Spotify Profile')}",
+            url=data.get("profile_url", f"https://open.spotify.com/user/{data['spotify_id']}"),
+            color=0x1DB954
+        )
+        if data.get("avatar_url"):
+            embed.set_thumbnail(url=data["avatar_url"])
+
+        embed.add_field(name="Discord User", value=target.mention, inline=True)
+        embed.add_field(name="Spotify ID", value=f"`{data['spotify_id']}`", inline=True)
+        if info and "playlists" in info:
+            embed.add_field(name="Public Playlists", value=f"**{len(info['playlists'])}** playlists", inline=True)
+        embed.set_footer(text="Use /spotify playlists to browse & play tracks")
+        await interaction.followup.send(embed=embed)
+
+    @spotify_group.command(name="playlists", description="View and play public playlists from a linked Spotify profile")
+    @app_commands.describe(member="Member to view playlists from (defaults to yourself)")
+    async def spotify_playlists(self, interaction: discord.Interaction, member: Optional[discord.Member] = None):
+        target = member or interaction.user
+        await interaction.response.defer()
+
+        row = await self.bot.db.get_spotify_profile(target.id)
+        if not row:
+            msg = "You haven't linked a Spotify profile yet. Run `/spotify link <profile_url>` first!" if target.id == interaction.user.id else f"{target.display_name} has not linked a Spotify profile."
+            return await interaction.followup.send(f"❌ {msg}", ephemeral=True)
+
+        info = await self.bot.loop.run_in_executor(
+            None, lambda: fetch_spotify_profile_info(row["spotify_id"])
+        )
+        if not info or not info.get("playlists"):
+            return await interaction.followup.send("❌ No public playlists found on this Spotify profile.", ephemeral=True)
+
+        playlists = info["playlists"]
+        embed = discord.Embed(
+            title=f"🎧 Public Playlists for {info['display_name']}",
+            description=f"Found **{len(playlists)} public playlists** on [{info['display_name']}'s Spotify]({info['profile_url']}).\nSelect a playlist below to **Play in VC** or **Save to Sweety**:",
+            color=0x1DB954
+        )
+        if info.get("avatar_url"):
+            embed.set_thumbnail(url=info["avatar_url"])
+
+        for i, p in enumerate(playlists[:8], 1):
+            embed.add_field(name=f"`{i}.` {p['name'][:30]}", value=f"[Open in Spotify]({p['url']})", inline=True)
+
+        view = SpotifyPlaylistsView(self, interaction.user, info)
+        await interaction.followup.send(embed=embed, view=view)
+
+    @spotify_group.command(name="play", description="Play a Spotify playlist by name or URL")
+    @app_commands.describe(playlist="Playlist name (from your linked profile) or Spotify playlist link")
+    async def spotify_play(self, interaction: discord.Interaction, playlist: str):
+        await interaction.response.defer()
+        if not interaction.user.voice:
+            return await interaction.followup.send("❌ Join a voice channel first.", ephemeral=True)
+
+        playlist_url = None
+        playlist_name = playlist
+
+        # Check if direct URL was passed
+        if "spotify.com/playlist/" in playlist or playlist.startswith("spotify:playlist:"):
+            playlist_url = playlist
+        else:
+            row = await self.bot.db.get_spotify_profile(interaction.user.id)
+            if not row:
+                return await interaction.followup.send(
+                    "❌ Please link your Spotify profile with `/spotify link` or paste a direct Spotify playlist URL.",
+                    ephemeral=True
+                )
+            info = await self.bot.loop.run_in_executor(
+                None, lambda: fetch_spotify_profile_info(row["spotify_id"])
+            )
+            if info and info.get("playlists"):
+                for p in info["playlists"]:
+                    if playlist.lower() in p["name"].lower():
+                        playlist_url = p["url"]
+                        playlist_name = p["name"]
+                        break
+
+        if not playlist_url:
+            return await interaction.followup.send(f"❌ Could not find a playlist matching **{playlist}**.", ephemeral=True)
+
+        vc = interaction.user.voice.channel
+        state = self.get_state(interaction.guild_id)
+        state.text_channel = interaction.channel
+
+        if not state.voice_client or not state.voice_client.is_connected():
+            state.voice_client = await vc.connect()
+        elif state.voice_client.channel != vc:
+            await state.voice_client.move_to(vc)
+
+        tracks = await self.bot.loop.run_in_executor(
+            None, lambda: extract_spotify_playlist_tracks_public(playlist_url)
+        )
+        if not tracks:
+            return await interaction.followup.send("❌ Failed to retrieve tracks from this Spotify playlist.", ephemeral=True)
+
+        for t in tracks:
+            t["requester"] = str(interaction.user.display_name)
+            state.queue.append(t)
+
+        embed = discord.Embed(
+            title="📋 Spotify Playlist Queued",
+            description=f"Queued **{len(tracks)} tracks** from **{playlist_name}**.",
+            color=0x1DB954
+        )
+        embed.set_footer(text=f"Requested by {interaction.user.display_name}")
+        await interaction.followup.send(embed=embed)
+
+        if not state.voice_client.is_playing() and not state.voice_client.is_paused():
+            await self.play_next(interaction.guild)
+
+    @spotify_group.command(name="import", description="Import a Spotify playlist into your saved Sweety playlists")
+    @app_commands.describe(playlist_url="Spotify playlist link", name="Custom name for the saved playlist (optional)")
+    async def spotify_import(self, interaction: discord.Interaction, playlist_url: str, name: Optional[str] = None):
+        await interaction.response.defer(ephemeral=True)
+        if "spotify.com/playlist/" not in playlist_url:
+            return await interaction.followup.send("❌ Invalid Spotify playlist link. Format: `https://open.spotify.com/playlist/...`")
+
+        tracks = await self.bot.loop.run_in_executor(
+            None, lambda: extract_spotify_playlist_tracks_public(playlist_url)
+        )
+        if not tracks:
+            return await interaction.followup.send("❌ Could not extract tracks from this playlist link.")
+
+        save_name = (name or "spotify_import").strip()[:32]
+        try:
+            await self.bot.db.execute("""
+                INSERT INTO music_playlists (user_id, name, tracks, created_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (user_id, name)
+                DO UPDATE SET tracks = $3, updated_at = NOW()
+            """, interaction.user.id, save_name, json.dumps(tracks))
+            await interaction.followup.send(
+                f"✅ Successfully imported **{len(tracks)} tracks** into playlist **{save_name}**!\nPlay it anytime using `/playlist play {save_name}`."
+            )
+        except Exception as e:
+            await interaction.followup.send(f"❌ DB error: {e}")
+
+    @spotify_group.command(name="unlink", description="Unlink your Spotify profile")
+    async def spotify_unlink(self, interaction: discord.Interaction):
+        await self.bot.db.delete_spotify_profile(interaction.user.id)
+        await interaction.response.send_message("🗑 Unlinked your Spotify profile.", ephemeral=True)
+
+    @commands.group(name="spotify", invoke_without_command=True)
+    async def spotify_prefix(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="🎧 Sweety Spotify Integration",
+            description=(
+                "`!spotify link <url_or_id>` — Link your Spotify profile\n"
+                "`!spotify profile [member]` — View linked profile\n"
+                "`!spotify playlists [member]` — View & play public playlists\n"
+                "`!spotify play <name_or_url>` — Play a playlist\n"
+                "`!spotify import <url> [name]` — Import into bot playlists\n"
+                "`!spotify unlink` — Unlink profile"
+            ),
+            color=0x1DB954
+        )
+        await ctx.send(embed=embed)
 
     # ─── Playlist Commands (Grouped under /playlist to preserve global command budget) ───
 

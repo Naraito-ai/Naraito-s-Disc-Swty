@@ -495,6 +495,18 @@ class DatabaseManager:
                 updated_at TIMESTAMPTZ DEFAULT NOW(),
                 UNIQUE(user_id, name)
             );
+            """,
+            # User Spotify Profiles Table
+            """
+            CREATE TABLE IF NOT EXISTS user_spotify_profiles (
+                user_id BIGINT PRIMARY KEY,
+                spotify_id TEXT NOT NULL,
+                display_name TEXT,
+                profile_url TEXT NOT NULL,
+                avatar_url TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
             """
         ]
         
@@ -2413,7 +2425,46 @@ class DatabaseManager:
             return None
         except Exception as e:
             logger.error(f"Error getting event channel: {e}")
+    async def get_spotify_profile(self, user_id: Any) -> Optional[dict]:
+        """Retrieves a linked Spotify profile for a user."""
+        try:
+            query = "SELECT user_id, spotify_id, display_name, profile_url, avatar_url FROM user_spotify_profiles WHERE user_id = ?"
+            row = await self.fetchrow(query, int(user_id))
+            if row:
+                return dict(row)
             return None
+        except Exception as e:
+            logger.error(f"Error getting Spotify profile for {user_id}: {e}")
+            return None
+
+    async def set_spotify_profile(self, user_id: Any, spotify_id: str, display_name: str, profile_url: str, avatar_url: Optional[str] = None) -> bool:
+        """Links or updates a user's Spotify profile."""
+        try:
+            query = """
+            INSERT INTO user_spotify_profiles (user_id, spotify_id, display_name, profile_url, avatar_url, updated_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+            ON CONFLICT (user_id) DO UPDATE SET
+                spotify_id = EXCLUDED.spotify_id,
+                display_name = EXCLUDED.display_name,
+                profile_url = EXCLUDED.profile_url,
+                avatar_url = EXCLUDED.avatar_url,
+                updated_at = NOW();
+            """
+            await self.execute(query, int(user_id), spotify_id, display_name, profile_url, avatar_url)
+            return True
+        except Exception as e:
+            logger.error(f"Error setting Spotify profile for {user_id}: {e}")
+            return False
+
+    async def delete_spotify_profile(self, user_id: Any) -> bool:
+        """Unlinks a user's Spotify profile."""
+        try:
+            query = "DELETE FROM user_spotify_profiles WHERE user_id = ?"
+            await self.execute(query, int(user_id))
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting Spotify profile for {user_id}: {e}")
+            return False
 
     async def close(self):
         """Closes all database connections."""
