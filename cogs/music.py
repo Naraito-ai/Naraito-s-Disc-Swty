@@ -364,9 +364,11 @@ class Music(commands.Cog):
         state.queue = deque(q)
         await interaction.response.send_message(f"🗑 Removed **{removed.get('title', 'Unknown')}** from queue.")
 
-    @app_commands.command(name="playlistsave", description="Save the current queue as a named playlist")
+    playlist_group = app_commands.Group(name="playlist", description="Manage and play your custom saved playlists")
+
+    @playlist_group.command(name="save", description="Save the current queue as a named playlist")
     @app_commands.describe(name="Name for your playlist")
-    async def playlistsave(self, interaction: discord.Interaction, name: str):
+    async def playlist_save(self, interaction: discord.Interaction, name: str):
         await interaction.response.defer(ephemeral=True)
         state = self.get_state(interaction.guild_id)
 
@@ -400,9 +402,9 @@ class Music(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ DB error: {e}")
 
-    @app_commands.command(name="playlistplay", description="Load and play one of your saved playlists")
+    @playlist_group.command(name="play", description="Load and play one of your saved playlists")
     @app_commands.describe(name="Playlist name")
-    async def playlistplay(self, interaction: discord.Interaction, name: str):
+    async def playlist_play(self, interaction: discord.Interaction, name: str):
         await interaction.response.defer()
 
         if not interaction.user.voice:
@@ -441,8 +443,8 @@ class Music(commands.Cog):
         )
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="playlistlist", description="Show all your saved playlists")
-    async def playlistlist(self, interaction: discord.Interaction):
+    @playlist_group.command(name="list", description="Show all your saved playlists")
+    async def playlist_list(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
             rows = await self.bot.db.fetch(
@@ -462,9 +464,9 @@ class Music(commands.Cog):
             embed.add_field(name=row["name"], value=f"{count} tracks", inline=True)
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="playlistdelete", description="Delete one of your saved playlists")
+    @playlist_group.command(name="delete", description="Delete one of your saved playlists")
     @app_commands.describe(name="Playlist name to delete")
-    async def playlistdelete(self, interaction: discord.Interaction, name: str):
+    async def playlist_delete(self, interaction: discord.Interaction, name: str):
         await interaction.response.defer(ephemeral=True)
         try:
             result = await self.bot.db.execute(
