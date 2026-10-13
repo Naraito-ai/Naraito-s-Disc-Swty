@@ -22432,7 +22432,7 @@ async def myteam_prefix_cmd(ctx: commands.Context, member: Optional[discord.Memb
         await ctx.send(f"❌ Failed to display squad: {e}")
 
 
-@bot.command(name="teamqueue", aliases=["matchmaking", "queue", "findmatch"])
+@bot.command(name="teamqueue", aliases=["matchmaking", "findmatch", "tq"])
 @commands.guild_only()
 @commands.cooldown(1, 5.0, commands.BucketType.user)
 async def teamqueue_prefix_cmd(ctx: commands.Context):
