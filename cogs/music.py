@@ -43,6 +43,8 @@ YTDL_OPTIONS = {
     "no_warnings": True,
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
+    "socket_timeout": 5,
+    "concurrent_fragment_downloads": 4,
     "extractor_args": {
         "youtube": {
             "skip": ["dash", "hls"],
@@ -171,19 +173,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 logger.warning(f"YouTube search extraction failed for '{search_query}': {e}")
                 data = None
 
-            # 2. If YouTube failed or was blocked by bot check, seamlessly fallback to SoundCloud
+            # 2. If YouTube failed or was blocked by bot check, seamlessly fallback to SoundCloud (single-shot up to 3 results)
             if not data or not (data.get("url") or data.get("formats")):
-                for i in range(1, 6):
-                    try:
-                        sc_data = await loop.run_in_executor(
-                            None,
-                            lambda i=i: ytdl.extract_info(f"scsearch{i}:{search_query}", download=False)
-                        )
-                        sc_entries = [e for e in sc_data.get("entries", []) if e]
-                        if not sc_entries:
-                            continue
-                        candidate = sc_entries[-1]
-                        # Verify candidate has audio format or url
+                try:
+                    sc_data = await loop.run_in_executor(
+                        None,
+                        lambda: ytdl.extract_info(f"scsearch3:{search_query}", download=False)
+                    )
+                    sc_entries = [e for e in sc_data.get("entries", []) if e]
+                    for candidate in sc_entries:
                         s_url = candidate.get("url")
                         if not s_url:
                             fmts = [f for f in candidate.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
@@ -192,12 +190,11 @@ class YTDLSource(discord.PCMVolumeTransformer):
                         if s_url:
                             data = candidate
                             break
-                    except Exception as sc_err:
-                        logger.warning(f"SoundCloud fallback attempt {i} failed: {sc_err}")
-                        continue
+                except Exception as sc_err:
+                    logger.warning(f"SoundCloud fallback failed: {sc_err}")
 
             if not data:
-                raise ValueError("Could not find or stream this track from any provider. Please try a different song or URL.")
+                raise ValueError("Could not find or stream this track. Please try a different song or URL.")
         else:
             # direct URL
             try:
@@ -606,12 +603,17 @@ class SavePlaylistModal(discord.ui.Modal, title="💾 Save to Playlist"):
 
 # ─── Autocomplete ─────────────────────────────────────────────────────────────
 
+_autocomplete_cache: dict[str, list[app_commands.Choice[str]]] = {}
+
 async def play_autocomplete(
     interaction: discord.Interaction,
     current: str
 ) -> list[app_commands.Choice[str]]:
-    if len(current.strip()) < 2:
+    q = current.strip().lower()
+    if len(q) < 2:
         return []
+    if q in _autocomplete_cache:
+        return _autocomplete_cache[q]
     try:
         loop = asyncio.get_event_loop()
         if spotify:
@@ -620,7 +622,7 @@ async def play_autocomplete(
                 lambda: spotify.search(q=current, type="track", limit=5)
             )
             tracks = results.get("tracks", {}).get("items", [])
-            return [
+            choices = [
                 app_commands.Choice(
                     name=f"{t['name']} — {t['artists'][0]['name']}"[:80],
                     value=f"{t['name']} {t['artists'][0]['name']}"
@@ -633,13 +635,17 @@ async def play_autocomplete(
                 lambda: ytdl.extract_info(f"ytsearch5:{current}", download=False)
             )
             entries = data.get("entries", [])
-            return [
+            choices = [
                 app_commands.Choice(
                     name=f"{e.get('title', 'Unknown')[:80]}",
                     value=f"{e.get('title', current)}"
                 )
                 for e in entries if e and e.get("title")
             ][:5]
+        if len(_autocomplete_cache) > 200:
+            _autocomplete_cache.clear()
+        _autocomplete_cache[q] = choices
+        return choices
     except Exception as e:
         logger.warning(f"Autocomplete error: {e}")
         return []
