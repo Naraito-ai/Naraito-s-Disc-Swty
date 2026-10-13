@@ -10,6 +10,7 @@ import base64
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Union, Tuple, Set
+from collections import deque
 
 import jwt
 import aiohttp
@@ -151,6 +152,8 @@ async def broadcast_event(event_type: str, data: dict):
         except Exception:
             active_event_websockets.discard(ws)
 
+_recent_logs = deque(maxlen=80)
+
 # Custom logging handler to redirect terminal logs to WebSockets
 class WebSocketLogHandler(logging.Handler):
     def __init__(self, loop):
@@ -160,6 +163,7 @@ class WebSocketLogHandler(logging.Handler):
     def emit(self, record):
         try:
             log_entry = self.format(record)
+            _recent_logs.append(log_entry)
             if self.loop and self.loop.is_running() and active_console_websockets:
                 asyncio.run_coroutine_threadsafe(broadcast_console(log_entry), self.loop)
         except Exception:
@@ -240,6 +244,10 @@ async def load_music_endpoint():
     except Exception as e:
         import traceback
         return {"error": str(e), "traceback": traceback.format_exc()}
+
+@app.api_route("/api/logs", methods=["GET", "POST"])
+async def get_recent_logs():
+    return {"logs": list(_recent_logs)}
 
 @app.api_route("/health/detail", methods=["GET", "HEAD", "POST", "OPTIONS"])
 async def health_detail():

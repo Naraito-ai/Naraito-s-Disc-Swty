@@ -12,6 +12,7 @@ from collections import deque
 from typing import Optional
 import yt_dlp
 import time
+import unicodedata
 
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -267,16 +268,26 @@ def parse_lrc(text: str) -> list[tuple[float, str]]:
     return timed_lines
 
 def fetch_lyrics(title: str, artist: str = "") -> Optional[dict]:
-    """Fetch lyrics from LrcLib API synchronously with intelligent accuracy ranking."""
-    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
-    clean_title = re.sub(r'(feat\.|ft\.|official|video|audio|lyrics|hd|4k|sped up|slowed|remix).*', '', clean_title, flags=re.IGNORECASE).strip()
+    """Fetch lyrics from LrcLib API synchronously with unicode normalization and intelligent accuracy ranking."""
+    # 0. Normalize Mathematical Bold/Italic/Fancy Unicode into standard plain text
+    norm = unicodedata.normalize("NFKD", title)
+    clean_title = norm.encode("ascii", "ignore").decode("ascii")
+    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', clean_title).strip()
+    clean_title = re.sub(r'(feat\.|ft\.|official|video|audio|lyrics|hd|4k|sped up|slowed|remix).*', '', clean_title, flags=re.IGNORECASE).strip(' |•-')
 
     extracted_artist = artist
+    if artist:
+        norm_a = unicodedata.normalize("NFKD", artist)
+        extracted_artist = norm_a.encode("ascii", "ignore").decode("ascii").strip(' |•-')
+
     extracted_track = clean_title
-    if ' - ' in clean_title and not artist:
-        parts = clean_title.split(' - ', 1)
-        extracted_artist = parts[0].strip()
-        extracted_track = parts[1].strip()
+    if not extracted_artist:
+        for delim in [" - ", " | ", "•", "|", "-"]:
+            if delim in clean_title:
+                parts = clean_title.split(delim, 1)
+                extracted_track = parts[0].strip()
+                extracted_artist = parts[1].strip()
+                break
 
     # 1. Try exact get if artist is available
     if extracted_artist and extracted_artist.lower() not in ["unknown", ""]:
@@ -331,6 +342,20 @@ def fetch_lyrics(title: str, artist: str = "") -> Optional[dict]:
                     return best
     except Exception as e:
         logger.debug(f"LrcLib search failed: {e}")
+
+    # 3. Fallback: search just the track name if combined search returned nothing
+    if extracted_artist and extracted_track != clean_title:
+        try:
+            q = urllib.parse.quote(extracted_track)
+            req = urllib.request.Request(f"https://lrclib.net/api/search?q={q}", headers={"User-Agent": "SweetyBot/1.0"})
+            with urllib.request.urlopen(req, timeout=4.5) as resp:
+                results = json.loads(resp.read().decode())
+                if results and isinstance(results, list):
+                    for item in results:
+                        if item.get("syncedLyrics") or item.get("plainLyrics"):
+                            return item
+        except Exception:
+            pass
 
     return None
 
@@ -389,6 +414,7 @@ class GuildMusicState:
         self.last_played_track: Optional[dict] = None
         self.played_history: deque = deque(maxlen=30)
         self.radio_station: Optional[str] = None
+        self.karaoke_task: Optional[asyncio.Task] = None
 
     def clear(self):
         self.queue.clear()
@@ -407,6 +433,9 @@ class GuildMusicState:
         if self.update_task:
             self.update_task.cancel()
             self.update_task = None
+        if self.karaoke_task:
+            self.karaoke_task.cancel()
+            self.karaoke_task = None
 
     def get_elapsed(self) -> float:
         if self.start_time is None:
@@ -806,7 +835,18 @@ class LiveKaraokeView(discord.ui.View):
                     embed_desc = embed.description
                     if embed_desc != self.last_text:
                         self.last_text = embed_desc
-                        await self.message.edit(embed=embed, view=self)
+                        try:
+                            if hasattr(self.message, "channel") and hasattr(self.message.channel, "get_partial_message"):
+                                msg_obj = self.message.channel.get_partial_message(self.message.id)
+                                await msg_obj.edit(embed=embed, view=self)
+                            else:
+                                await self.message.edit(embed=embed, view=self)
+                        except Exception as edit_err:
+                            logger.debug(f"Karaoke edit fallback notice: {edit_err}")
+                            try:
+                                await self.message.edit(embed=embed, view=self)
+                            except Exception:
+                                pass
 
                 await asyncio.sleep(2.5)
             except asyncio.CancelledError:
@@ -1124,8 +1164,7 @@ class NowPlayingView(discord.ui.View):
         state = self.get_state()
         if not state.current:
             return await interaction.response.send_message("Nothing playing.", ephemeral=True)
-        await interaction.response.defer(ephemeral=True)
-        await self.cog.display_lyrics(interaction, state.current.title, ephemeral=True)
+        await self.cog.display_lyrics(interaction, state.current.title, ephemeral=False)
 
     @discord.ui.button(emoji="🎛️", label="Filter", style=discord.ButtonStyle.secondary, row=2)
     async def filter_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1885,18 +1924,23 @@ class Music(commands.Cog):
 
         # If current song is playing and has synced timestamps, launch LiveKaraokeView!
         if is_playing_track and timed_lines and state.voice_client and (state.voice_client.is_playing() or state.voice_client.is_paused()):
+            if state.karaoke_task and not state.karaoke_task.done():
+                state.karaoke_task.cancel()
+
             view = LiveKaraokeView(self, guild, track_name, artist_name, timed_lines, pages, user.id)
             elapsed = state.get_elapsed()
             dur = getattr(state.current, "duration", 0) or int(timed_lines[-1][0] + 15)
             initial_embed = view.build_teleprompter_embed(elapsed, dur)
 
             if hasattr(interaction_or_ctx, "response"):
-                sent_msg = await interaction_or_ctx.followup.send(embed=initial_embed, view=view, ephemeral=ephemeral)
+                sent_msg = await interaction_or_ctx.followup.send(embed=initial_embed, view=view, ephemeral=False)
             else:
                 sent_msg = await interaction_or_ctx.send(embed=initial_embed, view=view)
 
             view.message = sent_msg
-            view.update_task = self.bot.loop.create_task(view.karaoke_loop())
+            task = self.bot.loop.create_task(view.karaoke_loop())
+            view.update_task = task
+            state.karaoke_task = task
         else:
             view = LyricsPaginationView(pages, user.id) if len(pages) > 1 else None
             if hasattr(interaction_or_ctx, "response"):
@@ -1906,6 +1950,10 @@ class Music(commands.Cog):
 
     async def play_next(self, guild: discord.Guild):
         state = self.get_state(guild.id)
+
+        if state.karaoke_task and not state.karaoke_task.done():
+            state.karaoke_task.cancel()
+            state.karaoke_task = None
 
         if not state.voice_client or not state.voice_client.is_connected():
             return
