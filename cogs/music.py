@@ -158,40 +158,50 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         if not url.startswith("http"):
             search_query = url
-            # 1. Try YouTube search first
+            # 1. Try SoundCloud first (instant response, no bot challenge or datacenter hang)
             try:
-                data = await loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch1:{search_query}", download=False))
-                entries = [e for e in data.get("entries", []) if e]
-                if entries:
-                    data = entries[0]
-                    if not data.get("url"):
-                        web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
-                        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False))
-                else:
-                    data = None
-            except Exception as e:
-                logger.warning(f"YouTube search extraction failed for '{search_query}': {e}")
-                data = None
-
-            # 2. If YouTube failed or was blocked by bot check, seamlessly fallback to SoundCloud (single-shot up to 3 results)
-            if not data or not (data.get("url") or data.get("formats")):
-                try:
-                    sc_data = await loop.run_in_executor(
+                sc_data = await asyncio.wait_for(
+                    loop.run_in_executor(
                         None,
                         lambda: ytdl.extract_info(f"scsearch3:{search_query}", download=False)
+                    ),
+                    timeout=6.0
+                )
+                sc_entries = [e for e in sc_data.get("entries", []) if e]
+                for candidate in sc_entries:
+                    s_url = candidate.get("url")
+                    if not s_url:
+                        fmts = [f for f in candidate.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
+                        if fmts:
+                            s_url = fmts[-1]["url"]
+                    if s_url:
+                        data = candidate
+                        break
+            except Exception as sc_err:
+                logger.warning(f"SoundCloud primary search failed for '{search_query}': {sc_err}")
+                data = None
+
+            # 2. Fallback to YouTube with strict timeout if SoundCloud didn't return a stream
+            if not data or not (data.get("url") or data.get("formats")):
+                try:
+                    data = await asyncio.wait_for(
+                        loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch1:{search_query}", download=False)),
+                        timeout=6.0
                     )
-                    sc_entries = [e for e in sc_data.get("entries", []) if e]
-                    for candidate in sc_entries:
-                        s_url = candidate.get("url")
-                        if not s_url:
-                            fmts = [f for f in candidate.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
-                            if fmts:
-                                s_url = fmts[-1]["url"]
-                        if s_url:
-                            data = candidate
-                            break
-                except Exception as sc_err:
-                    logger.warning(f"SoundCloud fallback failed: {sc_err}")
+                    entries = [e for e in data.get("entries", []) if e]
+                    if entries:
+                        data = entries[0]
+                        if not data.get("url"):
+                            web_url = data.get("webpage_url") or data.get("url") or f"https://www.youtube.com/watch?v={data.get('id', '')}"
+                            data = await asyncio.wait_for(
+                                loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False)),
+                                timeout=6.0
+                            )
+                    else:
+                        data = None
+                except Exception as e:
+                    logger.warning(f"YouTube search extraction failed for '{search_query}': {e}")
+                    data = None
 
             if not data:
                 raise ValueError("Could not find or stream this track. Please try a different song or URL.")
