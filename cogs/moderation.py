@@ -338,7 +338,11 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if not interaction.guild.me.guild_permissions.kick_members:
                 return await interaction.response.send_message("❌ I lack the `Kick Members` permission in this server.", ephemeral=True)
 
-            if is_protected(member):
+            if member.id == interaction.client.user.id:
+                await interaction.response.send_message("❌ I cannot kick myself!", ephemeral=True)
+                return
+
+            if not member.bot and is_protected(member):
                 await interaction.response.send_message("❌ This member is staff/immune and cannot be kicked.", ephemeral=True)
                 return
             
@@ -391,8 +395,13 @@ class ModerationCog(commands.Cog, name="Moderation"):
             if not interaction.guild.me.guild_permissions.ban_members:
                 return await interaction.response.send_message("❌ I lack the `Ban Members` permission in this server.", ephemeral=True)
 
+            if member.id == interaction.client.user.id:
+                await interaction.response.send_message("❌ I cannot ban myself!", ephemeral=True)
+                return
+
             guild_member = interaction.guild.get_member(member.id)
-            if is_protected(guild_member or member):
+            target_is_bot = member.bot or (guild_member and guild_member.bot)
+            if not target_is_bot and is_protected(guild_member or member):
                 await interaction.response.send_message("❌ This user is staff/immune and cannot be banned.", ephemeral=True)
                 return
             
@@ -1159,7 +1168,9 @@ class ModerationCog(commands.Cog, name="Moderation"):
     async def kick_prefix_cmd(self, ctx: commands.Context, member: discord.Member, *, reason: Optional[str] = "No reason provided"):
         """Kick a member from the server: !kick @user [reason]"""
         try:
-            if is_protected(member) or member.id == ctx.guild.owner_id:
+            if member.id == ctx.bot.user.id:
+                return await ctx.send("❌ I cannot kick myself!")
+            if not member.bot and is_protected(member) or member.id == ctx.guild.owner_id:
                 return await ctx.send("❌ This member is staff/immune and cannot be kicked.")
             if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
                 return await ctx.send("❌ You cannot kick this member because they have a higher or equal role.")
@@ -1182,8 +1193,11 @@ class ModerationCog(commands.Cog, name="Moderation"):
     async def ban_prefix_cmd(self, ctx: commands.Context, member: discord.User, *, reason: Optional[str] = "No reason provided"):
         """Ban a user from the server: !ban @user [reason]"""
         try:
+            if member.id == ctx.bot.user.id:
+                return await ctx.send("❌ I cannot ban myself!")
             guild_member = ctx.guild.get_member(member.id)
-            if guild_member and (is_protected(guild_member) or member.id == ctx.guild.owner_id):
+            target_is_bot = getattr(member, "bot", False) or (guild_member and guild_member.bot)
+            if guild_member and ((not target_is_bot and is_protected(guild_member)) or member.id == ctx.guild.owner_id):
                 return await ctx.send("❌ This user is staff/immune and cannot be banned.")
             if guild_member and guild_member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
                 return await ctx.send("❌ You cannot ban this member because they have a higher or equal role.")
