@@ -16,7 +16,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 load_dotenv()
@@ -63,6 +63,12 @@ DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:3000/api/auth/callback")
 DISCORD_API_ENDPOINT = "https://discord.com/api/v10"
+
+# Spotify OAuth2 Config
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "fe5d5375021842a698279b2b09bf30fe").strip()
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "a6cc6b6d69ed401ca24b59d2a65dec4a").strip()
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "https://sweety-discord-bot-fra.onrender.com").rstrip("/")
+SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", f"{RENDER_EXTERNAL_URL}/api/spotify/callback")
 
 # WebSocket Connections
 active_console_websockets = set()
@@ -390,6 +396,133 @@ async def auth_callback(body: dict):
         },
         "guilds": admin_guilds
     }
+
+
+# ─── Spotify OAuth2 Endpoints ────────────────────────────────────────────────
+
+@app.get("/api/spotify/login")
+async def spotify_oauth_login(user_id: int):
+    """Initiates Spotify OAuth2 flow for a specific Discord user."""
+    payload = {
+        "user_id": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15)
+    }
+    state = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    scope = "user-read-private playlist-read-private"
+    spotify_auth_url = (
+        f"https://accounts.spotify.com/authorize?"
+        f"client_id={SPOTIFY_CLIENT_ID}&"
+        f"response_type=code&"
+        f"redirect_uri={urllib.parse.quote(SPOTIFY_REDIRECT_URI)}&"
+        f"scope={urllib.parse.quote(scope)}&"
+        f"state={state}"
+    )
+    return RedirectResponse(url=spotify_auth_url)
+
+
+@app.get("/api/spotify/callback", response_class=HTMLResponse)
+async def spotify_oauth_callback(code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    """Handles Spotify OAuth2 redirect, extracts profile, and saves to database."""
+    if error or not code or not state:
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html><body style="font-family:sans-serif;background:#121212;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+                <div style="text-align:center;background:#1e1e1e;padding:40px;border-radius:12px;max-width:400px;border:1px solid #333;">
+                    <h2 style="color:#ff5555;margin-top:0;">❌ Connection Cancelled</h2>
+                    <p style="color:#aaa;">Spotify authorization was not completed ({error or 'No code provided'}).</p>
+                    <p style="color:#888;font-size:14px;">You can return to Discord and try again with <code>/spotify link</code>.</p>
+                </div>
+            </body></html>
+            """,
+            status_code=400
+        )
+
+    try:
+        payload = jwt.decode(state, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("user_id")
+    except Exception:
+        return HTMLResponse(
+            content="""
+            <!DOCTYPE html>
+            <html><body style="font-family:sans-serif;background:#121212;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+                <div style="text-align:center;background:#1e1e1e;padding:40px;border-radius:12px;max-width:400px;">
+                    <h2 style="color:#ff5555;">❌ Session Expired</h2>
+                    <p style="color:#aaa;">This login link has expired. Please run <code>/spotify link</code> in Discord to generate a fresh link.</p>
+                </div>
+            </body></html>
+            """,
+            status_code=400
+        )
+
+    import base64
+    auth_header = base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()
+    token_payload = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": SPOTIFY_REDIRECT_URI,
+    }
+    headers = {
+        "Authorization": f"Basic {auth_header}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post("https://accounts.spotify.com/api/token", data=token_payload, headers=headers) as resp:
+            if resp.status != 200:
+                err_text = await resp.text()
+                logger.error(f"Spotify token exchange error: {err_text}")
+                return HTMLResponse(
+                    content=f"<h3>❌ Failed to authenticate with Spotify: {err_text}</h3>",
+                    status_code=400
+                )
+            token_json = await resp.json()
+            access_token = token_json.get("access_token")
+
+        me_headers = {"Authorization": f"Bearer {access_token}"}
+        async with session.get("https://api.spotify.com/v1/me", headers=me_headers) as me_resp:
+            if me_resp.status != 200:
+                return HTMLResponse(content="<h3>❌ Failed to fetch Spotify profile.</h3>", status_code=400)
+            me = await me_resp.json()
+
+    spotify_id = me.get("id", "")
+    display_name = me.get("display_name") or spotify_id
+    profile_url = me.get("external_urls", {}).get("spotify") or f"https://open.spotify.com/user/{spotify_id}"
+    avatar_url = me.get("images", [{}])[0].get("url") if me.get("images") else None
+
+    # Save to database
+    db = getattr(app.state, "db", None)
+    if not db:
+        from database import db as fallback_db
+        db = fallback_db
+
+    if db:
+        await db.set_spotify_profile(user_id, spotify_id, display_name, profile_url, avatar_url)
+
+    avatar_html = f'<img src="{avatar_url}" style="width:80px;height:80px;border-radius:50%;margin-bottom:15px;border:3px solid #1DB954;object-fit:cover;"/>' if avatar_url else ''
+
+    return HTMLResponse(content=f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Spotify Connected — Sweety</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#121212;color:#ffffff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:20px;box-sizing:border-box;">
+        <div style="background:#181818;padding:40px 30px;border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,0.6);text-align:center;max-width:420px;width:100%;border:1px solid #282828;">
+            {avatar_html}
+            <h2 style="margin:0 0 8px;font-size:24px;color:#1DB954;">Spotify Connected!</h2>
+            <p style="margin:0 0 16px;color:#e0e0e0;font-size:16px;">Welcome, <b>{display_name}</b>!</p>
+            <p style="color:#a7a7a7;font-size:14px;line-height:1.5;margin:0 0 24px;">Your Spotify account has been successfully linked to Sweety on Discord.</p>
+            <div style="background:#282828;padding:12px;border-radius:8px;font-size:13px;color:#1DB954;font-weight:600;">
+                ✨ You can close this tab and return to Discord!
+            </div>
+            <p style="color:#666;font-size:12px;margin-top:16px;">Try running <code>/spotify playlists</code> in your server!</p>
+        </div>
+    </body>
+    </html>
+    """)
+
 
 @app.get("/api/bot/stats")
 async def get_bot_stats():

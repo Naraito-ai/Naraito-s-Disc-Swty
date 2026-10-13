@@ -1621,9 +1621,43 @@ class Music(commands.Cog):
 
     spotify_group = app_commands.Group(name="spotify", description="Spotify profile and playlist integration")
 
-    @spotify_group.command(name="link", description="Link your Spotify profile URL or username")
-    @app_commands.describe(profile="Your Spotify profile URL (e.g. open.spotify.com/user/...) or username")
-    async def spotify_link(self, interaction: discord.Interaction, profile: str):
+    @spotify_group.command(name="link", description="Link your Spotify account or profile URL")
+    @app_commands.describe(profile="Your Spotify profile URL or username (leave empty for 1-click connect button)")
+    async def spotify_link(self, interaction: discord.Interaction, profile: Optional[str] = None):
+        if not profile:
+            base_url = os.getenv("RENDER_EXTERNAL_URL", "https://sweety-discord-bot-fra.onrender.com").rstrip("/")
+            oauth_url = f"{base_url}/api/spotify/login?user_id={interaction.user.id}"
+
+            embed = discord.Embed(
+                title="🎧 Connect Your Spotify",
+                description=(
+                    "Link your Spotify account with Sweety to easily view, import, and play your playlists in voice channels!\n\n"
+                    "**Option 1: 1-Click Connect (Recommended)**\n"
+                    "Click the **Connect with Spotify** button below to link securely.\n\n"
+                    "**Option 2: Direct Profile Link**\n"
+                    "Or pass your profile URL or username directly:\n"
+                    "`/spotify link profile:https://open.spotify.com/user/<username>`"
+                ),
+                color=0x1DB954
+            )
+            embed.set_footer(text="Sweety Music • Spotify Integration")
+
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(
+                label="Connect with Spotify",
+                url=oauth_url,
+                style=discord.ButtonStyle.link,
+                emoji="🎧"
+            ))
+            view.add_item(discord.ui.Button(
+                label="Find Profile URL",
+                url="https://www.spotify.com/account/overview/",
+                style=discord.ButtonStyle.link,
+                emoji="🔍"
+            ))
+
+            return await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
         await interaction.response.defer()
         user_id, prof_url = parse_spotify_user_input(profile)
         info = await self.bot.loop.run_in_executor(
@@ -1821,7 +1855,7 @@ class Music(commands.Cog):
         embed = discord.Embed(
             title="🎧 Sweety Spotify Integration",
             description=(
-                "`!spotify link <url_or_id>` — Link your Spotify profile\n"
+                "`!spotify link [url_or_id]` — Link profile (or get 1-click connect button)\n"
                 "`!spotify profile [member]` — View linked profile\n"
                 "`!spotify playlists [member]` — View & play public playlists\n"
                 "`!spotify play <name_or_url>` — Play a playlist\n"
@@ -1830,6 +1864,57 @@ class Music(commands.Cog):
             ),
             color=0x1DB954
         )
+        await ctx.send(embed=embed)
+
+    @spotify_prefix.command(name="link")
+    async def spotify_prefix_link(self, ctx: commands.Context, *, profile: Optional[str] = None):
+        base_url = os.getenv("RENDER_EXTERNAL_URL", "https://sweety-discord-bot-fra.onrender.com").rstrip("/")
+        oauth_url = f"{base_url}/api/spotify/login?user_id={ctx.author.id}"
+        if not profile:
+            embed = discord.Embed(
+                title="🎧 Connect Your Spotify",
+                description=(
+                    "Link your Spotify account to Sweety to view, browse, and play your playlists!\n\n"
+                    f"**1-Click Connect:** [Click here to Connect with Spotify]({oauth_url})\n\n"
+                    "Or link with your profile URL: `!spotify link <profile_url_or_id>`"
+                ),
+                color=0x1DB954
+            )
+            embed.set_footer(text="Sweety Music • Spotify Integration")
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(
+                label="Connect with Spotify",
+                url=oauth_url,
+                style=discord.ButtonStyle.link,
+                emoji="🎧"
+            ))
+            view.add_item(discord.ui.Button(
+                label="Find Profile URL",
+                url="https://www.spotify.com/account/overview/",
+                style=discord.ButtonStyle.link,
+                emoji="🔍"
+            ))
+            return await ctx.send(embed=embed, view=view)
+
+        user_id, prof_url = parse_spotify_user_input(profile)
+        info = await self.bot.loop.run_in_executor(
+            None, lambda: fetch_spotify_profile_info(user_id)
+        )
+        if not info:
+            return await ctx.send("❌ Could not find a Spotify profile for that URL or ID.")
+        ok = await self.bot.db.set_spotify_profile(
+            ctx.author.id, info["spotify_id"], info["display_name"], info["profile_url"], info.get("avatar_url")
+        )
+        if not ok:
+            return await ctx.send("❌ Failed to save profile to database.")
+        embed = discord.Embed(
+            title="🔗 Spotify Profile Linked!",
+            description=f"Successfully linked **[{info['display_name']}]({info['profile_url']})** to your Discord account.",
+            color=0x1DB954
+        )
+        if info.get("avatar_url"):
+            embed.set_thumbnail(url=info["avatar_url"])
+        embed.set_footer(text="Use !spotify playlists to view and play your playlists!")
         await ctx.send(embed=embed)
 
     # ─── Playlist Commands (Grouped under /playlist to preserve global command budget) ───
