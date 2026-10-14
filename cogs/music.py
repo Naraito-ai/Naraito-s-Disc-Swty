@@ -851,6 +851,13 @@ class LiveKaraokeView(discord.ui.View):
                                 await msg_obj.edit(embed=embed, view=self)
                             else:
                                 await self.message.edit(embed=embed, view=self)
+                        except discord.HTTPException as http_err:
+                            if http_err.status == 429:
+                                retry_after = getattr(http_err, "retry_after", 3.0)
+                                logger.warning(f"Rate limited in karaoke_loop, backing off {retry_after}s")
+                                await asyncio.sleep(retry_after or 3.0)
+                            else:
+                                logger.debug(f"HTTP exception in karaoke edit: {http_err}")
                         except Exception as edit_err:
                             logger.debug(f"Karaoke edit fallback notice: {edit_err}")
                             try:
@@ -1265,7 +1272,7 @@ class NowPlayingView(discord.ui.View):
     async def vol_up_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
         cur_level = getattr(state, "user_volume_level", None) or int(round(state.volume * 100))
-        new_level = min(150, cur_level + 10)
+        new_level = min(100, cur_level + 10)
         state.user_volume_level = new_level
         state.volume = round(new_level / 100.0, 3)
         if state.current and hasattr(state.current, "volume"):
@@ -2238,19 +2245,22 @@ class Music(commands.Cog):
         if not chunks:
             chunks = [["[Instrumental / No lyrics]"]]
 
+        synced_raw = lyrics_data.get("syncedLyrics")
+        timed_lines = parse_lrc(synced_raw) if synced_raw else []
+        is_synced = bool(timed_lines)
+
         pages = []
         for idx, chunk in enumerate(chunks):
             page_text = "\n".join(chunk)
+            header_desc = f"**Artist:** {artist_name}\n\n" if is_synced else f"**Artist:** {artist_name}\n*(Static Lyrics — Real-time teleprompter sync unavailable for this track)*\n\n"
+            footer_text = f"Page {idx+1}/{len(chunks)} • Sweety Karaoke Lyrics" if is_synced else f"Page {idx+1}/{len(chunks)} • Static / Unsynced Lyrics • Sweety Karaoke"
             embed = discord.Embed(
                 title=f"🎤 {track_name}",
-                description=f"**Artist:** {artist_name}\n\n{page_text}",
+                description=f"{header_desc}{page_text}",
                 color=0x1DB954
             )
-            embed.set_footer(text=f"Page {idx+1}/{len(chunks)} • Sweety Karaoke Lyrics")
+            embed.set_footer(text=footer_text)
             pages.append(embed)
-
-        synced_raw = lyrics_data.get("syncedLyrics")
-        timed_lines = parse_lrc(synced_raw) if synced_raw else []
 
         # If current song is playing and has synced timestamps, launch LiveKaraokeView!
         if is_playing_track and timed_lines and state.voice_client and (state.voice_client.is_playing() or state.voice_client.is_paused()):
@@ -2874,6 +2884,17 @@ class Music(commands.Cog):
                 return await interaction_or_ctx.followup.send(msg, ephemeral=True)
             return await interaction_or_ctx.send(msg)
 
+        # Check if another singer is already performing on stage
+        if state.karaoke_singer and state.karaoke_singer.id != member.id and state.voice_client.is_playing():
+            is_dj = await self.is_dj_or_admin(member)
+            if not is_dj:
+                msg = f"🎤 **{state.karaoke_singer.display_name}** is currently on stage performing! Wait until their track completes before taking the mic."
+                if hasattr(interaction_or_ctx, "response"):
+                    if not interaction_or_ctx.response.is_done():
+                        return await interaction_or_ctx.response.send_message(msg, ephemeral=True)
+                    return await interaction_or_ctx.followup.send(msg, ephemeral=True)
+                return await interaction_or_ctx.send(msg)
+
         state.karaoke_singer = member
         state.karaoke_scores.clear()
         state.karaoke_reactions = {"roses": 0, "tomatoes": 0}
@@ -2925,7 +2946,12 @@ class Music(commands.Cog):
                 state.is_instrumental = True
                 state.voice_client.source = result
                 state.current = result
-                msg = f"🎵 Switched to **Karaoke Instrumental Backing Track** for `{clean_title}`!"
+                yt_title = getattr(result, "title", clean_title)
+                yt_url = getattr(result, "webpage_url", None) or "https://youtube.com"
+                msg = (
+                    f"🎵 Switched to **Karaoke Instrumental Track** at `{int(elapsed//60)}:{int(elapsed%60):02d}`!\n"
+                    f"▶ **Selected Stream:** [{yt_title}]({yt_url})"
+                )
             except Exception as e:
                 msg = f"⚠️ Could not find an instrumental backing track for `{clean_title}`: {e}"
         else:
@@ -3097,7 +3123,8 @@ class Music(commands.Cog):
                 pass
 
         vol_icon = "🔊" if level >= 60 else ("🔉" if level >= 20 else "🔈")
-        await interaction.response.send_message(f"{vol_icon} Volume set to **{level}%**")
+        warn = "\n⚠️ *Notice: Volume above 100% applies digital boost which may cause clipping distortion on loud tracks.*" if level > 100 else ""
+        await interaction.response.send_message(f"{vol_icon} Volume set to **{level}%**{warn}")
 
     @commands.command(name="volume", aliases=["vol"])
     async def prefix_volume(self, ctx: commands.Context, level: int):
@@ -3121,7 +3148,8 @@ class Music(commands.Cog):
                 pass
 
         vol_icon = "🔊" if level >= 60 else ("🔉" if level >= 20 else "🔈")
-        await ctx.send(f"{vol_icon} Volume set to **{level}%**")
+        warn = "\n⚠️ *Notice: Volume above 100% applies digital boost which may cause clipping distortion on loud tracks.*" if level > 100 else ""
+        await ctx.send(f"{vol_icon} Volume set to **{level}%**{warn}")
 
     @app_commands.command(name="loop", description="Toggle loop mode")
     @app_commands.choices(mode=[
