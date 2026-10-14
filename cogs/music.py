@@ -415,6 +415,11 @@ class GuildMusicState:
         self.played_history: deque = deque(maxlen=30)
         self.radio_station: Optional[str] = None
         self.karaoke_task: Optional[asyncio.Task] = None
+        self.karaoke_singer: Optional[discord.Member] = None
+        self.karaoke_scores: dict[int, int] = {}
+        self.karaoke_reactions: dict[str, int] = {"roses": 0, "tomatoes": 0}
+        self.karaoke_stage_msg: Optional[discord.Message] = None
+        self.is_instrumental: bool = False
 
     def clear(self):
         self.queue.clear()
@@ -430,6 +435,11 @@ class GuildMusicState:
         self.pause_start = None
         self.filter = None
         self.radio_station = None
+        self.karaoke_singer = None
+        self.karaoke_scores.clear()
+        self.karaoke_reactions = {"roses": 0, "tomatoes": 0}
+        self.karaoke_stage_msg = None
+        self.is_instrumental = False
         if self.update_task:
             self.update_task.cancel()
             self.update_task = None
@@ -899,6 +909,14 @@ class LiveKaraokeView(discord.ui.View):
             child.disabled = True
         await interaction.response.edit_message(view=self)
 
+    @discord.ui.button(emoji="🎙️", label="Take Stage", style=discord.ButtonStyle.success, row=1)
+    async def stage_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.start_karaoke_stage(interaction)
+
+    @discord.ui.button(emoji="🎵", label="Backing Track", style=discord.ButtonStyle.secondary, row=1)
+    async def backing_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.toggle_instrumental_backing(interaction)
+
     async def on_timeout(self):
         if self.update_task and not self.update_task.done():
             self.update_task.cancel()
@@ -909,6 +927,106 @@ class LiveKaraokeView(discord.ui.View):
                 await self.message.edit(view=self)
             except Exception:
                 pass
+
+
+class KaraokeJudgeView(discord.ui.View):
+    def __init__(self, cog: "Music", guild: discord.Guild, singer: discord.Member, song_title: str):
+        super().__init__(timeout=300)
+        self.cog = cog
+        self.guild = guild
+        self.singer = singer
+        self.song_title = song_title
+        self.message: Optional[discord.Message] = None
+
+    def get_state(self) -> GuildMusicState:
+        return self.cog.get_state(self.guild.id)
+
+    def build_judge_embed(self) -> discord.Embed:
+        state = self.get_state()
+        scores = state.karaoke_scores
+        roses = state.karaoke_reactions.get("roses", 0)
+        tomatoes = state.karaoke_reactions.get("tomatoes", 0)
+
+        if scores:
+            avg = sum(scores.values()) / len(scores)
+            stars = "⭐" * int(round(avg / 2))
+            score_bar = make_progress_bar(int(avg * 10), 100, 10)
+            score_text = f"**{avg:.1f} / 10** {stars}\n`[{score_bar}]` • **{len(scores)}** Judge(s)"
+        else:
+            score_text = "*No ratings submitted yet. Be the first to judge!*"
+
+        desc = (
+            f"🌟 **Current Singer:** {self.singer.mention}\n"
+            f"🎶 **Track:** `{self.song_title}`\n\n"
+            f"📊 **Live Rating:**\n{score_text}\n\n"
+            f"🌹 **Roses:** {roses}  •  🍅 **Tomatoes:** {tomatoes}\n\n"
+            f"*Unmute your mic and sing along! Listeners in VC can rate this performance below!*"
+        )
+        embed = discord.Embed(
+            title="🎤 Live Karaoke Stage — Judge's Panel",
+            description=desc,
+            color=0xFEE75C
+        )
+        if self.singer.display_avatar:
+            embed.set_thumbnail(url=self.singer.display_avatar.url)
+        embed.set_footer(text="Sweety Live Karaoke Stage • Rockstar Hall of Fame • Use !singers for top rankings")
+        return embed
+
+    async def _handle_vote(self, interaction: discord.Interaction, score: int, label: str):
+        if interaction.user.id == self.singer.id:
+            return await interaction.response.send_message("❌ You cannot rate your own performance!", ephemeral=True)
+
+        state = self.get_state()
+        state.karaoke_scores[interaction.user.id] = score
+        embed = self.build_judge_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"🗳️ You rated {self.singer.display_name}: **{score}/10** ({label})!", ephemeral=True)
+        else:
+            await interaction.followup.send(f"🗳️ You rated {self.singer.display_name}: **{score}/10** ({label})!", ephemeral=True)
+
+    @discord.ui.button(emoji="🌟", label="10/10 Idol", style=discord.ButtonStyle.success, row=0)
+    async def idol_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._handle_vote(interaction, 10, "🌟 Idol Status")
+
+    @discord.ui.button(emoji="🔥", label="8/10 Hype", style=discord.ButtonStyle.primary, row=0)
+    async def hype_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._handle_vote(interaction, 8, "🔥 Hype Performance")
+
+    @discord.ui.button(emoji="👏", label="5/10 Good", style=discord.ButtonStyle.secondary, row=0)
+    async def good_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._handle_vote(interaction, 5, "👏 Solid Delivery")
+
+    @discord.ui.button(emoji="📣", label="Voice Crack", style=discord.ButtonStyle.secondary, row=0)
+    async def crack_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._handle_vote(interaction, 2, "📣 Voice Crack")
+
+    @discord.ui.button(emoji="🌹", label="Toss Rose", style=discord.ButtonStyle.success, row=1)
+    async def rose_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        state = self.get_state()
+        state.karaoke_reactions["roses"] = state.karaoke_reactions.get("roses", 0) + 1
+        embed = self.build_judge_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"🌹 You threw a rose on stage for {self.singer.display_name}!", ephemeral=True)
+        else:
+            await interaction.followup.send(f"🌹 You threw a rose on stage for {self.singer.display_name}!", ephemeral=True)
+
+    @discord.ui.button(emoji="🍅", label="Throw Tomato", style=discord.ButtonStyle.danger, row=1)
+    async def tomato_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        state = self.get_state()
+        state.karaoke_reactions["tomatoes"] = state.karaoke_reactions.get("tomatoes", 0) + 1
+        embed = self.build_judge_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"🍅 *Splat!* You threw a tomato at {self.singer.display_name}!", ephemeral=True)
+        else:
+            await interaction.followup.send(f"🍅 *Splat!* You threw a tomato at {self.singer.display_name}!", ephemeral=True)
+
+    @discord.ui.button(emoji="🎵", label="Backing Track", style=discord.ButtonStyle.secondary, row=1)
+    async def instrumental_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.toggle_instrumental_backing(interaction)
+
 
 
 class FilterSelect(discord.ui.Select):
@@ -1156,6 +1274,10 @@ class NowPlayingView(discord.ui.View):
             state.voice_client.source.volume = state.volume
         embed = await self.cog.build_np_embed(state)
         await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(emoji="🎙️", label="Stage", style=discord.ButtonStyle.success, row=1)
+    async def stage_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.start_karaoke_stage(interaction)
 
     # ── Row 2 ─────────────────────────────────────────────────────────────────
 
@@ -2159,6 +2281,73 @@ class Music(commands.Cog):
     async def play_next(self, guild: discord.Guild):
         state = self.get_state(guild.id)
 
+        # Process and record completed Karaoke Stage performance
+        if state.karaoke_singer and state.current:
+            singer = state.karaoke_singer
+            song_title = state.current.title
+            scores = dict(state.karaoke_scores)
+            roses = state.karaoke_reactions.get("roses", 0)
+            tomatoes = state.karaoke_reactions.get("tomatoes", 0)
+
+            if scores:
+                avg = sum(scores.values()) / len(scores)
+                if avg >= 9.0:
+                    verdict = "🌟 Platinum Idol (Perfection!)"
+                    color = 0xFEE75C
+                elif avg >= 7.5:
+                    verdict = "🔥 Crowd Pleaser (Hype Performance!)"
+                    color = 0x57F287
+                elif avg >= 5.0:
+                    verdict = "🎤 Rising Star (Solid Delivery!)"
+                    color = 0x5865F2
+                else:
+                    verdict = "💀 Broken Mic Award (Better luck next time!)"
+                    color = 0xED4245
+
+                try:
+                    await self.bot.db.execute(
+                        """
+                        INSERT INTO karaoke_performances (guild_id, user_id, user_name, song_title, score, votes_count)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        """ if self.bot.db.is_postgres else """
+                        INSERT INTO karaoke_performances (guild_id, user_id, user_name, song_title, score, votes_count)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        guild.id, singer.id, singer.display_name, song_title, round(avg, 2), len(scores)
+                    )
+                except Exception as de:
+                    logger.debug(f"Failed to record karaoke score: {de}")
+
+                stars = "⭐" * int(round(avg / 2))
+                review_embed = discord.Embed(
+                    title="🎸 Stage Review Complete!",
+                    description=(
+                        f"🎤 **Singer:** {singer.mention}\n"
+                        f"🎶 **Song:** `{song_title}`\n\n"
+                        f"🏅 **Final Stage Score:** **{avg:.1f} / 10** {stars}\n"
+                        f"🏆 **Verdict:** {verdict}\n"
+                        f"👥 **Judges:** {len(scores)} listener(s)\n"
+                        f"🌹 **Roses:** {roses}  •  🍅 **Tomatoes:** {tomatoes}\n\n"
+                        f"✨ *Type `!singers` to view the server's Rockstar Hall of Fame!*"
+                    ),
+                    color=color
+                )
+                if singer.display_avatar:
+                    review_embed.set_thumbnail(url=singer.display_avatar.url)
+                review_embed.set_footer(text="Sweety Live Karaoke Stage")
+
+                if state.text_channel:
+                    try:
+                        await state.text_channel.send(embed=review_embed)
+                    except Exception:
+                        pass
+
+            state.karaoke_singer = None
+            state.karaoke_scores.clear()
+            state.karaoke_reactions = {"roses": 0, "tomatoes": 0}
+            state.karaoke_stage_msg = None
+            state.is_instrumental = False
+
         if state.karaoke_task and not state.karaoke_task.done():
             state.karaoke_task.cancel()
             state.karaoke_task = None
@@ -2662,6 +2851,173 @@ class Music(commands.Cog):
         embed = await self.build_np_embed(state)
         view = NowPlayingView(self, ctx.guild)
         await ctx.send(embed=embed, view=view)
+
+    async def start_karaoke_stage(self, interaction_or_ctx, singer: Optional[discord.Member] = None):
+        """Activates the live Karaoke Stage and opens the interactive Judge's Panel."""
+        guild = interaction_or_ctx.guild
+        member = singer or (interaction_or_ctx.user if hasattr(interaction_or_ctx, "user") else interaction_or_ctx.author)
+        state = self.get_state(guild.id)
+
+        if not state.current or not state.voice_client or not state.voice_client.is_connected():
+            msg = "❌ Play a song first before taking the stage!"
+            if hasattr(interaction_or_ctx, "response"):
+                if not interaction_or_ctx.response.is_done():
+                    return await interaction_or_ctx.response.send_message(msg, ephemeral=True)
+                return await interaction_or_ctx.followup.send(msg, ephemeral=True)
+            return await interaction_or_ctx.send(msg)
+
+        if not member.voice or member.voice.channel != state.voice_client.channel:
+            msg = f"❌ You must be in **{state.voice_client.channel.name}** to take the Karaoke Stage!"
+            if hasattr(interaction_or_ctx, "response"):
+                if not interaction_or_ctx.response.is_done():
+                    return await interaction_or_ctx.response.send_message(msg, ephemeral=True)
+                return await interaction_or_ctx.followup.send(msg, ephemeral=True)
+            return await interaction_or_ctx.send(msg)
+
+        state.karaoke_singer = member
+        state.karaoke_scores.clear()
+        state.karaoke_reactions = {"roses": 0, "tomatoes": 0}
+
+        view = KaraokeJudgeView(self, guild, member, state.current.title)
+        embed = view.build_judge_embed()
+
+        if hasattr(interaction_or_ctx, "response"):
+            if not interaction_or_ctx.response.is_done():
+                msg_obj = await interaction_or_ctx.response.send_message(embed=embed, view=view)
+            else:
+                msg_obj = await interaction_or_ctx.followup.send(embed=embed, view=view)
+        else:
+            msg_obj = await interaction_or_ctx.send(embed=embed, view=view)
+
+        state.karaoke_stage_msg = msg_obj
+        await self.set_vc_status(state.voice_client.channel, f"🎤 Live Karaoke: {member.display_name} singing!")
+
+    async def toggle_instrumental_backing(self, interaction_or_ctx):
+        """Switches current playback between original vocal track and karaoke instrumental backing track."""
+        guild = interaction_or_ctx.guild
+        state = self.get_state(guild.id)
+
+        if not state.current or not state.voice_client or not state.voice_client.is_connected():
+            msg = "❌ Nothing is currently playing."
+            if hasattr(interaction_or_ctx, "response"):
+                if not interaction_or_ctx.response.is_done():
+                    return await interaction_or_ctx.response.send_message(msg, ephemeral=True)
+                return await interaction_or_ctx.followup.send(msg, ephemeral=True)
+            return await interaction_or_ctx.send(msg)
+
+        title = state.current.title
+        clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
+        elapsed = state.get_elapsed()
+
+        if hasattr(interaction_or_ctx, "response") and not interaction_or_ctx.response.is_done():
+            await interaction_or_ctx.response.defer()
+
+        if not state.is_instrumental:
+            query = f"{clean_title} karaoke instrumental"
+            try:
+                result, _ = await YTDLSource.from_url(
+                    query,
+                    volume=state.volume,
+                    seek_seconds=int(elapsed),
+                    audio_filter=state.filter,
+                    requester="🎵 Karaoke Backing Track"
+                )
+                state.is_instrumental = True
+                state.voice_client.source = result
+                state.current = result
+                msg = f"🎵 Switched to **Karaoke Instrumental Backing Track** for `{clean_title}`!"
+            except Exception as e:
+                msg = f"⚠️ Could not find an instrumental backing track for `{clean_title}`: {e}"
+        else:
+            try:
+                result = await YTDLSource.regrab_stream(
+                    state.current.data,
+                    state.volume,
+                    seek_seconds=int(elapsed),
+                    audio_filter=state.filter
+                )
+                state.is_instrumental = False
+                state.voice_client.source = result
+                state.current = result
+                msg = f"🎤 Switched back to **Original Vocal Track** for `{clean_title}`!"
+            except Exception as e:
+                msg = f"⚠️ Error returning to original track: {e}"
+
+        if hasattr(interaction_or_ctx, "followup"):
+            await interaction_or_ctx.followup.send(msg)
+        else:
+            await interaction_or_ctx.send(msg)
+
+    @commands.command(name="sing", aliases=["stage", "mic"], help="Take the Karaoke Stage in voice channel")
+    async def sing_prefix(self, ctx: commands.Context):
+        await self.start_karaoke_stage(ctx)
+
+    @commands.command(name="instrumental", aliases=["backing"], help="Switch to karaoke instrumental backing track")
+    async def instrumental_prefix(self, ctx: commands.Context):
+        await self.toggle_instrumental_backing(ctx)
+
+    @commands.command(name="singers", aliases=["halloffame", "karaokelb", "idols"], help="View the server's Rockstar Hall of Fame")
+    async def singers_leaderboard(self, ctx: commands.Context):
+        """Displays the Top 10 Karaoke singers in the server."""
+        try:
+            query = """
+                SELECT user_id, user_name, AVG(score) as avg_score, COUNT(*) as perf_count, MAX(score) as best_score
+                FROM karaoke_performances
+                WHERE guild_id = $1
+                GROUP BY user_id, user_name
+                ORDER BY avg_score DESC, perf_count DESC
+                LIMIT 10
+            """ if self.bot.db.is_postgres else """
+                SELECT user_id, user_name, AVG(score) as avg_score, COUNT(*) as perf_count, MAX(score) as best_score
+                FROM karaoke_performances
+                WHERE guild_id = ?
+                GROUP BY user_id, user_name
+                ORDER BY avg_score DESC, perf_count DESC
+                LIMIT 10
+            """
+            rows = await self.bot.db.fetch(query, ctx.guild.id)
+            if not rows:
+                embed = discord.Embed(
+                    title="🎸 Rockstar Hall of Fame",
+                    description=(
+                        "No one has taken the Karaoke Stage yet in this server!\n\n"
+                        "💡 **How to enter the Hall of Fame:**\n"
+                        "1. Join a voice channel and play a song: `!play <song>`\n"
+                        "2. Claim the mic: `!sing` or click `[🎙️ Stage]`\n"
+                        "3. Sing along while your server members rate your performance!"
+                    ),
+                    color=0xFEE75C
+                )
+                return await ctx.send(embed=embed)
+
+            medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+            lines = []
+            for idx, r in enumerate(rows):
+                medal = medals[idx] if idx < len(medals) else f"#{idx+1}"
+                u_id = r["user_id"]
+                u_name = r["user_name"]
+                avg_s = float(r["avg_score"])
+                p_cnt = int(r["perf_count"])
+                best_s = float(r["best_score"])
+                member = ctx.guild.get_member(int(u_id))
+                name_str = member.mention if member else f"**{u_name}**"
+
+                stars = "⭐" * int(round(avg_s / 2))
+                lines.append(
+                    f"{medal} {name_str} — **{avg_s:.1f} / 10** {stars}\n"
+                    f"   └ *{p_cnt} song(s) performed • Personal Best: {best_s:.1f}/10*"
+                )
+
+            embed = discord.Embed(
+                title=f"🎸 {ctx.guild.name}'s Rockstar Hall of Fame",
+                description="\n\n".join(lines),
+                color=0xFEE75C
+            )
+            embed.set_footer(text="Sweety Live Karaoke • Claim the mic with !sing or [🎙️ Stage]")
+            await ctx.send(embed=embed)
+        except Exception as e:
+            logger.error(f"Error fetching singers leaderboard: {e}")
+            await ctx.send(f"❌ Error loading Hall of Fame: {e}")
 
     @app_commands.command(name="pause", description="Pause or resume music playback")
     async def pause(self, interaction: discord.Interaction):

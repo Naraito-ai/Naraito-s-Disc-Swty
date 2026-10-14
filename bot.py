@@ -18067,6 +18067,53 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed.set_footer(text="🛡️ Server Security & Moderation • Select another category below to explore more")
         return embed
 
+    elif category == "music":
+        embed = discord.Embed(
+            title="🎵 24/7 Music & Live Karaoke Stage",
+            description="High-fidelity music playback, 24/7 voice persistence, curated radio, and interactive Karaoke stage judging!",
+            color=0x5865F2
+        )
+        embed.add_field(
+            name="🎶 **Music Playback & Queue**",
+            value=(
+                "• `!play <song/url>` / `!p` — Search and play any track or YouTube/Spotify playlist\n"
+                "• `!skip` / `!s` — Vote to skip or DJ instant skip the current song\n"
+                "• `!stop` — Stop music playback and clear queue\n"
+                "• `!pause` & `!resume` — Pause or resume the audio stream\n"
+                "• `!volume <1-150>` / `!vol` — Adjust player volume\n"
+                "• `!queue` / `!q` — View the upcoming track queue with pagination\n"
+                "• `!shuffle` — Randomize songs in the active queue\n"
+                "• `!loop` — Toggle loop between Track, Queue, or Off\n"
+                "• `!autoplay` — Toggle Smart Autoplay for non-stop similar songs"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="📻 **24/7 Voice & Curated Radio**",
+            value=(
+                "• `!247` / `!stay` — Keep Sweety permanently connected to voice 24/7\n"
+                "• `!disconnect` / `!leave` / `!dc` — Disconnect from voice and disable 24/7\n"
+                "• `!radio lofi` — ☕ 24/7 relaxing Lofi chill study & sleep beats\n"
+                "• `!radio synthwave` — 🌆 24/7 Nightride FM synthwave & cyberpunk\n"
+                "• `!radio jazz` — 🎷 24/7 Smooth Lounge & Jazz\n"
+                "• `!radio stop` — Stop radio stream playback"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🎤 **Live Karaoke Stage & Member Rating**",
+            value=(
+                "• `!sing` / `!stage` / `!mic` — Claim the stage as the active singer in VC\n"
+                "• `!lyrics` — Synced live teleprompter with syllable highlights\n"
+                "• `!instrumental` / `!backing` — Switch to karaoke backing track without vocals\n"
+                "• `!singers` / `!halloffame` / `!idols` — View the server's Rockstar Hall of Fame leaderboard\n"
+                "• **Crowd Judging Buttons:** `[🌟 10/10]` `[🔥 8/10]` `[👏 5/10]` `[📣 Voice Crack]` `[🌹 Rose]` `[🍅 Tomato]`"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="🎵 Music & Live Karaoke • Select another category below to explore more")
+        return embed
+
     elif category == "utility":
         embed = discord.Embed(
             title="⏰ Productivity, Social & Role Utilities",
@@ -18098,10 +18145,24 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     embed = discord.Embed(
         title="🤖 Discord Gemini Server Builder & Shield",
         description=(
-            "An all-in-one AI Architect, Auto-Mod, Community Restorer Bot, and NBA 2K Mobile Card Engine!\n"
+            "An all-in-one AI Architect, Auto-Mod, Community Restorer Bot, 24/7 Music Engine, and NBA 2K Mobile Card Engine!\n"
             "Use the dropdown menu below to view detailed commands for any category."
         ),
         color=discord.Color.blurple()
+    )
+    embed.add_field(
+        name="🎵 **24/7 Music & Live Karaoke Stage**",
+        value=(
+            "• `!play <song/url>` / `!p` — Search and stream any track or YouTube/Spotify playlist\n"
+            "• `!skip` / `!s`, `!pause`, `!resume`, `!volume` / `!vol`, `!queue` / `!q`, `!stop`\n"
+            "• `!247` / `!stay` — Keep Sweety permanently connected to VC 24/7\n"
+            "• `!radio <lofi|synthwave|jazz|stop>` — Stream 24/7 curated online radio\n"
+            "• `!sing` / `!stage` — Claim the stage as active singer & open crowd Judge's Panel\n"
+            "• `!instrumental` — Auto-toggle karaoke backing track without vocals\n"
+            "• `!lyrics` — Synced real-time teleprompter with current line highlights\n"
+            "• `!singers` / `!halloffame` — View server's top-rated Rockstar Hall of Fame"
+        ),
+        inline=False
     )
     embed.add_field(
         name="🏀 **NBA 2K Mobile Cards, Packs & Dex**",
@@ -18212,6 +18273,7 @@ class HelpCategorySelect(discord.ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="Full Overview", value="all", description="View all command categories", emoji="📋", default=True),
+            discord.SelectOption(label="Music & Live Karaoke", value="music", description="24/7 Music, Radio, Synced Lyrics & Live Stage", emoji="🎵"),
             discord.SelectOption(label="NBA 2K Mobile & Dex", value="nba_2k", description="Packs, Dex, Card Drops, Economy & VC", emoji="🏀"),
             discord.SelectOption(label="NBA Starting 5 GM", value="dream_team", description="Card Lineup Battles & Matchmaking", emoji="🏆"),
             discord.SelectOption(label="AI Intelligence", value="ai", description="Gemini AI Chat & Long-term Memory", emoji="🧠"),
@@ -18246,6 +18308,7 @@ class HelpView(discord.ui.View):
 @app_commands.describe(category="Optionally open a specific category directly")
 @app_commands.choices(category=[
     app_commands.Choice(name="📋 Full Overview", value="all"),
+    app_commands.Choice(name="🎵 Music & Live Karaoke", value="music"),
     app_commands.Choice(name="🏀 NBA 2K Mobile & Dex", value="nba_2k"),
     app_commands.Choice(name="🏆 NBA Starting 5 GM", value="dream_team"),
     app_commands.Choice(name="🧠 AI Intelligence", value="ai"),
@@ -18277,6 +18340,13 @@ async def help_prefix_cmd(ctx: commands.Context, category: Optional[str] = "all"
     try:
         cat_key = (category or "all").lower().strip()
         alias_map = {
+            "music": "music",
+            "song": "music",
+            "songs": "music",
+            "sing": "music",
+            "karaoke": "music",
+            "stage": "music",
+            "radio": "music",
             "nba": "nba_2k",
             "2k": "nba_2k",
             "cards": "nba_2k",
@@ -18294,7 +18364,7 @@ async def help_prefix_cmd(ctx: commands.Context, category: Optional[str] = "all"
             "arch": "architect",
             "build": "architect",
         }
-        clean_cat = alias_map.get(cat_key, cat_key if cat_key in ["nba_2k", "dream_team", "ai", "architect", "moderation", "utility"] else "all")
+        clean_cat = alias_map.get(cat_key, cat_key if cat_key in ["music", "nba_2k", "dream_team", "ai", "architect", "moderation", "utility"] else "all")
         embed = make_help_embed(clean_cat)
         view = HelpView(ctx.author.id)
         if clean_cat != "all":

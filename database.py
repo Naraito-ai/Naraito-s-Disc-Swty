@@ -507,6 +507,30 @@ class DatabaseManager:
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             );
+            """,
+            # Karaoke Performances Table (Live Stage & Rockstar Hall of Fame)
+            """
+            CREATE TABLE IF NOT EXISTS karaoke_performances (
+                id SERIAL PRIMARY KEY,
+                guild_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
+                user_name TEXT NOT NULL,
+                song_title TEXT NOT NULL,
+                score REAL NOT NULL,
+                votes_count INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            """ if self.is_postgres else """
+            CREATE TABLE IF NOT EXISTS karaoke_performances (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
+                user_name TEXT NOT NULL,
+                song_title TEXT NOT NULL,
+                score REAL NOT NULL,
+                votes_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
             """
         ]
         
