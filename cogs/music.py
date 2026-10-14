@@ -182,6 +182,23 @@ def extract_spotify_playlist_tracks_public(playlist_id_or_url: str) -> list[dict
 
 # ─── YT-DLP Config ────────────────────────────────────────────────────────────
 
+# Preload working SoundCloud client ID so soundcloud searches never fail with "Unable to extract client id"
+try:
+    from yt_dlp.extractor.soundcloud import SoundcloudBaseIE
+    SoundcloudBaseIE._CLIENT_ID = "kR7dAfT5UXQgmgde1pLjfsRGiaoANLvT"
+except Exception as _sc_err:
+    pass
+
+# Write cookies from environment variable if provided
+_yt_cookies = os.environ.get("YOUTUBE_COOKIES", "").strip()
+if _yt_cookies and not os.path.exists("cookies.txt"):
+    try:
+        with open("cookies.txt", "w", encoding="utf-8") as _f:
+            _f.write(_yt_cookies)
+        logger.info("Wrote YOUTUBE_COOKIES environment variable to cookies.txt")
+    except Exception as _ce:
+        logger.warning(f"Failed to write cookies.txt from environment: {_ce}")
+
 YTDL_OPTIONS = {
     "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
     "noplaylist": True,
@@ -196,7 +213,7 @@ YTDL_OPTIONS = {
     "concurrent_fragment_downloads": 4,
     "extractor_args": {
         "youtube": {
-            "skip": ["dash", "hls"],
+            "skip": ["webpage", "dash", "hls"],
             "player_client": ["android", "visionos"],
         }
     },
@@ -609,16 +626,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 loop.run_in_executor(None, lambda: ytdl.extract_info(yt_term, download=False)),
                 timeout=8.0
             )
-            entries = [e for e in yt_data.get("entries", []) if e]
+            entries = [e for e in yt_data.get("entries", []) if e] if yt_data else []
             if entries:
                 # Rank candidates to favor official uploads / topic channels over fan covers
                 best_entry = None
                 for cand in entries:
                     c_title = (cand.get("title") or "").lower()
                     c_uploader = (cand.get("uploader") or "").lower()
-                    has_stream = bool(cand.get("url")) or any(f.get("acodec") != "none" and f.get("url") for f in cand.get("formats", []))
-                    if not has_stream:
-                        continue
                     if "official audio" in c_title or "- topic" in c_uploader or "vevo" in c_uploader or "official video" in c_title:
                         best_entry = cand
                         break
@@ -634,12 +648,26 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch2:{clean_q}", download=False)),
                     timeout=6.0
                 )
-                entries = [e for e in yt_data.get("entries", []) if e]
+                entries = [e for e in yt_data.get("entries", []) if e] if yt_data else []
                 if entries:
                     data = entries[0]
             except Exception as e:
                 logger.debug(f"Direct ytsearch failed for '{search_query}': {e}")
                 data = None
+
+        # If data found from search, ensure formats/url are resolved
+        if data and not (data.get("url") or data.get("formats")):
+            video_url = data.get("webpage_url") or (f"https://www.youtube.com/watch?v={data['id']}" if data.get("id") else None)
+            if video_url:
+                try:
+                    full_data = await asyncio.wait_for(
+                        loop.run_in_executor(None, lambda: ytdl.extract_info(video_url, download=False)),
+                        timeout=8.0
+                    )
+                    if full_data:
+                        data = full_data
+                except Exception as e:
+                    logger.debug(f"Deep video extraction failed for {video_url}: {e}")
 
         # 3. Emergency fallback to SoundCloud (skip DRM tracks and reject amateur bootlegs/remixes unless requested)
         if not data or not (data.get("url") or data.get("formats")):
@@ -770,17 +798,22 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data = None
             is_playlist_url = any(param in url for param in ("list=", "/playlist", "/sets/", "/album/"))
 
+            target_url = url
+            yt_match = re.search(r'(?:youtube\.com\/(?:watch\?.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})', url)
+            if yt_match and not is_playlist_url:
+                target_url = f"https://www.youtube.com/watch?v={yt_match.group(1)}"
+
             # Use ytdl_playlist (extract_flat: in_playlist) for playlist URLs to avoid timing out!
             active_ytdl = ytdl_playlist if is_playlist_url else ytdl
             timeout_sec = 15.0 if is_playlist_url else 10.0
 
             try:
                 data = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: active_ytdl.extract_info(url, download=False)),
+                    loop.run_in_executor(None, lambda: active_ytdl.extract_info(target_url, download=False)),
                     timeout=timeout_sec
                 )
             except Exception as e:
-                logger.warning(f"Direct yt-dlp extraction failed for {url}: {e}")
+                logger.warning(f"Direct yt-dlp extraction failed for {target_url}: {e}")
                 data = None
 
             # Handle playlists
@@ -822,10 +855,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
             if (not data or not (data.get("url") or data.get("formats"))) and ("youtube.com" in url or "youtu.be" in url):
                 if is_playlist_url:
                     raise ValueError("⚠️ Could not load this YouTube playlist. Please verify the playlist is set to Public or Unlisted.")
-                logger.info(f"YouTube direct extraction failed for {url}, attempting oEmbed fallback...")
+                logger.info(f"YouTube direct extraction failed for {target_url}, attempting oEmbed fallback...")
                 oembed = await loop.run_in_executor(
                     None,
-                    lambda: fetch_oembed(f"https://www.youtube.com/oembed?url={urllib.parse.quote(url)}&format=json")
+                    lambda: fetch_oembed(f"https://www.youtube.com/oembed?url={urllib.parse.quote(target_url)}&format=json")
                 )
                 if oembed and oembed.get("title"):
                     title = oembed["title"]
@@ -860,6 +893,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
         fresh = None
 
         if web_url and web_url.startswith("http"):
+            yt_m = re.search(r'(?:youtube\.com\/(?:watch\?.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})', web_url)
+            if yt_m and "list=" not in web_url:
+                web_url = f"https://www.youtube.com/watch?v={yt_m.group(1)}"
             try:
                 fresh = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: ytdl.extract_info(web_url, download=False)),
