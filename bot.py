@@ -17566,7 +17566,7 @@ ALLOWED_KARAOKE_COMMANDS = {
     "radio",
     # Core system & config
     "help", "commands", "manual",
-    "mode", "servermode", "botmode", "profile",
+    "mode", "servermode", "botmode",
     "sync",
 }
 
@@ -18476,7 +18476,7 @@ async def help_prefix_cmd(ctx: commands.Context, category: Optional[str] = "all"
         await ctx.send(f"❌ Error: {e}")
 
 
-@bot.command(name="mode", aliases=["servermode", "botmode", "profile"])
+@bot.command(name="mode", aliases=["servermode", "botmode"])
 async def server_mode_cmd(ctx: commands.Context, new_mode: Optional[str] = None):
     """View or switch server operating mode: !mode [karaoke|music|full]"""
     if not ctx.guild:
