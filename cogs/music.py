@@ -1556,11 +1556,12 @@ class NowPlayingView(discord.ui.View):
 # ─── Search Results View ──────────────────────────────────────────────────────
 
 class SearchResultsView(discord.ui.View):
-    def __init__(self, cog: "Music", interaction: discord.Interaction, entries: list):
+    def __init__(self, cog: "Music", interaction_or_ctx, entries: list):
         super().__init__(timeout=30)
         self.cog = cog
-        self.interaction = interaction
+        self.context = interaction_or_ctx
         self.entries = entries
+        self.message = None
 
         # Add a button per result
         for i, entry in enumerate(entries, 1):
@@ -1637,7 +1638,10 @@ class SearchResultsView(discord.ui.View):
                 embed.set_thumbnail(url=result.thumbnail)
                 embed.add_field(name="Duration", value=fmt_duration(result.duration))
                 embed.add_field(name="Position", value=f"#{len(state.queue)}")
-                await interaction.edit_original_response(embed=embed, view=None)
+                if interaction.message:
+                    await interaction.message.edit(embed=embed, view=None)
+                else:
+                    await interaction.edit_original_response(embed=embed, view=None)
             else:
                 state.current = result
                 state.start_time = time.time()
@@ -1652,8 +1656,12 @@ class SearchResultsView(discord.ui.View):
                 await self.cog.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                 np_embed = await self.cog.build_np_embed(state)
                 np_view = NowPlayingView(self.cog, interaction.guild)
-                msg = await interaction.edit_original_response(embed=np_embed, view=np_view)
-                state.np_message = msg
+                if interaction.message:
+                    await interaction.message.edit(embed=np_embed, view=np_view)
+                    state.np_message = interaction.message
+                else:
+                    msg = await interaction.edit_original_response(embed=np_embed, view=np_view)
+                    state.np_message = msg
                 state.update_task = self.cog.bot.loop.create_task(
                     self.cog.live_updater(interaction.guild)
                 )
@@ -1671,10 +1679,16 @@ class SearchResultsView(discord.ui.View):
         for child in self.children:
             child.disabled = True
         try:
-            await self.interaction.edit_original_response(
-                embed=discord.Embed(title="⏱ Search expired.", color=0x2b2d31),
-                view=self
-            )
+            if self.message:
+                await self.message.edit(
+                    embed=discord.Embed(title="⏱ Search expired.", color=0x2b2d31),
+                    view=self
+                )
+            elif hasattr(self.context, "edit_original_response"):
+                await self.context.edit_original_response(
+                    embed=discord.Embed(title="⏱ Search expired.", color=0x2b2d31),
+                    view=self
+                )
         except Exception:
             pass
 
@@ -3197,6 +3211,41 @@ class Music(commands.Cog):
         except Exception as e:
             logger.error(f"Error in play command: {e}")
             await ctx.send(f"❌ Error loading track: {e}")
+
+    @commands.command(name="search", help="Search for a song and pick from results")
+    async def search_prefix(self, ctx: commands.Context, *, query: str):
+        if not ctx.author.voice:
+            return await ctx.send("❌ Join a voice channel first.")
+
+        try:
+            data = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: ytdl.extract_info(f"ytsearch5:{query}", download=False)
+            )
+        except Exception as e:
+            return await ctx.send(f"❌ Search failed: `{e}`")
+
+        entries = [e for e in data.get("entries", []) if e] if data else []
+        if not entries:
+            return await ctx.send("❌ No results found.")
+
+        lines = []
+        for i, entry in enumerate(entries, 1):
+            title = entry.get("title", "Unknown")[:50]
+            dur = fmt_duration(entry.get("duration", 0))
+            channel = entry.get("uploader", "Unknown")[:25]
+            lines.append(f"`{i}.` **{title}** `{dur}`\n    ↳ {channel}")
+
+        embed = discord.Embed(
+            title=f"🔍 Results for: {query}",
+            description="\n\n".join(lines),
+            color=0x5865F2
+        )
+        embed.set_footer(text="Pick a track below — expires in 30s")
+
+        view = SearchResultsView(self, ctx, entries)
+        msg = await ctx.send(embed=embed, view=view)
+        view.message = msg
 
     @commands.command(name="skip", aliases=["s"], help="Skip current track")
     async def skip_prefix(self, ctx: commands.Context):
