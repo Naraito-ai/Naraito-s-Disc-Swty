@@ -183,7 +183,7 @@ def extract_spotify_playlist_tracks_public(playlist_id_or_url: str) -> list[dict
 # ─── YT-DLP Config ────────────────────────────────────────────────────────────
 
 YTDL_OPTIONS = {
-    "format": "bestaudio/best",
+    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
     "noplaylist": False,
     "nocheckcertificate": True,
     "ignoreerrors": True,
@@ -237,14 +237,29 @@ RADIO_STATIONS = {
     }
 }
 
-def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Optional[str] = None) -> discord.FFmpegPCMAudio:
+def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Optional[str] = None, is_live: bool = False) -> discord.FFmpegPCMAudio:
     before_opts = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
     if seek_seconds > 0:
         before_opts = f"-ss {seek_seconds} " + before_opts
 
-    opts = "-vn"
+    # Auto-detect live radio streams from station list or live stream URLs
+    if not is_live:
+        for st in RADIO_STATIONS.values():
+            if st.get("url") and st["url"] in stream_url:
+                is_live = True
+                break
+
+    filters = []
     if audio_filter and audio_filter in AUDIO_FILTERS:
-        opts += f" -af {AUDIO_FILTERS[audio_filter]}"
+        filters.append(AUDIO_FILTERS[audio_filter])
+
+    # Radio streams skip loudnorm postprocessor since buffering loudnorm causes dropouts/latency on live audio
+    if not is_live:
+        filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+
+    opts = "-vn"
+    if filters:
+        opts += f" -af {','.join(filters)}"
 
     return discord.FFmpegPCMAudio(
         stream_url,
@@ -553,7 +568,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
             stream_url = audio_formats[-1]["url"]
 
         data["requester"] = requester
-        source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
+        is_live = bool(data.get("is_live"))
+        source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
         return cls(source, data=data, volume=volume), False
 
     @classmethod
@@ -637,7 +653,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
                                     stream_url = audio_formats[-1]["url"]
                             if stream_url:
                                 c["requester"] = requester
-                                source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
+                                is_live = bool(c.get("is_live"))
+                                source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
                                 return cls(source, data=c, volume=volume), False
                     except Exception as yt_err:
                         logger.warning(f"YouTube fallback also failed for Spotify track '{track_search_term}': {yt_err}")
@@ -706,7 +723,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 stream_url = audio_formats[-1]["url"]
 
             data["requester"] = requester
-            source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
+            is_live = bool(data.get("is_live"))
+            source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
             return cls(source, data=data, volume=volume), False
 
         # ── 3. Plain Text Search Query ────────────────────────────────────────
@@ -758,7 +776,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 raise ValueError("Could not regrab audio stream URL.")
             stream_url = audio_formats[-1]["url"]
 
-        source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
+        is_live = bool(fresh.get("is_live") or data.get("is_live"))
+        source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
         return cls(source, data=fresh, volume=volume)
 
 
@@ -1747,6 +1766,14 @@ class Music(commands.Cog):
         self._watchdog_task: Optional[asyncio.Task] = None
         self._reconnecting_guilds: set[int] = set()
 
+    async def cog_check(self, ctx: commands.Context) -> bool:
+        """Ensure all Music cog commands are always whitelisted regardless of server mode."""
+        return True
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Ensure all Music cog interactions are always whitelisted regardless of server mode."""
+        return True
+
     async def cog_load(self):
         """Start 24/7 voice watchdog supervisor loop and restore saved queues when cog loads."""
         self._watchdog_task = self.bot.loop.create_task(self._watchdog_247_loop())
@@ -2239,7 +2266,7 @@ class Music(commands.Cog):
         elif state.voice_client.channel != vc:
             await state.voice_client.move_to(vc)
 
-        source = make_ffmpeg_audio(station["url"], seek_seconds=0, audio_filter=state.filter)
+        source = make_ffmpeg_audio(station["url"], seek_seconds=0, audio_filter=state.filter, is_live=True)
         radio_data = {
             "title": station["name"],
             "webpage_url": station["url"],
@@ -2248,6 +2275,7 @@ class Music(commands.Cog):
             "requester": interaction.user.display_name,
             "uploader": station["desc"],
             "view_count": 0,
+            "is_live": True,
         }
         ytdl_src = YTDLSource(source, data=radio_data, volume=state.volume)
         state.current = ytdl_src
@@ -4361,7 +4389,7 @@ class Music(commands.Cog):
         elif state.voice_client.channel != vc:
             await state.voice_client.move_to(vc)
 
-        source = make_ffmpeg_audio(st_info["url"], seek_seconds=0, audio_filter=state.filter)
+        source = make_ffmpeg_audio(st_info["url"], seek_seconds=0, audio_filter=state.filter, is_live=True)
         radio_data = {
             "title": st_info["name"],
             "webpage_url": st_info["url"],
@@ -4370,6 +4398,7 @@ class Music(commands.Cog):
             "requester": ctx.author.display_name,
             "uploader": st_info["desc"],
             "view_count": 0,
+            "is_live": True,
         }
         ytdl_src = YTDLSource(source, data=radio_data, volume=state.volume)
         state.current = ytdl_src

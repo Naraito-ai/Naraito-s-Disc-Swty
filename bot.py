@@ -17551,7 +17551,7 @@ _guild_server_modes: dict[int, str] = {}
 
 ALLOWED_KARAOKE_COMMANDS = {
     # Music playback
-    "play", "p", "search", "skip", "s", "next", "stop", "pause", "resume",
+    "play", "p", "search", "skip", "s", "next", "stop", "pause", "resume", "unpause",
     "volume", "vol", "queue", "q", "shuffle", "loop", "repeat", "autoplay",
     "seek", "remove", "rm", "nowplaying", "np",
     # 24/7 & Voice connection
@@ -17564,6 +17564,12 @@ ALLOWED_KARAOKE_COMMANDS = {
     "lyrics", "ly",
     # Radio
     "radio",
+    # Spotify integration
+    "spotify",
+    # Playlists
+    "playlist",
+    # Audio filters & DJ
+    "filter", "filters", "dj",
     # Core system & config
     "help", "commands", "manual",
     "mode", "servermode", "botmode",
@@ -17571,8 +17577,16 @@ ALLOWED_KARAOKE_COMMANDS = {
 }
 
 ALLOWED_KARAOKE_SLASH_COMMANDS = {
-    "play", "pause", "skip", "stop", "queue", "nowplaying", "volume",
-    "seek", "loop", "shuffle", "join", "leave", "lyrics", "247", "help"
+    # Playback & controls
+    "play", "search", "pause", "resume", "skip", "stop", "queue", "nowplaying", "volume",
+    "seek", "loop", "shuffle", "join", "leave", "lyrics", "247",
+    # Features & groups
+    "spotify", "playlist", "filter", "radio", "dj",
+    # Subcommands
+    "view", "clear", "remove", "autoplay", "link", "playlists", "save", "delete", "list",
+    "set", "off", "status", "stay", "set_role", "clear_role",
+    # Core system
+    "help", "mode",
 }
 
 async def get_guild_server_mode(guild_id: Optional[int]) -> str:
@@ -17604,8 +17618,16 @@ async def globally_block_blacklisted_users_prefix(ctx: commands.Context) -> bool
         if ctx.guild:
             mode = await get_guild_server_mode(ctx.guild.id)
             if mode in ("karaoke", "music"):
+                # Always whitelist any command in the Music cog
+                cog_name = ""
+                if ctx.command and ctx.command.cog:
+                    cog_name = getattr(ctx.command.cog, "__cog_name__", "") or ctx.command.cog.__class__.__name__
+                if cog_name.lower() == "music":
+                    return True
+
                 cmd_name = ctx.command.name.lower() if ctx.command else ""
-                if cmd_name not in ALLOWED_KARAOKE_COMMANDS:
+                root_name = ctx.command.root_parent.name.lower() if getattr(ctx.command, "root_parent", None) and ctx.command.root_parent else ""
+                if cmd_name not in ALLOWED_KARAOKE_COMMANDS and root_name not in ALLOWED_KARAOKE_COMMANDS:
                     # Silently ignore non-karaoke commands in strict karaoke mode
                     return False
     except Exception as e:
@@ -17630,10 +17652,22 @@ async def globally_block_blacklisted_users_interaction(interaction: discord.Inte
         if interaction.guild:
             mode = await get_guild_server_mode(interaction.guild.id)
             if mode in ("karaoke", "music"):
-                # If it's a slash command, ensure it's in the allowed set
+                # If it's a slash command, ensure it's in the allowed set or from the Music cog
                 if interaction.type == discord.InteractionType.application_command:
+                    binding = getattr(interaction.command, "binding", None)
+                    cog_name = ""
+                    if binding:
+                        cog_name = getattr(binding, "__cog_name__", "") or binding.__class__.__name__
+                    if cog_name.lower() == "music":
+                        return True
+
                     cmd_name = interaction.command.name.lower() if interaction.command else ""
-                    if cmd_name not in ALLOWED_KARAOKE_SLASH_COMMANDS:
+                    parent_name = interaction.command.parent.name.lower() if getattr(interaction.command, "parent", None) and interaction.command.parent else ""
+                    root_name = interaction.command.root_parent.name.lower() if getattr(interaction.command, "root_parent", None) and interaction.command.root_parent else ""
+
+                    if (cmd_name not in ALLOWED_KARAOKE_SLASH_COMMANDS
+                            and parent_name not in ALLOWED_KARAOKE_SLASH_COMMANDS
+                            and root_name not in ALLOWED_KARAOKE_SLASH_COMMANDS):
                         msg = (
                             "🎤 **Strict Karaoke Server Mode Active**\n"
                             "This server is strictly configured for **Music & Live Karaoke**.\n"
