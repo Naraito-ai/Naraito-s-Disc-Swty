@@ -230,22 +230,30 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
 
         scored_candidates.sort(key=lambda c: c["score"], reverse=True)
 
-        for top_song in scored_candidates:
-            # JioSaavn — pick highest scoring candidate (score >= min_score)
-            if not user_wants_variant and top_song["score"] < min_score:
+        eligible = [c for c in scored_candidates if user_wants_variant or c["score"] >= min_score]
+        if not eligible:
+            return None
+
+        # Fetch details for top eligible candidates in a single fast batch request
+        top_eligible = eligible[:6]
+        batch_pids = ",".join(c["id"] for c in top_eligible)
+        details = {}
+        try:
+            detail_url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0&_format=json&pids={batch_pids}"
+            req_det = urllib.request.Request(detail_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req_det, timeout=5.0) as resp_det:
+                details = json.loads(resp_det.read().decode("utf-8"))
+        except Exception as batch_err:
+            logger.debug(f"Batch Saavn getDetails failed: {batch_err}")
+
+        for top_song in top_eligible:
+            pid = top_song["id"]
+            song_info = details.get(pid, {})
+            enc_url = song_info.get("encrypted_media_url")
+            if not enc_url:
                 continue
 
-            pid = top_song["id"]
             try:
-                detail_url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0&_format=json&pids={pid}"
-                req_det = urllib.request.Request(detail_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-                with urllib.request.urlopen(req_det, timeout=4.5) as resp_det:
-                    details = json.loads(resp_det.read().decode("utf-8"))
-                song_info = details.get(pid, {})
-                enc_url = song_info.get("encrypted_media_url")
-                if not enc_url:
-                    continue
-
                 from pyDes import des, ECB, PAD_PKCS5
                 k = des(b"38346591", ECB, b"\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
                 raw_stream = k.decrypt(base64.b64decode(enc_url.strip())).decode("utf-8")
@@ -897,8 +905,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if not user_wants_variant:
             try:
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(canonical_q)),
-                    timeout=4.5
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(canonical_q, min_score=800.0)),
+                    timeout=8.0
                 )
                 if official_track and official_track.get("url"):
                     data = official_track
@@ -953,8 +961,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
                             except Exception as cand_err:
                                 logger.debug(f"Candidate '{cand.get('title')}' extraction failed ({cand_err}), trying next result...")
                                 continue
-                    if not data and ranked:
-                        data = ranked[0]
             except Exception as yt_err:
                 logger.warning(f"YouTube search failed for '{search_query}': {yt_err}")
                 data = None
@@ -976,10 +982,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
         # 3. Secondary studio master fallback using the resolved title if YouTube gave a title but no streamable audio
         if (not data or not (data.get("url") or data.get("formats"))) and not user_wants_variant:
             try:
-                cand_title = data.get("title") if data else canonical_q
+                cand_title = data.get("title") if (data and data.get("title")) else canonical_q
                 official_track = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_title, min_score=0.0)),
-                    timeout=4.5
+                    timeout=8.0
                 )
                 if official_track and official_track.get("url"):
                     data = official_track
@@ -1023,18 +1029,22 @@ class YTDLSource(discord.PCMVolumeTransformer):
             raise ValueError(f"Could not find or stream the original version of '{search_query}'. Try adding the artist name or pasting a direct link.")
 
         stream_url = data.get("url")
-        if not stream_url:
-            formats = data.get("formats", [])
+        # YouTube watch webpage URLs are not direct audio streams!
+        if not stream_url or any(str(stream_url).startswith(p) for p in ("https://www.youtube.com", "http://www.youtube.com", "https://youtu.be")):
+            formats = data.get("formats", []) if data else []
             audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
             if audio_formats:
                 stream_url = audio_formats[-1]["url"]
+            else:
+                stream_url = None
 
         # If stream_url could not be resolved from YouTube (e.g. datacenter bot block), fallback to official studio master
         if not stream_url:
             try:
+                cand_fallback = (data.get("title") if data and data.get("title") else None) or canonical_q
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(data.get("title") or clean_q, min_score=0.0)),
-                    timeout=5.0
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_fallback, min_score=0.0)),
+                    timeout=8.0
                 )
                 if official_track and official_track.get("url"):
                     data = official_track
