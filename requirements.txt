@@ -17,3 +17,4 @@ yt-dlp
 PyNaCl
 davey
 spotipy
+pyDes
