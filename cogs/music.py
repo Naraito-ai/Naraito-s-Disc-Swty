@@ -13,6 +13,7 @@ from typing import Optional
 import yt_dlp
 import time
 import unicodedata
+import math
 
 import base64
 import spotipy
@@ -36,58 +37,241 @@ if spotify_client_id and spotify_client_secret:
         logger.warning(f"Failed to initialize Spotify client: {e}")
 
 
+def is_vevo_entry(cand: dict) -> bool:
+    """Detects if a YouTube video entry belongs to VEVO, which has strict DRM/bot-blocks on datacenter IPs."""
+    if not cand or not isinstance(cand, dict):
+        return False
+    check_values = [
+        cand.get("uploader") or "",
+        cand.get("channel") or "",
+        cand.get("uploader_id") or "",
+        cand.get("channel_url") or "",
+        cand.get("uploader_url") or "",
+        cand.get("creator") or "",
+        cand.get("title") or "",
+    ]
+    for val in check_values:
+        if "vevo" in str(val).lower():
+            return True
+    return False
+
+
+UNWANTED_TITLE_PATTERNS = [
+    re.compile(r'\bremix(es)?\b', re.IGNORECASE),
+    re.compile(r'\bmix(es)?\b', re.IGNORECASE),
+    re.compile(r'\bmashup\b', re.IGNORECASE),
+    re.compile(r'\bcovers?\b', re.IGNORECASE),
+    re.compile(r'\bextended\b', re.IGNORECASE),
+    re.compile(r'\bedits?\b', re.IGNORECASE),
+    re.compile(r'\bversions?\b', re.IGNORECASE),
+    re.compile(r'\bx\b', re.IGNORECASE),
+    re.compile(r'\bft\.?\b', re.IGNORECASE),
+    re.compile(r'\bfeat\.?\b', re.IGNORECASE),
+    re.compile(r'\bkaraoke\b', re.IGNORECASE),
+    re.compile(r'\binstrumental\b', re.IGNORECASE),
+    re.compile(r'\bkaytranada\b', re.IGNORECASE),
+    re.compile(r'\bflip\b', re.IGNORECASE),
+    re.compile(r'\bslowed\b', re.IGNORECASE),
+    re.compile(r'\breverb\b', re.IGNORECASE),
+    re.compile(r'\bbootleg\b', re.IGNORECASE),
+    re.compile(r'\bnightcore\b', re.IGNORECASE),
+    re.compile(r'\breprod\b', re.IGNORECASE),
+    re.compile(r'\bprod\s+by\b', re.IGNORECASE),
+    re.compile(r'\blive\b', re.IGNORECASE),
+    re.compile(r'\bsped\s+up\b', re.IGNORECASE),
+    re.compile(r'\bspeed\s+up\b', re.IGNORECASE),
+    re.compile(r'\bbass\s+boost(ed)?\b', re.IGNORECASE),
+    re.compile(r'\bacoustic\b', re.IGNORECASE),
+    re.compile(r'\bparody\b', re.IGNORECASE),
+    re.compile(r'\btribute\b', re.IGNORECASE),
+    re.compile(r'\b8d\s+audio\b', re.IGNORECASE),
+    re.compile(r'\b1\s+hour\b', re.IGNORECASE),
+    re.compile(r'\bloop\b', re.IGNORECASE),
+]
+
+
+def score_music_candidate(cand: dict, query: str = "") -> float:
+    """
+    Ranks search candidates to prefer the original official song:
+    - Heavily penalizes remixes, edits, covers, mashups, and unwanted variants.
+    - Rewards official topic channels, official audio, and clean titles.
+    - Prefers the shortest, cleanest title that matches the query.
+    """
+    if not cand or not isinstance(cand, dict):
+        return -9999.0
+
+    title = (cand.get("title") or "").strip()
+    title_lower = title.lower()
+    uploader = (cand.get("uploader") or cand.get("channel") or "").lower()
+    uploader_id = (cand.get("uploader_id") or "").lower()
+    q_lower = query.lower().strip()
+
+    score = 1000.0
+
+    # 1. Heavily penalize unwanted words (unless user explicitly searched for them)
+    for pattern_re in UNWANTED_TITLE_PATTERNS:
+        if pattern_re.search(title) and not pattern_re.search(query):
+            score -= 300.0
+
+    # 2. Prefer artist/keyword matching in uploader and title
+    query_words = [w for w in re.findall(r'\w+', q_lower) if len(w) > 2]
+    title_matches = sum(1 for w in query_words if w in title_lower)
+    uploader_matches = sum(1 for w in query_words if w in uploader)
+    score += title_matches * 60.0
+    score += uploader_matches * 120.0
+
+    # 3. Boost official Topic channel releases only if the channel matches the queried artist/terms
+    if "- topic" in uploader or "- topic" in uploader_id:
+        if uploader_matches > 0 or not query_words:
+            score += 200.0
+        else:
+            score -= 100.0
+    if "official audio" in title_lower and "remix" not in title_lower:
+        score += 150.0
+    elif "audio" in title_lower and "remix" not in title_lower:
+        score += 80.0
+
+    # 4. Prefer the shortest, cleanest title (punish brackets, fluff, extra words)
+    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
+    fluff_length = max(0, len(title) - len(clean_title))
+    score -= fluff_length * 3.0
+    score -= len(title) * 1.0
+
+    # 5. Penalize very short previews / shorts (< 60 seconds)
+    duration = cand.get("duration", 0)
+    if duration and duration < 60:
+        score -= 400.0
+
+    return score
+
+
 def fetch_official_studio_track(search_query: str) -> Optional[dict]:
     """
     Fetches 100% original, official studio master (320kbps CD audio) via licensed CDN.
     Guarantees official studio track playback without datacenter bot-blocks or amateur remixes.
+    Strictly scores and filters candidates to guarantee original version first priority.
     """
     try:
         q_clean = search_query.strip()
         q_clean = re.sub(r'[\(\[](?:official\s*(?:video|audio|music\s*video)?|lyrics|audio|video)[\)\]]', '', q_clean, flags=re.IGNORECASE).strip()
         q_enc = urllib.parse.quote(q_clean)
-        url = f"https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query={q_enc}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=4.5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        songs = data.get("songs", {}).get("data", [])
-        if not songs:
-            return None
-        top_song = songs[0]
-        pid = top_song["id"]
-        detail_url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0&_format=json&pids={pid}"
-        req2 = urllib.request.Request(detail_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req2, timeout=4.5) as resp2:
-            details = json.loads(resp2.read().decode("utf-8"))
-        song_info = details.get(pid, {})
-        enc_url = song_info.get("encrypted_media_url")
-        if not enc_url:
-            return None
+        user_wants_variant = any(w in q_clean.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "mashup", "reverb"))
+
+        candidates = []
+        # 1. Primary: JioSaavn Catalog Search with play counts & ranking
         try:
-            from pyDes import des, ECB, PAD_PKCS5
-            k = des(b"38346591", ECB, b"\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
-            raw_stream = k.decrypt(base64.b64decode(enc_url.strip())).decode("utf-8")
-            stream_url = raw_stream.replace("_96.mp4", "_320.mp4")
-        except Exception:
-            stream_url = song_info.get("media_preview_url", "")
-        if not stream_url:
+            url = f"https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&cc=in&p=1&n=15&q={q_enc}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req, timeout=4.5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            results = data.get("results", [])
+            for r in results:
+                title = r.get("song") or r.get("title") or ""
+                artist = r.get("primary_artists") or r.get("more_info", {}).get("singers") or ""
+                plays = int(r.get("play_count") or 0)
+                pid = r.get("id")
+                if pid and title:
+                    candidates.append({
+                        "id": pid,
+                        "title": title,
+                        "uploader": artist,
+                        "duration": int(r.get("duration") or 0),
+                        "play_count": plays,
+                        "raw": r,
+                    })
+        except Exception as e:
+            logger.debug(f"JioSaavn catalog search failed: {e}")
+
+        # 2. Secondary autocomplete fallback
+        if not candidates:
+            try:
+                url2 = f"https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query={q_enc}"
+                req2 = urllib.request.Request(url2, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                with urllib.request.urlopen(req2, timeout=4.5) as resp2:
+                    data2 = json.loads(resp2.read().decode("utf-8"))
+                for r in data2.get("songs", {}).get("data", []):
+                    title = r.get("title") or ""
+                    artist = r.get("more_info", {}).get("singers") or r.get("more_info", {}).get("primary_artists") or ""
+                    pid = r.get("id")
+                    if pid and title:
+                        candidates.append({
+                            "id": pid,
+                            "title": title,
+                            "uploader": artist,
+                            "duration": 0,
+                            "play_count": 0,
+                            "raw": r,
+                        })
+            except Exception as e:
+                logger.debug(f"JioSaavn autocomplete fallback failed: {e}")
+
+        if not candidates:
             return None
 
-        title = song_info.get("song", top_song.get("title", "Unknown"))
-        artist = song_info.get("primary_artists", "")
-        full_title = f"{title} - {artist}" if artist else title
-        thumbnail = (song_info.get("image") or top_song.get("image") or "").replace("150x150", "500x500").replace("50x50", "500x500")
-        duration = int(song_info.get("duration", 0))
-        web_url = song_info.get("perma_url") or top_song.get("url") or f"https://www.jiosaavn.com/song/{pid}"
+        # 3. Score & filter candidates to guarantee original version first priority
+        scored_candidates = []
+        for c in candidates:
+            s = score_music_candidate(c, q_clean)
+            plays = c.get("play_count", 0)
+            if plays > 0:
+                s += min(500.0, math.log10(plays + 1) * 80.0)
+            c_title = c["title"].lower().strip()
+            if c_title == q_clean.lower():
+                s += 150.0
+            lang = (c.get("raw", {}).get("language") or "").lower()
+            if not user_wants_variant and lang == "instrumental":
+                s -= 400.0
+            c["score"] = s
+            scored_candidates.append(c)
 
-        return {
-            "title": full_title,
-            "url": stream_url,
-            "webpage_url": web_url,
-            "thumbnail": thumbnail,
-            "duration": duration,
-            "uploader": artist or "Official Studio Master",
-            "is_live": False,
-        }
+        scored_candidates.sort(key=lambda c: c["score"], reverse=True)
+
+        for top_song in scored_candidates:
+            # If candidate score is too low and user didn't request a variant, skip
+            if not user_wants_variant and top_song["score"] < 900.0:
+                continue
+
+            pid = top_song["id"]
+            try:
+                detail_url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0&_format=json&pids={pid}"
+                req_det = urllib.request.Request(detail_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                with urllib.request.urlopen(req_det, timeout=4.5) as resp_det:
+                    details = json.loads(resp_det.read().decode("utf-8"))
+                song_info = details.get(pid, {})
+                enc_url = song_info.get("encrypted_media_url")
+                if not enc_url:
+                    continue
+
+                from pyDes import des, ECB, PAD_PKCS5
+                k = des(b"38346591", ECB, b"\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+                raw_stream = k.decrypt(base64.b64decode(enc_url.strip())).decode("utf-8")
+                stream_url = raw_stream.replace("_96.mp4", "_320.mp4")
+
+                if not stream_url:
+                    continue
+
+                title = song_info.get("song") or top_song.get("title", "Unknown")
+                artist = song_info.get("primary_artists") or top_song.get("uploader", "")
+                full_title = f"{title} - {artist}" if artist else title
+                thumbnail = (song_info.get("image") or top_song.get("raw", {}).get("image") or "").replace("150x150", "500x500").replace("50x50", "500x500")
+                duration = int(song_info.get("duration") or top_song.get("duration") or 0)
+                web_url = song_info.get("perma_url") or f"https://www.jiosaavn.com/song/{pid}"
+
+                logger.info(f"Official Studio Master resolved: '{full_title}' (Score: {top_song['score']:.1f}, Plays: {top_song.get('play_count', 0)})")
+                return {
+                    "title": full_title,
+                    "url": stream_url,
+                    "webpage_url": web_url,
+                    "thumbnail": thumbnail,
+                    "duration": duration,
+                    "uploader": artist or "Official Studio Master",
+                    "is_live": False,
+                }
+            except Exception as cand_err:
+                logger.debug(f"Error resolving Saavn candidate {pid}: {cand_err}")
+                continue
+
+        return None
     except Exception as e:
         logger.debug(f"Official studio track fetch failed: {e}")
         return None
@@ -271,12 +455,6 @@ YTDL_OPTIONS = {
     "source_address": "0.0.0.0",
     "socket_timeout": 10,
     "concurrent_fragment_downloads": 4,
-    "extractor_args": {
-        "youtube": {
-            "skip": ["webpage", "dash", "hls"],
-            "player_client": ["android", "visionos"],
-        }
-    },
 }
 
 if os.path.exists("cookies.txt"):
@@ -573,112 +751,7 @@ def progress_bar(elapsed, total, length=16):
     return "━" * filled + "●" + "─" * unfilled
 
 
-def is_vevo_entry(cand: dict) -> bool:
-    """Detects if a YouTube video entry belongs to VEVO, which has strict DRM/bot-blocks on datacenter IPs."""
-    if not cand or not isinstance(cand, dict):
-        return False
-    check_values = [
-        cand.get("uploader") or "",
-        cand.get("channel") or "",
-        cand.get("uploader_id") or "",
-        cand.get("channel_url") or "",
-        cand.get("uploader_url") or "",
-        cand.get("creator") or "",
-        cand.get("title") or "",
-    ]
-    for val in check_values:
-        if "vevo" in str(val).lower():
-            return True
-    return False
 
-
-UNWANTED_TITLE_PATTERNS = [
-    re.compile(r'\bremix(es)?\b', re.IGNORECASE),
-    re.compile(r'\bmix(es)?\b', re.IGNORECASE),
-    re.compile(r'\bmashup\b', re.IGNORECASE),
-    re.compile(r'\bcovers?\b', re.IGNORECASE),
-    re.compile(r'\bextended\b', re.IGNORECASE),
-    re.compile(r'\bedits?\b', re.IGNORECASE),
-    re.compile(r'\bversions?\b', re.IGNORECASE),
-    re.compile(r'\bx\b', re.IGNORECASE),
-    re.compile(r'\bft\.?\b', re.IGNORECASE),
-    re.compile(r'\bfeat\.?\b', re.IGNORECASE),
-    re.compile(r'\bkaraoke\b', re.IGNORECASE),
-    re.compile(r'\binstrumental\b', re.IGNORECASE),
-    re.compile(r'\bkaytranada\b', re.IGNORECASE),
-    re.compile(r'\bflip\b', re.IGNORECASE),
-    re.compile(r'\bslowed\b', re.IGNORECASE),
-    re.compile(r'\breverb\b', re.IGNORECASE),
-    re.compile(r'\bbootleg\b', re.IGNORECASE),
-    re.compile(r'\bnightcore\b', re.IGNORECASE),
-    re.compile(r'\breprod\b', re.IGNORECASE),
-    re.compile(r'\bprod\s+by\b', re.IGNORECASE),
-    re.compile(r'\blive\b', re.IGNORECASE),
-    re.compile(r'\bsped\s+up\b', re.IGNORECASE),
-    re.compile(r'\bspeed\s+up\b', re.IGNORECASE),
-    re.compile(r'\bbass\s+boost(ed)?\b', re.IGNORECASE),
-    re.compile(r'\bacoustic\b', re.IGNORECASE),
-    re.compile(r'\bparody\b', re.IGNORECASE),
-    re.compile(r'\btribute\b', re.IGNORECASE),
-    re.compile(r'\b8d\s+audio\b', re.IGNORECASE),
-    re.compile(r'\b1\s+hour\b', re.IGNORECASE),
-    re.compile(r'\bloop\b', re.IGNORECASE),
-]
-
-
-def score_music_candidate(cand: dict, query: str = "") -> float:
-    """
-    Ranks search candidates to prefer the original official song:
-    - Heavily penalizes remixes, edits, covers, mashups, and unwanted variants.
-    - Rewards official topic channels, official audio, and clean titles.
-    - Prefers the shortest, cleanest title that matches the query.
-    """
-    if not cand or not isinstance(cand, dict):
-        return -9999.0
-
-    title = (cand.get("title") or "").strip()
-    title_lower = title.lower()
-    uploader = (cand.get("uploader") or cand.get("channel") or "").lower()
-    uploader_id = (cand.get("uploader_id") or "").lower()
-    q_lower = query.lower().strip()
-
-    score = 1000.0
-
-    # 1. Heavily penalize unwanted words (unless user explicitly searched for them)
-    for pattern_re in UNWANTED_TITLE_PATTERNS:
-        if pattern_re.search(title) and not pattern_re.search(query):
-            score -= 300.0
-
-    # 2. Prefer artist/keyword matching in uploader and title
-    query_words = [w for w in re.findall(r'\w+', q_lower) if len(w) > 2]
-    title_matches = sum(1 for w in query_words if w in title_lower)
-    uploader_matches = sum(1 for w in query_words if w in uploader)
-    score += title_matches * 60.0
-    score += uploader_matches * 120.0
-
-    # 3. Boost official Topic channel releases only if the channel matches the queried artist/terms
-    if "- topic" in uploader or "- topic" in uploader_id:
-        if uploader_matches > 0 or not query_words:
-            score += 200.0
-        else:
-            score -= 100.0
-    if "official audio" in title_lower and "remix" not in title_lower:
-        score += 150.0
-    elif "audio" in title_lower and "remix" not in title_lower:
-        score += 80.0
-
-    # 4. Prefer the shortest, cleanest title (punish brackets, fluff, extra words)
-    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
-    fluff_length = max(0, len(title) - len(clean_title))
-    score -= fluff_length * 3.0
-    score -= len(title) * 1.0
-
-    # 5. Penalize very short previews / shorts (< 60 seconds)
-    duration = cand.get("duration", 0)
-    if duration and duration < 60:
-        score -= 400.0
-
-    return score
 
 
 # ─── Guild Music State ────────────────────────────────────────────────────────
@@ -891,9 +964,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     timeout=5.0
                 )
                 sc_entries = [e for e in sc_data.get("entries", []) if e]
-                unwanted_tags = ("remix", "flip", "slowed", "edit", "instrumental", "reprod", "prod by", "mashup", "karaoke", "tribute", "bootleg", "nightcore", "reverb", "cover")
-
-                clean_candidate = None
+                sc_candidates = []
                 for candidate in sc_entries:
                     s_url = candidate.get("url")
                     if not s_url:
@@ -902,12 +973,18 @@ class YTDLSource(discord.PCMVolumeTransformer):
                             s_url = fmts[-1]["url"]
                     if not s_url or candidate.get("drm"):
                         continue
-                    c_title = (candidate.get("title") or "").lower()
-                    if not user_wants_variant and any(tag in c_title for tag in unwanted_tags):
-                        continue
-                    clean_candidate = candidate
-                    break
-                data = clean_candidate
+                    candidate["stream_url"] = s_url
+                    sc_candidates.append(candidate)
+
+                if sc_candidates:
+                    sc_candidates.sort(key=lambda c: score_music_candidate(c, clean_q), reverse=True)
+                    for cand in sc_candidates:
+                        if not user_wants_variant and score_music_candidate(cand, clean_q) < 700:
+                            continue
+                        data = cand
+                        if not data.get("url") and cand.get("stream_url"):
+                            data["url"] = cand["stream_url"]
+                        break
             except Exception as sc_err:
                 logger.warning(f"SoundCloud fallback search failed for '{clean_q}': {sc_err}")
                 data = None
