@@ -65,16 +65,69 @@ COVER_PENALTIES = [
 ]
 
 
-def score_candidate(title: str, artist: str = "", play_count: int = 0, release_year=None, query: str = "", is_topic: bool = False) -> float:
+def validate_canonical_match(query: str, cand_artist: str, cand_title: str) -> bool:
+    """
+    Validates whether a candidate track (from Spotify or metadata search)
+    is a genuine match for the user's query, preventing unrelated tracks
+    (e.g., 'Lil Wayne - Can't Be Broken' for query 'sza broken clock')
+    from hijacking the playback.
+    """
+    q_clean = query.lower()
+    q_words = set(re.findall(r'\b\w{2,}\b', q_clean))
+    
+    # Strip common search noise words
+    noise = {"song", "track", "music", "audio", "video", "official", "lyrics", "full"}
+    q_words = q_words - noise
+    if not q_words:
+        return True
+
+    a_clean = (cand_artist or "").lower()
+    t_clean = (cand_title or "").lower()
+    a_words = set(re.findall(r'\b\w{2,}\b', a_clean)) - {"the", "feat", "ft"}
+    t_words = set(re.findall(r'\b\w{2,}\b', t_clean)) - {"the", "feat", "ft"}
+
+    # Check 1: If query contains words that look like an artist, check artist overlap
+    artist_in_query = any(w in q_clean for w in a_words) or any(w in a_clean for w in q_words)
+    title_in_query = any(w in q_clean for w in t_words) or any(w in t_clean for w in q_words)
+
+    # Check 2: Word overlap ratio
+    matched_words = q_words.intersection(a_words | t_words)
+    overlap_ratio = len(matched_words) / len(q_words)
+
+    # If query has 3+ words (e.g., 'sza broken clock' or 'sza broken clouds')
+    # and NONE of the artist words are in the query and overlap ratio is low (< 0.6):
+    # This is an unrelated track hallucination! Reject!
+    if len(q_words) >= 3 and not artist_in_query and overlap_ratio < 0.6:
+        return False
+
+    # If overlap ratio is less than 0.3, reject unless both artist and title are identified
+    if overlap_ratio < 0.3 and not (artist_in_query and title_in_query):
+        return False
+
+    return True
+
+
+def clean_title_for_matching(text: str) -> str:
+    # Strip parenthetical annotations like (The New Life of Tamizh), (From "Thangamagan"), (Official Audio)
+    t = re.sub(r'[\(\[].*?[\)\]]', '', text or '')
+    t = re.sub(r'[^\w\s]', '', t)
+    return ' '.join(t.lower().split())
+
+
+def score_candidate(title: str, artist: str = "", play_count: int = 0, release_year=None, query: str = "", is_topic: bool = False, is_studio: bool = False) -> float:
     score = 0.0
-    title_lower = (title or "").lower()
-    artist_lower = (artist or "").lower()
+    title_lower = (title or "").lower().strip()
+    artist_lower = (artist or "").lower().strip()
     q_lower = (query or "").lower().strip()
 
     # Penalize covers heavily (check both title and artist)
     for word in COVER_PENALTIES:
         if word in title_lower or word in artist_lower:
             score -= 400.0
+
+    # Official licensed studio catalog bonus (JioSaavn CD masters)
+    if is_studio:
+        score += 300.0
 
     # YouTube Topic channels (Artist - Topic) -> +500 bonus
     if is_topic:
@@ -84,6 +137,35 @@ def score_candidate(title: str, artist: str = "", play_count: int = 0, release_y
             score += 500.0
         else:
             score -= 200.0
+
+    # Meaningful words in query and candidate
+    q_words = [w for w in re.findall(r'\b\w{2,}\b', q_lower) if w not in ("the", "and", "feat", "ft", "for", "song", "track")]
+    a_words = [w for w in re.findall(r'\b\w{2,}\b', artist_lower) if w not in ("the", "and", "feat", "ft")]
+    t_words = [w for w in re.findall(r'\b\w{2,}\b', title_lower) if w not in ("the", "and", "feat", "ft")]
+
+    # Strict word-boundary matching
+    matched_t_words = []
+    for w in t_words:
+        for qw in q_words:
+            if w == qw or (len(w) >= 4 and len(qw) >= 4 and (w in qw or qw in w)):
+                matched_t_words.append(w)
+                break
+
+    has_artist_match = False
+    for w in a_words:
+        if len(w) >= 3 and re.search(rf'\b{re.escape(w)}\b', q_lower):
+            has_artist_match = True
+            break
+    if not has_artist_match:
+        for w in q_words:
+            if len(w) >= 3 and re.search(rf'\b{re.escape(w)}\b', artist_lower):
+                has_artist_match = True
+                break
+
+    # ZERO RELEVANCE CHECK: If candidate has ZERO words in common with query in BOTH title and artist,
+    # disqualify candidate entirely (e.g. Charlie Puth's 'Attention' for query 'from the start')
+    if q_words and not matched_t_words and not has_artist_match:
+        return -2000.0
 
     # Play count = strongest "original" signal
     try:
@@ -97,24 +179,35 @@ def score_candidate(title: str, artist: str = "", play_count: int = 0, release_y
         score += 500.0
     elif p_count >= 100_000:
         score += 200.0
+    elif p_count >= 10_000:
+        score += 100.0
 
     # Older = more likely original
     if release_year:
         try:
             ry = int(release_year)
-            score += max(0, (2024 - ry) * 10)
+            score += max(0, (2025 - ry) * 10)
         except (ValueError, TypeError):
             pass
 
-    # Artist matching bonus (if queried artist matches candidate artist)
-    q_parts = [p.strip() for p in re.split(r'[-–—|•]', q_lower) if p.strip()]
-    queried_artist = q_parts[0] if len(q_parts) > 1 else ''
-    if queried_artist:
-        a_words = [w for w in re.findall(r'\w+', queried_artist) if len(w) > 2]
-        if a_words and any(w in artist_lower for w in a_words):
-            score += 300.0
-        elif a_words and not any(w in artist_lower for w in a_words):
-            score -= 200.0
+    # Artist match bonus
+    if has_artist_match:
+        score += 300.0
+
+    # Exact Title Match Bonus: Check if stripped title matches stripped query
+    clean_cand = clean_title_for_matching(title)
+    clean_q = clean_title_for_matching(query)
+    clean_q_without_artist = clean_q
+    if has_artist_match:
+        for aw in a_words:
+            clean_q_without_artist = re.sub(rf'\b{re.escape(aw)}\b', '', clean_q_without_artist).strip()
+
+    if clean_cand == clean_q or (clean_cand and clean_cand == clean_q_without_artist):
+        score += 500.0
+    elif clean_cand and (clean_cand in clean_q or clean_q in clean_cand):
+        score += 350.0
+    elif matched_t_words:
+        score += min(300.0, len(matched_t_words) * 150.0)
 
     # Bonus for official audio / matching artist
     if "official audio" in title_lower and "remix" not in title_lower:
@@ -145,8 +238,9 @@ def score_music_candidate(cand: dict, query: str = "") -> float:
         except Exception:
             pass
     is_topic = "- topic" in str(uploader).lower() or "- topic" in str(uploader_id).lower()
+    is_studio = bool(cand.get("is_studio"))
 
-    return score_candidate(title, uploader, views, year, query=query, is_topic=is_topic)
+    return score_candidate(title, uploader, views, year, query=query, is_topic=is_topic, is_studio=is_studio)
 
 
 SAAVN_HEADERS = {
@@ -232,6 +326,7 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
                 play_count=c.get("play_count", 0),
                 release_year=c.get("year"),
                 query=q_clean,
+                is_studio=True,
             )
             c["score"] = s
             scored_candidates.append(c)
@@ -905,17 +1000,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 pure_q = re.sub(r'^(?:ytsearch\d*:|scsearch\d*:)\s*', '', clean_q).strip()
                 sp_res = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: spotify.search(q=pure_q, type="track", limit=1)),
+                    loop.run_in_executor(None, lambda: spotify.search(q=pure_q, type="track", limit=5)),
                     timeout=2.0
                 )
                 sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
-                if sp_items:
-                    sp_t = sp_items[0]
+                for sp_t in sp_items:
                     sp_name = sp_t.get("name", "")
                     sp_artist = sp_t["artists"][0]["name"] if sp_t.get("artists") else ""
-                    if sp_name:
+                    if sp_name and validate_canonical_match(pure_q, sp_artist, sp_name):
                         canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
                         logger.info(f"Canonical original track identified via Spotify: '{canonical_q}' (for query '{clean_q}')")
+                        break
             except Exception as sp_err:
                 logger.debug(f"Spotify canonical track resolution skipped: {sp_err}")
 
@@ -3315,16 +3410,16 @@ class Music(commands.Cog):
         if spotify and not user_wants_variant:
             try:
                 sp_res = await asyncio.wait_for(
-                    asyncio.get_event_loop().run_in_executor(None, lambda: spotify.search(q=canonical_q, type="track", limit=1)),
+                    asyncio.get_event_loop().run_in_executor(None, lambda: spotify.search(q=canonical_q, type="track", limit=5)),
                     timeout=2.0
                 )
                 sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
-                if sp_items:
-                    sp_t = sp_items[0]
+                for sp_t in sp_items:
                     sp_name = sp_t.get("name", "")
                     sp_artist = sp_t["artists"][0]["name"] if sp_t.get("artists") else ""
-                    if sp_name:
+                    if sp_name and validate_canonical_match(canonical_q, sp_artist, sp_name):
                         canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
+                        break
             except Exception:
                 pass
 
@@ -3662,16 +3757,16 @@ class Music(commands.Cog):
         if spotify and not user_wants_variant:
             try:
                 sp_res = await asyncio.wait_for(
-                    asyncio.get_event_loop().run_in_executor(None, lambda: spotify.search(q=canonical_q, type="track", limit=1)),
+                    asyncio.get_event_loop().run_in_executor(None, lambda: spotify.search(q=canonical_q, type="track", limit=5)),
                     timeout=2.0
                 )
                 sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
-                if sp_items:
-                    sp_t = sp_items[0]
+                for sp_t in sp_items:
                     sp_name = sp_t.get("name", "")
                     sp_artist = sp_t["artists"][0]["name"] if sp_t.get("artists") else ""
-                    if sp_name:
+                    if sp_name and validate_canonical_match(canonical_q, sp_artist, sp_name):
                         canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
+                        break
             except Exception:
                 pass
 
