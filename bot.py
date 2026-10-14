@@ -18180,44 +18180,72 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     elif category == "music":
         embed = discord.Embed(
             title="🎵 24/7 Music & Live Karaoke Stage",
-            description="High-fidelity music playback, 24/7 voice persistence, curated radio, and interactive Karaoke stage judging!",
+            description=(
+                "High-fidelity music playback with EBU R128 loudness normalization, 24/7 voice persistence, "
+                "curated radio, live synced lyrics teleprompter, and interactive Karaoke Stage judging!\n"
+                "*All commands support both Slash (`/`) and Prefix (`!`) formats.*"
+            ),
             color=0x5865F2
         )
         embed.add_field(
-            name="🎶 **Music Playback & Queue**",
+            name="🎶 **Music Playback & Queue (`/` and `!`)**",
             value=(
-                "• `!play <song/url>` / `!p` — Search and play any track or YouTube/Spotify playlist\n"
-                "• `!skip` / `!s` — Vote to skip or DJ instant skip the current song\n"
-                "• `!stop` — Stop music playback and clear queue\n"
-                "• `!pause` & `!resume` — Pause or resume the audio stream\n"
-                "• `!volume <1-150>` / `!vol` — Adjust player volume\n"
-                "• `!queue` / `!q` — View the upcoming track queue with pagination\n"
-                "• `!shuffle` — Randomize songs in the active queue\n"
-                "• `!loop` — Toggle loop between Track, Queue, or Off\n"
-                "• `!autoplay` — Toggle Smart Autoplay for non-stop similar songs"
+                "• `/play <song/url>` or `!play` / `!p` — YouTube, Spotify (track/album/playlist), SoundCloud & URLs\n"
+                "• `/search <query>` or `!search` — Interactive YouTube search with top 5 picker\n"
+                "• `/nowplaying` or `!nowplaying` / `!np` — Live Spotify-style player card with interactive controls\n"
+                "• `/skip` or `!skip` / `!s` / `!next` — Instant skip (DJ/requester) or community vote skip\n"
+                "• `/pause` & `/resume` or `!pause` & `!resume` / `!unpause` — Pause or resume stream\n"
+                "• `/stop` or `!stop` — Stop playback, clear queue, and release voice channel\n"
+                "• `/queue` or `!queue` / `!q` — Paginated list of upcoming tracks & total playtime\n"
+                "• `/volume <10-100>` or `!volume` / `!vol` — Adjust player volume (10% to 100%)\n"
+                "• `/seek <time>` or `!seek` — Jump to timestamp in song (e.g. `/seek 1:30` or `!seek 90`)\n"
+                "• `/loop [off|track|queue]` or `!loop` / `!repeat` — Cycle loop modes (Off → Track → Queue)\n"
+                "• `/shuffle` or `!shuffle` — Randomize tracks in the active queue\n"
+                "• `/remove <#>` or `!remove` / `!rm` — Remove a specific song from queue\n"
+                "• `/autoplay` or `!autoplay` — Toggle Smart Autoplay for endless similar songs"
             ),
             inline=False
         )
         embed.add_field(
-            name="📻 **24/7 Voice & Curated Radio**",
+            name="📻 **24/7 Voice & Curated Radio (`/` and `!`)**",
             value=(
-                "• `!247` / `!stay` — Keep Sweety permanently connected to voice 24/7\n"
-                "• `!disconnect` / `!leave` / `!dc` — Disconnect from voice and disable 24/7\n"
-                "• `!radio lofi` — ☕ 24/7 relaxing Lofi chill study & sleep beats\n"
-                "• `!radio synthwave` — 🌆 24/7 Nightride FM synthwave & cyberpunk\n"
-                "• `!radio jazz` — 🎷 24/7 Smooth Lounge & Jazz\n"
-                "• `!radio stop` — Stop radio stream playback"
+                "• `/247` or `!247` / `!stay` — Keep Sweety permanently connected to voice 24/7\n"
+                "• `/leave` or `!disconnect` / `!leave` / `!dc` — Disconnect from voice and disable 24/7\n"
+                "• `/radio play <station>` or `!radio <lofi|synthwave|jazz>` — 24/7 curated internet radio streams\n"
+                "• `/radio stop` or `!radio stop` — Stop radio stream playback"
             ),
             inline=False
         )
         embed.add_field(
-            name="🎤 **Live Karaoke Stage & Member Rating**",
+            name="🎤 **Live Karaoke Stage & Audience Rating (`/` and `!`)**",
             value=(
-                "• `!sing` / `!stage` / `!mic` — Claim the stage as the active singer in VC\n"
-                "• `!lyrics` — Synced live teleprompter with syllable highlights\n"
-                "• `!instrumental` / `!backing` — Switch to karaoke backing track without vocals\n"
+                "• `/lyrics [song]` or `!lyrics` / `!ly` — Real-time synced teleprompter with current line highlights\n"
+                "• `!sing` / `!stage` / `!mic` — Claim the stage as active singer in VC & open live Audience Review Card\n"
+                "• `!instrumental` / `!backing` — Hot-swap to karaoke backing track without vocals\n"
                 "• `!singers` / `!halloffame` / `!idols` — View the server's Rockstar Hall of Fame leaderboard\n"
-                "• **Crowd Judging Buttons:** `[🌟 10/10]` `[🔥 8/10]` `[👏 5/10]` `[📣 Voice Crack]` `[🌹 Rose]` `[🍅 Tomato]`"
+                "• **Audience Judging Buttons:** `[🌟 10/10]` `[🔥 8/10]` `[👏 5/10]` `[📣 Voice Crack]` `[🌹 Rose]` `[🍅 Tomato]`"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🎧 **Spotify Integration & Custom Playlists (`/` and `!`)**",
+            value=(
+                "• `/spotify link <user>` or `!spotify link <user>` — Link your Spotify profile to browse playlists\n"
+                "• `/spotify playlists` or `!spotify playlists` — Interactive Spotify playlist browser with 1-click play\n"
+                "• `/playlist save <name>` or `!playlist save <name>` — Save active queue as a custom server playlist\n"
+                "• `/playlist play <name>` or `!playlist play <name>` — Load and play a saved playlist\n"
+                "• `/playlist list` or `!playlist list` — View your saved server playlists\n"
+                "• `/playlist delete <name>` or `!playlist delete <name>` — Delete a saved playlist"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🎛️ **Audio Equalizer Filters & DJ Controls (`/` and `!`)**",
+            value=(
+                "• `/filter set <preset>` or `!filter <preset>` — Apply DSP audio preset (`bassboost`, `nightcore`, `vaporwave`, `8d`, `pop`)\n"
+                "• `/filter off` or `!filter off` / `!filter reset` — Reset audio filters back to standard studio sound\n"
+                "• `/dj set_role <role>` or `!dj set <@role>` — Configure server DJ role for bypass skip & playback controls\n"
+                "• `/dj clear_role` or `!dj clear` — Remove DJ role requirement"
             ),
             inline=False
         )
@@ -18261,16 +18289,17 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         color=discord.Color.blurple()
     )
     embed.add_field(
-        name="🎵 **24/7 Music & Live Karaoke Stage**",
+        name="🎵 **24/7 Music & Live Karaoke Stage (`/` and `!`)**",
         value=(
-            "• `!play <song/url>` / `!p` — Search and stream any track or YouTube/Spotify playlist\n"
-            "• `!skip` / `!s`, `!pause`, `!resume`, `!volume` / `!vol`, `!queue` / `!q`, `!stop`\n"
-            "• `!247` / `!stay` — Keep Sweety permanently connected to VC 24/7\n"
-            "• `!radio <lofi|synthwave|jazz|stop>` — Stream 24/7 curated online radio\n"
-            "• `!sing` / `!stage` — Claim the stage as active singer & open crowd Judge's Panel\n"
-            "• `!instrumental` — Auto-toggle karaoke backing track without vocals\n"
-            "• `!lyrics` — Synced real-time teleprompter with current line highlights\n"
-            "• `!singers` / `!halloffame` — View server's top-rated Rockstar Hall of Fame"
+            "• `/play` or `!play <song/url>` / `!p` — YouTube, Spotify playlists, SoundCloud & direct audio\n"
+            "• `/nowplaying`, `/skip`, `/pause`, `/resume`, `/volume`, `/seek`, `/queue`, `/stop`\n"
+            "• `/247` or `!247` — Permanent 24/7 voice channel persistence\n"
+            "• `/radio` or `!radio <lofi|synthwave|jazz>` — 24/7 curated internet radio streams\n"
+            "• `/lyrics` or `!lyrics` — Real-time synced teleprompter lyrics display\n"
+            "• `!sing` / `!stage` — Claim the stage & launch real-time crowd judging (roses, tomatoes, ratings)\n"
+            "• `!instrumental` — Hot-swap to karaoke backing track\n"
+            "• `!singers` / `!halloffame` — Server Rockstar Hall of Fame leaderboard\n"
+            "• `/spotify`, `/playlist`, `/filter`, `/dj` — Custom playlists & DSP equalizer presets"
         ),
         inline=False
     )
