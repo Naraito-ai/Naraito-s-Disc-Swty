@@ -185,7 +185,9 @@ def extract_spotify_playlist_tracks_public(playlist_id_or_url: str) -> list[dict
 # Preload working SoundCloud client ID so soundcloud searches never fail with "Unable to extract client id"
 try:
     from yt_dlp.extractor.soundcloud import SoundcloudBaseIE
-    SoundcloudBaseIE._CLIENT_ID = "kR7dAfT5UXQgmgde1pLjfsRGiaoANLvT"
+    def _patched_sc_initialize(self):
+        self._CLIENT_ID = "kR7dAfT5UXQgmgde1pLjfsRGiaoANLvT"
+    SoundcloudBaseIE._initialize_pre_login = _patched_sc_initialize
 except Exception as _sc_err:
     pass
 
@@ -201,7 +203,7 @@ if _yt_cookies and not os.path.exists("cookies.txt"):
 
 YTDL_OPTIONS = {
     "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
-    "noplaylist": True,
+    "noplaylist": False,
     "nocheckcertificate": True,
     "ignoreerrors": True,
     "logtostderr": False,
@@ -216,9 +218,6 @@ YTDL_OPTIONS = {
             "skip": ["webpage", "dash", "hls"],
             "player_client": ["android", "visionos"],
         }
-    },
-    "http_headers": {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
     },
 }
 
