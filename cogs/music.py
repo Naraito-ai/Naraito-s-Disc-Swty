@@ -419,6 +419,7 @@ class GuildMusicState:
         self.karaoke_scores: dict[int, int] = {}
         self.karaoke_reactions: dict[str, int] = {"roses": 0, "tomatoes": 0}
         self.karaoke_stage_msg: Optional[discord.Message] = None
+        self.karaoke_judge_view: Optional[Any] = None
         self.is_instrumental: bool = False
 
     def clear(self):
@@ -439,6 +440,7 @@ class GuildMusicState:
         self.karaoke_scores.clear()
         self.karaoke_reactions = {"roses": 0, "tomatoes": 0}
         self.karaoke_stage_msg = None
+        self.karaoke_judge_view = None
         self.is_instrumental = False
         if self.update_task:
             self.update_task.cancel()
@@ -589,7 +591,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     except Exception as sp_err:
                         logger.warning(f"Spotify playlist extraction failed: {sp_err}")
 
-            # Single Spotify Track
             track_search_term = None
             if spotify and "/track/" in url:
                 try:
@@ -602,18 +603,46 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     logger.debug(f"Spotify API track lookup failed: {e}")
 
             if not track_search_term:
-                # Fallback to public Spotify oEmbed
-                oembed_data = await loop.run_in_executor(
-                    None,
-                    lambda: fetch_oembed(f"https://open.spotify.com/oembed?url={urllib.parse.quote(url)}")
-                )
-                if oembed_data and oembed_data.get("title"):
-                    track_search_term = oembed_data["title"]
+                # Fallback to public Spotify oEmbed / scraper
+                try:
+                    oembed_data = await loop.run_in_executor(
+                        None,
+                        lambda: fetch_oembed(f"https://open.spotify.com/oembed?url={urllib.parse.quote(url)}")
+                    )
+                    if oembed_data and oembed_data.get("title"):
+                        track_search_term = oembed_data["title"]
+                except Exception as e:
+                    logger.debug(f"Spotify oEmbed lookup failed: {e}")
 
             if track_search_term:
-                return await cls._search_and_extract(track_search_term, loop=loop, volume=volume, requester=requester)
-            else:
-                raise ValueError("Could not extract song info from Spotify link. Try searching by song name.")
+                try:
+                    return await cls._search_and_extract(track_search_term, loop=loop, volume=volume, requester=requester)
+                except Exception as extract_err:
+                    logger.warning(f"Standard search failed for Spotify track '{track_search_term}': {extract_err}")
+                    # Fallback: search YouTube for "{track_title} {artist_name} audio" using yt-dlp's ytsearch1:
+                    try:
+                        yt_query = f"ytsearch1:{track_search_term} audio"
+                        yt_data = await asyncio.wait_for(
+                            loop.run_in_executor(None, lambda: ytdl.extract_info(yt_query, download=False)),
+                            timeout=6.0
+                        )
+                        yt_entries = [e for e in yt_data.get("entries", []) if e]
+                        if yt_entries:
+                            c = yt_entries[0]
+                            stream_url = c.get("url")
+                            if not stream_url:
+                                formats = c.get("formats", [])
+                                audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+                                if audio_formats:
+                                    stream_url = audio_formats[-1]["url"]
+                            if stream_url:
+                                c["requester"] = requester
+                                source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter)
+                                return cls(source, data=c, volume=volume), False
+                    except Exception as yt_err:
+                        logger.warning(f"YouTube fallback also failed for Spotify track '{track_search_term}': {yt_err}")
+
+            raise ValueError("⚠️ Couldn't resolve this Spotify track. Try searching by song name directly with !play.")
 
         # ── 2. Direct HTTP/HTTPS URLs (YouTube, SoundCloud, direct audio) ─────
         if url.startswith("http://") or url.startswith("https://"):
@@ -831,6 +860,9 @@ class LiveKaraokeView(discord.ui.View):
 
     async def karaoke_loop(self):
         state = self.cog.get_state(self.guild.id)
+        consecutive_fails = 0
+        base_interval = 3.0
+
         while not self.is_finished():
             try:
                 if not state.current or not state.voice_client or not state.voice_client.is_connected():
@@ -851,26 +883,30 @@ class LiveKaraokeView(discord.ui.View):
                                 await msg_obj.edit(embed=embed, view=self)
                             else:
                                 await self.message.edit(embed=embed, view=self)
+                            consecutive_fails = 0
                         except discord.HTTPException as http_err:
+                            consecutive_fails += 1
+                            backoff = min(30.0, base_interval * (2 ** (consecutive_fails - 1)))
                             if http_err.status == 429:
-                                retry_after = getattr(http_err, "retry_after", 3.0)
-                                logger.warning(f"Rate limited in karaoke_loop, backing off {retry_after}s")
-                                await asyncio.sleep(retry_after or 3.0)
+                                retry_after = getattr(http_err, "retry_after", backoff)
+                                wait_time = max(float(retry_after or 0.0), backoff)
+                                logger.warning(f"Rate limited in karaoke_loop, backing off {wait_time:.1f}s (fail #{consecutive_fails})")
+                                await asyncio.sleep(wait_time)
                             else:
                                 logger.debug(f"HTTP exception in karaoke edit: {http_err}")
+                                await asyncio.sleep(backoff)
                         except Exception as edit_err:
-                            logger.debug(f"Karaoke edit fallback notice: {edit_err}")
-                            try:
-                                await self.message.edit(embed=embed, view=self)
-                            except Exception:
-                                pass
+                            consecutive_fails += 1
+                            backoff = min(30.0, base_interval * (2 ** (consecutive_fails - 1)))
+                            logger.debug(f"Karaoke edit error: {edit_err}")
+                            await asyncio.sleep(backoff)
 
-                await asyncio.sleep(2.5)
+                await asyncio.sleep(base_interval)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.debug(f"Karaoke loop notice: {e}")
-                await asyncio.sleep(3.0)
+                await asyncio.sleep(base_interval)
 
     @discord.ui.button(emoji="◀️", label="Prev", style=discord.ButtonStyle.secondary, row=0)
     async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1194,6 +1230,7 @@ class NowPlayingView(discord.ui.View):
     @discord.ui.button(emoji="⏹", style=discord.ButtonStyle.danger, row=0)
     async def stop_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.get_state()
+        await self.cog.bot.db.clear_music_queue(interaction.guild_id)
         if state.voice_client:
             vc_channel = state.voice_client.channel
             state.clear()
@@ -1252,6 +1289,7 @@ class NowPlayingView(discord.ui.View):
         q = list(state.queue)
         random.shuffle(q)
         state.queue = deque(q)
+        await self.cog._persist_queue(interaction.guild_id)
         await interaction.response.send_message("🔀 Queue shuffled.", ephemeral=True)
 
     @discord.ui.button(emoji="🔉", style=discord.ButtonStyle.secondary, row=1)
@@ -1409,7 +1447,10 @@ class SearchResultsView(discord.ui.View):
                 return await interaction.followup.send(f"❌ Error: `{e}`")
 
             if state.voice_client.is_playing() or state.voice_client.is_paused():
+                if len(state.queue) >= 200:
+                    return await interaction.followup.send("⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.", ephemeral=True)
                 state.queue.append(result.data)
+                await self.cog._persist_queue(interaction.guild_id)
                 embed = discord.Embed(
                     title="➕ Added to Queue",
                     description=f"[{result.title}]({result.url})",
@@ -1500,11 +1541,11 @@ class SavePlaylistModal(discord.ui.Modal, title="💾 Save to Playlist"):
 
         try:
             await self.cog.bot.db.execute("""
-                INSERT INTO music_playlists (user_id, name, tracks, created_at)
-                VALUES ($1, $2, $3, NOW())
+                INSERT INTO music_playlists (user_id, name, tracks, guild_id, created_at)
+                VALUES ($1, $2, $3, $4, NOW())
                 ON CONFLICT (user_id, name)
-                DO UPDATE SET tracks = $3, updated_at = NOW()
-            """, interaction.user.id, name, json.dumps(tracks))
+                DO UPDATE SET tracks = $3, guild_id = $4, updated_at = NOW()
+            """, interaction.user.id, name, json.dumps(tracks), interaction.guild_id)
             await interaction.response.send_message(
                 f"✅ Saved **{len(tracks)} tracks** to playlist **{name}**.", ephemeral=True
             )
@@ -1684,11 +1725,11 @@ class SpotifyPlaylistsView(discord.ui.View):
         save_name = self.selected_name[:32] if self.selected_name else "spotify_mix"
         try:
             await self.cog.bot.db.execute("""
-                INSERT INTO music_playlists (user_id, name, tracks, created_at)
-                VALUES ($1, $2, $3, NOW())
+                INSERT INTO music_playlists (user_id, name, tracks, guild_id, created_at)
+                VALUES ($1, $2, $3, $4, NOW())
                 ON CONFLICT (user_id, name)
-                DO UPDATE SET tracks = $3, updated_at = NOW()
-            """, interaction.user.id, save_name, json.dumps(tracks))
+                DO UPDATE SET tracks = $3, guild_id = $4, updated_at = NOW()
+            """, interaction.user.id, save_name, json.dumps(tracks), interaction.guild_id)
             await interaction.followup.send(
                 f"✅ Saved **{len(tracks)} tracks** to your Sweety playlist **{save_name}**!\nPlay it anytime with `/playlist play {save_name}`.",
                 ephemeral=True
@@ -1707,13 +1748,49 @@ class Music(commands.Cog):
         self._reconnecting_guilds: set[int] = set()
 
     async def cog_load(self):
-        """Start 24/7 voice watchdog supervisor loop when cog loads."""
+        """Start 24/7 voice watchdog supervisor loop and restore saved queues when cog loads."""
         self._watchdog_task = self.bot.loop.create_task(self._watchdog_247_loop())
+        self.bot.loop.create_task(self._restore_saved_queues())
 
     async def cog_unload(self):
         """Cancel watchdog task when cog is unloaded."""
         if self._watchdog_task and not self._watchdog_task.done():
             self._watchdog_task.cancel()
+
+    async def _persist_queue(self, guild_id: int):
+        """Persists the current in-memory queue to music_queues table."""
+        try:
+            state = self.get_state(guild_id)
+            items = []
+            for track in list(state.queue):
+                items.append({
+                    "url": track.get("webpage_url") or track.get("url") or "",
+                    "title": track.get("title") or "Unknown Track",
+                    "duration": track.get("duration") or 0,
+                    "requested_by_id": track.get("requested_by_id") or "",
+                    "requester": track.get("requester") or track.get("requested_by_name") or "User"
+                })
+            await self.bot.db.save_music_queue(guild_id, items)
+        except Exception as e:
+            logger.debug(f"Failed to persist music queue for guild {guild_id}: {e}")
+
+    async def _restore_saved_queues(self):
+        """Restores persisted queues into in-memory GuildMusicState on startup."""
+        await self.bot.wait_until_ready()
+        try:
+            saved_queues = await self.bot.db.load_all_music_queues()
+            for guild_id_str, items in saved_queues.items():
+                try:
+                    guild_id = int(guild_id_str)
+                    state = self.get_state(guild_id)
+                    if not state.queue:
+                        for item in items:
+                            state.queue.append(item)
+                        logger.info(f"Restored {len(items)} queued tracks for guild {guild_id}.")
+                except Exception as g_err:
+                    logger.debug(f"Error restoring queue for guild {guild_id_str}: {g_err}")
+        except Exception as e:
+            logger.error(f"Error restoring saved music queues: {e}")
 
     def get_state(self, guild_id: int) -> GuildMusicState:
         if guild_id not in self.states:
@@ -2118,6 +2195,7 @@ class Music(commands.Cog):
         if station_key == "stop":
             state = self.get_state(interaction.guild_id)
             state.clear()
+            await self.bot.db.clear_music_queue(interaction.guild_id)
             is_247 = await self.is_247_enabled(interaction.guild_id)
             if state.voice_client:
                 state.voice_client.stop()
@@ -2148,6 +2226,7 @@ class Music(commands.Cog):
         state.is_247 = True
         state.radio_station = station_key
         state.queue.clear()
+        await self.bot.db.clear_music_queue(interaction.guild_id)
 
         try:
             await self.bot.db.set_config(interaction.guild_id, "music_247", "true")
@@ -2298,9 +2377,57 @@ class Music(commands.Cog):
             scores = dict(state.karaoke_scores)
             roses = state.karaoke_reactions.get("roses", 0)
             tomatoes = state.karaoke_reactions.get("tomatoes", 0)
+            total_votes = len(scores)
 
-            if scores:
-                avg = sum(scores.values()) / len(scores)
+            # Disable (grey out) the previous KaraokeJudgeView buttons by calling view.stop()
+            if state.karaoke_judge_view:
+                try:
+                    state.karaoke_judge_view.stop()
+                    for child in state.karaoke_judge_view.children:
+                        child.disabled = True
+                    if state.karaoke_stage_msg:
+                        await state.karaoke_stage_msg.edit(view=state.karaoke_judge_view)
+                except Exception as stop_view_err:
+                    logger.debug(f"Error disabling karaoke judge view: {stop_view_err}")
+
+            if total_votes < 3:
+                # Minimum 3 votes required for award classification
+                try:
+                    await self.bot.db.execute(
+                        """
+                        INSERT INTO karaoke_performances (guild_id, user_id, user_name, song_title, score, votes_count)
+                        VALUES ($1, $2, $3, $4, 0.0, $5)
+                        """ if self.bot.db.is_postgres else """
+                        INSERT INTO karaoke_performances (guild_id, user_id, user_name, song_title, score, votes_count)
+                        VALUES (?, ?, ?, ?, 0.0, ?)
+                        """,
+                        guild.id, singer.id, singer.display_name, song_title, total_votes
+                    )
+                except Exception as de:
+                    logger.debug(f"Failed to record unranked karaoke score: {de}")
+
+                review_embed = discord.Embed(
+                    title="🎸 Stage Review Complete",
+                    description=(
+                        f"🎤 **Singer:** {singer.mention}\n"
+                        f"🎶 **Song:** `{song_title}`\n\n"
+                        f"🎤 *Performance ended — not enough audience votes to award a score (minimum 3 votes required).*\n"
+                        f"👥 **Judges:** {total_votes} listener(s)\n"
+                        f"🌹 **Roses:** {roses}  •  🍅 **Tomatoes:** {tomatoes}"
+                    ),
+                    color=discord.Color.orange()
+                )
+                if singer.display_avatar:
+                    review_embed.set_thumbnail(url=singer.display_avatar.url)
+                review_embed.set_footer(text="Sweety Live Karaoke Stage")
+
+                if state.text_channel:
+                    try:
+                        await state.text_channel.send(embed=review_embed)
+                    except Exception:
+                        pass
+            else:
+                avg = sum(scores.values()) / total_votes
                 if avg >= 9.0:
                     verdict = "🌟 Platinum Idol (Perfection!)"
                     color = 0xFEE75C
@@ -2323,7 +2450,7 @@ class Music(commands.Cog):
                         INSERT INTO karaoke_performances (guild_id, user_id, user_name, song_title, score, votes_count)
                         VALUES (?, ?, ?, ?, ?, ?)
                         """,
-                        guild.id, singer.id, singer.display_name, song_title, round(avg, 2), len(scores)
+                        guild.id, singer.id, singer.display_name, song_title, round(avg, 2), total_votes
                     )
                 except Exception as de:
                     logger.debug(f"Failed to record karaoke score: {de}")
@@ -2336,7 +2463,7 @@ class Music(commands.Cog):
                         f"🎶 **Song:** `{song_title}`\n\n"
                         f"🏅 **Final Stage Score:** **{avg:.1f} / 10** {stars}\n"
                         f"🏆 **Verdict:** {verdict}\n"
-                        f"👥 **Judges:** {len(scores)} listener(s)\n"
+                        f"👥 **Judges:** {total_votes} listener(s)\n"
                         f"🌹 **Roses:** {roses}  •  🍅 **Tomatoes:** {tomatoes}\n\n"
                         f"✨ *Type `!singers` to view the server's Rockstar Hall of Fame!*"
                     ),
@@ -2352,10 +2479,12 @@ class Music(commands.Cog):
                     except Exception:
                         pass
 
+            # Automatically clear previous singer state
             state.karaoke_singer = None
             state.karaoke_scores.clear()
             state.karaoke_reactions = {"roses": 0, "tomatoes": 0}
             state.karaoke_stage_msg = None
+            state.karaoke_judge_view = None
             state.is_instrumental = False
 
         if state.karaoke_task and not state.karaoke_task.done():
@@ -2405,6 +2534,7 @@ class Music(commands.Cog):
 
         if not state.queue:
             state.current = None
+            await self.bot.db.clear_music_queue(guild.id)
             await self.set_vc_status(state.voice_client.channel, "📻 Sweety 24/7 — Idle" if state.is_247 else None)
             if state.np_message:
                 desc = "📻 **24/7 mode active** — staying in voice channel." if state.is_247 else "Add more tracks with `/play`."
@@ -2421,6 +2551,7 @@ class Music(commands.Cog):
             return
 
         track_data = state.queue.popleft()
+        await self._persist_queue(guild.id)
         state.last_played_track = track_data
         state.played_history.append(track_data)
         source = await YTDLSource.regrab_stream(track_data, state.volume, audio_filter=state.filter)
@@ -2481,11 +2612,29 @@ class Music(commands.Cog):
             )
 
             if is_playlist:
+                playlist_warn = ""
+                if len(result) > 100:
+                    result = result[:100]
+                    playlist_warn = "⚠️ Playlist capped at 100 tracks. Only the first 100 were added.\n"
+
+                if len(state.queue) >= 200:
+                    return await interaction.followup.send(
+                        "⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.",
+                        ephemeral=True
+                    )
+
+                if len(state.queue) + len(result) > 200:
+                    allowed = 200 - len(state.queue)
+                    result = result[:allowed]
+                    playlist_warn += f"⚠️ Queue reached 200 tracks limit. Only {allowed} tracks were added.\n"
+
                 for track in result:
                     state.queue.append(track)
+                await self._persist_queue(interaction.guild_id)
+
                 embed = discord.Embed(
                     title="📋 Playlist Queued",
-                    description=f"Added **{len(result)} tracks** to the queue.",
+                    description=f"{playlist_warn}Added **{len(result)} tracks** to the queue.",
                     color=0x57F287
                 )
                 embed.set_footer(text=f"Requested by {interaction.user.display_name}")
@@ -2494,7 +2643,13 @@ class Music(commands.Cog):
                     await self.play_next(interaction.guild)
             else:
                 if state.voice_client.is_playing() or state.voice_client.is_paused():
+                    if len(state.queue) >= 200:
+                        return await interaction.followup.send(
+                            "⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.",
+                            ephemeral=True
+                        )
                     state.queue.append(result.data)
+                    await self._persist_queue(interaction.guild_id)
                     embed = discord.Embed(
                         title="➕ Added to Queue",
                         description=f"[{result.title}]({result.url})",
@@ -2519,11 +2674,11 @@ class Music(commands.Cog):
                     view = NowPlayingView(self, interaction.guild)
                     state.np_message = await interaction.followup.send(embed=embed, view=view)
                     state.update_task = self.bot.loop.create_task(self.live_updater(interaction.guild))
+        except ValueError as ve:
+            return await interaction.followup.send(str(ve), ephemeral=True)
         except Exception as e:
-            import traceback
-            tb = traceback.format_exc()
-            logger.error(f"Error in /play: {tb}")
-            return await interaction.followup.send(f"❌ Error:\n```{tb[-1500:]}```")
+            logger.error(f"Error in /play: {e}")
+            return await interaction.followup.send(f"❌ Error loading track: {e}", ephemeral=True)
 
     @app_commands.command(name="search", description="Search for a song and pick from results")
     @app_commands.describe(query="Song name to search")
@@ -2598,6 +2753,7 @@ class Music(commands.Cog):
     @app_commands.command(name="stop", description="Stop music and clear queue")
     async def stop(self, interaction: discord.Interaction):
         state = self.get_state(interaction.guild_id)
+        await self.bot.db.clear_music_queue(interaction.guild_id)
         if state.voice_client:
             vc_channel = state.voice_client.channel
             state.clear()
@@ -2727,6 +2883,7 @@ class Music(commands.Cog):
     @commands.command(name="stop", help="Stop playback and clear queue")
     async def stop_prefix(self, ctx: commands.Context):
         state = self.get_state(ctx.guild.id)
+        await self.bot.db.clear_music_queue(ctx.guild.id)
         if state.voice_client:
             vc_channel = state.voice_client.channel
             state.clear()
@@ -2747,6 +2904,7 @@ class Music(commands.Cog):
         state = self.get_state(ctx.guild.id)
         state.clear()
         state.is_247 = False
+        await self.bot.db.clear_music_queue(ctx.guild.id)
         try:
             await self.bot.db.set_config(ctx.guild.id, "music_247", "false")
             await self.bot.db.set_config(ctx.guild.id, "music_247_channel_id", "")
@@ -2789,11 +2947,26 @@ class Music(commands.Cog):
             )
 
             if is_playlist:
+                playlist_warn = ""
+                if len(result) > 100:
+                    result = result[:100]
+                    playlist_warn = "⚠️ Playlist capped at 100 tracks. Only the first 100 were added.\n"
+
+                if len(state.queue) >= 200:
+                    return await ctx.send("⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.")
+
+                if len(state.queue) + len(result) > 200:
+                    allowed = 200 - len(state.queue)
+                    result = result[:allowed]
+                    playlist_warn += f"⚠️ Queue reached 200 tracks limit. Only {allowed} tracks were added.\n"
+
                 for track in result:
                     state.queue.append(track)
+                await self._persist_queue(ctx.guild.id)
+
                 embed = discord.Embed(
                     title="📋 Playlist Queued",
-                    description=f"Added **{len(result)} tracks** to the queue.",
+                    description=f"{playlist_warn}Added **{len(result)} tracks** to the queue.",
                     color=0x57F287
                 )
                 embed.set_footer(text=f"Requested by {ctx.author.display_name}")
@@ -2802,7 +2975,10 @@ class Music(commands.Cog):
                     await self.play_next(ctx.guild)
             else:
                 if state.voice_client.is_playing() or state.voice_client.is_paused():
+                    if len(state.queue) >= 200:
+                        return await ctx.send("⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.")
                     state.queue.append(result.data)
+                    await self._persist_queue(ctx.guild.id)
                     embed = discord.Embed(
                         title="➕ Added to Queue",
                         description=f"[{result.title}]({result.url})",
@@ -2827,6 +3003,8 @@ class Music(commands.Cog):
                     view = NowPlayingView(self, ctx.guild)
                     state.np_message = await ctx.send(embed=embed, view=view)
                     state.update_task = self.bot.loop.create_task(self.live_updater(ctx.guild))
+        except ValueError as ve:
+            await ctx.send(str(ve))
         except Exception as e:
             logger.error(f"Error in play command: {e}")
             await ctx.send(f"❌ Error loading track: {e}")
@@ -2911,6 +3089,7 @@ class Music(commands.Cog):
             msg_obj = await interaction_or_ctx.send(embed=embed, view=view)
 
         state.karaoke_stage_msg = msg_obj
+        state.karaoke_judge_view = view
         await self.set_vc_status(state.voice_client.channel, f"🎤 Live Karaoke: {member.display_name} singing!")
 
     async def toggle_instrumental_backing(self, interaction_or_ctx):
@@ -3100,12 +3279,17 @@ class Music(commands.Cog):
         else:
             await ctx.send("Nothing is paused.")
 
-    @app_commands.command(name="volume", description="Set volume level (1-150%)")
-    @app_commands.describe(level="Volume percentage from 1 to 150% (100% is standard)")
+    @app_commands.command(name="volume", description="Set volume level (10% to 100%)")
+    @app_commands.describe(level="Volume percentage from 10% to 100% (100% is standard)")
     async def volume(self, interaction: discord.Interaction, level: int):
-        if not 1 <= level <= 150:
-            return await interaction.response.send_message("❌ Volume must be between 1 and 150%.", ephemeral=True)
         state = self.get_state(interaction.guild_id)
+        warn_msg = None
+        if level > 100:
+            level = 100
+            warn_msg = "⚠️ Volume capped at 100% to prevent audio distortion."
+        elif level < 1:
+            level = 10
+
         factor = round(level / 100.0, 3)
         state.volume = factor
         state.user_volume_level = level
@@ -3123,14 +3307,21 @@ class Music(commands.Cog):
                 pass
 
         vol_icon = "🔊" if level >= 60 else ("🔉" if level >= 20 else "🔈")
-        warn = "\n⚠️ *Notice: Volume above 100% applies digital boost which may cause clipping distortion on loud tracks.*" if level > 100 else ""
-        await interaction.response.send_message(f"{vol_icon} Volume set to **{level}%**{warn}")
+        if warn_msg:
+            await interaction.response.send_message(f"{warn_msg}\n{vol_icon} Volume set to **{level}%** (10% to 100%).")
+        else:
+            await interaction.response.send_message(f"{vol_icon} Volume set to **{level}%** (10% to 100%).")
 
     @commands.command(name="volume", aliases=["vol"])
     async def prefix_volume(self, ctx: commands.Context, level: int):
-        if not 1 <= level <= 150:
-            return await ctx.send("❌ Volume must be between 1 and 150%.")
         state = self.get_state(ctx.guild.id)
+        warn_msg = None
+        if level > 100:
+            level = 100
+            warn_msg = "⚠️ Volume capped at 100% to prevent audio distortion."
+        elif level < 1:
+            level = 10
+
         factor = round(level / 100.0, 3)
         state.volume = factor
         state.user_volume_level = level
@@ -3148,8 +3339,10 @@ class Music(commands.Cog):
                 pass
 
         vol_icon = "🔊" if level >= 60 else ("🔉" if level >= 20 else "🔈")
-        warn = "\n⚠️ *Notice: Volume above 100% applies digital boost which may cause clipping distortion on loud tracks.*" if level > 100 else ""
-        await ctx.send(f"{vol_icon} Volume set to **{level}%**{warn}")
+        if warn_msg:
+            await ctx.send(f"{warn_msg}\n{vol_icon} Volume set to **{level}%** (10% to 100%).")
+        else:
+            await ctx.send(f"{vol_icon} Volume set to **{level}%** (10% to 100%).")
 
     @app_commands.command(name="loop", description="Toggle loop mode")
     @app_commands.choices(mode=[
@@ -3186,6 +3379,7 @@ class Music(commands.Cog):
         state = self.get_state(interaction.guild_id)
         count = len(state.queue)
         state.queue.clear()
+        await self.bot.db.clear_music_queue(interaction.guild_id)
         await interaction.response.send_message(f"🗑 Cleared **{count}** tracks from the queue.")
 
     @queue_group.command(name="autoplay", description="Toggle smart autoplay to recommend and queue similar tracks")
@@ -3214,6 +3408,7 @@ class Music(commands.Cog):
         q = list(state.queue)
         random.shuffle(q)
         state.queue = deque(q)
+        await self._persist_queue(interaction.guild_id)
         await interaction.response.send_message("🔀 Shuffled.")
 
     async def queue_cmd(self, interaction: discord.Interaction):
@@ -3245,6 +3440,7 @@ class Music(commands.Cog):
         q = list(state.queue)
         removed = q.pop(position - 1)
         state.queue = deque(q)
+        await self._persist_queue(interaction.guild_id)
         await interaction.response.send_message(f"🗑 Removed **{removed.get('title','Unknown')}**.")
 
     @commands.command(name="queue", aliases=["q"])
@@ -3279,6 +3475,7 @@ class Music(commands.Cog):
         q = list(state.queue)
         random.shuffle(q)
         state.queue = deque(q)
+        await self._persist_queue(ctx.guild.id)
         await ctx.send("🔀 Shuffled.")
 
     @commands.command(name="remove")
@@ -3289,6 +3486,7 @@ class Music(commands.Cog):
         q = list(state.queue)
         removed = q.pop(position - 1)
         state.queue = deque(q)
+        await self._persist_queue(ctx.guild.id)
         await ctx.send(f"🗑 Removed **{removed.get('title','Unknown')}**.")
 
     # ─── Spotify Commands (Grouped under /spotify) ─────────────────────────────
@@ -3517,13 +3715,30 @@ class Music(commands.Cog):
         if not tracks:
             return await interaction.followup.send("❌ Failed to retrieve tracks from this Spotify playlist.", ephemeral=True)
 
+        playlist_warn = ""
+        if len(tracks) > 100:
+            tracks = tracks[:100]
+            playlist_warn = "⚠️ Playlist capped at 100 tracks. Only the first 100 were added.\n"
+
+        if len(state.queue) >= 200:
+            return await interaction.followup.send(
+                "⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.",
+                ephemeral=True
+            )
+
+        if len(state.queue) + len(tracks) > 200:
+            allowed = 200 - len(state.queue)
+            tracks = tracks[:allowed]
+            playlist_warn += f"⚠️ Queue reached 200 tracks limit. Only {allowed} tracks were added.\n"
+
         for t in tracks:
             t["requester"] = str(interaction.user.display_name)
             state.queue.append(t)
+        await self._persist_queue(interaction.guild_id)
 
         embed = discord.Embed(
             title="📋 Spotify Playlist Queued",
-            description=f"Queued **{len(tracks)} tracks** from **{playlist_name}**.",
+            description=f"{playlist_warn}Queued **{len(tracks)} tracks** from **{playlist_name}**.",
             color=0x1DB954
         )
         embed.set_footer(text=f"Requested by {interaction.user.display_name}")
@@ -3548,11 +3763,11 @@ class Music(commands.Cog):
         save_name = (name or "spotify_import").strip()[:32]
         try:
             await self.bot.db.execute("""
-                INSERT INTO music_playlists (user_id, name, tracks, created_at)
-                VALUES ($1, $2, $3, NOW())
+                INSERT INTO music_playlists (user_id, name, tracks, guild_id, created_at)
+                VALUES ($1, $2, $3, $4, NOW())
                 ON CONFLICT (user_id, name)
-                DO UPDATE SET tracks = $3, updated_at = NOW()
-            """, interaction.user.id, save_name, json.dumps(tracks))
+                DO UPDATE SET tracks = $3, guild_id = $4, updated_at = NOW()
+            """, interaction.user.id, save_name, json.dumps(tracks), interaction.guild_id)
             await interaction.followup.send(
                 f"✅ Successfully imported **{len(tracks)} tracks** into playlist **{save_name}**!\nPlay it anytime using `/playlist play {save_name}`."
             )
@@ -3655,8 +3870,8 @@ class Music(commands.Cog):
             return await interaction.followup.send("❌ Join a voice channel first.", ephemeral=True)
         try:
             row = await self.bot.db.fetchrow(
-                "SELECT tracks FROM music_playlists WHERE user_id=$1 AND name=$2",
-                interaction.user.id, name
+                "SELECT tracks FROM music_playlists WHERE user_id=$1 AND name=$2 AND (guild_id=$3 OR guild_id IS NULL)",
+                interaction.user.id, name, interaction.guild_id
             )
         except Exception as e:
             return await interaction.followup.send(f"❌ DB error: {e}")
@@ -3665,6 +3880,24 @@ class Music(commands.Cog):
         tracks = json.loads(row["tracks"])
         state = self.get_state(interaction.guild_id)
         state.text_channel = interaction.channel
+
+        playlist_warn = ""
+        if len(tracks) > 100:
+            tracks = tracks[:100]
+            playlist_warn = "⚠️ Playlist capped at 100 tracks. Only the first 100 were added.\n"
+
+        if len(state.queue) >= 200:
+            return await interaction.followup.send(
+                "⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.",
+                ephemeral=True
+            )
+
+        if len(state.queue) + len(tracks) > 200:
+            allowed = 200 - len(state.queue)
+            tracks = tracks[:allowed]
+            playlist_warn += f"⚠️ Queue reached 200 tracks limit. Only {allowed} tracks were added.\n"
+
+        vc = interaction.user.voice.channel
         if not state.voice_client or not state.voice_client.is_connected():
             state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
         elif state.voice_client.channel != vc:
@@ -3678,11 +3911,12 @@ class Music(commands.Cog):
                 pass
         for t in tracks:
             state.queue.append(t)
+        await self._persist_queue(interaction.guild_id)
         if not state.voice_client.is_playing():
             await self.play_next(interaction.guild)
         embed = discord.Embed(
             title="📋 Playlist Loaded",
-            description=f"**{name}** — {len(tracks)} tracks queued.",
+            description=f"{playlist_warn}**{name}** — {len(tracks)} tracks queued.",
             color=0x57F287
         )
         await interaction.followup.send(embed=embed)
@@ -3692,8 +3926,8 @@ class Music(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         try:
             rows = await self.bot.db.fetch(
-                "SELECT name, tracks FROM music_playlists WHERE user_id=$1 ORDER BY created_at DESC",
-                interaction.user.id
+                "SELECT name, tracks FROM music_playlists WHERE user_id=$1 AND (guild_id=$2 OR guild_id IS NULL) ORDER BY created_at DESC",
+                interaction.user.id, interaction.guild_id
             )
         except Exception as e:
             return await interaction.followup.send(f"❌ DB error: {e}")
@@ -3711,8 +3945,8 @@ class Music(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         try:
             result = await self.bot.db.execute(
-                "DELETE FROM music_playlists WHERE user_id=$1 AND name=$2",
-                interaction.user.id, name
+                "DELETE FROM music_playlists WHERE user_id=$1 AND name=$2 AND (guild_id=$3 OR guild_id IS NULL)",
+                interaction.user.id, name, interaction.guild_id
             )
             if result == "DELETE 0":
                 await interaction.followup.send(f"No playlist named **{name}**.")
@@ -3742,8 +3976,8 @@ class Music(commands.Cog):
             return await ctx.send("❌ Join a voice channel first.")
         try:
             row = await self.bot.db.fetchrow(
-                "SELECT tracks FROM music_playlists WHERE user_id=$1 AND name=$2",
-                ctx.author.id, name
+                "SELECT tracks FROM music_playlists WHERE user_id=$1 AND name=$2 AND (guild_id=$3 OR guild_id IS NULL)",
+                ctx.author.id, name, ctx.guild.id
             )
         except Exception as e:
             return await ctx.send(f"❌ DB error: {e}")
@@ -3752,6 +3986,20 @@ class Music(commands.Cog):
         tracks = json.loads(row["tracks"])
         state = self.get_state(ctx.guild.id)
         state.text_channel = ctx.channel
+
+        playlist_warn = ""
+        if len(tracks) > 100:
+            tracks = tracks[:100]
+            playlist_warn = "⚠️ Playlist capped at 100 tracks. Only the first 100 were added.\n"
+
+        if len(state.queue) >= 200:
+            return await ctx.send("⚠️ Queue is full (200 tracks max). Skip or remove some tracks first.")
+
+        if len(state.queue) + len(tracks) > 200:
+            allowed = 200 - len(state.queue)
+            tracks = tracks[:allowed]
+            playlist_warn += f"⚠️ Queue reached 200 tracks limit. Only {allowed} tracks were added.\n"
+
         vc = ctx.author.voice.channel
         if not state.voice_client or not state.voice_client.is_connected():
             state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
@@ -3766,11 +4014,12 @@ class Music(commands.Cog):
                 pass
         for t in tracks:
             state.queue.append(t)
+        await self._persist_queue(ctx.guild.id)
         if not state.voice_client.is_playing():
             await self.play_next(ctx.guild)
         embed = discord.Embed(
             title="📋 Playlist Loaded",
-            description=f"**{name}** — {len(tracks)} tracks queued.",
+            description=f"{playlist_warn}**{name}** — {len(tracks)} tracks queued.",
             color=0x57F287
         )
         await ctx.send(embed=embed)
@@ -3779,8 +4028,8 @@ class Music(commands.Cog):
     async def prefix_playlist_list(self, ctx: commands.Context):
         try:
             rows = await self.bot.db.fetch(
-                "SELECT name, tracks FROM music_playlists WHERE user_id=$1 ORDER BY created_at DESC",
-                ctx.author.id
+                "SELECT name, tracks FROM music_playlists WHERE user_id=$1 AND (guild_id=$2 OR guild_id IS NULL) ORDER BY created_at DESC",
+                ctx.author.id, ctx.guild.id
             )
         except Exception as e:
             return await ctx.send(f"❌ DB error: {e}")
@@ -3796,8 +4045,8 @@ class Music(commands.Cog):
     async def prefix_playlist_delete(self, ctx: commands.Context, *, name: str):
         try:
             result = await self.bot.db.execute(
-                "DELETE FROM music_playlists WHERE user_id=$1 AND name=$2",
-                ctx.author.id, name
+                "DELETE FROM music_playlists WHERE user_id=$1 AND name=$2 AND (guild_id=$3 OR guild_id IS NULL)",
+                ctx.author.id, name, ctx.guild.id
             )
             if result == "DELETE 0":
                 await ctx.send(f"No playlist named **{name}**.")
@@ -3982,6 +4231,7 @@ class Music(commands.Cog):
         if s == "stop":
             state = self.get_state(ctx.guild.id)
             state.clear()
+            await self.bot.db.clear_music_queue(ctx.guild.id)
             is_247 = await self.is_247_enabled(ctx.guild.id)
             if state.voice_client:
                 state.voice_client.stop()

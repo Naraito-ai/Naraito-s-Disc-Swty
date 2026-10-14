@@ -531,6 +531,19 @@ class DatabaseManager:
                 votes_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            """,
+            # Persistent Music Queues Table
+            """
+            CREATE TABLE IF NOT EXISTS music_queues (
+                guild_id TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                track_url TEXT NOT NULL,
+                track_title TEXT NOT NULL,
+                track_duration INTEGER,
+                requested_by_id TEXT,
+                requested_by_name TEXT,
+                PRIMARY KEY (guild_id, position)
+            );
             """
         ]
         
@@ -569,6 +582,14 @@ class DatabaseManager:
                     await self.execute("ALTER TABLE user_spotify_profiles ADD COLUMN playlists TEXT;")
             else:
                 await self.execute("ALTER TABLE user_spotify_profiles ADD COLUMN IF NOT EXISTS playlists TEXT;")
+
+            if not self.is_postgres:
+                mp_cols = await self.fetch("PRAGMA table_info(music_playlists);")
+                mp_col_names = [c["name"] for c in mp_cols] if mp_cols else []
+                if "guild_id" not in mp_col_names:
+                    await self.execute("ALTER TABLE music_playlists ADD COLUMN guild_id BIGINT;")
+            else:
+                await self.execute("ALTER TABLE music_playlists ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
         except Exception as alter_err:
             logger.debug(f"Column check for team_battle_stats/economy: {alter_err}")
             
@@ -2511,6 +2532,101 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error deleting Spotify profile for {user_id}: {e}")
             return False
+
+    async def save_music_queue(self, guild_id: Any, queue_items: list[dict]) -> bool:
+        """Persists a guild's audio queue to music_queues."""
+        g_id = str(guild_id)
+        try:
+            if self.is_postgres:
+                async with self.pg_pool.acquire() as conn:
+                    async with conn.transaction():
+                        await conn.execute("DELETE FROM music_queues WHERE guild_id = $1;", g_id)
+                        for pos, item in enumerate(queue_items):
+                            await conn.execute(
+                                """
+                                INSERT INTO music_queues (guild_id, position, track_url, track_title, track_duration, requested_by_id, requested_by_name)
+                                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                                ON CONFLICT (guild_id, position) DO UPDATE SET
+                                    track_url = EXCLUDED.track_url,
+                                    track_title = EXCLUDED.track_title,
+                                    track_duration = EXCLUDED.track_duration,
+                                    requested_by_id = EXCLUDED.requested_by_id,
+                                    requested_by_name = EXCLUDED.requested_by_name;
+                                """,
+                                g_id,
+                                pos,
+                                str(item.get("url") or item.get("webpage_url") or ""),
+                                str(item.get("title") or "Unknown Track"),
+                                int(item.get("duration") or 0),
+                                str(item.get("requested_by_id") or ""),
+                                str(item.get("requester") or item.get("requested_by_name") or "User")
+                            )
+            else:
+                async with self._sqlite_lock:
+                    await self.sqlite_conn.execute("DELETE FROM music_queues WHERE guild_id = ?;", (g_id,))
+                    for pos, item in enumerate(queue_items):
+                        await self.sqlite_conn.execute(
+                            """
+                            INSERT INTO music_queues (guild_id, position, track_url, track_title, track_duration, requested_by_id, requested_by_name)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT (guild_id, position) DO UPDATE SET
+                                track_url = excluded.track_url,
+                                track_title = excluded.track_title,
+                                track_duration = excluded.track_duration,
+                                requested_by_id = excluded.requested_by_id,
+                                requested_by_name = excluded.requested_by_name;
+                            """,
+                            (
+                                g_id,
+                                pos,
+                                str(item.get("url") or item.get("webpage_url") or ""),
+                                str(item.get("title") or "Unknown Track"),
+                                int(item.get("duration") or 0),
+                                str(item.get("requested_by_id") or ""),
+                                str(item.get("requester") or item.get("requested_by_name") or "User")
+                            )
+                        )
+                    await self.sqlite_conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error saving music queue for guild {g_id}: {e}")
+            return False
+
+    async def clear_music_queue(self, guild_id: Any) -> bool:
+        """Clears all saved queue entries for a guild."""
+        g_id = str(guild_id)
+        try:
+            if self.is_postgres:
+                await self.execute("DELETE FROM music_queues WHERE guild_id = $1;", g_id)
+            else:
+                await self.execute("DELETE FROM music_queues WHERE guild_id = ?;", g_id)
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing music queue for guild {g_id}: {e}")
+            return False
+
+    async def load_all_music_queues(self) -> dict[str, list[dict]]:
+        """Loads all saved queues across all guilds on startup."""
+        try:
+            query = "SELECT guild_id, position, track_url, track_title, track_duration, requested_by_id, requested_by_name FROM music_queues ORDER BY guild_id, position ASC;"
+            rows = await self.fetch(query)
+            queues: dict[str, list[dict]] = {}
+            for r in rows:
+                g_id = str(r["guild_id"])
+                if g_id not in queues:
+                    queues[g_id] = []
+                queues[g_id].append({
+                    "title": r.get("track_title") or "Unknown Track",
+                    "url": r.get("track_url") or "",
+                    "webpage_url": r.get("track_url") or "",
+                    "duration": int(r.get("track_duration") or 0),
+                    "requested_by_id": r.get("requested_by_id"),
+                    "requester": r.get("requested_by_name") or "Restored Queue",
+                })
+            return queues
+        except Exception as e:
+            logger.error(f"Error loading saved music queues: {e}")
+            return {}
 
     async def close(self):
         """Closes all database connections."""
