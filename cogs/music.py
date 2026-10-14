@@ -1261,9 +1261,16 @@ class SearchResultsView(discord.ui.View):
                 return await interaction.followup.send("❌ Join a voice channel first.", ephemeral=True)
 
             if not state.voice_client or not state.voice_client.is_connected():
-                state.voice_client = await vc.connect()
+                state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
             elif state.voice_client.channel != vc:
                 await state.voice_client.move_to(vc)
+
+            is_247 = await self.cog.is_247_enabled(interaction.guild_id)
+            if is_247:
+                try:
+                    await self.cog.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+                except Exception:
+                    pass
 
             try:
                 result, _ = await YTDLSource.from_url(
@@ -1501,9 +1508,16 @@ class SpotifyPlaylistsView(discord.ui.View):
         state.text_channel = interaction.channel
 
         if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
         elif state.voice_client.channel != vc:
             await state.voice_client.move_to(vc)
+
+        is_247 = await self.cog.is_247_enabled(interaction.guild_id)
+        if is_247:
+            try:
+                await self.cog.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+            except Exception:
+                pass
 
         tracks = await self.cog.bot.loop.run_in_executor(
             None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
@@ -1560,6 +1574,17 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.states: dict[int, GuildMusicState] = {}
+        self._watchdog_task: Optional[asyncio.Task] = None
+        self._reconnecting_guilds: set[int] = set()
+
+    async def cog_load(self):
+        """Start 24/7 voice watchdog supervisor loop when cog loads."""
+        self._watchdog_task = self.bot.loop.create_task(self._watchdog_247_loop())
+
+    async def cog_unload(self):
+        """Cancel watchdog task when cog is unloaded."""
+        if self._watchdog_task and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
 
     def get_state(self, guild_id: int) -> GuildMusicState:
         if guild_id not in self.states:
@@ -1567,6 +1592,20 @@ class Music(commands.Cog):
             if hasattr(self.bot, "db") and self.bot.db:
                 self.bot.loop.create_task(self._restore_247(guild_id))
         return self.states[guild_id]
+
+    async def is_247_enabled(self, guild_id: int) -> bool:
+        """Reliably checks 24/7 status from in-memory state and database cache."""
+        state = self.states.get(guild_id)
+        if state and state.is_247:
+            return True
+        try:
+            val = await self.bot.db.get_config(guild_id, "music_247", "false")
+            enabled = str(val).lower() == "true"
+            if enabled and guild_id in self.states:
+                self.states[guild_id].is_247 = True
+            return enabled
+        except Exception:
+            return False
 
     async def _restore_247(self, guild_id: int):
         try:
@@ -1577,19 +1616,176 @@ class Music(commands.Cog):
         except Exception:
             pass
 
+    async def _watchdog_247_loop(self):
+        """Continuous background supervisor ensuring 24/7 voice presence survives reboots, sleep cycles, and drops."""
+        await self.bot.wait_until_ready()
+        await asyncio.sleep(5.0)
+        logger.info("📻 [24/7 Watchdog] Started 24/7 voice supervisor loop.")
+        while not self.bot.is_closed():
+            try:
+                await self._check_and_restore_all_247()
+            except Exception as e:
+                logger.debug(f"[24/7 Watchdog] Iteration error: {e}")
+            await asyncio.sleep(20.0)
+
+    async def _check_and_restore_all_247(self):
+        """Scans all guilds for active 24/7 mode and reconnects any missing or moved voice clients."""
+        for guild in list(self.bot.guilds):
+            try:
+                is_247 = await self.is_247_enabled(guild.id)
+                if not is_247:
+                    continue
+
+                state = self.get_state(guild.id)
+                state.is_247 = True
+
+                target_vc = None
+                saved_ch_id = await self.bot.db.get_config(guild.id, "music_247_channel_id", None)
+                if saved_ch_id:
+                    try:
+                        target_vc = guild.get_channel(int(saved_ch_id))
+                    except (ValueError, TypeError):
+                        pass
+
+                # If no saved channel yet, but bot is currently in a VC
+                if not target_vc and guild.voice_client and guild.voice_client.channel:
+                    target_vc = guild.voice_client.channel
+                    await self.bot.db.set_config(guild.id, "music_247_channel_id", str(target_vc.id))
+
+                # If still no target_vc, intelligently find a suitable voice channel
+                if not target_vc and guild.voice_channels:
+                    for ch in guild.voice_channels:
+                        perms = ch.permissions_for(guild.me)
+                        if perms.connect and perms.speak:
+                            name_lower = ch.name.lower()
+                            if any(k in name_lower for k in ["music", "24/7", "radio", "chill", "lounge"]):
+                                target_vc = ch
+                                break
+                    if not target_vc:
+                        for ch in guild.voice_channels:
+                            perms = ch.permissions_for(guild.me)
+                            if perms.connect and perms.speak:
+                                target_vc = ch
+                                break
+                    if target_vc:
+                        await self.bot.db.set_config(guild.id, "music_247_channel_id", str(target_vc.id))
+
+                if not target_vc:
+                    continue
+
+                # Case 1: Bot is not connected or connection is closed
+                if not guild.voice_client or not guild.voice_client.is_connected():
+                    if guild.id in self._reconnecting_guilds:
+                        continue
+                    self._reconnecting_guilds.add(guild.id)
+                    try:
+                        logger.info(f"📻 [24/7 Watchdog] Reconnecting in {guild.name} to '{target_vc.name}'...")
+                        if guild.voice_client:
+                            try:
+                                await guild.voice_client.disconnect(force=True)
+                            except Exception:
+                                pass
+                            await asyncio.sleep(1.0)
+
+                        new_vc = await target_vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
+                        state.voice_client = new_vc
+                        logger.info(f"✅ [24/7 Watchdog] Reconnected in {guild.name} ({target_vc.name})")
+                        if not state.current:
+                            await self.set_vc_status(target_vc, "📻 Sweety 24/7 — Idle")
+                    except Exception as ex:
+                        logger.warning(f"⚠️ [24/7 Watchdog] Could not connect to '{target_vc.name}' in {guild.name}: {ex}")
+                    finally:
+                        self._reconnecting_guilds.discard(guild.id)
+                else:
+                    state.voice_client = guild.voice_client
+                    # Case 2: Bot was moved to AFK channel
+                    if guild.afk_channel and guild.voice_client.channel.id == guild.afk_channel.id and target_vc.id != guild.afk_channel.id:
+                        try:
+                            logger.info(f"📻 [24/7 Watchdog] Moving bot out of AFK channel back to '{target_vc.name}' in {guild.name}")
+                            await guild.voice_client.move_to(target_vc)
+                        except Exception as ex:
+                            logger.warning(f"⚠️ [24/7 Watchdog] Failed moving back from AFK: {ex}")
+            except Exception as ge:
+                logger.debug(f"[24/7 Watchdog] Guild {guild.id} check error: {ge}")
+
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        """Auto-reconnect if 24/7 mode is active and bot gets disconnected."""
-        if member.id == self.bot.user.id and after.channel is None and before.channel is not None:
-            state = self.get_state(member.guild.id)
-            if state.is_247:
-                await asyncio.sleep(2.0)
+        """Immediate auto-reconnect if 24/7 mode is active and bot gets disconnected or moved."""
+        if member.id != self.bot.user.id:
+            return
+
+        guild = member.guild
+        state = self.get_state(guild.id)
+
+        # 1. Bot disconnected completely
+        if after.channel is None and before.channel is not None:
+            is_247 = await self.is_247_enabled(guild.id)
+            if is_247:
+                state.is_247 = True
+                target_channel = before.channel
+                saved_ch_id = await self.bot.db.get_config(guild.id, "music_247_channel_id", None)
+                if saved_ch_id:
+                    try:
+                        saved_ch = guild.get_channel(int(saved_ch_id))
+                        if saved_ch:
+                            target_channel = saved_ch
+                    except (ValueError, TypeError):
+                        pass
+
+                if guild.id in self._reconnecting_guilds:
+                    return
+                self._reconnecting_guilds.add(guild.id)
+
                 try:
-                    if not state.voice_client or not state.voice_client.is_connected():
-                        state.voice_client = await before.channel.connect()
-                        logger.info(f"Reconnected 24/7 voice client in {member.guild.name} ({before.channel.name})")
+                    await asyncio.sleep(2.0)
+                    if guild.voice_client:
+                        try:
+                            await guild.voice_client.disconnect(force=True)
+                        except Exception:
+                            pass
+                        await asyncio.sleep(0.5)
+
+                    new_vc = await target_channel.connect(timeout=20.0, reconnect=True, self_deaf=True)
+                    state.voice_client = new_vc
+                    logger.info(f"✅ [24/7 Event] Reconnected voice client in {guild.name} ({target_channel.name})")
+                    if not state.current:
+                        await self.set_vc_status(target_channel, "📻 Sweety 24/7 — Idle")
                 except Exception as e:
-                    logger.warning(f"24/7 auto-reconnect failed in {member.guild.name}: {e}")
+                    logger.warning(f"⚠️ [24/7 Event] Auto-reconnect failed in {guild.name}: {e}")
+                finally:
+                    self._reconnecting_guilds.discard(guild.id)
+
+        # 2. Bot moved to AFK channel
+        elif after.channel is not None and guild.afk_channel and after.channel.id == guild.afk_channel.id:
+            is_247 = await self.is_247_enabled(guild.id)
+            if is_247:
+                state.is_247 = True
+                target_channel = before.channel if before.channel and before.channel.id != guild.afk_channel.id else None
+                saved_ch_id = await self.bot.db.get_config(guild.id, "music_247_channel_id", None)
+                if saved_ch_id:
+                    try:
+                        saved_ch = guild.get_channel(int(saved_ch_id))
+                        if saved_ch and saved_ch.id != guild.afk_channel.id:
+                            target_channel = saved_ch
+                    except (ValueError, TypeError):
+                        pass
+
+                if target_channel and guild.voice_client:
+                    try:
+                        logger.info(f"📻 [24/7 Event] Moved to AFK channel in {guild.name}. Moving back to '{target_channel.name}'...")
+                        await asyncio.sleep(1.0)
+                        await guild.voice_client.move_to(target_channel)
+                    except Exception as e:
+                        logger.warning(f"⚠️ [24/7 Event] Failed moving back from AFK: {e}")
+
+        # 3. Bot moved to another normal voice channel
+        elif after.channel is not None:
+            is_247 = await self.is_247_enabled(guild.id)
+            if is_247:
+                state.is_247 = True
+                state.voice_client = guild.voice_client
+                await self.bot.db.set_config(guild.id, "music_247_channel_id", str(after.channel.id))
+
 
     async def set_vc_status(self, channel: Optional[discord.VoiceChannel], status: Optional[str]):
         """Sets the voice channel status message based on current track or state."""
@@ -1793,13 +1989,18 @@ class Music(commands.Cog):
         if station_key == "stop":
             state = self.get_state(interaction.guild_id)
             state.clear()
+            is_247 = await self.is_247_enabled(interaction.guild_id)
             if state.voice_client:
                 state.voice_client.stop()
-                await state.voice_client.disconnect()
-                state.voice_client = None
+                if not is_247:
+                    await state.voice_client.disconnect(force=True)
+                    state.voice_client = None
+                else:
+                    await self.set_vc_status(state.voice_client.channel, "📻 Sweety 24/7 — Idle")
+            msg = "⏹ Radio stopped." if not is_247 else "⏹ Radio stopped. *(24/7 mode active — staying in VC)*"
             if not interaction.response.is_done():
-                return await interaction.response.send_message("⏹ Radio stopped.", ephemeral=True)
-            return await interaction.followup.send("⏹ Radio stopped.", ephemeral=True)
+                return await interaction.response.send_message(msg, ephemeral=True)
+            return await interaction.followup.send(msg, ephemeral=True)
 
         station = RADIO_STATIONS.get(station_key)
         if not station:
@@ -1819,8 +2020,14 @@ class Music(commands.Cog):
         state.radio_station = station_key
         state.queue.clear()
 
+        try:
+            await self.bot.db.set_config(interaction.guild_id, "music_247", "true")
+            await self.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+        except Exception:
+            pass
+
         if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
         elif state.voice_client.channel != vc:
             await state.voice_client.move_to(vc)
 
@@ -2059,9 +2266,16 @@ class Music(commands.Cog):
             state.text_channel = interaction.channel
 
             if not state.voice_client or not state.voice_client.is_connected():
-                state.voice_client = await vc.connect()
+                state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
             elif state.voice_client.channel != vc:
                 await state.voice_client.move_to(vc)
+
+            is_247 = await self.is_247_enabled(interaction.guild_id)
+            if is_247:
+                try:
+                    await self.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+                except Exception:
+                    pass
 
             result, is_playlist = await YTDLSource.from_url(
                 query, volume=state.volume, requester=str(interaction.user.display_name)
@@ -2190,7 +2404,7 @@ class Music(commands.Cog):
             state.clear()
             state.voice_client.stop()
             if not state.is_247:
-                await state.voice_client.disconnect()
+                await state.voice_client.disconnect(force=True)
                 state.voice_client = None
                 await self.set_vc_status(vc_channel, None)
                 await interaction.response.send_message("⏹ Stopped and disconnected.")
@@ -2199,6 +2413,10 @@ class Music(commands.Cog):
                 await interaction.response.send_message("⏹ Stopped playback. *(24/7 mode active — staying in VC)*")
         else:
             await interaction.response.send_message("Nothing playing.", ephemeral=True)
+
+    @app_commands.command(name="247", description="Toggle 24/7 mode so Sweety stays connected to the voice channel permanently")
+    async def toggle_247_slash(self, interaction: discord.Interaction):
+        await self.toggle_247(interaction)
 
     async def toggle_247(self, interaction: discord.Interaction):
         state = self.get_state(interaction.guild_id)
@@ -2209,7 +2427,7 @@ class Music(commands.Cog):
                     "❌ Join a voice channel first to enable 24/7 mode.", ephemeral=True
                 )
             vc = interaction.user.voice.channel
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
             state.text_channel = interaction.channel
 
         state.is_247 = not state.is_247
@@ -2218,18 +2436,28 @@ class Music(commands.Cog):
             await self.bot.db.set_config(
                 interaction.guild_id, "music_247", "true" if state.is_247 else "false"
             )
+            if state.is_247 and state.voice_client and state.voice_client.channel:
+                await self.bot.db.set_config(
+                    interaction.guild_id, "music_247_channel_id", str(state.voice_client.channel.id)
+                )
+            else:
+                await self.bot.db.set_config(
+                    interaction.guild_id, "music_247_channel_id", ""
+                )
         except Exception as e:
             logger.debug(f"Failed to persist 24/7 config: {e}")
 
         ch_name = state.voice_client.channel.name if state.voice_client and state.voice_client.channel else "voice channel"
 
         if state.is_247:
+            if not state.current:
+                await self.set_vc_status(state.voice_client.channel, "📻 Sweety 24/7 — Idle")
             embed = discord.Embed(
                 title="📻 24/7 Mode Enabled",
-                description=f"Sweety will now stay in **{ch_name}** 24/7, even when the queue finishes.",
+                description=f"Sweety will now stay in **{ch_name}** 24/7, even when the queue finishes or the bot restarts.",
                 color=0x57F287
             )
-            embed.set_footer(text="Use /247 again to disable.")
+            embed.set_footer(text="Use /247 or !247 again to disable.")
         else:
             embed = discord.Embed(
                 title="📻 24/7 Mode Disabled",
@@ -2238,13 +2466,13 @@ class Music(commands.Cog):
             )
             if not state.queue and not state.current and state.voice_client:
                 vc_channel = state.voice_client.channel
-                await state.voice_client.disconnect()
+                await state.voice_client.disconnect(force=True)
                 state.voice_client = None
                 await self.set_vc_status(vc_channel, None)
 
         await interaction.response.send_message(embed=embed)
 
-    @commands.command(name="247", help="Toggle 24/7 mode in voice channel")
+    @commands.command(name="247", aliases=["stay", "24/7"], help="Toggle 24/7 mode in voice channel")
     async def toggle_247_prefix(self, ctx: commands.Context):
         state = self.get_state(ctx.guild.id)
 
@@ -2252,7 +2480,7 @@ class Music(commands.Cog):
             if not ctx.author.voice:
                 return await ctx.send("❌ Join a voice channel first to enable 24/7 mode.")
             vc = ctx.author.voice.channel
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
             state.text_channel = ctx.channel
 
         state.is_247 = not state.is_247
@@ -2261,15 +2489,25 @@ class Music(commands.Cog):
             await self.bot.db.set_config(
                 ctx.guild.id, "music_247", "true" if state.is_247 else "false"
             )
+            if state.is_247 and state.voice_client and state.voice_client.channel:
+                await self.bot.db.set_config(
+                    ctx.guild.id, "music_247_channel_id", str(state.voice_client.channel.id)
+                )
+            else:
+                await self.bot.db.set_config(
+                    ctx.guild.id, "music_247_channel_id", ""
+                )
         except Exception as e:
             logger.debug(f"Failed to persist 24/7 config: {e}")
 
         ch_name = state.voice_client.channel.name if state.voice_client and state.voice_client.channel else "voice channel"
 
         if state.is_247:
+            if not state.current:
+                await self.set_vc_status(state.voice_client.channel, "📻 Sweety 24/7 — Idle")
             embed = discord.Embed(
                 title="📻 24/7 Mode Enabled",
-                description=f"Sweety will now stay in **{ch_name}** 24/7, even when the queue finishes.",
+                description=f"Sweety will now stay in **{ch_name}** 24/7, even when the queue finishes or the bot restarts.",
                 color=0x57F287
             )
             embed.set_footer(text="Use !247 or /247 again to disable.")
@@ -2281,11 +2519,149 @@ class Music(commands.Cog):
             )
             if not state.queue and not state.current and state.voice_client:
                 vc_channel = state.voice_client.channel
-                await state.voice_client.disconnect()
+                await state.voice_client.disconnect(force=True)
                 state.voice_client = None
                 await self.set_vc_status(vc_channel, None)
 
         await ctx.send(embed=embed)
+
+    @commands.command(name="stop", help="Stop playback and clear queue")
+    async def stop_prefix(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        if state.voice_client:
+            vc_channel = state.voice_client.channel
+            state.clear()
+            state.voice_client.stop()
+            if not state.is_247:
+                await state.voice_client.disconnect(force=True)
+                state.voice_client = None
+                await self.set_vc_status(vc_channel, None)
+                await ctx.send("⏹ Stopped and disconnected.")
+            else:
+                await self.set_vc_status(vc_channel, "📻 Sweety 24/7 — Idle")
+                await ctx.send("⏹ Stopped playback. *(24/7 mode active — staying in VC. Use `!leave` or `!247` to disconnect)*")
+        else:
+            await ctx.send("Nothing playing.")
+
+    @commands.command(name="disconnect", aliases=["leave", "dc"], help="Disconnect Sweety and disable 24/7 mode")
+    async def disconnect_prefix(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        state.clear()
+        state.is_247 = False
+        try:
+            await self.bot.db.set_config(ctx.guild.id, "music_247", "false")
+            await self.bot.db.set_config(ctx.guild.id, "music_247_channel_id", "")
+        except Exception:
+            pass
+
+        if ctx.guild.voice_client:
+            vc_channel = ctx.guild.voice_client.channel
+            await ctx.guild.voice_client.disconnect(force=True)
+            state.voice_client = None
+            await self.set_vc_status(vc_channel, None)
+            await ctx.send("👋 Disconnected and 24/7 mode disabled.")
+        else:
+            await ctx.send("❌ Not currently connected to a voice channel.")
+
+    @commands.command(name="play", aliases=["p"], help="Play a song by name or URL")
+    async def play_prefix(self, ctx: commands.Context, *, query: str):
+        if not ctx.author.voice:
+            return await ctx.send("❌ Join a voice channel first.")
+
+        try:
+            vc = ctx.author.voice.channel
+            state = self.get_state(ctx.guild.id)
+            state.text_channel = ctx.channel
+
+            if not state.voice_client or not state.voice_client.is_connected():
+                state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
+            elif state.voice_client.channel != vc:
+                await state.voice_client.move_to(vc)
+
+            is_247 = await self.is_247_enabled(ctx.guild.id)
+            if is_247:
+                try:
+                    await self.bot.db.set_config(ctx.guild.id, "music_247_channel_id", str(vc.id))
+                except Exception:
+                    pass
+
+            result, is_playlist = await YTDLSource.from_url(
+                query, volume=state.volume, requester=str(ctx.author.display_name)
+            )
+
+            if is_playlist:
+                for track in result:
+                    state.queue.append(track)
+                embed = discord.Embed(
+                    title="📋 Playlist Queued",
+                    description=f"Added **{len(result)} tracks** to the queue.",
+                    color=0x57F287
+                )
+                embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+                await ctx.send(embed=embed)
+                if not state.voice_client.is_playing():
+                    await self.play_next(ctx.guild)
+            else:
+                if state.voice_client.is_playing() or state.voice_client.is_paused():
+                    state.queue.append(result.data)
+                    embed = discord.Embed(
+                        title="➕ Added to Queue",
+                        description=f"[{result.title}]({result.url})",
+                        color=0x5865F2
+                    )
+                    embed.set_thumbnail(url=result.thumbnail)
+                    embed.add_field(name="Duration", value=fmt_duration(result.duration))
+                    embed.add_field(name="Position", value=f"#{len(state.queue)}")
+                    embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+                    return await ctx.send(embed=embed)
+                else:
+                    state.current = result
+                    state.start_time = time.time()
+                    state.paused_elapsed = 0.0
+                    state.pause_start = None
+                    state.voice_client.play(
+                        result,
+                        after=lambda e: self.bot.loop.create_task(self.play_next(ctx.guild))
+                    )
+                    await self.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
+                    embed = await self.build_np_embed(state)
+                    view = NowPlayingView(self, ctx.guild)
+                    state.np_message = await ctx.send(embed=embed, view=view)
+                    state.update_task = self.bot.loop.create_task(self.live_updater(ctx.guild))
+        except Exception as e:
+            logger.error(f"Error in play command: {e}")
+            await ctx.send(f"❌ Error loading track: {e}")
+
+    @commands.command(name="skip", aliases=["s"], help="Skip current track")
+    async def skip_prefix(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        if not state.voice_client or not state.voice_client.is_playing():
+            return await ctx.send("Nothing playing.")
+        is_dj = await self.is_dj_or_admin(ctx.author)
+        if is_dj:
+            state.voice_client.stop()
+            return await ctx.send("⏭ Skipped by DJ / Admin.")
+        vc_members = [m for m in state.voice_client.channel.members if not m.bot]
+        if len(vc_members) <= 1:
+            state.voice_client.stop()
+            return await ctx.send("⏭ Skipped.")
+        state.skip_votes.add(ctx.author.id)
+        needed = (len(vc_members) // 2) + 1
+        if len(state.skip_votes) >= needed:
+            state.skip_votes.clear()
+            state.voice_client.stop()
+            await ctx.send("⏭ Vote passed — skipped!")
+        else:
+            await ctx.send(f"🗳️ Vote recorded! **{len(state.skip_votes)}/{needed}** votes to skip.")
+
+    @commands.command(name="nowplaying", aliases=["np"], help="Show currently playing track")
+    async def nowplaying_prefix(self, ctx: commands.Context):
+        state = self.get_state(ctx.guild.id)
+        if not state.current:
+            return await ctx.send("Nothing is playing.")
+        embed = await self.build_np_embed(state)
+        view = NowPlayingView(self, ctx.guild)
+        await ctx.send(embed=embed, view=view)
 
     @app_commands.command(name="pause", description="Pause or resume music playback")
     async def pause(self, interaction: discord.Interaction):
@@ -2740,9 +3116,16 @@ class Music(commands.Cog):
         state.text_channel = interaction.channel
 
         if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
         elif state.voice_client.channel != vc:
             await state.voice_client.move_to(vc)
+
+        is_247 = await self.is_247_enabled(interaction.guild_id)
+        if is_247:
+            try:
+                await self.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+            except Exception:
+                pass
 
         tracks = await self.bot.loop.run_in_executor(
             None, lambda: extract_spotify_playlist_tracks_public(playlist_url)
@@ -2898,9 +3281,17 @@ class Music(commands.Cog):
         tracks = json.loads(row["tracks"])
         state = self.get_state(interaction.guild_id)
         state.text_channel = interaction.channel
-        vc = interaction.user.voice.channel
         if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
+        elif state.voice_client.channel != vc:
+            await state.voice_client.move_to(vc)
+
+        is_247 = await self.is_247_enabled(interaction.guild_id)
+        if is_247:
+            try:
+                await self.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+            except Exception:
+                pass
         for t in tracks:
             state.queue.append(t)
         if not state.voice_client.is_playing():
@@ -2979,7 +3370,16 @@ class Music(commands.Cog):
         state.text_channel = ctx.channel
         vc = ctx.author.voice.channel
         if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
+        elif state.voice_client.channel != vc:
+            await state.voice_client.move_to(vc)
+
+        is_247 = await self.is_247_enabled(ctx.guild.id)
+        if is_247:
+            try:
+                await self.bot.db.set_config(ctx.guild.id, "music_247_channel_id", str(vc.id))
+            except Exception:
+                pass
         for t in tracks:
             state.queue.append(t)
         if not state.voice_client.is_playing():
@@ -3198,11 +3598,15 @@ class Music(commands.Cog):
         if s == "stop":
             state = self.get_state(ctx.guild.id)
             state.clear()
+            is_247 = await self.is_247_enabled(ctx.guild.id)
             if state.voice_client:
                 state.voice_client.stop()
-                await state.voice_client.disconnect()
-                state.voice_client = None
-            return await ctx.send("⏹ Radio stopped.")
+                if not is_247:
+                    await state.voice_client.disconnect(force=True)
+                    state.voice_client = None
+                else:
+                    await self.set_vc_status(state.voice_client.channel, "📻 Sweety 24/7 — Idle")
+            return await ctx.send("⏹ Radio stopped." if not is_247 else "⏹ Radio stopped. *(24/7 mode active — staying in VC)*")
 
         if s not in RADIO_STATIONS:
             return await ctx.send("❌ Available stations: `lofi`, `synthwave`, `jazz`")
@@ -3218,8 +3622,14 @@ class Music(commands.Cog):
         state.queue.clear()
 
         vc = ctx.author.voice.channel
+        try:
+            await self.bot.db.set_config(ctx.guild.id, "music_247", "true")
+            await self.bot.db.set_config(ctx.guild.id, "music_247_channel_id", str(vc.id))
+        except Exception:
+            pass
+
         if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect()
+            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
         elif state.voice_client.channel != vc:
             await state.voice_client.move_to(vc)
 
