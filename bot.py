@@ -17269,6 +17269,10 @@ class GeminiBot(commands.Bot):
         try:
             now_ts = time.time()
             for guild in self.guilds:
+                # Skip guilds configured in strict karaoke or music mode
+                if await get_guild_server_mode(guild.id) in ("karaoke", "music"):
+                    continue
+
                 # Retrieve guild drop interval (default 20 mins)
                 try:
                     interval_mins = float(await db.get_config(guild.id, "nba_drop_interval", 20))
@@ -17541,12 +17545,53 @@ async def log_error_to_channel(command_name: str, error: Exception, guild: Optio
     except Exception as log_err:
         logger.debug(f"Could not dispatch error to Discord channel: {log_err}")
 
-# ── Global User Blacklist Guards ───────────────────────────────────────────
+# ── Global Server Profile & Blacklist Guards ──────────────────────────────
 _blacklisted_user_ids: set[int] = set()
+_guild_server_modes: dict[int, str] = {}
+
+ALLOWED_KARAOKE_COMMANDS = {
+    # Music playback
+    "play", "p", "search", "skip", "s", "next", "stop", "pause", "resume",
+    "volume", "vol", "queue", "q", "shuffle", "loop", "repeat", "autoplay",
+    "seek", "remove", "rm", "nowplaying", "np",
+    # 24/7 & Voice connection
+    "247", "24/7", "stay", "stayinchannel", "permajoin", "reconnect247",
+    "disconnect", "dc", "leave", "join",
+    # Live Karaoke & Stage
+    "sing", "stage", "mic", "take_stage", "perform",
+    "instrumental", "backing", "karaoketrack", "karaokeversion", "acapella_off", "backingtrack",
+    "singers", "halloffame", "idols", "topkaraoke", "karaokelb",
+    "lyrics", "ly",
+    # Radio
+    "radio",
+    # Core system & config
+    "help", "commands", "manual",
+    "mode", "servermode", "botmode", "profile",
+    "sync",
+}
+
+ALLOWED_KARAOKE_SLASH_COMMANDS = {
+    "play", "pause", "skip", "stop", "queue", "nowplaying", "volume",
+    "seek", "loop", "shuffle", "join", "leave", "lyrics", "247", "help"
+}
+
+async def get_guild_server_mode(guild_id: Optional[int]) -> str:
+    """Retrieves the operating mode of a guild with in-memory caching."""
+    if not guild_id:
+        return "full"
+    if guild_id in _guild_server_modes:
+        return _guild_server_modes[guild_id]
+    try:
+        raw_mode = await db.get_config(guild_id, "server_mode", "full")
+        mode = str(raw_mode).lower().strip() if raw_mode else "full"
+    except Exception:
+        mode = "full"
+    _guild_server_modes[guild_id] = mode
+    return mode
 
 @bot.check
 async def globally_block_blacklisted_users_prefix(ctx: commands.Context) -> bool:
-    """Global check that blocks blacklisted users from running prefix commands."""
+    """Global check that blocks blacklisted users and enforces strict server profiles."""
     try:
         if ctx.author.id in _blacklisted_user_ids:
             try:
@@ -17554,12 +17599,21 @@ async def globally_block_blacklisted_users_prefix(ctx: commands.Context) -> bool
             except Exception:
                 pass
             return False
+
+        # Strict Server Profile Enforcement
+        if ctx.guild:
+            mode = await get_guild_server_mode(ctx.guild.id)
+            if mode in ("karaoke", "music"):
+                cmd_name = ctx.command.name.lower() if ctx.command else ""
+                if cmd_name not in ALLOWED_KARAOKE_COMMANDS:
+                    # Silently ignore non-karaoke commands in strict karaoke mode
+                    return False
     except Exception as e:
-        logger.debug(f"Error checking user blacklist in prefix check: {e}")
+        logger.debug(f"Error checking prefix guard: {e}")
     return True
 
 async def globally_block_blacklisted_users_interaction(interaction: discord.Interaction) -> bool:
-    """Global interaction check that blocks blacklisted users from running slash commands or UI components."""
+    """Global interaction check that blocks blacklisted users and enforces strict server profiles."""
     try:
         if interaction.user.id in _blacklisted_user_ids:
             msg = "🚫 **Access Denied:** Your account has been globally blacklisted from using Sweety."
@@ -17571,8 +17625,30 @@ async def globally_block_blacklisted_users_interaction(interaction: discord.Inte
             except Exception:
                 pass
             return False
+
+        # Strict Server Profile Enforcement for Slash Commands
+        if interaction.guild:
+            mode = await get_guild_server_mode(interaction.guild.id)
+            if mode in ("karaoke", "music"):
+                # If it's a slash command, ensure it's in the allowed set
+                if interaction.type == discord.InteractionType.application_command:
+                    cmd_name = interaction.command.name.lower() if interaction.command else ""
+                    if cmd_name not in ALLOWED_KARAOKE_SLASH_COMMANDS:
+                        msg = (
+                            "🎤 **Strict Karaoke Server Mode Active**\n"
+                            "This server is strictly configured for **Music & Live Karaoke**.\n"
+                            "Unrelated bot commands are disabled by server administration. Use `!help` to view active singing commands."
+                        )
+                        try:
+                            if interaction.response.is_done():
+                                await interaction.followup.send(msg, ephemeral=True)
+                            else:
+                                await interaction.response.send_message(msg, ephemeral=True)
+                        except Exception:
+                            pass
+                        return False
     except Exception as e:
-        logger.debug(f"Error checking user blacklist in interaction check: {e}")
+        logger.debug(f"Error checking interaction guard: {e}")
     return True
 
 bot.tree.interaction_check = globally_block_blacklisted_users_interaction
@@ -18270,17 +18346,23 @@ def make_help_embed(category: str = "all") -> discord.Embed:
 
 
 class HelpCategorySelect(discord.ui.Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(label="Full Overview", value="all", description="View all command categories", emoji="📋", default=True),
-            discord.SelectOption(label="Music & Live Karaoke", value="music", description="24/7 Music, Radio, Synced Lyrics & Live Stage", emoji="🎵"),
-            discord.SelectOption(label="NBA 2K Mobile & Dex", value="nba_2k", description="Packs, Dex, Card Drops, Economy & VC", emoji="🏀"),
-            discord.SelectOption(label="NBA Starting 5 GM", value="dream_team", description="Card Lineup Battles & Matchmaking", emoji="🏆"),
-            discord.SelectOption(label="AI Intelligence", value="ai", description="Gemini AI Chat & Long-term Memory", emoji="🧠"),
-            discord.SelectOption(label="Server Architect", value="architect", description="AI Server Generation, Voice & Channels", emoji="🏗️"),
-            discord.SelectOption(label="Moderation & Security", value="moderation", description="Auto-mod, Warnings, Appeals & Protection", emoji="🛡️"),
-            discord.SelectOption(label="Productivity & Social", value="utility", description="Reminders, AFK, Auto-Roles & Fun", emoji="⏰"),
-        ]
+    def __init__(self, is_karaoke_mode: bool = False):
+        self.is_karaoke_mode = is_karaoke_mode
+        if is_karaoke_mode:
+            options = [
+                discord.SelectOption(label="Music & Live Karaoke", value="music", description="24/7 Music, Radio, Synced Lyrics & Live Stage", emoji="🎵", default=True),
+            ]
+        else:
+            options = [
+                discord.SelectOption(label="Full Overview", value="all", description="View all command categories", emoji="📋", default=True),
+                discord.SelectOption(label="Music & Live Karaoke", value="music", description="24/7 Music, Radio, Synced Lyrics & Live Stage", emoji="🎵"),
+                discord.SelectOption(label="NBA 2K Mobile & Dex", value="nba_2k", description="Packs, Dex, Card Drops, Economy & VC", emoji="🏀"),
+                discord.SelectOption(label="NBA Starting 5 GM", value="dream_team", description="Card Lineup Battles & Matchmaking", emoji="🏆"),
+                discord.SelectOption(label="AI Intelligence", value="ai", description="Gemini AI Chat & Long-term Memory", emoji="🧠"),
+                discord.SelectOption(label="Server Architect", value="architect", description="AI Server Generation, Voice & Channels", emoji="🏗️"),
+                discord.SelectOption(label="Moderation & Security", value="moderation", description="Auto-mod, Warnings, Appeals & Protection", emoji="🛡️"),
+                discord.SelectOption(label="Productivity & Social", value="utility", description="Reminders, AFK, Auto-Roles & Fun", emoji="⏰"),
+            ]
         super().__init__(placeholder="📂 Jump to a command category...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
@@ -18292,10 +18374,11 @@ class HelpCategorySelect(discord.ui.Select):
 
 
 class HelpView(discord.ui.View):
-    def __init__(self, user_id: Optional[int] = None):
+    def __init__(self, user_id: Optional[int] = None, is_karaoke_mode: bool = False):
         super().__init__(timeout=180)
         self.user_id = user_id
-        self.add_item(HelpCategorySelect())
+        self.is_karaoke_mode = is_karaoke_mode
+        self.add_item(HelpCategorySelect(is_karaoke_mode=is_karaoke_mode))
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if self.user_id and interaction.user.id != self.user_id:
@@ -18319,11 +18402,18 @@ class HelpView(discord.ui.View):
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def help_command(interaction: discord.Interaction, category: Optional[str] = "all"):
     try:
-        embed = make_help_embed(category or "all")
-        view = HelpView(interaction.user.id)
-        if category and category != "all":
+        is_karaoke = False
+        if interaction.guild:
+            mode = await get_guild_server_mode(interaction.guild.id)
+            if mode in ("karaoke", "music"):
+                is_karaoke = True
+
+        target_cat = "music" if is_karaoke else (category or "all")
+        embed = make_help_embed(target_cat)
+        view = HelpView(interaction.user.id, is_karaoke_mode=is_karaoke)
+        if target_cat and target_cat != "all" and not is_karaoke:
             for opt in view.children[0].options:
-                opt.default = (opt.value == category)
+                opt.default = (opt.value == target_cat)
         await interaction.response.send_message(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in /help: {e}")
@@ -18338,42 +18428,143 @@ async def help_command(interaction: discord.Interaction, category: Optional[str]
 async def help_prefix_cmd(ctx: commands.Context, category: Optional[str] = "all"):
     """Show all available commands and interactive category guide: !help [category]"""
     try:
-        cat_key = (category or "all").lower().strip()
-        alias_map = {
-            "music": "music",
-            "song": "music",
-            "songs": "music",
-            "sing": "music",
-            "karaoke": "music",
-            "stage": "music",
-            "radio": "music",
-            "nba": "nba_2k",
-            "2k": "nba_2k",
-            "cards": "nba_2k",
-            "packs": "nba_2k",
-            "dex": "nba_2k",
-            "team": "dream_team",
-            "dreamteam": "dream_team",
-            "gm": "dream_team",
-            "mod": "moderation",
-            "warn": "moderation",
-            "appeal": "moderation",
-            "util": "utility",
-            "utils": "utility",
-            "social": "utility",
-            "arch": "architect",
-            "build": "architect",
-        }
-        clean_cat = alias_map.get(cat_key, cat_key if cat_key in ["music", "nba_2k", "dream_team", "ai", "architect", "moderation", "utility"] else "all")
+        is_karaoke = False
+        if ctx.guild:
+            mode = await get_guild_server_mode(ctx.guild.id)
+            if mode in ("karaoke", "music"):
+                is_karaoke = True
+
+        if is_karaoke:
+            clean_cat = "music"
+        else:
+            cat_key = (category or "all").lower().strip()
+            alias_map = {
+                "music": "music",
+                "song": "music",
+                "songs": "music",
+                "sing": "music",
+                "karaoke": "music",
+                "stage": "music",
+                "radio": "music",
+                "nba": "nba_2k",
+                "2k": "nba_2k",
+                "cards": "nba_2k",
+                "packs": "nba_2k",
+                "dex": "nba_2k",
+                "team": "dream_team",
+                "dreamteam": "dream_team",
+                "gm": "dream_team",
+                "mod": "moderation",
+                "warn": "moderation",
+                "appeal": "moderation",
+                "util": "utility",
+                "utils": "utility",
+                "social": "utility",
+                "arch": "architect",
+                "build": "architect",
+            }
+            clean_cat = alias_map.get(cat_key, cat_key if cat_key in ["music", "nba_2k", "dream_team", "ai", "architect", "moderation", "utility"] else "all")
+
         embed = make_help_embed(clean_cat)
-        view = HelpView(ctx.author.id)
-        if clean_cat != "all":
+        view = HelpView(ctx.author.id, is_karaoke_mode=is_karaoke)
+        if clean_cat != "all" and not is_karaoke:
             for opt in view.children[0].options:
                 opt.default = (opt.value == clean_cat)
         await ctx.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in !help: {e}")
         await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="mode", aliases=["servermode", "botmode", "profile"])
+async def server_mode_cmd(ctx: commands.Context, new_mode: Optional[str] = None):
+    """View or switch server operating mode: !mode [karaoke|music|full]"""
+    if not ctx.guild:
+        await ctx.send("❌ This command can only be used in a server.")
+        return
+
+    current_mode = await get_guild_server_mode(ctx.guild.id)
+
+    if not new_mode:
+        is_karaoke = current_mode in ("karaoke", "music")
+        embed = discord.Embed(
+            title=f"⚙️ Server Operating Profile: {ctx.guild.name}",
+            color=0x5865F2 if is_karaoke else discord.Color.blurple()
+        )
+        if is_karaoke:
+            embed.description = (
+                "🎤 **Current Mode: Strict Karaoke & Music Stage**\n\n"
+                "• **Active Features:** Live lyrics, Karaoke Stage judging, Rockstar Hall of Fame, 24/7 VC audio.\n"
+                "• **Strict Enforcement:** All NBA card drops, sports minigames, and non-music commands are **100% blocked**.\n"
+                "• **Help Menu:** Automatically locked to the Music & Karaoke manual.\n\n"
+                "*Admins can type `!mode full` to re-enable all standard bot features.*"
+            )
+        else:
+            embed.description = (
+                "🌐 **Current Mode: Full Suite (Default)**\n\n"
+                "• **Active Features:** All bot modules active (AI, Architect, Moderation, NBA 2K Mobile, Music & Karaoke).\n\n"
+                "*Admins can type `!mode karaoke` to strictly lock this server to Music & Karaoke only.*"
+            )
+        embed.set_footer(text="Requires Administrator or Manage Server permissions to change.")
+        await ctx.send(embed=embed)
+        return
+
+    is_admin = False
+    try:
+        is_admin = (
+            await bot.is_owner(ctx.author) or
+            ctx.author.id == 719932313919684670 or
+            ctx.author.id == ctx.guild.owner_id or
+            getattr(ctx.author.guild_permissions, "administrator", False) or
+            getattr(ctx.author.guild_permissions, "manage_guild", False)
+        )
+    except Exception:
+        pass
+
+    if not is_admin:
+        await ctx.send("❌ Only Server Administrators or Managers can change the server mode.")
+        return
+
+    clean_target = new_mode.lower().strip()
+    if clean_target in ("karaoke", "music", "sing", "singing"):
+        await db.set_config(ctx.guild.id, "server_mode", "karaoke")
+        _guild_server_modes[ctx.guild.id] = "karaoke"
+
+        embed = discord.Embed(
+            title="🎤 Strict Karaoke Server Mode Activated!",
+            description=(
+                f"**{ctx.guild.name}** has been strictly configured for **Live Karaoke & Music**!\n\n"
+                "🔒 **Strict Restrictions Enabled:**\n"
+                "• **Zero Distractions:** NBA wild card drops and sports minigames are strictly stopped.\n"
+                "• **Silent Shield:** Non-music commands are completely ignored.\n"
+                "• **Focused Manual:** `!help` and `/help` only show the Music & Live Karaoke manual.\n\n"
+                "🎙️ **Ready for the Stage:**\n"
+                "• `!play <song>` — Stream music\n"
+                "• `!sing` — Claim the stage as active singer & open crowd rating\n"
+                "• `!instrumental` — Hot-swap audio to karaoke backing track\n"
+                "• `!lyrics` — Synced live line-by-line teleprompter\n"
+                "• `!singers` — Server Rockstar Hall of Fame leaderboard"
+            ),
+            color=0x2ecc71
+        )
+        embed.set_footer(text="To restore full functionality at any time, run !mode full")
+        await ctx.send(embed=embed)
+
+    elif clean_target in ("full", "default", "all", "standard", "reset"):
+        await db.set_config(ctx.guild.id, "server_mode", "full")
+        _guild_server_modes[ctx.guild.id] = "full"
+
+        embed = discord.Embed(
+            title="🌐 Full Server Mode Restored",
+            description=(
+                f"**{ctx.guild.name}** has returned to **Full Suite Mode**.\n"
+                "All modules (AI, Architect, Moderation, NBA 2K Mobile, Music & Karaoke) are now active."
+            ),
+            color=discord.Color.blue()
+        )
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("❌ Invalid mode option. Available modes: `!mode karaoke` or `!mode full`")
 
 
 @bot.tree.command(name="setup", description="Generate a server structure preview and build it (Theme or Custom)")
@@ -26484,7 +26675,9 @@ async def on_message(message):
 
         # ── NBA 2K Mobile Wild Card Chat Spawns (Configurable message threshold) ────
         if message.guild and not message.author.bot:
-            if is_valid_drop_channel(message.channel, allow_system=False):
+            if await get_guild_server_mode(message.guild.id) in ("karaoke", "music"):
+                pass  # Strictly disable NBA wild card drops in karaoke server mode
+            elif is_valid_drop_channel(message.channel, allow_system=False):
                 chan_id = message.channel.id
                 _guild_last_active_channels[message.guild.id] = chan_id
                 _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
