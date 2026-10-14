@@ -149,6 +149,14 @@ def score_music_candidate(cand: dict, query: str = "") -> float:
     return score_candidate(title, uploader, views, year, query=query, is_topic=is_topic)
 
 
+SAAVN_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "X-Forwarded-For": "49.37.241.1",
+    "Client-IP": "49.37.241.1",
+    "CF-Connecting-IP": "49.37.241.1",
+}
+
+
 def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> Optional[dict]:
     """
     Fetches 100% original, official studio master (320kbps CD audio) via licensed CDN.
@@ -165,8 +173,8 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
         # 1. Primary: JioSaavn Catalog Search with play counts & ranking
         try:
             url = f"https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&cc=in&p=1&n=15&q={q_enc}"
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-            with urllib.request.urlopen(req, timeout=4.5) as resp:
+            req = urllib.request.Request(url, headers=SAAVN_HEADERS)
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             results = data.get("results", [])
             for r in results:
@@ -186,14 +194,14 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
                         "raw": r,
                     })
         except Exception as e:
-            logger.debug(f"JioSaavn catalog search failed: {e}")
+            logger.warning(f"JioSaavn catalog search failed for '{search_query}': {e}")
 
         # 2. Secondary autocomplete fallback
         if not candidates:
             try:
                 url2 = f"https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query={q_enc}"
-                req2 = urllib.request.Request(url2, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-                with urllib.request.urlopen(req2, timeout=4.5) as resp2:
+                req2 = urllib.request.Request(url2, headers=SAAVN_HEADERS)
+                with urllib.request.urlopen(req2, timeout=5.0) as resp2:
                     data2 = json.loads(resp2.read().decode("utf-8"))
                 for r in data2.get("songs", {}).get("data", []):
                     title = r.get("title") or ""
@@ -210,7 +218,7 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
                             "raw": r,
                         })
             except Exception as e:
-                logger.debug(f"JioSaavn autocomplete fallback failed: {e}")
+                logger.warning(f"JioSaavn autocomplete fallback failed for '{search_query}': {e}")
 
         if not candidates:
             return None
@@ -232,6 +240,7 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
 
         eligible = [c for c in scored_candidates if user_wants_variant or c["score"] >= min_score]
         if not eligible:
+            logger.info(f"No JioSaavn candidates met min_score={min_score} for '{search_query}'. Top was: '{scored_candidates[0]['title']}' (Score: {scored_candidates[0]['score']:.1f})")
             return None
 
         # Fetch details for top eligible candidates in a single fast batch request
@@ -240,11 +249,11 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
         details = {}
         try:
             detail_url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0&_format=json&pids={batch_pids}"
-            req_det = urllib.request.Request(detail_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            req_det = urllib.request.Request(detail_url, headers=SAAVN_HEADERS)
             with urllib.request.urlopen(req_det, timeout=5.0) as resp_det:
                 details = json.loads(resp_det.read().decode("utf-8"))
         except Exception as batch_err:
-            logger.debug(f"Batch Saavn getDetails failed: {batch_err}")
+            logger.warning(f"Batch Saavn getDetails failed for {batch_pids}: {batch_err}")
 
         for top_song in top_eligible:
             pid = top_song["id"]
@@ -280,12 +289,12 @@ def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> 
                     "is_live": False,
                 }
             except Exception as cand_err:
-                logger.debug(f"Error resolving Saavn candidate {pid}: {cand_err}")
+                logger.warning(f"Error resolving Saavn candidate {pid}: {cand_err}")
                 continue
 
         return None
     except Exception as e:
-        logger.debug(f"Official studio track fetch failed: {e}")
+        logger.warning(f"Official studio track fetch failed: {e}")
         return None
 
 
@@ -467,6 +476,11 @@ YTDL_OPTIONS = {
     "source_address": "0.0.0.0",
     "socket_timeout": 10,
     "concurrent_fragment_downloads": 4,
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["ios", "android", "mweb"],
+        }
+    },
 }
 
 if os.path.exists("cookies.txt"):
@@ -484,6 +498,11 @@ YTDL_PLAYLIST_OPTIONS = {
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
     "socket_timeout": 15,
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["ios", "android", "mweb"],
+        }
+    },
 }
 
 if os.path.exists("cookies.txt"):
@@ -933,8 +952,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     # Rank non-VEVO candidates using scoring system: prefer shortest, cleanest title without remixes/edits
                     ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, canonical_q), reverse=True)
 
-                    for cand in ranked:
-                        logger.info(f"Evaluating non-VEVO candidate: '{cand.get('title')}' (Score: {score_music_candidate(cand, canonical_q):.1f})")
+                    consecutive_bot_blocks = 0
+                    for cand in ranked[:3]:
+                        logger.info(f"Evaluating candidate: '{cand.get('title')}' (Score: {score_music_candidate(cand, canonical_q):.1f})")
                         # If candidate is already a fully resolved source with streamable direct url (not a webpage)
                         if cand.get("url") and not any(cand.get("url", "").startswith(p) for p in ("https://www.youtube.com", "http://www.youtube.com", "https://youtu.be")):
                             fmts = cand.get("formats", [])
@@ -951,7 +971,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                             try:
                                 cand_full = await asyncio.wait_for(
                                     loop.run_in_executor(None, lambda: ytdl.extract_info(cand_url, download=False)),
-                                    timeout=8.0
+                                    timeout=5.0
                                 )
                                 if cand_full and not is_vevo_entry(cand_full):
                                     has_audio = cand_full.get("url") or any(f.get("acodec") != "none" and f.get("url") for f in cand_full.get("formats", []))
@@ -959,7 +979,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
                                         data = cand_full
                                         break
                             except Exception as cand_err:
-                                logger.debug(f"Candidate '{cand.get('title')}' extraction failed ({cand_err}), trying next result...")
+                                logger.warning(f"Candidate '{cand.get('title')}' extraction failed: {cand_err}")
+                                if "confirm you’re not a bot" in str(cand_err):
+                                    consecutive_bot_blocks += 1
+                                    if consecutive_bot_blocks >= 2:
+                                        logger.warning("YouTube datacenter bot-block detected, skipping remaining candidates to fallback immediately.")
+                                        break
                                 continue
             except Exception as yt_err:
                 logger.warning(f"YouTube search failed for '{search_query}': {yt_err}")
