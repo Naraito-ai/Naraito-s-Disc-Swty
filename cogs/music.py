@@ -194,6 +194,15 @@ YTDL_OPTIONS = {
     "source_address": "0.0.0.0",
     "socket_timeout": 10,
     "concurrent_fragment_downloads": 4,
+    "extractor_args": {
+        "youtube": {
+            "skip": ["dash", "hls"],
+            "player_client": ["android", "visionos"],
+        }
+    },
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+    },
 }
 
 if os.path.exists("cookies.txt"):
@@ -632,29 +641,38 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 logger.debug(f"Direct ytsearch failed for '{search_query}': {e}")
                 data = None
 
-        # 3. Emergency fallback to SoundCloud (skip DRM tracks)
+        # 3. Emergency fallback to SoundCloud (skip DRM tracks and reject amateur bootlegs/remixes unless requested)
         if not data or not (data.get("url") or data.get("formats")):
             try:
                 sc_data = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: ytdl.extract_info(f"scsearch5:{clean_q}", download=False)),
+                    loop.run_in_executor(None, lambda: ytdl.extract_info(f"scsearch8:{clean_q}", download=False)),
                     timeout=5.0
                 )
                 sc_entries = [e for e in sc_data.get("entries", []) if e]
+                user_wants_remix = any(w in clean_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live"))
+                unwanted_tags = ("remix", "flip", "slowed", "edit", "instrumental", "reprod", "prod by", "mashup", "karaoke", "tribute", "bootleg", "nightcore", "reverb", "cover")
+
+                clean_candidate = None
                 for candidate in sc_entries:
                     s_url = candidate.get("url")
                     if not s_url:
                         fmts = [f for f in candidate.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
                         if fmts:
                             s_url = fmts[-1]["url"]
-                    if s_url and not candidate.get("drm"):
-                        data = candidate
-                        break
+                    if not s_url or candidate.get("drm"):
+                        continue
+                    c_title = (candidate.get("title") or "").lower()
+                    if not user_wants_remix and any(tag in c_title for tag in unwanted_tags):
+                        continue
+                    clean_candidate = candidate
+                    break
+                data = clean_candidate
             except Exception as sc_err:
                 logger.warning(f"SoundCloud fallback search failed for '{clean_q}': {sc_err}")
                 data = None
 
         if not data:
-            raise ValueError(f"Could not find or stream '{search_query}'. Try a different song name.")
+            raise ValueError(f"Could not find or stream the original version of '{search_query}'. Try adding the artist name or pasting a direct link.")
 
         stream_url = data.get("url")
         if not stream_url:
