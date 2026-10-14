@@ -862,12 +862,33 @@ class YTDLSource(discord.PCMVolumeTransformer):
         clean_q = search_query.strip()
         user_wants_variant = any(w in clean_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live", "nightcore", "reverb", "acoustic", "extended", "sped up", "1 hour", "loop"))
 
+        # 0. Canonical Track & Original Artist Resolution (Spotify metadata verification)
+        # Identifies the true original song and original artist so we never play covers/mashups/bootlegs
+        canonical_q = clean_q
+        if spotify and not user_wants_variant:
+            try:
+                pure_q = re.sub(r'^(?:ytsearch\d*:|scsearch\d*:)\s*', '', clean_q).strip()
+                sp_res = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: spotify.search(q=pure_q, type="track", limit=1)),
+                    timeout=2.0
+                )
+                sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
+                if sp_items:
+                    sp_t = sp_items[0]
+                    sp_name = sp_t.get("name", "")
+                    sp_artist = sp_t["artists"][0]["name"] if sp_t.get("artists") else ""
+                    if sp_name:
+                        canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
+                        logger.info(f"Canonical original track identified via Spotify: '{canonical_q}' (for query '{clean_q}')")
+            except Exception as sp_err:
+                logger.debug(f"Spotify canonical track resolution skipped: {sp_err}")
+
         # 1. Primary for standard music queries: Official Studio Master Resolver (320kbps CD Audio)
         # Guarantees 100% original studio audio, zero datacenter bot-blocks, zero amateur bootlegs
         if not user_wants_variant:
             try:
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(clean_q)),
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(canonical_q)),
                     timeout=4.5
                 )
                 if official_track and official_track.get("url"):
@@ -879,7 +900,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if not data:
             try:
                 # Normalize any ytsearch prefix so we always inspect up to 10 entries
-                s_query = re.sub(r'^ytsearch\d*:\s*', '', clean_q).strip()
+                s_query = re.sub(r'^ytsearch\d*:\s*', '', canonical_q).strip()
                 yt_term = f"ytsearch10:{s_query}"
                 yt_data = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: ytdl_search.extract_info(yt_term, download=False)),
@@ -893,10 +914,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     candidate_pool = non_vevo if non_vevo else [e for e in entries if e.get("id") not in exclude_ids] or entries
 
                     # Rank non-VEVO candidates using scoring system: prefer shortest, cleanest title without remixes/edits
-                    ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, clean_q), reverse=True)
+                    ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, canonical_q), reverse=True)
 
                     for cand in ranked:
-                        logger.info(f"Evaluating non-VEVO candidate: '{cand.get('title')}' (Score: {score_music_candidate(cand, clean_q):.1f})")
+                        logger.info(f"Evaluating non-VEVO candidate: '{cand.get('title')}' (Score: {score_music_candidate(cand, canonical_q):.1f})")
                         # If candidate is already a fully resolved source with streamable direct url (not a webpage)
                         if cand.get("url") and not any(cand.get("url", "").startswith(p) for p in ("https://www.youtube.com", "http://www.youtube.com", "https://youtu.be")):
                             fmts = cand.get("formats", [])
@@ -946,7 +967,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         # 3. Secondary studio master fallback using the resolved title if YouTube gave a title but no streamable audio
         if (not data or not (data.get("url") or data.get("formats"))) and not user_wants_variant:
             try:
-                cand_title = data.get("title") if data else clean_q
+                cand_title = data.get("title") if data else canonical_q
                 official_track = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_title)),
                     timeout=4.5
@@ -960,7 +981,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if not data or not (data.get("url") or data.get("formats")):
             try:
                 sc_data = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: ytdl.extract_info(f"scsearch8:{clean_q}", download=False)),
+                    loop.run_in_executor(None, lambda: ytdl.extract_info(f"scsearch8:{canonical_q}", download=False)),
                     timeout=5.0
                 )
                 sc_entries = [e for e in sc_data.get("entries", []) if e]
@@ -977,16 +998,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     sc_candidates.append(candidate)
 
                 if sc_candidates:
-                    sc_candidates.sort(key=lambda c: score_music_candidate(c, clean_q), reverse=True)
+                    sc_candidates.sort(key=lambda c: score_music_candidate(c, canonical_q), reverse=True)
                     for cand in sc_candidates:
-                        if not user_wants_variant and score_music_candidate(cand, clean_q) < 700:
+                        if not user_wants_variant and score_music_candidate(cand, canonical_q) < 700:
                             continue
                         data = cand
                         if not data.get("url") and cand.get("stream_url"):
                             data["url"] = cand["stream_url"]
                         break
             except Exception as sc_err:
-                logger.warning(f"SoundCloud fallback search failed for '{clean_q}': {sc_err}")
+                logger.warning(f"SoundCloud fallback search failed for '{canonical_q}': {sc_err}")
                 data = None
 
         if not data:
@@ -3245,17 +3266,35 @@ class Music(commands.Cog):
         if not interaction.user.voice:
             return await interaction.followup.send("❌ Join a voice channel first.", ephemeral=True)
 
+        canonical_q = query.strip()
+        user_wants_variant = any(w in canonical_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live", "nightcore", "reverb", "acoustic", "extended", "sped up", "1 hour", "loop"))
+        if spotify and not user_wants_variant:
+            try:
+                sp_res = await asyncio.wait_for(
+                    asyncio.get_event_loop().run_in_executor(None, lambda: spotify.search(q=canonical_q, type="track", limit=1)),
+                    timeout=2.0
+                )
+                sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
+                if sp_items:
+                    sp_t = sp_items[0]
+                    sp_name = sp_t.get("name", "")
+                    sp_artist = sp_t["artists"][0]["name"] if sp_t.get("artists") else ""
+                    if sp_name:
+                        canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
+            except Exception:
+                pass
+
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl_search.extract_info(f"ytsearch10:{query}", download=False)
+                lambda: ytdl_search.extract_info(f"ytsearch10:{canonical_q}", download=False)
             )
         except Exception as e:
             return await interaction.followup.send(f"❌ Search failed: `{e}`")
 
         raw_entries = [e for e in data.get("entries", []) if e] if data else []
         candidate_pool = [e for e in raw_entries if not is_vevo_entry(e)] or raw_entries
-        ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, query), reverse=True)
+        ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, canonical_q), reverse=True)
         entries = ranked[:5]
 
         if not entries:
@@ -3574,17 +3613,35 @@ class Music(commands.Cog):
         if not ctx.author.voice:
             return await ctx.send("❌ Join a voice channel first.")
 
+        canonical_q = query.strip()
+        user_wants_variant = any(w in canonical_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live", "nightcore", "reverb", "acoustic", "extended", "sped up", "1 hour", "loop"))
+        if spotify and not user_wants_variant:
+            try:
+                sp_res = await asyncio.wait_for(
+                    asyncio.get_event_loop().run_in_executor(None, lambda: spotify.search(q=canonical_q, type="track", limit=1)),
+                    timeout=2.0
+                )
+                sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
+                if sp_items:
+                    sp_t = sp_items[0]
+                    sp_name = sp_t.get("name", "")
+                    sp_artist = sp_t["artists"][0]["name"] if sp_t.get("artists") else ""
+                    if sp_name:
+                        canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
+            except Exception:
+                pass
+
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl_search.extract_info(f"ytsearch10:{query}", download=False)
+                lambda: ytdl_search.extract_info(f"ytsearch10:{canonical_q}", download=False)
             )
         except Exception as e:
             return await ctx.send(f"❌ Search failed: `{e}`")
 
         raw_entries = [e for e in data.get("entries", []) if e] if data else []
         candidate_pool = [e for e in raw_entries if not is_vevo_entry(e)] or raw_entries
-        ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, query), reverse=True)
+        ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, canonical_q), reverse=True)
         entries = ranked[:5]
 
         if not entries:
