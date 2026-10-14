@@ -546,6 +546,10 @@ FFMPEG_OPTIONS = {
 ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
 ytdl_playlist = yt_dlp.YoutubeDL(YTDL_PLAYLIST_OPTIONS)
 
+YTDL_SEARCH_OPTIONS = dict(YTDL_OPTIONS)
+YTDL_SEARCH_OPTIONS["extract_flat"] = True
+ytdl_search = yt_dlp.YoutubeDL(YTDL_SEARCH_OPTIONS)
+
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -586,6 +590,95 @@ def is_vevo_entry(cand: dict) -> bool:
         if "vevo" in str(val).lower():
             return True
     return False
+
+
+UNWANTED_TITLE_PATTERNS = [
+    re.compile(r'\bremix(es)?\b', re.IGNORECASE),
+    re.compile(r'\bmix(es)?\b', re.IGNORECASE),
+    re.compile(r'\bmashup\b', re.IGNORECASE),
+    re.compile(r'\bcovers?\b', re.IGNORECASE),
+    re.compile(r'\bextended\b', re.IGNORECASE),
+    re.compile(r'\bedits?\b', re.IGNORECASE),
+    re.compile(r'\bversions?\b', re.IGNORECASE),
+    re.compile(r'\bx\b', re.IGNORECASE),
+    re.compile(r'\bft\.?\b', re.IGNORECASE),
+    re.compile(r'\bfeat\.?\b', re.IGNORECASE),
+    re.compile(r'\bkaraoke\b', re.IGNORECASE),
+    re.compile(r'\binstrumental\b', re.IGNORECASE),
+    re.compile(r'\bkaytranada\b', re.IGNORECASE),
+    re.compile(r'\bflip\b', re.IGNORECASE),
+    re.compile(r'\bslowed\b', re.IGNORECASE),
+    re.compile(r'\breverb\b', re.IGNORECASE),
+    re.compile(r'\bbootleg\b', re.IGNORECASE),
+    re.compile(r'\bnightcore\b', re.IGNORECASE),
+    re.compile(r'\breprod\b', re.IGNORECASE),
+    re.compile(r'\bprod\s+by\b', re.IGNORECASE),
+    re.compile(r'\blive\b', re.IGNORECASE),
+    re.compile(r'\bsped\s+up\b', re.IGNORECASE),
+    re.compile(r'\bspeed\s+up\b', re.IGNORECASE),
+    re.compile(r'\bbass\s+boost(ed)?\b', re.IGNORECASE),
+    re.compile(r'\bacoustic\b', re.IGNORECASE),
+    re.compile(r'\bparody\b', re.IGNORECASE),
+    re.compile(r'\btribute\b', re.IGNORECASE),
+    re.compile(r'\b8d\s+audio\b', re.IGNORECASE),
+    re.compile(r'\b1\s+hour\b', re.IGNORECASE),
+    re.compile(r'\bloop\b', re.IGNORECASE),
+]
+
+
+def score_music_candidate(cand: dict, query: str = "") -> float:
+    """
+    Ranks search candidates to prefer the original official song:
+    - Heavily penalizes remixes, edits, covers, mashups, and unwanted variants.
+    - Rewards official topic channels, official audio, and clean titles.
+    - Prefers the shortest, cleanest title that matches the query.
+    """
+    if not cand or not isinstance(cand, dict):
+        return -9999.0
+
+    title = (cand.get("title") or "").strip()
+    title_lower = title.lower()
+    uploader = (cand.get("uploader") or cand.get("channel") or "").lower()
+    uploader_id = (cand.get("uploader_id") or "").lower()
+    q_lower = query.lower().strip()
+
+    score = 1000.0
+
+    # 1. Heavily penalize unwanted words (unless user explicitly searched for them)
+    for pattern_re in UNWANTED_TITLE_PATTERNS:
+        if pattern_re.search(title) and not pattern_re.search(query):
+            score -= 300.0
+
+    # 2. Prefer artist/keyword matching in uploader and title
+    query_words = [w for w in re.findall(r'\w+', q_lower) if len(w) > 2]
+    title_matches = sum(1 for w in query_words if w in title_lower)
+    uploader_matches = sum(1 for w in query_words if w in uploader)
+    score += title_matches * 60.0
+    score += uploader_matches * 120.0
+
+    # 3. Boost official Topic channel releases only if the channel matches the queried artist/terms
+    if "- topic" in uploader or "- topic" in uploader_id:
+        if uploader_matches > 0 or not query_words:
+            score += 200.0
+        else:
+            score -= 100.0
+    if "official audio" in title_lower and "remix" not in title_lower:
+        score += 150.0
+    elif "audio" in title_lower and "remix" not in title_lower:
+        score += 80.0
+
+    # 4. Prefer the shortest, cleanest title (punish brackets, fluff, extra words)
+    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
+    fluff_length = max(0, len(title) - len(clean_title))
+    score -= fluff_length * 3.0
+    score -= len(title) * 1.0
+
+    # 5. Penalize very short previews / shorts (< 60 seconds)
+    duration = cand.get("duration", 0)
+    if duration and duration < 60:
+        score -= 400.0
+
+    return score
 
 
 # ─── Guild Music State ────────────────────────────────────────────────────────
@@ -690,7 +783,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return audioop.mul(ret, 2, vol)
 
     @classmethod
-    async def _search_and_extract(cls, search_query: str, *, loop=None, volume=1.0, seek_seconds=0, audio_filter=None, requester="Unknown"):
+    async def _search_and_extract(cls, search_query: str, *, loop=None, volume=1.0, seek_seconds=0, audio_filter=None, requester="Unknown", exclude_video_ids=None):
         loop = loop or asyncio.get_event_loop()
         data = None
         clean_q = search_query.strip()
@@ -712,40 +805,53 @@ class YTDLSource(discord.PCMVolumeTransformer):
         # 2. Search YouTube if official studio resolver didn't match or user wants a variant/remix
         if not data:
             try:
-                # Normalize any ytsearch prefix so we always inspect up to 5 entries
+                # Normalize any ytsearch prefix so we always inspect up to 10 entries
                 s_query = re.sub(r'^ytsearch\d*:\s*', '', clean_q).strip()
-                yt_term = f"ytsearch5:{s_query}"
+                yt_term = f"ytsearch10:{s_query}"
                 yt_data = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: ytdl.extract_info(yt_term, download=False)),
+                    loop.run_in_executor(None, lambda: ytdl_search.extract_info(yt_term, download=False)),
                     timeout=8.0
                 )
                 entries = [e for e in yt_data.get("entries", []) if e] if yt_data else []
                 if entries:
-                    # Skip any VEVO results to bypass datacenter bot blocks and pick the next result
-                    for cand in entries:
-                        if is_vevo_entry(cand):
-                            logger.info(f"Skipping VEVO result: '{cand.get('title')}' ({cand.get('uploader')}) — trying next result")
-                            continue
-                        # If candidate already has streamable audio formats/url, use it
-                        if cand.get("url") or (cand.get("formats") and any(f.get("acodec") != "none" and f.get("url") for f in cand.get("formats", []))):
-                            data = cand
-                            break
-                        # Otherwise attempt deep extraction to verify streamable audio
-                        cand_url = cand.get("webpage_url") or (f"https://www.youtube.com/watch?v={cand['id']}" if cand.get("id") else None)
+                    # Filter out VEVO entries and previously failed/blocked video IDs
+                    exclude_ids = set(exclude_video_ids or [])
+                    non_vevo = [e for e in entries if not is_vevo_entry(e) and e.get("id") not in exclude_ids]
+                    candidate_pool = non_vevo if non_vevo else [e for e in entries if e.get("id") not in exclude_ids] or entries
+
+                    # Rank non-VEVO candidates using scoring system: prefer shortest, cleanest title without remixes/edits
+                    ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, clean_q), reverse=True)
+
+                    for cand in ranked:
+                        logger.info(f"Evaluating non-VEVO candidate: '{cand.get('title')}' (Score: {score_music_candidate(cand, clean_q):.1f})")
+                        # If candidate is already a fully resolved source with streamable direct url (not a webpage)
+                        if cand.get("url") and not any(cand.get("url", "").startswith(p) for p in ("https://www.youtube.com", "http://www.youtube.com", "https://youtu.be")):
+                            fmts = cand.get("formats", [])
+                            if any(f.get("acodec") != "none" and f.get("url") for f in fmts):
+                                data = cand
+                                break
+
+                        cand_url = cand.get("webpage_url") or cand.get("url")
+                        if not cand_url or not str(cand_url).startswith("http"):
+                            if cand.get("id"):
+                                cand_url = f"https://www.youtube.com/watch?v={cand['id']}"
+
                         if cand_url:
                             try:
-                                full_cand = await asyncio.wait_for(
+                                cand_full = await asyncio.wait_for(
                                     loop.run_in_executor(None, lambda: ytdl.extract_info(cand_url, download=False)),
-                                    timeout=7.0
+                                    timeout=8.0
                                 )
-                                if full_cand and (full_cand.get("url") or any(f.get("acodec") != "none" and f.get("url") for f in full_cand.get("formats", []))):
-                                    data = full_cand
-                                    break
+                                if cand_full and not is_vevo_entry(cand_full):
+                                    has_audio = cand_full.get("url") or any(f.get("acodec") != "none" and f.get("url") for f in cand_full.get("formats", []))
+                                    if has_audio:
+                                        data = cand_full
+                                        break
                             except Exception as cand_err:
                                 logger.debug(f"Candidate '{cand.get('title')}' extraction failed ({cand_err}), trying next result...")
                                 continue
-                    if not data and entries:
-                        data = entries[0]
+                    if not data and ranked:
+                        data = ranked[0]
             except Exception as yt_err:
                 logger.warning(f"YouTube search failed for '{search_query}': {yt_err}")
                 data = None
@@ -1029,7 +1135,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     logger.info(f"Direct URL failed to extract streamable audio URL ({reason}). Automatically falling back to searching ytsearch with title: '{fallback_title}'")
                     clean_t, clean_a, _ = clean_song_title_and_artist(fallback_title)
                     search_term = f"{clean_a} {clean_t}".strip() if clean_a and clean_a.lower() not in clean_t.lower() else clean_t
-                    return await cls._search_and_extract(search_term or fallback_title, loop=loop, volume=volume, requester=requester)
+                    failed_id = data.get("id") if data else (yt_match.group(1) if yt_match else None)
+                    exclude_ids = [failed_id] if failed_id else None
+                    return await cls._search_and_extract(search_term or fallback_title, loop=loop, volume=volume, requester=requester, exclude_video_ids=exclude_ids)
 
             if not data or not stream_url:
                 raise ValueError("⚠️ Could not find or stream a playable audio track for this link. Try searching by song name instead.")
@@ -3063,15 +3171,15 @@ class Music(commands.Cog):
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl.extract_info(f"ytsearch8:{query}", download=False)
+                lambda: ytdl_search.extract_info(f"ytsearch10:{query}", download=False)
             )
         except Exception as e:
             return await interaction.followup.send(f"❌ Search failed: `{e}`")
 
         raw_entries = [e for e in data.get("entries", []) if e] if data else []
-        entries = [e for e in raw_entries if not is_vevo_entry(e)][:5]
-        if not entries:
-            entries = raw_entries[:5]
+        candidate_pool = [e for e in raw_entries if not is_vevo_entry(e)] or raw_entries
+        ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, query), reverse=True)
+        entries = ranked[:5]
 
         if not entries:
             return await interaction.followup.send("❌ No results found.")
@@ -3392,15 +3500,15 @@ class Music(commands.Cog):
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl.extract_info(f"ytsearch8:{query}", download=False)
+                lambda: ytdl_search.extract_info(f"ytsearch10:{query}", download=False)
             )
         except Exception as e:
             return await ctx.send(f"❌ Search failed: `{e}`")
 
         raw_entries = [e for e in data.get("entries", []) if e] if data else []
-        entries = [e for e in raw_entries if not is_vevo_entry(e)][:5]
-        if not entries:
-            entries = raw_entries[:5]
+        candidate_pool = [e for e in raw_entries if not is_vevo_entry(e)] or raw_entries
+        ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, query), reverse=True)
+        entries = ranked[:5]
 
         if not entries:
             return await ctx.send("❌ No results found.")
