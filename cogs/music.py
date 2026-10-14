@@ -48,108 +48,112 @@ def is_vevo_entry(cand: dict) -> bool:
         cand.get("channel_url") or "",
         cand.get("uploader_url") or "",
         cand.get("creator") or "",
-        cand.get("title") or "",
     ]
     for val in check_values:
         if "vevo" in str(val).lower():
             return True
+    title = str(cand.get("title") or "")
+    if re.search(r'\bvevo\b', title, re.IGNORECASE):
+        return True
     return False
 
 
-UNWANTED_TITLE_PATTERNS = [
-    re.compile(r'\bremix(es)?\b', re.IGNORECASE),
-    re.compile(r'\bmix(es)?\b', re.IGNORECASE),
-    re.compile(r'\bmashup\b', re.IGNORECASE),
-    re.compile(r'\bcovers?\b', re.IGNORECASE),
-    re.compile(r'\bextended\b', re.IGNORECASE),
-    re.compile(r'\bedits?\b', re.IGNORECASE),
-    re.compile(r'\bversions?\b', re.IGNORECASE),
-    re.compile(r'\bx\b', re.IGNORECASE),
-    re.compile(r'\bft\.?\b', re.IGNORECASE),
-    re.compile(r'\bfeat\.?\b', re.IGNORECASE),
-    re.compile(r'\bkaraoke\b', re.IGNORECASE),
-    re.compile(r'\binstrumental\b', re.IGNORECASE),
-    re.compile(r'\bkaytranada\b', re.IGNORECASE),
-    re.compile(r'\bflip\b', re.IGNORECASE),
-    re.compile(r'\bslowed\b', re.IGNORECASE),
-    re.compile(r'\breverb\b', re.IGNORECASE),
-    re.compile(r'\bbootleg\b', re.IGNORECASE),
-    re.compile(r'\bnightcore\b', re.IGNORECASE),
-    re.compile(r'\breprod\b', re.IGNORECASE),
-    re.compile(r'\bprod\s+by\b', re.IGNORECASE),
-    re.compile(r'\blive\b', re.IGNORECASE),
-    re.compile(r'\bsped\s+up\b', re.IGNORECASE),
-    re.compile(r'\bspeed\s+up\b', re.IGNORECASE),
-    re.compile(r'\bbass\s+boost(ed)?\b', re.IGNORECASE),
-    re.compile(r'\bacoustic\b', re.IGNORECASE),
-    re.compile(r'\bparody\b', re.IGNORECASE),
-    re.compile(r'\btribute\b', re.IGNORECASE),
-    re.compile(r'\b8d\s+audio\b', re.IGNORECASE),
-    re.compile(r'\b1\s+hour\b', re.IGNORECASE),
-    re.compile(r'\bloop\b', re.IGNORECASE),
+COVER_PENALTIES = [
+    "cover", "tribute", "remix", "slowed", "reverb", "edit",
+    "mashup", "bootleg", "nightcore", "sped up", "acoustic",
+    "karaoke", "version", "lofi", "aish", "unplugged", "funk"
 ]
 
 
-def score_music_candidate(cand: dict, query: str = "") -> float:
-    """
-    Ranks search candidates to prefer the original official song:
-    - Heavily penalizes remixes, edits, covers, mashups, and unwanted variants.
-    - Rewards official topic channels, official audio, and clean titles.
-    - Prefers the shortest, cleanest title that matches the query.
-    """
-    if not cand or not isinstance(cand, dict):
-        return -9999.0
+def score_candidate(title: str, artist: str = "", play_count: int = 0, release_year=None, query: str = "", is_topic: bool = False) -> float:
+    score = 0.0
+    title_lower = (title or "").lower()
+    artist_lower = (artist or "").lower()
+    q_lower = (query or "").lower().strip()
 
-    title = (cand.get("title") or "").strip()
-    title_lower = title.lower()
-    uploader = (cand.get("uploader") or cand.get("channel") or "").lower()
-    uploader_id = (cand.get("uploader_id") or "").lower()
-    q_lower = query.lower().strip()
+    # Penalize covers heavily (check both title and artist)
+    for word in COVER_PENALTIES:
+        if word in title_lower or word in artist_lower:
+            score -= 400.0
 
-    score = 1000.0
-
-    # 1. Heavily penalize unwanted words (unless user explicitly searched for them)
-    for pattern_re in UNWANTED_TITLE_PATTERNS:
-        if pattern_re.search(title) and not pattern_re.search(query):
-            score -= 300.0
-
-    # 2. Prefer artist/keyword matching in uploader and title
-    query_words = [w for w in re.findall(r'\w+', q_lower) if len(w) > 2]
-    title_matches = sum(1 for w in query_words if w in title_lower)
-    uploader_matches = sum(1 for w in query_words if w in uploader)
-    score += title_matches * 60.0
-    score += uploader_matches * 120.0
-
-    # 3. Boost official Topic channel releases only if the channel matches the queried artist/terms
-    if "- topic" in uploader or "- topic" in uploader_id:
-        if uploader_matches > 0 or not query_words:
-            score += 200.0
+    # YouTube Topic channels (Artist - Topic) -> +500 bonus
+    if is_topic:
+        channel_name = re.sub(r'\s*-\s*topic$', '', artist_lower).strip()
+        q_words = [w for w in re.findall(r'\w+', q_lower) if len(w) > 2]
+        if not q_words or any(w in q_lower for w in re.findall(r'\w+', channel_name)) or any(w in channel_name for w in q_words):
+            score += 500.0
         else:
-            score -= 100.0
+            score -= 200.0
+
+    # Play count = strongest "original" signal
+    try:
+        p_count = int(play_count or 0)
+    except (ValueError, TypeError):
+        p_count = 0
+
+    if p_count >= 5_000_000:
+        score += 800.0
+    elif p_count >= 1_000_000:
+        score += 500.0
+    elif p_count >= 100_000:
+        score += 200.0
+
+    # Older = more likely original
+    if release_year:
+        try:
+            ry = int(release_year)
+            score += max(0, (2024 - ry) * 10)
+        except (ValueError, TypeError):
+            pass
+
+    # Artist matching bonus (if queried artist matches candidate artist)
+    q_parts = [p.strip() for p in re.split(r'[-–—|•]', q_lower) if p.strip()]
+    queried_artist = q_parts[0] if len(q_parts) > 1 else ''
+    if queried_artist:
+        a_words = [w for w in re.findall(r'\w+', queried_artist) if len(w) > 2]
+        if a_words and any(w in artist_lower for w in a_words):
+            score += 300.0
+        elif a_words and not any(w in artist_lower for w in a_words):
+            score -= 200.0
+
+    # Bonus for official audio / matching artist
     if "official audio" in title_lower and "remix" not in title_lower:
-        score += 150.0
-    elif "audio" in title_lower and "remix" not in title_lower:
-        score += 80.0
-
-    # 4. Prefer the shortest, cleanest title (punish brackets, fluff, extra words)
-    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', title).strip()
-    fluff_length = max(0, len(title) - len(clean_title))
-    score -= fluff_length * 3.0
-    score -= len(title) * 1.0
-
-    # 5. Penalize very short previews / shorts (< 60 seconds)
-    duration = cand.get("duration", 0)
-    if duration and duration < 60:
-        score -= 400.0
+        score += 50.0
 
     return score
 
 
-def fetch_official_studio_track(search_query: str) -> Optional[dict]:
+def score_music_candidate(cand: dict, query: str = "") -> float:
+    """
+    Ranks search candidates using score_candidate logic to guarantee original version first priority:
+    - Penalizes covers, remixes, bootlegs, sped up, edits by -400 each.
+    - Multi-million play counts provide strong signal (+200, +500, +800).
+    - Older release years receive priority.
+    - Verified artist topic channels receive +500 bonus.
+    """
+    if not cand or not isinstance(cand, dict):
+        return -9999.0
+
+    title = cand.get("title") or cand.get("song") or ""
+    uploader = cand.get("uploader") or cand.get("channel") or cand.get("primary_artists") or ""
+    uploader_id = cand.get("uploader_id") or ""
+    views = cand.get("view_count") or cand.get("play_count") or 0
+    year = cand.get("release_year") or cand.get("year")
+    if not year and cand.get("upload_date"):
+        try:
+            year = int(str(cand["upload_date"])[:4])
+        except Exception:
+            pass
+    is_topic = "- topic" in str(uploader).lower() or "- topic" in str(uploader_id).lower()
+
+    return score_candidate(title, uploader, views, year, query=query, is_topic=is_topic)
+
+
+def fetch_official_studio_track(search_query: str, min_score: float = 800.0) -> Optional[dict]:
     """
     Fetches 100% original, official studio master (320kbps CD audio) via licensed CDN.
     Guarantees official studio track playback without datacenter bot-blocks or amateur remixes.
-    Strictly scores and filters candidates to guarantee original version first priority.
+    Strictly scores candidates: picks highest scoring candidate with score >= min_score (default 800).
     """
     try:
         q_clean = search_query.strip()
@@ -169,6 +173,7 @@ def fetch_official_studio_track(search_query: str) -> Optional[dict]:
                 title = r.get("song") or r.get("title") or ""
                 artist = r.get("primary_artists") or r.get("more_info", {}).get("singers") or ""
                 plays = int(r.get("play_count") or 0)
+                year = r.get("year") or r.get("more_info", {}).get("year")
                 pid = r.get("id")
                 if pid and title:
                     candidates.append({
@@ -177,6 +182,7 @@ def fetch_official_studio_track(search_query: str) -> Optional[dict]:
                         "uploader": artist,
                         "duration": int(r.get("duration") or 0),
                         "play_count": plays,
+                        "year": year,
                         "raw": r,
                     })
         except Exception as e:
@@ -200,6 +206,7 @@ def fetch_official_studio_track(search_query: str) -> Optional[dict]:
                             "uploader": artist,
                             "duration": 0,
                             "play_count": 0,
+                            "year": None,
                             "raw": r,
                         })
             except Exception as e:
@@ -211,24 +218,21 @@ def fetch_official_studio_track(search_query: str) -> Optional[dict]:
         # 3. Score & filter candidates to guarantee original version first priority
         scored_candidates = []
         for c in candidates:
-            s = score_music_candidate(c, q_clean)
-            plays = c.get("play_count", 0)
-            if plays > 0:
-                s += min(500.0, math.log10(plays + 1) * 80.0)
-            c_title = c["title"].lower().strip()
-            if c_title == q_clean.lower():
-                s += 150.0
-            lang = (c.get("raw", {}).get("language") or "").lower()
-            if not user_wants_variant and lang == "instrumental":
-                s -= 400.0
+            s = score_candidate(
+                title=c["title"],
+                artist=c["uploader"],
+                play_count=c.get("play_count", 0),
+                release_year=c.get("year"),
+                query=q_clean,
+            )
             c["score"] = s
             scored_candidates.append(c)
 
         scored_candidates.sort(key=lambda c: c["score"], reverse=True)
 
         for top_song in scored_candidates:
-            # If candidate score is too low and user didn't request a variant, skip
-            if not user_wants_variant and top_song["score"] < 900.0:
+            # JioSaavn — pick highest scoring candidate (score >= min_score)
+            if not user_wants_variant and top_song["score"] < min_score:
                 continue
 
             pid = top_song["id"]
@@ -726,6 +730,11 @@ ytdl_playlist = yt_dlp.YoutubeDL(YTDL_PLAYLIST_OPTIONS)
 
 YTDL_SEARCH_OPTIONS = dict(YTDL_OPTIONS)
 YTDL_SEARCH_OPTIONS["extract_flat"] = True
+YTDL_SEARCH_OPTIONS["extractor_args"] = {
+    "youtube": {
+        "player_client": ["android", "web"],
+    }
+}
 ytdl_search = yt_dlp.YoutubeDL(YTDL_SEARCH_OPTIONS)
 
 
@@ -969,7 +978,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 cand_title = data.get("title") if data else canonical_q
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_title)),
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_title, min_score=0.0)),
                     timeout=4.5
                 )
                 if official_track and official_track.get("url"):
@@ -1024,7 +1033,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if not stream_url:
             try:
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(data.get("title") or clean_q)),
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(data.get("title") or clean_q, min_score=0.0)),
                     timeout=5.0
                 )
                 if official_track and official_track.get("url"):
