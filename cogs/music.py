@@ -3357,6 +3357,100 @@ class Music(commands.Cog):
         msgs = {"track": "🔂 Looping track.", "queue": "🔁 Looping queue.", "off": "Loop off."}
         await interaction.response.send_message(msgs[mode])
 
+    @app_commands.command(name="seek", description="Jump to a specific timestamp in the current song (e.g. 1:30 or 90)")
+    @app_commands.describe(timestamp="Timestamp to jump to (e.g. 1:30, 02:45, or seconds like 90)")
+    async def seek(self, interaction: discord.Interaction, timestamp: str):
+        state = self.get_state(interaction.guild_id)
+        if not state.voice_client or not state.current:
+            return await interaction.response.send_message("❌ Nothing is currently playing.", ephemeral=True)
+
+        parts = timestamp.strip().split(":")
+        try:
+            if len(parts) == 1:
+                seek_secs = int(parts[0])
+            elif len(parts) == 2:
+                seek_secs = int(parts[0]) * 60 + int(parts[1])
+            elif len(parts) == 3:
+                seek_secs = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            else:
+                return await interaction.response.send_message("❌ Invalid timestamp format. Use `1:30` or seconds like `90`.", ephemeral=True)
+        except ValueError:
+            return await interaction.response.send_message("❌ Invalid timestamp format. Use `1:30` or seconds like `90`.", ephemeral=True)
+
+        if seek_secs < 0 or (state.current.duration and seek_secs > state.current.duration):
+            max_d = fmt_duration(state.current.duration) if state.current.duration else "song length"
+            return await interaction.response.send_message(f"❌ Timestamp must be between `00:00` and `{max_d}`.", ephemeral=True)
+
+        await interaction.response.defer()
+        try:
+            source = await YTDLSource.regrab_stream(state.current.data, state.volume, seek_seconds=seek_secs, audio_filter=state.filter)
+            state.voice_client.pause()
+            state.voice_client.stop()
+            state.start_time = time.time()
+            state.paused_elapsed = float(seek_secs)
+            state.pause_start = None
+            state.current = source
+            state.voice_client.play(
+                source,
+                after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
+            )
+            embed = await self.build_np_embed(state)
+            if state.np_message:
+                try:
+                    await state.np_message.edit(embed=embed)
+                except Exception:
+                    pass
+            await interaction.followup.send(f"⏩ Seeked to **{fmt_duration(seek_secs)}**.")
+        except Exception as e:
+            logger.error(f"Error seeking: {e}")
+            await interaction.followup.send(f"❌ Failed to seek: {e}", ephemeral=True)
+
+    @commands.command(name="seek", help="Jump to timestamp (e.g. !seek 1:30)")
+    async def prefix_seek(self, ctx: commands.Context, timestamp: str):
+        state = self.get_state(ctx.guild.id)
+        if not state.voice_client or not state.current:
+            return await ctx.send("❌ Nothing is currently playing.")
+
+        parts = timestamp.strip().split(":")
+        try:
+            if len(parts) == 1:
+                seek_secs = int(parts[0])
+            elif len(parts) == 2:
+                seek_secs = int(parts[0]) * 60 + int(parts[1])
+            elif len(parts) == 3:
+                seek_secs = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            else:
+                return await ctx.send("❌ Invalid timestamp format. Use `1:30` or seconds like `90`.")
+        except ValueError:
+            return await ctx.send("❌ Invalid timestamp format. Use `1:30` or seconds like `90`.")
+
+        if seek_secs < 0 or (state.current.duration and seek_secs > state.current.duration):
+            max_d = fmt_duration(state.current.duration) if state.current.duration else "song length"
+            return await ctx.send(f"❌ Timestamp must be between `00:00` and `{max_d}`.")
+
+        try:
+            source = await YTDLSource.regrab_stream(state.current.data, state.volume, seek_seconds=seek_secs, audio_filter=state.filter)
+            state.voice_client.pause()
+            state.voice_client.stop()
+            state.start_time = time.time()
+            state.paused_elapsed = float(seek_secs)
+            state.pause_start = None
+            state.current = source
+            state.voice_client.play(
+                source,
+                after=lambda e: self.bot.loop.create_task(self.play_next(ctx.guild))
+            )
+            embed = await self.build_np_embed(state)
+            if state.np_message:
+                try:
+                    await state.np_message.edit(embed=embed)
+                except Exception:
+                    pass
+            await ctx.send(f"⏩ Seeked to **{fmt_duration(seek_secs)}**.")
+        except Exception as e:
+            logger.error(f"Error seeking: {e}")
+            await ctx.send(f"❌ Failed to seek: {e}")
+
     # ─── Queue Management Commands (/queue) ───────────────────────────────────
 
     queue_group = app_commands.Group(name="queue", description="View and manage the song queue")
