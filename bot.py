@@ -18188,17 +18188,23 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             color=0x5865F2
         )
         embed.add_field(
-            name="🎶 **Music Playback & Queue (`/` and `!`)**",
+            name="🎶 **Music Playback & Controls (`/` and `!`)**",
             value=(
-                "• `/play <song/url>` or `!play` / `!p` — YouTube, Spotify (track/album/playlist), SoundCloud & URLs\n"
+                "• `/play <song/url>` or `!play` / `!p` — YouTube, Spotify, SoundCloud & direct audio URLs\n"
                 "• `/search <query>` or `!search` — Interactive YouTube search with top 5 picker\n"
-                "• `/nowplaying` or `!nowplaying` / `!np` — Live Spotify-style player card with interactive controls\n"
+                "• `/nowplaying` or `!nowplaying` / `!np` — Live Spotify-style player card with controls\n"
                 "• `/skip` or `!skip` / `!s` / `!next` — Instant skip (DJ/requester) or community vote skip\n"
                 "• `/pause` & `/resume` or `!pause` & `!resume` / `!unpause` — Pause or resume stream\n"
                 "• `/stop` or `!stop` — Stop playback, clear queue, and release voice channel\n"
-                "• `/queue` or `!queue` / `!q` — Paginated list of upcoming tracks & total playtime\n"
                 "• `/volume <10-100>` or `!volume` / `!vol` — Adjust player volume (10% to 100%)\n"
-                "• `/seek <time>` or `!seek` — Jump to timestamp in song (e.g. `/seek 1:30` or `!seek 90`)\n"
+                "• `/seek <time>` or `!seek` — Jump to timestamp in song (e.g. `/seek 1:30` or `!seek 90`)"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="📜 **Queue & Track Controls (`/` and `!`)**",
+            value=(
+                "• `/queue` or `!queue` / `!q` — Paginated list of upcoming tracks & total playtime\n"
                 "• `/loop [off|track|queue]` or `!loop` / `!repeat` — Cycle loop modes (Off → Track → Queue)\n"
                 "• `/shuffle` or `!shuffle` — Randomize tracks in the active queue\n"
                 "• `/remove <#>` or `!remove` / `!rm` — Remove a specific song from queue\n"
