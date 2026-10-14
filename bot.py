@@ -17273,6 +17273,15 @@ class GeminiBot(commands.Bot):
                 if await get_guild_server_mode(guild.id) in ("karaoke", "music"):
                     continue
 
+                # ── Require configured NBA drop channel (Never auto-drop in random/general channels) ──
+                configured_id = await db.get_config(guild.id, "nba_drop_channel", None)
+                if not configured_id:
+                    continue
+
+                target_chan = guild.get_channel(int(configured_id))
+                if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
+                    continue
+
                 # Retrieve guild drop interval (default 20 mins)
                 try:
                     interval_mins = float(await db.get_config(guild.id, "nba_drop_interval", 20))
@@ -17281,28 +17290,21 @@ class GeminiBot(commands.Bot):
                 if interval_mins < 2:
                     interval_mins = 2.0
 
-                last_drop_ts = _nba_drop_last_timestamps.get(guild.id, 0.0)
+                if guild.id not in _nba_drop_last_timestamps:
+                    _nba_drop_last_timestamps[guild.id] = now_ts
+                    continue
+
+                last_drop_ts = _nba_drop_last_timestamps.get(guild.id, now_ts)
                 if (now_ts - last_drop_ts) < (interval_mins * 60.0):
                     continue
 
-                # ── Check for a pinned drop channel first ──
-                configured_id = await db.get_config(guild.id, "nba_drop_channel", None)
-                if configured_id:
-                    target_chan = guild.get_channel(int(configured_id))
-                    if not target_chan or not isinstance(target_chan, discord.TextChannel) or not target_chan.permissions_for(guild.me).send_messages:
-                        target_chan = None  # configured channel unavailable, skip
-                else:
-                    # Smart Fallback: Active chat channel / General / Lounge (excludes welcome, rules, logs)
-                    target_chan = get_best_drop_channel(guild)
-
-                if target_chan and isinstance(target_chan, discord.TextChannel):
-                    active = get_active_nba_drop(target_chan.id, guild.id)
-                    if not active or active.get("claimed") or (now_ts - active.get("spawned_at", 0) > 300):
-                        _nba_drop_msg_counts[target_chan.id] = 0
-                        _nba_drop_last_timestamps[target_chan.id] = now_ts
-                        _nba_drop_last_timestamps[guild.id] = now_ts
-                        await spawn_nba_card_drop(target_chan)
-                        logger.info(f"🏀 [{int(interval_mins)}-MIN NBA DROP] Spawned wild card drop in #{target_chan.name} ({guild.name})")
+                active = get_active_nba_drop(target_chan.id, guild.id)
+                if not active or active.get("claimed") or (now_ts - active.get("spawned_at", 0) > 300):
+                    _nba_drop_msg_counts[target_chan.id] = 0
+                    _nba_drop_last_timestamps[target_chan.id] = now_ts
+                    _nba_drop_last_timestamps[guild.id] = now_ts
+                    await spawn_nba_card_drop(target_chan)
+                    logger.info(f"🏀 [{int(interval_mins)}-MIN NBA DROP] Spawned wild card drop in #{target_chan.name} ({guild.name})")
         except Exception as drop_loop_err:
             logger.error(f"Error in nba_periodic_drop_loop: {drop_loop_err}")
 
@@ -26765,22 +26767,17 @@ async def on_message(message):
                     _nba_drop_last_timestamps[chan_id] = now_drop_ts
                     _nba_drop_last_timestamps[message.guild.id] = now_drop_ts
 
-                    # Respect pinned drop channel (if configured for this guild)
+                    # Require configured NBA drop channel (Never auto-drop in random/general chat channels)
                     configured_id = await db.get_config(message.guild.id, "nba_drop_channel", None)
                     if configured_id:
                         drop_chan = message.guild.get_channel(int(configured_id))
-                        if not drop_chan or not isinstance(drop_chan, discord.TextChannel) or not drop_chan.permissions_for(message.guild.me).send_messages:
-                            drop_chan = None  # configured channel unavailable
-                    else:
-                        drop_chan = message.channel  # already verified valid chat channel
-
-                    if drop_chan:
-                        active = get_active_nba_drop(drop_chan.id, message.guild.id)
-                        if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
-                            try:
-                                await spawn_nba_card_drop(drop_chan)
-                            except Exception as drop_err:
-                                logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
+                        if drop_chan and isinstance(drop_chan, discord.TextChannel) and drop_chan.permissions_for(message.guild.me).send_messages:
+                            active = get_active_nba_drop(drop_chan.id, message.guild.id)
+                            if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
+                                try:
+                                    await spawn_nba_card_drop(drop_chan)
+                                except Exception as drop_err:
+                                    logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
 
 
     # ── Solution 3: Direct Message !appeal Command & Appeal Assistant ──────────
