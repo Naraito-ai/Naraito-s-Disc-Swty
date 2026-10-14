@@ -569,6 +569,25 @@ def progress_bar(elapsed, total, length=16):
     return "━" * filled + "●" + "─" * unfilled
 
 
+def is_vevo_entry(cand: dict) -> bool:
+    """Detects if a YouTube video entry belongs to VEVO, which has strict DRM/bot-blocks on datacenter IPs."""
+    if not cand or not isinstance(cand, dict):
+        return False
+    check_values = [
+        cand.get("uploader") or "",
+        cand.get("channel") or "",
+        cand.get("uploader_id") or "",
+        cand.get("channel_url") or "",
+        cand.get("uploader_url") or "",
+        cand.get("creator") or "",
+        cand.get("title") or "",
+    ]
+    for val in check_values:
+        if "vevo" in str(val).lower():
+            return True
+    return False
+
+
 # ─── Guild Music State ────────────────────────────────────────────────────────
 
 class GuildMusicState:
@@ -693,22 +712,40 @@ class YTDLSource(discord.PCMVolumeTransformer):
         # 2. Search YouTube if official studio resolver didn't match or user wants a variant/remix
         if not data:
             try:
-                yt_term = f"ytsearch3:{clean_q}"
+                # Normalize any ytsearch prefix so we always inspect up to 5 entries
+                s_query = re.sub(r'^ytsearch\d*:\s*', '', clean_q).strip()
+                yt_term = f"ytsearch5:{s_query}"
                 yt_data = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: ytdl.extract_info(yt_term, download=False)),
                     timeout=8.0
                 )
                 entries = [e for e in yt_data.get("entries", []) if e] if yt_data else []
                 if entries:
-                    # Rank candidates to favor official uploads / topic channels over fan covers
-                    best_entry = None
+                    # Skip any VEVO results to bypass datacenter bot blocks and pick the next result
                     for cand in entries:
-                        c_title = (cand.get("title") or "").lower()
-                        c_uploader = (cand.get("uploader") or "").lower()
-                        if "official audio" in c_title or "- topic" in c_uploader or "vevo" in c_uploader or "official video" in c_title:
-                            best_entry = cand
+                        if is_vevo_entry(cand):
+                            logger.info(f"Skipping VEVO result: '{cand.get('title')}' ({cand.get('uploader')}) — trying next result")
+                            continue
+                        # If candidate already has streamable audio formats/url, use it
+                        if cand.get("url") or (cand.get("formats") and any(f.get("acodec") != "none" and f.get("url") for f in cand.get("formats", []))):
+                            data = cand
                             break
-                    data = best_entry or entries[0]
+                        # Otherwise attempt deep extraction to verify streamable audio
+                        cand_url = cand.get("webpage_url") or (f"https://www.youtube.com/watch?v={cand['id']}" if cand.get("id") else None)
+                        if cand_url:
+                            try:
+                                full_cand = await asyncio.wait_for(
+                                    loop.run_in_executor(None, lambda: ytdl.extract_info(cand_url, download=False)),
+                                    timeout=7.0
+                                )
+                                if full_cand and (full_cand.get("url") or any(f.get("acodec") != "none" and f.get("url") for f in full_cand.get("formats", []))):
+                                    data = full_cand
+                                    break
+                            except Exception as cand_err:
+                                logger.debug(f"Candidate '{cand.get('title')}' extraction failed ({cand_err}), trying next result...")
+                                continue
+                    if not data and entries:
+                        data = entries[0]
             except Exception as yt_err:
                 logger.warning(f"YouTube search failed for '{search_query}': {yt_err}")
                 data = None
@@ -957,34 +994,45 @@ class YTDLSource(discord.PCMVolumeTransformer):
                             except Exception:
                                 pass
 
-            # If direct extraction failed on YouTube URL, fallback to YouTube oEmbed + search!
-            if (not data or not (data.get("url") or data.get("formats"))) and ("youtube.com" in url or "youtu.be" in url):
-                if is_playlist_url:
-                    raise ValueError("⚠️ Could not load this YouTube playlist. Please verify the playlist is set to Public or Unlisted.")
-                logger.info(f"YouTube direct extraction failed for {target_url}, attempting oEmbed fallback...")
-                oembed = await loop.run_in_executor(
-                    None,
-                    lambda: fetch_oembed(f"https://www.youtube.com/oembed?url={urllib.parse.quote(target_url)}&format=json")
-                )
-                if oembed and oembed.get("title"):
-                    title = oembed["title"]
-                    clean_t, clean_a, _ = clean_song_title_and_artist(title, oembed.get("author_name", ""))
+            # If direct extraction failed, or if the video is VEVO (which datacenter IPs cannot stream),
+            # or if it has no streamable audio formats:
+            stream_url = None
+            is_vevo = False
+            if data and not is_playlist_url:
+                is_vevo = is_vevo_entry(data)
+                if not is_vevo:
+                    stream_url = data.get("url")
+                    if not stream_url:
+                        formats = data.get("formats", [])
+                        audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+                        if audio_formats:
+                            stream_url = audio_formats[-1]["url"]
+
+            # When a direct URL fails to extract a streamable audio URL (or is a VEVO direct URL):
+            if (not data or not stream_url or is_vevo) and not is_playlist_url:
+                fallback_title = data.get("title") if data else None
+
+                # Fetch video title from oEmbed if missing
+                if not fallback_title and ("youtube.com" in url or "youtu.be" in url):
+                    try:
+                        oembed = await loop.run_in_executor(
+                            None,
+                            lambda: fetch_oembed(f"https://www.youtube.com/oembed?url={urllib.parse.quote(target_url)}&format=json")
+                        )
+                        if oembed and oembed.get("title"):
+                            fallback_title = oembed["title"]
+                    except Exception as oe_err:
+                        logger.debug(f"oEmbed title fetch failed for {target_url}: {oe_err}")
+
+                if fallback_title:
+                    reason = "VEVO DRM / bot-block" if is_vevo else "direct stream unavailable"
+                    logger.info(f"Direct URL failed to extract streamable audio URL ({reason}). Automatically falling back to searching ytsearch with title: '{fallback_title}'")
+                    clean_t, clean_a, _ = clean_song_title_and_artist(fallback_title)
                     search_term = f"{clean_a} {clean_t}".strip() if clean_a and clean_a.lower() not in clean_t.lower() else clean_t
-                    return await cls._search_and_extract(search_term or title, loop=loop, volume=volume, requester=requester)
+                    return await cls._search_and_extract(search_term or fallback_title, loop=loop, volume=volume, requester=requester)
 
-            if not data:
-                raise ValueError("⚠️ Could not stream this link. Ensure the video or playlist is public, or try searching by song name.")
-
-            stream_url = data.get("url")
-            if not stream_url:
-                formats = data.get("formats", [])
-                audio_formats = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
-                if not audio_formats:
-                    title = data.get("title")
-                    if title:
-                        return await cls._search_and_extract(title, loop=loop, volume=volume, requester=requester)
-                    raise ValueError("No streamable audio URL found.")
-                stream_url = audio_formats[-1]["url"]
+            if not data or not stream_url:
+                raise ValueError("⚠️ Could not find or stream a playable audio track for this link. Try searching by song name instead.")
 
             data["requester"] = requester
             is_live = bool(data.get("is_live"))
@@ -3015,12 +3063,16 @@ class Music(commands.Cog):
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl.extract_info(f"ytsearch5:{query}", download=False)
+                lambda: ytdl.extract_info(f"ytsearch8:{query}", download=False)
             )
         except Exception as e:
             return await interaction.followup.send(f"❌ Search failed: `{e}`")
 
-        entries = [e for e in data.get("entries", []) if e]
+        raw_entries = [e for e in data.get("entries", []) if e] if data else []
+        entries = [e for e in raw_entries if not is_vevo_entry(e)][:5]
+        if not entries:
+            entries = raw_entries[:5]
+
         if not entries:
             return await interaction.followup.send("❌ No results found.")
 
@@ -3340,12 +3392,16 @@ class Music(commands.Cog):
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: ytdl.extract_info(f"ytsearch5:{query}", download=False)
+                lambda: ytdl.extract_info(f"ytsearch8:{query}", download=False)
             )
         except Exception as e:
             return await ctx.send(f"❌ Search failed: `{e}`")
 
-        entries = [e for e in data.get("entries", []) if e] if data else []
+        raw_entries = [e for e in data.get("entries", []) if e] if data else []
+        entries = [e for e in raw_entries if not is_vevo_entry(e)][:5]
+        if not entries:
+            entries = raw_entries[:5]
+
         if not entries:
             return await ctx.send("❌ No results found.")
 
