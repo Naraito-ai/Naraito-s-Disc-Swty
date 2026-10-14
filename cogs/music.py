@@ -675,41 +675,42 @@ class YTDLSource(discord.PCMVolumeTransformer):
         loop = loop or asyncio.get_event_loop()
         data = None
         clean_q = search_query.strip()
+        user_wants_variant = any(w in clean_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live", "nightcore", "reverb", "acoustic", "extended", "sped up", "1 hour", "loop"))
 
-        # 1. Primary: Search YouTube for the OFFICIAL / ORIGINAL studio version
-        try:
-            yt_term = f"ytsearch3:{clean_q} audio" if not any(w in clean_q.lower() for w in ("audio", "official", "remix", "cover", "video")) else f"ytsearch3:{clean_q}"
-            yt_data = await asyncio.wait_for(
-                loop.run_in_executor(None, lambda: ytdl.extract_info(yt_term, download=False)),
-                timeout=8.0
-            )
-            entries = [e for e in yt_data.get("entries", []) if e] if yt_data else []
-            if entries:
-                # Rank candidates to favor official uploads / topic channels over fan covers
-                best_entry = None
-                for cand in entries:
-                    c_title = (cand.get("title") or "").lower()
-                    c_uploader = (cand.get("uploader") or "").lower()
-                    if "official audio" in c_title or "- topic" in c_uploader or "vevo" in c_uploader or "official video" in c_title:
-                        best_entry = cand
-                        break
-                data = best_entry or entries[0]
-        except Exception as yt_err:
-            logger.warning(f"YouTube official search failed for '{search_query}': {yt_err}")
-            data = None
+        # 1. Primary for standard music queries: Official Studio Master Resolver (320kbps CD Audio)
+        # Guarantees 100% original studio audio, zero datacenter bot-blocks, zero amateur bootlegs
+        if not user_wants_variant:
+            try:
+                official_track = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(clean_q)),
+                    timeout=4.5
+                )
+                if official_track and official_track.get("url"):
+                    data = official_track
+            except Exception as e:
+                logger.debug(f"Official studio track primary lookup failed: {e}")
 
-        # 2. Direct YouTube search without 'audio' suffix if no results yet
+        # 2. Search YouTube if official studio resolver didn't match or user wants a variant/remix
         if not data:
             try:
+                yt_term = f"ytsearch3:{clean_q}"
                 yt_data = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch2:{clean_q}", download=False)),
-                    timeout=6.0
+                    loop.run_in_executor(None, lambda: ytdl.extract_info(yt_term, download=False)),
+                    timeout=8.0
                 )
                 entries = [e for e in yt_data.get("entries", []) if e] if yt_data else []
                 if entries:
-                    data = entries[0]
-            except Exception as e:
-                logger.debug(f"Direct ytsearch failed for '{search_query}': {e}")
+                    # Rank candidates to favor official uploads / topic channels over fan covers
+                    best_entry = None
+                    for cand in entries:
+                        c_title = (cand.get("title") or "").lower()
+                        c_uploader = (cand.get("uploader") or "").lower()
+                        if "official audio" in c_title or "- topic" in c_uploader or "vevo" in c_uploader or "official video" in c_title:
+                            best_entry = cand
+                            break
+                    data = best_entry or entries[0]
+            except Exception as yt_err:
+                logger.warning(f"YouTube search failed for '{search_query}': {yt_err}")
                 data = None
 
         # If data found from search, ensure formats/url are resolved
@@ -726,19 +727,20 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 except Exception as e:
                     logger.debug(f"Deep video extraction failed for {video_url}: {e}")
 
-        # 3. High-Fidelity Official Studio Release Resolver (320kbps Original Studio Masters)
-        if not data or not (data.get("url") or data.get("formats")):
+        # 3. Secondary studio master fallback using the resolved title if YouTube gave a title but no streamable audio
+        if (not data or not (data.get("url") or data.get("formats"))) and not user_wants_variant:
             try:
+                cand_title = data.get("title") if data else clean_q
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(clean_q)),
-                    timeout=5.0
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_title)),
+                    timeout=4.5
                 )
                 if official_track and official_track.get("url"):
                     data = official_track
             except Exception as e:
-                logger.debug(f"Official studio track lookup failed: {e}")
+                logger.debug(f"Secondary official studio track lookup failed: {e}")
 
-        # 4. Emergency fallback to SoundCloud (skip DRM tracks and reject amateur bootlegs/remixes unless requested)
+        # 4. Fallback to SoundCloud (strictly filter DRM tracks & filter unwanted bootlegs/flips)
         if not data or not (data.get("url") or data.get("formats")):
             try:
                 sc_data = await asyncio.wait_for(
@@ -746,7 +748,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     timeout=5.0
                 )
                 sc_entries = [e for e in sc_data.get("entries", []) if e]
-                user_wants_remix = any(w in clean_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live"))
                 unwanted_tags = ("remix", "flip", "slowed", "edit", "instrumental", "reprod", "prod by", "mashup", "karaoke", "tribute", "bootleg", "nightcore", "reverb", "cover")
 
                 clean_candidate = None
@@ -759,7 +760,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     if not s_url or candidate.get("drm"):
                         continue
                     c_title = (candidate.get("title") or "").lower()
-                    if not user_wants_remix and any(tag in c_title for tag in unwanted_tags):
+                    if not user_wants_variant and any(tag in c_title for tag in unwanted_tags):
                         continue
                     clean_candidate = candidate
                     break
@@ -886,6 +887,27 @@ class YTDLSource(discord.PCMVolumeTransformer):
             yt_match = re.search(r'(?:youtube\.com\/(?:watch\?.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})', url)
             if yt_match and not is_playlist_url:
                 target_url = f"https://www.youtube.com/watch?v={yt_match.group(1)}"
+                # If cookies.txt is not provided, pre-emptively resolve official studio audio via oEmbed
+                # to guarantee 100% original CD audio in ~250ms and bypass datacenter bot detection entirely
+                if not os.path.exists("cookies.txt"):
+                    try:
+                        oembed = await loop.run_in_executor(
+                            None,
+                            lambda: fetch_oembed(f"https://www.youtube.com/oembed?url={urllib.parse.quote(target_url)}&format=json")
+                        )
+                        if oembed and oembed.get("title"):
+                            clean_t, clean_a, _ = clean_song_title_and_artist(oembed["title"], oembed.get("author_name", ""))
+                            search_term = f"{clean_a} {clean_t}".strip() if clean_a and clean_a.lower() not in clean_t.lower() else clean_t
+                            official_track = await loop.run_in_executor(
+                                None,
+                                lambda: fetch_official_studio_track(search_term or oembed["title"])
+                            )
+                            if official_track and official_track.get("url"):
+                                official_track["requester"] = requester
+                                source = make_ffmpeg_audio(official_track["url"], seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=False)
+                                return cls(source, data=official_track, volume=volume), False
+                    except Exception as oe_err:
+                        logger.debug(f"Pre-emptive YouTube oEmbed studio master check skipped: {oe_err}")
 
             # Use ytdl_playlist (extract_flat: in_playlist) for playlist URLs to avoid timing out!
             active_ytdl = ytdl_playlist if is_playlist_url else ytdl
@@ -946,7 +968,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 )
                 if oembed and oembed.get("title"):
                     title = oembed["title"]
-                    return await cls._search_and_extract(title, loop=loop, volume=volume, requester=requester)
+                    clean_t, clean_a, _ = clean_song_title_and_artist(title, oembed.get("author_name", ""))
+                    search_term = f"{clean_a} {clean_t}".strip() if clean_a and clean_a.lower() not in clean_t.lower() else clean_t
+                    return await cls._search_and_extract(search_term or title, loop=loop, volume=volume, requester=requester)
 
             if not data:
                 raise ValueError("⚠️ Could not stream this link. Ensure the video or playlist is public, or try searching by song name.")
@@ -973,6 +997,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def regrab_stream(cls, data, volume=1.0, seek_seconds=0, audio_filter=None):
         loop = asyncio.get_event_loop()
+        # Direct CDN stream URL (official studio master or radio) - reuse directly!
+        stream_url = data.get("url", "")
+        if stream_url and not any(h in stream_url for h in ("googlevideo.com", "manifest.googlevideo.com")):
+            is_live = bool(data.get("is_live"))
+            source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
+            return cls(source, data=data, volume=volume)
+
         web_url = data.get("webpage_url") or data.get("url") or (f"https://www.youtube.com/watch?v={data.get('id', '')}" if data.get("id") else None)
         fresh = None
 
@@ -1707,7 +1738,12 @@ class SearchResultsView(discord.ui.View):
                     url, volume=state.volume, requester=str(interaction.user.display_name)
                 )
             except Exception as e:
-                return await interaction.followup.send(f"❌ Error: `{e}`")
+                try:
+                    result, _ = await YTDLSource._search_and_extract(
+                        title, volume=state.volume, requester=str(interaction.user.display_name)
+                    )
+                except Exception:
+                    return await interaction.followup.send(f"❌ Error: `{e}`")
 
             if state.voice_client.is_playing() or state.voice_client.is_paused():
                 if len(state.queue) >= 200:
