@@ -270,107 +270,179 @@ def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Opti
 
 def parse_lrc(text: str) -> list[tuple[float, str]]:
     timed_lines = []
-    pattern = re.compile(r'\[(\d{1,2}):(\d{2}(?:\.\d{1,3})?)\](.*)')
+    ts_pattern = re.compile(r'\[(\d{1,2}):(\d{2}(?:\.\d{1,3})?)\]')
     for line in text.splitlines():
-        m = pattern.match(line.strip())
-        if m:
-            mins, secs, lyric = m.groups()
+        line = line.strip()
+        if not line:
+            continue
+        timestamps = list(ts_pattern.finditer(line))
+        if not timestamps:
+            continue
+        lyric = ts_pattern.sub('', line).strip()
+        if not lyric:
+            continue
+        for m in timestamps:
+            mins, secs = m.groups()
             total_sec = int(mins) * 60 + float(secs)
-            clean_lyric = lyric.strip()
-            if clean_lyric:
-                timed_lines.append((total_sec, clean_lyric))
+            timed_lines.append((total_sec, lyric))
     timed_lines.sort(key=lambda x: x[0])
     return timed_lines
 
-def fetch_lyrics(title: str, artist: str = "") -> Optional[dict]:
-    """Fetch lyrics from LrcLib API synchronously with unicode normalization and intelligent accuracy ranking."""
-    # 0. Normalize Mathematical Bold/Italic/Fancy Unicode into standard plain text
-    norm = unicodedata.normalize("NFKD", title)
-    clean_title = norm.encode("ascii", "ignore").decode("ascii")
-    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', clean_title).strip()
-    clean_title = re.sub(r'(feat\.|ft\.|official|video|audio|lyrics|hd|4k|sped up|slowed|remix).*', '', clean_title, flags=re.IGNORECASE).strip(' |•-')
 
-    extracted_artist = artist
+def clean_song_title_and_artist(raw_title: str, raw_artist: str = "") -> tuple[str, str, list[tuple[str, str]]]:
+    """
+    Cleans song title & artist names preserving non-Latin scripts (Japanese, Korean, Spanish, Cyrillic, etc.)
+    and returns (clean_title, clean_artist, [(artist_candidate, track_candidate), ...]).
+    """
+    title = unicodedata.normalize("NFKC", raw_title or "").strip()
+    artist = unicodedata.normalize("NFKC", raw_artist or "").strip() if raw_artist else ""
+
+    # Clean channel / uploader noise if passed as artist
     if artist:
-        norm_a = unicodedata.normalize("NFKD", artist)
-        extracted_artist = norm_a.encode("ascii", "ignore").decode("ascii").strip(' |•-')
+        artist = re.sub(r' - Topic$', '', artist, flags=re.IGNORECASE).strip()
+        artist = re.sub(r'VEVO$', '', artist, flags=re.IGNORECASE).strip()
+        artist = re.sub(r'(?:Official\s*Channel|Official|Records|Entertainment|Music)$', '', artist, flags=re.IGNORECASE).strip()
 
-    extracted_track = clean_title
-    if not extracted_artist:
-        for delim in [" - ", " | ", "•", "|", "-"]:
-            if delim in clean_title:
-                parts = clean_title.split(delim, 1)
-                extracted_track = parts[0].strip()
-                extracted_artist = parts[1].strip()
-                break
+    # Clean bracketed / parenthetical noise without deleting valid song words like 'Video' or 'Audio'
+    clean = re.sub(r'[\(\[](?:official\s*(?:music\s*)?(?:video|audio|visualizer|lyric\s*video)|lyrics?|visualizer|audio|hd|4k|remastered|explicit|mv|sped\s*up|slowed)[\)\]]', '', title, flags=re.IGNORECASE)
+    # Strip trailing metadata suffixes like '| Official Video' or '- Official Audio'
+    clean = re.sub(r'\s*\|\s*(?:official\s*(?:video|audio|music\s*video)|lyrics?|4k|hd).*$', '', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\s*-\s*(?:official\s*(?:video|audio|music\s*video)|lyrics?).*$', '', clean, flags=re.IGNORECASE)
+    clean = clean.strip(' |•-')
 
-    # 1. Try exact get if artist is available
-    if extracted_artist and extracted_artist.lower() not in ["unknown", ""]:
+    candidates: list[tuple[str, str]] = []
+    # YouTube titles are predominantly "Artist - Track" or "Track - Artist"
+    for delim in [' - ', ' – ', ' — ', ' | ', '•']:
+        if delim in clean:
+            p1, p2 = clean.split(delim, 1)
+            p1, p2 = p1.strip(' |•-'), p2.strip(' |•-')
+            if p1 and p2:
+                # Primary candidate: Artist = p1, Track = p2
+                candidates.append((p1, p2))
+                # Inverted candidate: Artist = p2, Track = p1
+                candidates.append((p2, p1))
+            break
+
+    if artist and clean:
+        candidates.append((artist, clean))
+    if not candidates and clean:
+        candidates.append(("", clean))
+
+    return clean, artist, candidates
+
+
+def fetch_lyrics(title: str, artist: str = "") -> Optional[dict]:
+    """
+    Fetch lyrics synchronously with multi-tier fallback:
+      1. LRCLIB exact match with candidates (artist <-> track)
+      2. LRCLIB intelligent ranked search (prioritizing synced LRC, penalizing instrumentals)
+      3. LRCLIB raw query search
+      4. Lyrics.ovh plain lyrics fallback
+    Preserves all Unicode characters for international music (J-Pop, K-Pop, Latin, Hindi, etc.).
+    """
+    clean_title, clean_artist, candidates = clean_song_title_and_artist(title, artist)
+
+    def _score_item(item: dict, target_track: str, target_artist: str = "") -> int:
+        t_name = (item.get("trackName") or "").strip().lower()
+        a_name = (item.get("artistName") or "").strip().lower()
+        has_synced = bool(item.get("syncedLyrics"))
+        has_plain = bool(item.get("plainLyrics"))
+
+        if not (has_synced or has_plain):
+            return -1
+
+        score = 0
+        if has_synced:
+            score += 100
+        if has_plain:
+            score += 20
+
+        # Penalize instrumental backing tracks when searching for vocal performance
+        if "inst" in t_name or "instrumental" in t_name:
+            score -= 50
+
+        if target_artist and target_artist.lower() in a_name:
+            score += 80
+        elif target_artist and a_name in target_artist.lower():
+            score += 40
+
+        c_target = (target_track or "").strip().lower()
+        if t_name == c_target:
+            score += 80
+        elif c_target and (c_target in t_name or t_name in c_target):
+            score += 40
+
+        return score
+
+    # ── 1. LRCLIB Exact Lookup ────────────────────────────────────────────────
+    for cand_artist, cand_track in candidates:
+        if cand_artist and cand_track and cand_artist.lower() not in ["unknown", ""]:
+            try:
+                params = urllib.parse.urlencode({"track_name": cand_track, "artist_name": cand_artist})
+                req = urllib.request.Request(f"https://lrclib.net/api/get?{params}", headers={"User-Agent": "SweetyBot/2.0"})
+                with urllib.request.urlopen(req, timeout=3.5) as resp:
+                    data = json.loads(resp.read().decode())
+                    if data and (data.get("plainLyrics") or data.get("syncedLyrics")):
+                        return data
+            except Exception:
+                pass
+
+    # ── 2. LRCLIB Ranked Search ───────────────────────────────────────────────
+    search_queries: list[tuple[str, str, str]] = []
+    for cand_artist, cand_track in candidates:
+        if cand_artist and cand_track:
+            search_queries.append((f"{cand_artist} {cand_track}", cand_track, cand_artist))
+    if clean_title:
+        search_queries.append((clean_title, clean_title, clean_artist))
+    if title and title != clean_title:
+        search_queries.append((title, title, clean_artist))
+
+    best_item = None
+    best_score = -1
+
+    for q_str, t_track, t_artist in search_queries[:4]:
         try:
-            params = urllib.parse.urlencode({"track_name": extracted_track, "artist_name": extracted_artist})
-            req = urllib.request.Request(f"https://lrclib.net/api/get?{params}", headers={"User-Agent": "SweetyBot/1.0"})
+            q_enc = urllib.parse.quote(q_str.strip())
+            req = urllib.request.Request(f"https://lrclib.net/api/search?q={q_enc}", headers={"User-Agent": "SweetyBot/2.0"})
             with urllib.request.urlopen(req, timeout=4.0) as resp:
-                data = json.loads(resp.read().decode())
-                if data and (data.get("plainLyrics") or data.get("syncedLyrics")):
-                    return data
-        except Exception:
-            pass
-
-    # 2. Search endpoint with intelligent ranking
-    try:
-        q = urllib.parse.quote(f"{extracted_track} {extracted_artist}".strip())
-        req = urllib.request.Request(f"https://lrclib.net/api/search?q={q}", headers={"User-Agent": "SweetyBot/1.0"})
-        with urllib.request.urlopen(req, timeout=5.0) as resp:
-            results = json.loads(resp.read().decode())
-            if results and isinstance(results, list):
-                best = None
-                best_score = -1
-                for item in results:
-                    t_name = (item.get("trackName") or "").lower()
-                    a_name = (item.get("artistName") or "").lower()
-                    has_synced = bool(item.get("syncedLyrics"))
-                    has_plain = bool(item.get("plainLyrics"))
-
-                    if not (has_synced or has_plain):
-                        continue
-
-                    score = 0
-                    if has_synced:
-                        score += 100
-                    if has_plain:
-                        score += 10
-
-                    if extracted_artist and extracted_artist.lower() in a_name:
-                        score += 80
-
-                    clean_target = extracted_track.lower()
-                    if t_name == clean_target:
-                        score += 60
-                    elif clean_target in t_name or t_name in clean_target:
-                        score += 30
-
-                    if score > best_score:
-                        best_score = score
-                        best = item
-
-                if best:
-                    return best
-    except Exception as e:
-        logger.debug(f"LrcLib search failed: {e}")
-
-    # 3. Fallback: search just the track name if combined search returned nothing
-    if extracted_artist and extracted_track != clean_title:
-        try:
-            q = urllib.parse.quote(extracted_track)
-            req = urllib.request.Request(f"https://lrclib.net/api/search?q={q}", headers={"User-Agent": "SweetyBot/1.0"})
-            with urllib.request.urlopen(req, timeout=4.5) as resp:
                 results = json.loads(resp.read().decode())
                 if results and isinstance(results, list):
                     for item in results:
-                        if item.get("syncedLyrics") or item.get("plainLyrics"):
-                            return item
-        except Exception:
-            pass
+                        s = _score_item(item, t_track, t_artist)
+                        if s > best_score:
+                            best_score = s
+                            best_item = item
+                            # If high confidence synced match, return immediately
+                            if s >= 180 and item.get("syncedLyrics"):
+                                return best_item
+        except Exception as e:
+            logger.debug(f"LRCLIB search error for '{q_str}': {e}")
+
+    if best_item and best_score >= 80:
+        return best_item
+
+    # If any match was found with lyrics, accept it
+    if best_item and (best_item.get("syncedLyrics") or best_item.get("plainLyrics")):
+        return best_item
+
+    # ── 3. Fallback: Lyrics.ovh Plain Lyrics ──────────────────────────────────
+    for cand_artist, cand_track in candidates:
+        if cand_artist and cand_track and cand_artist.lower() not in ["unknown", ""]:
+            try:
+                url = f"https://api.lyrics.ovh/v1/{urllib.parse.quote(cand_artist)}/{urllib.parse.quote(cand_track)}"
+                req = urllib.request.Request(url, headers={"User-Agent": "SweetyBot/2.0"})
+                with urllib.request.urlopen(req, timeout=3.5) as resp:
+                    ovh_data = json.loads(resp.read().decode())
+                    lyrics = ovh_data.get("lyrics")
+                    if lyrics and lyrics.strip():
+                        return {
+                            "trackName": cand_track,
+                            "artistName": cand_artist,
+                            "plainLyrics": lyrics.strip(),
+                            "syncedLyrics": None,
+                        }
+            except Exception:
+                pass
 
     return None
 
@@ -2319,12 +2391,14 @@ class Music(commands.Cog):
                     return await interaction_or_ctx.followup.send(msg, ephemeral=True)
                 return await interaction_or_ctx.send(msg)
             target_query = state.current.title
-            target_artist = state.current.uploader or ""
+            curr_data = getattr(state.current, "data", {}) or {}
+            target_artist = curr_data.get("artist") or curr_data.get("creator") or state.current.uploader or ""
             is_playing_track = True
         else:
             if state.current and (query.lower() in state.current.title.lower() or state.current.title.lower() in query.lower()):
                 is_playing_track = True
-                target_artist = state.current.uploader or ""
+                curr_data = getattr(state.current, "data", {}) or {}
+                target_artist = curr_data.get("artist") or curr_data.get("creator") or state.current.uploader or ""
 
         if hasattr(interaction_or_ctx, "response") and not interaction_or_ctx.response.is_done():
             await interaction_or_ctx.response.defer(ephemeral=ephemeral)
