@@ -9,7 +9,7 @@ import re
 import urllib.parse
 import urllib.request
 from collections import deque
-from typing import Optional
+from typing import Optional, Union, Dict, List, Any, Tuple
 import yt_dlp
 import time
 import unicodedata

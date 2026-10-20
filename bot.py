@@ -27688,7 +27688,10 @@ async def on_message(message):
                                             asyncio.create_task(auto_extract_user_memory(message.author.id, clean_query, message.guild.id if message.guild else None))
                                         if answer:
                                             if len(answer) <= 1900:
-                                                await message.reply(answer, mention_author=True)
+                                                try:
+                                                    await message.reply(answer, mention_author=True)
+                                                except Exception:
+                                                    await message.channel.send(answer)
                                             else:
                                                 for i in range(0, len(answer), 1900):
                                                     chunk = answer[i:i+1900]
