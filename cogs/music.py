@@ -2412,7 +2412,7 @@ async def play_autocomplete(
 
 class SpotifyPlaylistsView(discord.ui.View):
     def __init__(self, cog: "Music", user: discord.User | discord.Member, profile_data: dict):
-        super().__init__(timeout=120)
+        super().__init__(timeout=600)
         self.cog = cog
         self.user = user
         self.profile_data = profile_data
