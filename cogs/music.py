@@ -512,15 +512,18 @@ def fetch_spotify_profile_info(user_id: str) -> Optional[dict]:
 
 
 def extract_spotify_playlist_tracks_public(playlist_id_or_url: str) -> list[dict]:
-    """Extracts track items from a Spotify playlist using the public embed JSON or Spotipy."""
+    """Extracts track items from a Spotify playlist or album using the public embed JSON or Spotipy."""
     p_id = playlist_id_or_url.strip()
-    if "/playlist/" in p_id:
-        p_id = p_id.split("/playlist/")[1].split("?")[0].strip("/")
+    entity_type = "album" if ("/album/" in p_id or "spotify:album:" in p_id) else "playlist"
+    if f"/{entity_type}/" in p_id:
+        p_id = p_id.split(f"/{entity_type}/")[1].split("?")[0].strip("/")
+    elif f"spotify:{entity_type}:" in p_id:
+        p_id = p_id.split(f"spotify:{entity_type}:")[1].split("?")[0].strip("/")
 
     # 1. Try public embed endpoint (fast, zero auth)
     try:
         req = urllib.request.Request(
-            f"https://open.spotify.com/embed/playlist/{p_id}",
+            f"https://open.spotify.com/embed/{entity_type}/{p_id}",
             headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         )
         with urllib.request.urlopen(req, timeout=6.0) as resp:
@@ -670,9 +673,7 @@ def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Opti
     before_opts = (
         "-reconnect 1 "
         "-reconnect_streamed 1 "
-        "-reconnect_delay_max 5 "
-        "-probesize 128k "
-        "-analyzeduration 100000"
+        "-reconnect_delay_max 5"
     )
     if seek_seconds > 0:
         before_opts = f"-ss {seek_seconds} " + before_opts
@@ -1000,8 +1001,7 @@ class GuildMusicState:
             self.pause_start = None
 
 
-# ─── Search Query In-Memory Cache (Ultra-Fast 0ms Repeat Plays) ───────────────
-_search_query_cache: dict[str, tuple[float, dict]] = {}
+
 
 # ─── YTDLSource ───────────────────────────────────────────────────────────────
 
@@ -1034,16 +1034,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         clean_q = search_query.strip()
         user_wants_variant = any(w in clean_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live", "nightcore", "reverb", "acoustic", "extended", "sped up", "1 hour", "loop"))
 
-        # Fast-path In-Memory Cache: 0ms instant playback for repeated or popular queries
-        cache_key = clean_q.lower()
-        if cache_key in _search_query_cache and not user_wants_variant:
-            c_time, c_data = _search_query_cache[cache_key]
-            if time.time() - c_time < 3600 and c_data.get("url"):
-                cached_copy = dict(c_data)
-                cached_copy["requester"] = requester
-                is_live = bool(cached_copy.get("is_live"))
-                source = make_ffmpeg_audio(cached_copy["url"], seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
-                return cls(source, data=cached_copy, volume=volume), False
+
 
         # 0. Canonical Track & Original Artist Resolution (Spotify metadata verification)
         # Identifies the true original song and original artist so we never play covers/mashups/bootlegs
@@ -1234,10 +1225,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             raise ValueError(f"No streamable audio found for '{search_query}'.")
 
         data["requester"] = requester
-        if not user_wants_variant and data.get("title"):
-            if len(_search_query_cache) > 300:
-                _search_query_cache.clear()
-            _search_query_cache[clean_q.lower()] = (time.time(), dict(data))
+
 
         is_live = bool(data.get("is_live"))
         source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
@@ -1456,17 +1444,28 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def regrab_stream(cls, data, volume=1.0, seek_seconds=0, audio_filter=None):
         loop = asyncio.get_event_loop()
-        # Direct CDN stream URL (official studio master or radio) - reuse directly!
-        stream_url = data.get("url", "")
-        if stream_url and not any(h in stream_url for h in ("googlevideo.com", "manifest.googlevideo.com")):
-            is_live = bool(data.get("is_live"))
-            source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
-            return cls(source, data=data, volume=volume)
+        title = data.get("title", "") or ""
+        requester = data.get("requester", "Unknown")
 
-        web_url = data.get("webpage_url") or data.get("url") or (f"https://www.youtube.com/watch?v={data.get('id', '')}" if data.get("id") else None)
+        # 1. Direct CDN stream URL (official studio master, Saavn CDN, direct audio file, or radio)
+        # Only reuse if it is a genuine direct stream URL (NOT a webpage URL and NOT a plain song title)
+        raw_stream_url = data.get("stream_url") or data.get("url") or ""
+        if isinstance(raw_stream_url, str) and (raw_stream_url.startswith("http://") or raw_stream_url.startswith("https://")):
+            u_low = raw_stream_url.lower()
+            is_webpage = any(domain in u_low for domain in ("youtube.com", "youtu.be", "soundcloud.com", "spotify.com"))
+            is_googlevideo = any(h in u_low for h in ("googlevideo.com", "manifest.googlevideo.com"))
+            if not is_webpage and not is_googlevideo:
+                is_live = bool(data.get("is_live"))
+                source = make_ffmpeg_audio(raw_stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
+                return cls(source, data=data, volume=volume)
+
+        # 2. Check if we have a direct YouTube / SoundCloud webpage URL to extract fresh stream formats
+        web_url = data.get("webpage_url") or data.get("url") or ""
+        is_http = isinstance(web_url, str) and web_url.startswith("http")
+        is_yt_or_sc = is_http and any(d in web_url.lower() for d in ("youtube.com", "youtu.be", "soundcloud.com"))
+
         fresh = None
-
-        if web_url and web_url.startswith("http"):
+        if is_yt_or_sc:
             yt_m = re.search(r'(?:youtube\.com\/(?:watch\?.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})', web_url)
             if yt_m and "list=" not in web_url:
                 web_url = f"https://www.youtube.com/watch?v={yt_m.group(1)}"
@@ -1476,42 +1475,31 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     timeout=8.0
                 )
             except Exception as e:
-                logger.debug(f"regrab_stream extract_info failed: {e}")
+                logger.debug(f"regrab_stream extract_info failed for {web_url}: {e}")
                 fresh = None
 
-        if not fresh or not (fresh.get("url") or fresh.get("formats")):
-            # Fallback to searching track by title
-            title = data.get("title", "")
-            if title and title != "Unknown":
-                source, _ = await cls._search_and_extract(
-                    title, loop=loop, volume=volume, seek_seconds=seek_seconds, audio_filter=audio_filter, requester=data.get("requester", "Unknown")
-                )
-                return source
+        if fresh:
+            stream_url = fresh.get("url")
+            if not stream_url or any(d in str(stream_url).lower() for d in ("youtube.com", "youtu.be", "soundcloud.com")):
+                formats = [f for f in fresh.get("formats", []) if f.get("acodec") != "none" and f.get("url")]
+                if formats:
+                    stream_url = formats[-1]["url"]
 
-        if not fresh:
-            raise ValueError("Could not regrab stream for this track.")
+            if stream_url:
+                fresh["requester"] = requester
+                is_live = bool(fresh.get("is_live") or data.get("is_live"))
+                source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
+                return cls(source, data=fresh, volume=volume)
 
-        fresh["requester"] = data.get("requester", "Unknown")
-        stream_url = fresh.get("url")
-        if not stream_url:
-            formats = fresh.get("formats", [])
-            audio_formats = [
-                f for f in formats
-                if f.get("acodec") != "none" and f.get("url")
-            ]
-            if not audio_formats:
-                title = data.get("title", "")
-                if title and title != "Unknown":
-                    source, _ = await cls._search_and_extract(
-                        title, loop=loop, volume=volume, seek_seconds=seek_seconds, audio_filter=audio_filter, requester=data.get("requester", "Unknown")
-                    )
-                    return source
-                raise ValueError("Could not regrab audio stream URL.")
-            stream_url = audio_formats[-1]["url"]
+        # 3. Fallback: Search track by title (Essential for Spotify playlist items, queued title strings, and failed direct extractions)
+        search_target = title or (web_url if not is_http else "") or data.get("name", "")
+        if search_target and search_target != "Unknown":
+            source, _ = await cls._search_and_extract(
+                search_target, loop=loop, volume=volume, seek_seconds=seek_seconds, audio_filter=audio_filter, requester=requester
+            )
+            return source
 
-        is_live = bool(fresh.get("is_live") or data.get("is_live"))
-        source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
-        return cls(source, data=fresh, volume=volume)
+        raise ValueError(f"Could not regrab stream for track: {title or 'Unknown'}")
 
 
 # ─── Interactive Music Views ──────────────────────────────────────────────────
