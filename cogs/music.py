@@ -1000,6 +1000,9 @@ class GuildMusicState:
             self.pause_start = None
 
 
+# ─── Search Query In-Memory Cache (Ultra-Fast 0ms Repeat Plays) ───────────────
+_search_query_cache: dict[str, tuple[float, dict]] = {}
+
 # ─── YTDLSource ───────────────────────────────────────────────────────────────
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -1031,6 +1034,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
         clean_q = search_query.strip()
         user_wants_variant = any(w in clean_q.lower() for w in ("remix", "cover", "slowed", "flip", "edit", "instrumental", "karaoke", "live", "nightcore", "reverb", "acoustic", "extended", "sped up", "1 hour", "loop"))
 
+        # Fast-path In-Memory Cache: 0ms instant playback for repeated or popular queries
+        cache_key = clean_q.lower()
+        if cache_key in _search_query_cache and not user_wants_variant:
+            c_time, c_data = _search_query_cache[cache_key]
+            if time.time() - c_time < 3600 and c_data.get("url"):
+                cached_copy = dict(c_data)
+                cached_copy["requester"] = requester
+                is_live = bool(cached_copy.get("is_live"))
+                source = make_ffmpeg_audio(cached_copy["url"], seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
+                return cls(source, data=cached_copy, volume=volume), False
+
         # 0. Canonical Track & Original Artist Resolution (Spotify metadata verification)
         # Identifies the true original song and original artist so we never play covers/mashups/bootlegs
         canonical_q = clean_q
@@ -1039,7 +1053,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 pure_q = re.sub(r'^(?:ytsearch\d*:|scsearch\d*:)\s*', '', clean_q).strip()
                 sp_res = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: spotify.search(q=pure_q, type="track", limit=5)),
-                    timeout=4.0
+                    timeout=1.5
                 )
                 sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
                 for sp_t in sp_items:
@@ -1065,7 +1079,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 official_track = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: fetch_official_studio_track(canonical_q, min_score=800.0)),
-                    timeout=8.0
+                    timeout=2.5
                 )
                 if official_track and official_track.get("url"):
                     data = official_track
@@ -1077,10 +1091,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 # Normalize any ytsearch prefix so we always inspect up to 10 entries
                 s_query = re.sub(r'^ytsearch\d*:\s*', '', canonical_q).strip()
-                yt_term = f"ytsearch10:{s_query}"
+                yt_term = f"ytsearch5:{s_query}"
                 yt_data = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: ytdl_search.extract_info(yt_term, download=False)),
-                    timeout=8.0
+                    timeout=3.5
                 )
                 entries = [e for e in yt_data.get("entries", []) if e] if yt_data else []
                 if entries:
@@ -1111,7 +1125,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                             try:
                                 cand_full = await asyncio.wait_for(
                                     loop.run_in_executor(None, lambda: ytdl.extract_info(cand_url, download=False)),
-                                    timeout=5.0
+                                    timeout=3.0
                                 )
                                 if cand_full and not is_vevo_entry(cand_full):
                                     has_audio = cand_full.get("url") or any(f.get("acodec") != "none" and f.get("url") for f in cand_full.get("formats", []))
@@ -1120,11 +1134,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
                                         break
                             except Exception as cand_err:
                                 logger.warning(f"Candidate '{cand.get('title')}' extraction failed: {cand_err}")
-                                if "confirm you’re not a bot" in str(cand_err):
-                                    consecutive_bot_blocks += 1
-                                    if consecutive_bot_blocks >= 2:
-                                        logger.warning("YouTube datacenter bot-block detected, skipping remaining candidates to fallback immediately.")
-                                        break
+                                err_str = str(cand_err).lower()
+                                if any(b_word in err_str for b_word in ("bot", "sign in", "429", "captcha", "forbidden")):
+                                    logger.warning("YouTube datacenter bot-block detected, jumping immediately to fallback.")
+                                    break
                                 continue
             except Exception as yt_err:
                 logger.warning(f"YouTube search failed for '{search_query}': {yt_err}")
@@ -1162,7 +1175,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 sc_data = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: ytdl.extract_info(f"scsearch8:{canonical_q}", download=False)),
-                    timeout=5.0
+                    timeout=2.5
                 )
                 sc_entries = [e for e in sc_data.get("entries", []) if e]
                 sc_candidates = []
@@ -1221,6 +1234,11 @@ class YTDLSource(discord.PCMVolumeTransformer):
             raise ValueError(f"No streamable audio found for '{search_query}'.")
 
         data["requester"] = requester
+        if not user_wants_variant and data.get("title"):
+            if len(_search_query_cache) > 300:
+                _search_query_cache.clear()
+            _search_query_cache[clean_q.lower()] = (time.time(), dict(data))
+
         is_live = bool(data.get("is_live"))
         source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
         return cls(source, data=data, volume=volume), False
@@ -3824,6 +3842,10 @@ class Music(commands.Cog):
             return await ctx.send("❌ Join a voice channel first.")
 
         try:
+            try:
+                await ctx.typing()
+            except Exception:
+                pass
             vc = ctx.author.voice.channel
             state = self.get_state(ctx.guild.id)
             state.text_channel = ctx.channel
