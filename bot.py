@@ -308,29 +308,60 @@ async def call_ai_generation(prompt, system_instruction, json_mode=False):
     raise last_err or ValueError("Failed to generate content with Groq.")
 
 
-async def call_gemini_ai(prompt: str, system_instruction: str, media_data: Optional[bytes] = None, mime_type: str = "image/png", json_mode: bool = False) -> str:
+GEMINI_VISION_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-latest"
+]
+
+
+async def call_gemini_ai(
+    prompt: str,
+    system_instruction: str,
+    media_data: Optional[bytes] = None,
+    mime_type: str = "image/png",
+    media_list: Optional[List[Tuple[bytes, str]]] = None,
+    json_mode: bool = False
+) -> str:
     """
-    Generates content or analyzes images/GIFs using Google Gemini 2.5 Flash.
-    Falls back to Groq if Gemini key is missing or encounters issues.
+    Generates content or deeply analyzes images/GIFs/documents using Google Gemini Multimodal Vision models.
+    Supports multi-image input (media_list) and resilient automatic fallback across Gemini vision endpoints.
+    Falls back to Groq if Gemini key is missing or for text-only queries.
     """
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
     if not gemini_key:
         return await call_ai_generation(prompt, system_instruction, json_mode=json_mode)
 
+    # Consolidate media items into a list of (bytes, mime)
+    all_media: List[Tuple[bytes, str]] = []
+    if media_list:
+        all_media.extend(media_list)
+    elif media_data:
+        all_media.append((media_data, mime_type))
+
     parts = []
+    # Add textual prompt/instruction
     if prompt:
         parts.append({"text": prompt})
-    elif media_data:
-        parts.append({"text": "Analyze and react to this visual image/GIF."})
+    elif all_media:
+        parts.append({"text": "Please analyze this visual media in full detail, read any text, code, or data, and share an insightful and helpful response."})
 
-    if media_data:
-        b64 = base64.b64encode(media_data).decode("utf-8")
-        parts.append({
-            "inline_data": {
-                "mime_type": mime_type,
-                "data": b64
-            }
-        })
+    # Add visual media items as inline base64 parts (up to 4 images)
+    for m_data, m_type in all_media[:4]:
+        try:
+            b64 = base64.b64encode(m_data).decode("utf-8")
+            parts.append({
+                "inline_data": {
+                    "mime_type": m_type or "image/png",
+                    "data": b64
+                }
+            })
+        except Exception as enc_err:
+            logger.warning(f"Failed to encode media item for Gemini vision: {enc_err}")
+
+    max_tokens = 2048 if all_media else 1200
+    temperature = 0.4 if all_media else 0.7
 
     payload = {
         "contents": [{
@@ -341,50 +372,66 @@ async def call_gemini_ai(prompt: str, system_instruction: str, media_data: Optio
             "parts": [{"text": system_instruction}]
         },
         "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 1200
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens
         }
     }
     if json_mode:
         payload["generationConfig"]["responseMimeType"] = "application/json"
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=25) as resp:
-                if resp.status == 200:
-                    res_data = await resp.json()
-                    candidates = res_data.get("candidates", [])
-                    if candidates:
-                        parts_out = candidates[0].get("content", {}).get("parts", [])
-                        if parts_out:
-                            text = parts_out[0].get("text", "").strip()
-                            if json_mode:
-                                text = extract_json(text)
-                            return text
-                else:
-                    err_body = await resp.text()
-                    logger.warning(f"Gemini API returned status {resp.status}: {err_body[:200]}")
-    except Exception as gemini_err:
-        logger.warning(f"Gemini generation error: {gemini_err}, falling back to Groq...")
+    # Multi-model fallback sequence
+    last_err = None
+    for model_name in GEMINI_VISION_MODELS:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
+        try:
+            client_timeout = aiohttp.ClientTimeout(total=28)
+            async with aiohttp.ClientSession(timeout=client_timeout) as session:
+                async with session.post(url, json=payload) as resp:
+                    if resp.status == 200:
+                        res_data = await resp.json()
+                        candidates = res_data.get("candidates", [])
+                        if candidates:
+                            parts_out = candidates[0].get("content", {}).get("parts", [])
+                            if parts_out:
+                                text = parts_out[0].get("text", "").strip()
+                                if json_mode:
+                                    text = extract_json(text)
+                                return text
+                    elif resp.status in (429, 503, 500, 404):
+                        err_body = await resp.text()
+                        logger.warning(f"Gemini API model {model_name} returned status {resp.status} ({err_body[:120]}), trying next vision model...")
+                        last_err = f"HTTP {resp.status} on {model_name}"
+                        continue
+                    else:
+                        err_body = await resp.text()
+                        logger.warning(f"Gemini API returned status {resp.status}: {err_body[:200]}")
+                        last_err = f"HTTP {resp.status}: {err_body[:100]}"
+        except Exception as gemini_err:
+            logger.warning(f"Gemini generation error on model {model_name}: {gemini_err}, trying next fallback...")
+            last_err = gemini_err
+            continue
 
-    if not media_data:
+    if not all_media:
         return await call_ai_generation(prompt, system_instruction, json_mode=json_mode)
-    raise ValueError("Failed to analyze visual media with Gemini API.")
+    raise ValueError(f"Failed to analyze visual media with Gemini vision models ({last_err}).")
 
 
-async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes, str]]:
+async def extract_all_visual_media(message: discord.Message) -> List[Tuple[bytes, str]]:
     """
-    Extracts image or GIF data (bytes, mime_type) from a message,
+    Extracts all images and GIFs (bytes, mime_type) from a message,
     including attachments, embeds, tenor/giphy URLs, and referenced messages.
+    Supports up to 4 images simultaneously.
     """
+    media_items: List[Tuple[bytes, str]] = []
+
     async def _download_url(url: str, default_mime: str = "image/png") -> Optional[Tuple[bytes, str]]:
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=12, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}) as resp:
+            client_timeout = aiohttp.ClientTimeout(total=12)
+            async with aiohttp.ClientSession(timeout=client_timeout) as session:
+                async with session.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}) as resp:
                     if resp.status == 200:
                         data = await resp.read()
-                        if len(data) > 10 * 1024 * 1024:
+                        if len(data) > 12 * 1024 * 1024:
                             return None
                         ct = resp.headers.get("Content-Type", default_mime).split(';')[0].strip().lower()
                         if "gif" in ct or url.lower().endswith(".gif"):
@@ -400,17 +447,19 @@ async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes
             logger.debug(f"Failed to download visual media from {url}: {dl_err}")
         return None
 
-    # 1. Direct attachments
+    # 1. Direct attachments (all of them up to 4)
     for att in message.attachments:
         ct = (att.content_type or "").lower()
         fn = att.filename.lower()
-        if any(fn.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.webp', '.gif')) or 'image/' in ct:
+        if any(fn.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp')) or 'image/' in ct:
             try:
                 data = await att.read()
                 mime = ct if 'image/' in ct else ('image/gif' if fn.endswith('.gif') else 'image/jpeg')
-                return data, mime
+                media_items.append((data, mime))
+                if len(media_items) >= 4:
+                    return media_items
             except Exception as e:
-                logger.debug(f"Failed to read attachment: {e}")
+                logger.debug(f"Failed to read attachment {att.filename}: {e}")
 
     # 2. Check embeds (Tenor/Giphy or attached image embeds)
     for emb in message.embeds:
@@ -424,7 +473,9 @@ async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes
         if img_url:
             res = await _download_url(img_url)
             if res:
-                return res
+                media_items.append(res)
+                if len(media_items) >= 4:
+                    return media_items
 
     # 3. Check for URLs in message content (Tenor, Giphy, Direct image links)
     url_pattern = r'https?://[^\s<>"]+'
@@ -433,8 +484,9 @@ async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes
         clean_u = u.strip()
         if "tenor.com/view/" in clean_u:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(clean_u, timeout=8, headers={"User-Agent": "Mozilla/5.0"}) as resp:
+                client_timeout = aiohttp.ClientTimeout(total=8)
+                async with aiohttp.ClientSession(timeout=client_timeout) as session:
+                    async with session.get(clean_u, headers={"User-Agent": "Mozilla/5.0"}) as resp:
                         if resp.status == 200:
                             html = await resp.text()
                             m = re.search(r'<meta property="og:image" content="([^"]+)"', html) or re.search(r'<meta itemprop="contentUrl" content="([^"]+)"', html)
@@ -442,7 +494,9 @@ async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes
                                 media_url = m.group(1)
                                 res = await _download_url(media_url, default_mime="image/gif")
                                 if res:
-                                    return res
+                                    media_items.append(res)
+                                    if len(media_items) >= 4:
+                                        return media_items
             except Exception as tenor_err:
                 logger.debug(f"Tenor resolve error: {tenor_err}")
         elif "giphy.com/gifs/" in clean_u or "media.giphy.com/" in clean_u:
@@ -453,23 +507,38 @@ async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes
                 gif_url = f"https://media.giphy.com/media/{gif_id}/giphy.gif"
             res = await _download_url(gif_url, default_mime="image/gif")
             if res:
-                return res
-        elif any(clean_u.lower().endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.webp', '.gif')):
+                media_items.append(res)
+                if len(media_items) >= 4:
+                    return media_items
+        elif any(clean_u.lower().endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp')):
             res = await _download_url(clean_u)
             if res:
-                return res
+                media_items.append(res)
+                if len(media_items) >= 4:
+                    return media_items
 
     # 4. If user replied to a message, check the referenced message for media!
-    if message.reference and message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
-        ref_msg = message.reference.resolved
+    ref_msg = None
+    if message.reference:
+        if message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
+            ref_msg = message.reference.resolved
+        elif message.reference.message_id and hasattr(message.channel, "fetch_message"):
+            try:
+                ref_msg = await message.channel.fetch_message(message.reference.message_id)
+            except Exception:
+                ref_msg = None
+
+    if ref_msg:
         for att in ref_msg.attachments:
             ct = (att.content_type or "").lower()
             fn = att.filename.lower()
-            if any(fn.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.webp', '.gif')) or 'image/' in ct:
+            if any(fn.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp')) or 'image/' in ct:
                 try:
                     data = await att.read()
                     mime = ct if 'image/' in ct else ('image/gif' if fn.endswith('.gif') else 'image/jpeg')
-                    return data, mime
+                    media_items.append((data, mime))
+                    if len(media_items) >= 4:
+                        return media_items
                 except Exception:
                     pass
         for emb in ref_msg.embeds:
@@ -477,10 +546,17 @@ async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes
             if img_url:
                 res = await _download_url(img_url)
                 if res:
-                    return res
+                    media_items.append(res)
+                    if len(media_items) >= 4:
+                        return media_items
 
-    return None
+    return media_items
 
+
+async def extract_visual_media(message: discord.Message) -> Optional[Tuple[bytes, str]]:
+    """Backward compatibility helper: returns the primary visual media item."""
+    items = await extract_all_visual_media(message)
+    return items[0] if items else None
 
 
 # ── AI Real-Time Question Answering & Knowledge Search ─────────────────────
@@ -608,9 +684,10 @@ async def answer_question_with_ai(
     guild_id: Optional[Any] = None,
     media_data: Optional[bytes] = None,
     mime_type: str = "image/png",
+    media_list: Optional[List[Tuple[bytes, str]]] = None,
     replied_context: str = ""
 ) -> str:
-    """Answers user questions and analyzes images/GIFs with context understanding, memory, and loyalty to Naraito."""
+    """Answers user questions and analyzes images/GIFs with deep vision, OCR, context understanding, memory, and loyalty to Naraito."""
     server_info = f"in the Discord server '{server_name}'" if server_name else "on Discord"
     author_info = f"from {author_name}" if author_name else ""
     
@@ -651,7 +728,6 @@ async def answer_question_with_ai(
         try:
             mems = await db.get_user_memories(user_id, limit=15)
             if mems:
-                # Filter out any weird nickname or troll memories
                 clean_mems = [m for m in mems if not is_inappropriate_nickname(m['fact_key'], m['fact_value'])]
                 if clean_mems:
                     facts_list = "\n".join(f"- {m['fact_key'].replace('_', ' ').title()}: {m['fact_value']}" for m in clean_mems)
@@ -663,26 +739,42 @@ async def answer_question_with_ai(
         except Exception as mem_err:
             logger.debug(f"Error loading user memories for {user_id}: {mem_err}")
 
+    has_media = bool(media_data or media_list)
+    media_count = len(media_list) if media_list else (1 if media_data else 0)
+
     visual_instruction = ""
-    if media_data:
-        media_kind = "GIF animation" if "gif" in mime_type else "Image"
+    if has_media:
         visual_instruction = (
-            f"\n\n=== 🖼️ MULTIMODAL {media_kind.upper()} VISION ANALYSIS INSTRUCTION ===\n"
-            f"- The user provided or referenced an {media_kind}.\n"
-            "- Analyze the visual details closely: identify characters, anime scenes, facial expressions, text/captions inside the image, memes, actions, or humor.\n"
-            "- React and reply based on what is happening in the image/GIF, answering whatever prompt or reaction the user asked for!"
+            f"\n\n=== 🖼️ DEEP MULTIMODAL VISION & OCR INTELLIGENCE PROTOCOL ===\n"
+            f"- The user has provided {media_count} visual media item(s) (image/screenshot/chart/diagram/photo/GIF).\n"
+            "- You possess world-class visual perception and OCR (Optical Character Recognition) capabilities.\n"
+            "- ACTIVELY & THOROUGHLY READ: Every piece of text, numbers, code, math formulas, headers, labels, captions, chat logs, error messages, receipts, and handwriting visible in the visual media.\n"
+            "- DEEP UNDERSTANDING & TASK EXECUTION:\n"
+            "  * If it is a math, physics, or science problem: solve it step-by-step with clear reasoning and state the final answer prominently.\n"
+            "  * If it is code, a terminal log, or an error traceback: identify the root cause of the bug, explain the issue clearly, and provide the fixed code in a syntax-highlighted code block.\n"
+            "  * If it is a receipt, invoice, tweet, Discord screenshot, or document: extract the data, calculate totals, summarize key points, or answer specific questions about it.\n"
+            "  * If it is a chart, graph, or diagram: analyze the axes, trends, relationships, and data points clearly.\n"
+            "  * If it is a meme, anime character, game screenshot, or photo: identify characters, anime/game title, context, facial expressions, and explain the humor or aesthetic nuance with wit and charm.\n"
+            "  * If the user asked a specific question or requested a task: answer it directly, accurately, and thoroughly based on the visual evidence!\n"
+            "- FORMATTING: Use clean markdown (bold headers, bullet points, code blocks). When analyzing complex images or solving problems, provide the full, rich explanation needed—do not truncate or omit steps."
         )
 
     replied_section = ""
     if replied_context:
         replied_section = f"\n\n=== 💬 REPLIED MESSAGE CONTEXT ===\n{replied_context}\nUse this context to understand what the conversation is about and reply accurately!"
 
+    length_guideline = (
+        "2. Keep everyday casual chat replies crisp and engaging (1-3 sentences). However, for image analysis, OCR, problem-solving, code debugging, or detailed explanations, provide full, comprehensive, and well-structured answers."
+        if has_media else
+        "2. Keep everyday replies crisp and engaging (1-3 sentences maximum). Avoid unsolicited essays."
+    )
+
     system_instruction = (
         f"You are Sweety, a quick, charming, highly intelligent, and loving Discord AI companion {server_info} answering {author_info}.\n"
         "RESPONSE GUIDELINES:\n"
         "1. Understand what the user is saying and reply naturally, intelligently, and contextually based on their message and intent.\n"
-        "2. Keep everyday replies crisp and engaging (1-3 sentences maximum). Avoid unsolicited essays.\n"
-        "3. Provide rich details or bullet points only when specifically requested.\n"
+        f"{length_guideline}\n"
+        "3. Provide rich details or bullet points when requested or when analyzing complex images/problems.\n"
         "4. Keep the tone warm, cute, expressive, and fun with occasional cute emojis (✨, ❤️, 🌸, ⚡).\n"
         "5. Never call members weird/romantic pet names like daddy, master, honey, babe, or pookie. Only address members by their actual Discord display name."
         f"{loyalty_instruction}"
@@ -692,9 +784,18 @@ async def answer_question_with_ai(
         f"{memory_section}"
     )
 
-    full_prompt = query if query else "Look at this image/GIF and tell me what you think!"
-    return await call_gemini_ai(full_prompt, system_instruction, media_data=media_data, mime_type=mime_type)
-
+    default_prompt = (
+        "Please carefully examine and analyze this visual media in full detail. Read any text, code, numbers, formulas, or handwriting present, identify key elements or context, and provide a comprehensive, clear, and helpful response!"
+        if has_media else "Look at this and tell me what you think!"
+    )
+    full_prompt = query if query else default_prompt
+    return await call_gemini_ai(
+        full_prompt,
+        system_instruction,
+        media_data=media_data,
+        mime_type=mime_type,
+        media_list=media_list
+    )
 
 
 def is_question_message(message: discord.Message, require_qmark: bool = False) -> tuple[bool, str]:
@@ -721,17 +822,30 @@ def is_question_message(message: discord.Message, require_qmark: bool = False) -
 
     has_attachments = len(message.attachments) > 0
     has_urls = bool(re.search(r'https?://[^\s<>"]+', content))
+    is_reply = bool(message.reference)
 
     if is_mentioned or is_reply_to_bot:
-        if len(clean_text) >= 1 or has_attachments or has_urls:
-            return True, clean_text or "Look at this and tell me what you think!"
+        if len(clean_text) >= 1 or has_attachments or has_urls or is_reply:
+            return True, clean_text or "Please analyze this visual media in detail and tell me what you see!"
 
     # Case 2: General chat question detection (unmentioned)
     if not clean_text or len(clean_text) < 3:
+        if has_attachments or has_urls:
+            # If no text or very short text with an image, don't auto-trigger unless mentioned or configured
+            return False, ""
         return False, ""
 
     words = clean_text.lower().split()
     has_qmark = "?" in clean_text
+
+    # Vision-related prompt starters that trigger visual inspection even without a question mark
+    vision_starters = (
+        "explain", "solve", "read", "check", "help", "analyze", "transcribe",
+        "look", "see", "fix", "what", "how", "why", "who", "tell me", "identify",
+        "describe", "translate", "summarize", "debug"
+    )
+    if (has_attachments or has_urls or is_reply) and clean_text.lower().startswith(vision_starters):
+        return True, clean_text
 
     if not has_qmark:
         return False, ""
@@ -752,7 +866,6 @@ def is_question_message(message: discord.Message, require_qmark: bool = False) -
         return True, clean_text
 
     return False, ""
-
 
 
 # ── Server Staff & Role Inquiry Helpers ────────────────────────────────────
@@ -26299,13 +26412,12 @@ async def embed_command(
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 @commands.guild_only()
 async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
-    """Ask Sweety a question with personal memory: !ask <question>"""
-    # Check if image attached to message
-    media_res = await extract_visual_media(ctx.message)
-    media_bytes, mime_type = (media_res[0], media_res[1]) if media_res else (None, "image/png")
+    """Ask Sweety a question or analyze images: !ask <question>"""
+    media_items = await extract_all_visual_media(ctx.message)
+    media_bytes, mime_type = (media_items[0][0], media_items[0][1]) if media_items else (None, "image/png")
 
-    if not question and not media_bytes:
-        return await ctx.reply("❌ Please provide a question or attach an image/GIF! Example: `!ask What should I build with Python?`")
+    if not question and not media_items:
+        return await ctx.reply("❌ Please provide a question or attach an image/GIF! Example: `!ask What should I build with Python?` or upload a photo with `!ask explain this`")
         
     allowed, remaining = _check_user_cooldown(ctx.author.id)
     if not allowed:
@@ -26314,7 +26426,7 @@ async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
     if ctx.guild and not _check_server_limit(ctx.guild.id):
         return await ctx.reply("🚫 This server has reached its hourly AI limit.")
         
-    is_clean, clean_q = _sanitize_ai_input(question or "Analyze this image/GIF")
+    is_clean, clean_q = _sanitize_ai_input(question or "Analyze this image/document in full detail")
     if not is_clean:
         return await ctx.reply("⚠️ Question flagged for restricted keywords.")
         
@@ -26329,7 +26441,8 @@ async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
                 user_id=ctx.author.id,
                 guild_id=guild_id,
                 media_data=media_bytes,
-                mime_type=mime_type
+                mime_type=mime_type,
+                media_list=media_items
             )
             if clean_q and len(clean_q) > 5:
                 asyncio.create_task(auto_extract_user_memory(ctx.author.id, clean_q, guild_id))
@@ -26344,6 +26457,131 @@ async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
     except Exception as e:
         logger.error(f"Error in !ask command: {e}", exc_info=True)
         await ctx.reply(f"❌ Failed to answer question: {e}")
+
+
+@bot.tree.command(name="vision", description="🔍 Deep visual AI: read text, solve math/code, analyze charts, memes, and photos")
+@app_commands.describe(
+    image="The image, screenshot, chart, or photo you want Sweety to analyze",
+    prompt="What should Sweety look for? (e.g. 'Solve this problem', 'Read all text', 'Explain this code bug')"
+)
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id or 0, i.user.id))
+async def vision_slash_command(
+    interaction: discord.Interaction,
+    image: discord.Attachment,
+    prompt: Optional[str] = None
+):
+    """Deep visual AI command to analyze screenshots, read documents/OCR, solve problems, and inspect images."""
+    await interaction.response.defer()
+    allowed, remaining = _check_user_cooldown(interaction.user.id)
+    if not allowed:
+        return await interaction.followup.send(f"⏳ Please wait `{remaining}s` before using vision analysis again.", ephemeral=True)
+    if interaction.guild and not _check_server_limit(interaction.guild.id):
+        return await interaction.followup.send("🚫 This server has reached its hourly AI limit.", ephemeral=True)
+
+    try:
+        data = await image.read()
+        mime = (image.content_type or "").lower()
+        if not mime or "image/" not in mime:
+            fn = image.filename.lower()
+            mime = "image/gif" if fn.endswith(".gif") else ("image/png" if fn.endswith(".png") else "image/jpeg")
+
+        q_text = prompt.strip() if prompt else "Please carefully examine and analyze this image in detail. Read all text, code, or data visible, and provide a thorough, insightful, and helpful response!"
+        is_clean, clean_q = _sanitize_ai_input(q_text)
+        if not is_clean:
+            return await interaction.followup.send("⚠️ Query flagged for restricted keywords.", ephemeral=True)
+
+        server_name = interaction.guild.name if interaction.guild else "Direct Message"
+        guild_id = interaction.guild.id if interaction.guild else None
+
+        answer = await answer_question_with_ai(
+            query=clean_q,
+            author_name=interaction.user.display_name,
+            server_name=server_name,
+            user_id=interaction.user.id,
+            guild_id=guild_id,
+            media_data=data,
+            mime_type=mime,
+            media_list=[(data, mime)]
+        )
+        if clean_q and len(clean_q) > 5:
+            asyncio.create_task(auto_extract_user_memory(interaction.user.id, clean_q, guild_id))
+
+        if answer:
+            if len(answer) <= 1900:
+                await interaction.followup.send(answer)
+            else:
+                chunks = [answer[i:i+1900] for i in range(0, len(answer), 1900)]
+                await interaction.followup.send(chunks[0])
+                for c in chunks[1:]:
+                    await interaction.channel.send(c)
+    except Exception as e:
+        logger.error(f"Error in /vision command: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Failed to analyze image: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="ask", description="💬 Ask Sweety anything with personal memory, knowledge search, and optional image analysis")
+@app_commands.describe(
+    question="The question or topic you want to ask Sweety",
+    image="Optional image, screenshot, or chart to analyze alongside your question"
+)
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id or 0, i.user.id))
+async def ask_slash_command(
+    interaction: discord.Interaction,
+    question: str,
+    image: Optional[discord.Attachment] = None
+):
+    """Ask Sweety a question with optional image/document attachment."""
+    await interaction.response.defer()
+    allowed, remaining = _check_user_cooldown(interaction.user.id)
+    if not allowed:
+        return await interaction.followup.send(f"⏳ Please wait `{remaining}s` before asking another question.", ephemeral=True)
+    if interaction.guild and not _check_server_limit(interaction.guild.id):
+        return await interaction.followup.send("🚫 This server has reached its hourly AI limit.", ephemeral=True)
+
+    is_clean, clean_q = _sanitize_ai_input(question)
+    if not is_clean:
+        return await interaction.followup.send("⚠️ Question flagged for restricted keywords.", ephemeral=True)
+
+    media_data = None
+    mime_type = "image/png"
+    media_list = []
+    if image:
+        try:
+            media_data = await image.read()
+            ct = (image.content_type or "").lower()
+            mime_type = ct if "image/" in ct else ("image/gif" if image.filename.lower().endswith(".gif") else "image/jpeg")
+            media_list = [(media_data, mime_type)]
+        except Exception as e:
+            logger.warning(f"Failed to read image in /ask: {e}")
+            media_data = None
+
+    try:
+        server_name = interaction.guild.name if interaction.guild else "Direct Message"
+        guild_id = interaction.guild.id if interaction.guild else None
+        answer = await answer_question_with_ai(
+            query=clean_q,
+            author_name=interaction.user.display_name,
+            server_name=server_name,
+            user_id=interaction.user.id,
+            guild_id=guild_id,
+            media_data=media_data,
+            mime_type=mime_type,
+            media_list=media_list
+        )
+        if clean_q and len(clean_q) > 5:
+            asyncio.create_task(auto_extract_user_memory(interaction.user.id, clean_q, guild_id))
+
+        if answer:
+            if len(answer) <= 1900:
+                await interaction.followup.send(answer)
+            else:
+                chunks = [answer[i:i+1900] for i in range(0, len(answer), 1900)]
+                await interaction.followup.send(chunks[0])
+                for c in chunks[1:]:
+                    await interaction.channel.send(c)
+    except Exception as e:
+        logger.error(f"Error in /ask slash command: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Failed to answer question: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="setaireply", description="Configure AI Auto-Reply: toggle status, set target channel & question mark mode")
@@ -27347,17 +27585,23 @@ async def on_message(message):
                             if is_clean:
                                 try:
                                     async with message.channel.typing():
-                                        # 1. Extract visual media (image / GIF)
-                                        media_res = await extract_visual_media(message)
-                                        media_bytes, mime_type = (media_res[0], media_res[1]) if media_res else (None, "image/png")
+                                        # 1. Extract visual media (all images / GIFs up to 4)
+                                        media_items = await extract_all_visual_media(message)
+                                        media_bytes, mime_type = (media_items[0][0], media_items[0][1]) if media_items else (None, "image/png")
 
-                                        # 2. Extract replied-to message context
+                                        # 2. Extract replied-to message context (including fetching unresolved referenced messages)
                                         replied_context = ""
-                                        if message.reference and message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
-                                            ref_msg = message.reference.resolved
-                                            ref_author = ref_msg.author.display_name if ref_msg.author else "User"
-                                            ref_body = ref_msg.content[:400] if ref_msg.content else "[Image / Attachment / Embed]"
-                                            replied_context = f"User {ref_author} previously said: \"{ref_body}\""
+                                        if message.reference:
+                                            ref_msg = message.reference.resolved if isinstance(message.reference.resolved, discord.Message) else None
+                                            if not ref_msg and message.reference.message_id and hasattr(message.channel, "fetch_message"):
+                                                try:
+                                                    ref_msg = await message.channel.fetch_message(message.reference.message_id)
+                                                except Exception:
+                                                    ref_msg = None
+                                            if ref_msg:
+                                                ref_author = ref_msg.author.display_name if ref_msg.author else "User"
+                                                ref_body = ref_msg.content[:400] if ref_msg.content else "[Image / Attachment / Embed]"
+                                                replied_context = f"User {ref_author} previously said: \"{ref_body}\""
 
                                         answer = await answer_question_with_ai(
                                             query=clean_query,
@@ -27367,6 +27611,7 @@ async def on_message(message):
                                             guild_id=message.guild.id if message.guild else None,
                                             media_data=media_bytes,
                                             mime_type=mime_type,
+                                            media_list=media_items,
                                             replied_context=replied_context
                                         )
                                         if clean_query and len(clean_query) > 5:
