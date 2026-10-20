@@ -2440,14 +2440,15 @@ class SpotifyPlaylistsView(discord.ui.View):
             self.add_item(select)
 
     async def select_callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user.id:
-            return await interaction.response.send_message("❌ This menu belongs to someone else.", ephemeral=True)
         self.selected_url = interaction.data["values"][0]
         for p in self.playlists:
             if p["url"] == self.selected_url:
                 self.selected_name = p["name"]
                 break
-        await interaction.response.defer()
+        try:
+            await interaction.response.defer()
+        except Exception:
+            pass
 
     @discord.ui.button(label="Play in VC", style=discord.ButtonStyle.success, emoji="▶️", row=1)
     async def play_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2457,42 +2458,55 @@ class SpotifyPlaylistsView(discord.ui.View):
         if not interaction.user.voice:
             return await interaction.response.send_message("❌ Join a voice channel first.", ephemeral=True)
 
-        await interaction.response.defer()
-        vc = interaction.user.voice.channel
-        state = self.cog.get_state(interaction.guild_id)
-        state.text_channel = interaction.channel
+        try:
+            await interaction.response.defer()
+        except Exception:
+            pass
 
-        await self.cog.ensure_voice_client(interaction.guild, vc, state)
+        try:
+            vc = interaction.user.voice.channel
+            state = self.cog.get_state(interaction.guild_id)
+            state.text_channel = interaction.channel
 
-        is_247 = await self.cog.is_247_enabled(interaction.guild_id)
-        if is_247:
+            vc_client = await self.cog.ensure_voice_client(interaction.guild, vc, state)
+            if not vc_client:
+                return await interaction.followup.send("❌ Could not connect to your voice channel. Check bot permissions.", ephemeral=True)
+
+            is_247 = await self.cog.is_247_enabled(interaction.guild_id)
+            if is_247:
+                try:
+                    await self.cog.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+                except Exception:
+                    pass
+
+            tracks = await self.cog.asyncio.get_running_loop().run_in_executor(
+                None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
+            )
+            if not tracks:
+                return await interaction.followup.send("❌ Could not load tracks from this Spotify playlist.", ephemeral=True)
+
+            for t in tracks:
+                t["requester"] = str(interaction.user.display_name)
+                state.queue.append(t)
+            await self.cog._persist_queue(interaction.guild_id)
+
+            embed = discord.Embed(
+                title="📋 Spotify Playlist Queued",
+                description=f"Added **{len(tracks)} tracks** from **{self.selected_name}** to the queue.",
+                color=0x1DB954
+            )
+            embed.set_footer(text=f"Requested by {interaction.user.display_name}")
+            await interaction.followup.send(embed=embed)
+
+            if state.voice_client and not state.voice_client.is_playing() and not state.voice_client.is_paused():
+                state.current = None
+                await self.cog.play_next(interaction.guild)
+        except Exception as play_err:
+            logger.error(f"Error in SpotifyPlaylistsView play_button: {play_err}", exc_info=True)
             try:
-                await self.cog.bot.db.set_config(interaction.guild_id, "music_247_channel_id", str(vc.id))
+                await interaction.followup.send(f"❌ Failed to play playlist: `{play_err}`", ephemeral=True)
             except Exception:
                 pass
-
-        tracks = await self.cog.asyncio.get_running_loop().run_in_executor(
-            None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
-        )
-        if not tracks:
-            return await interaction.followup.send("❌ Could not load tracks from this Spotify playlist.", ephemeral=True)
-
-        for t in tracks:
-            t["requester"] = str(interaction.user.display_name)
-            state.queue.append(t)
-        await self.cog._persist_queue(interaction.guild_id)
-
-        embed = discord.Embed(
-            title="📋 Spotify Playlist Queued",
-            description=f"Added **{len(tracks)} tracks** from **{self.selected_name}** to the queue.",
-            color=0x1DB954
-        )
-        embed.set_footer(text=f"Requested by {interaction.user.display_name}")
-        await interaction.followup.send(embed=embed)
-
-        if not state.voice_client.is_playing() and not state.voice_client.is_paused():
-            state.current = None
-            await self.cog.play_next(interaction.guild)
 
     @discord.ui.button(label="Save to Sweety", style=discord.ButtonStyle.primary, emoji="💾", row=1)
     async def save_button(self, interaction: discord.Interaction, button: discord.ui.Button):
