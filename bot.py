@@ -268,11 +268,9 @@ async def call_ai_generation(prompt, system_instruction, json_mode=False):
     }
     
     models = [
+        "qwen/qwen3.8-27b",
         "openai/gpt-oss-120b",
         "openai/gpt-oss-20b",
-        "qwen/qwen3.8-27b",
-        "groq/compound",
-        "groq/compound-mini",
         "allam-2-7b"
     ]
     last_err = None
@@ -290,14 +288,18 @@ async def call_ai_generation(prompt, system_instruction, json_mode=False):
             payload["response_format"] = {"type": "json_object"}
             
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30) as r:
+            client_timeout = aiohttp.ClientTimeout(total=8)
+            async with aiohttp.ClientSession(timeout=client_timeout) as session:
+                async with session.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload) as r:
                     r.raise_for_status()
                     res_data = await r.json()
                     choices = res_data.get("choices", [])
                     if not choices:
                         raise ValueError(f"Empty choices returned from Groq model {model_name}")
-                    result = choices[0]["message"]["content"]
+                    msg_obj = choices[0].get("message", {})
+                    result = msg_obj.get("content") or msg_obj.get("reasoning", "")
+                    if not result:
+                        raise ValueError(f"Empty content returned from Groq model {model_name}")
                     if json_mode:
                         result = extract_json(result)
                     return result
@@ -310,11 +312,11 @@ async def call_ai_generation(prompt, system_instruction, json_mode=False):
 
 GEMINI_VISION_MODELS = [
     "gemini-2.5-flash",
-    "gemini-flash-lite-latest",
-    "gemini-3.8-flash",
     "gemini-flash-latest",
+    "gemini-flash-lite-latest",
     "gemini-2.5-flash-lite",
-    "gemini-3.5-flash-lite"
+    "gemini-3.5-flash",
+    "gemini-2.5-pro"
 ]
 
 _gemini_key_counter = 0
@@ -859,6 +861,14 @@ async def answer_question_with_ai(
         if has_media else "Look at this and tell me what you think!"
     )
     full_prompt = query if query else default_prompt
+
+    # For text-only chats and questions, prioritize ultra-fast Groq AI (0.12s response time)
+    if not has_media:
+        try:
+            return await call_ai_generation(full_prompt, system_instruction, json_mode=False)
+        except Exception as groq_err:
+            logger.warning(f"Fast Groq chat failed: {groq_err}, falling back to Gemini...")
+
     return await call_gemini_ai(
         full_prompt,
         system_instruction,
@@ -26988,8 +26998,15 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
+    # Fast-path prefix commands (!play, !queue, !skip, etc.) directly to process_commands
+    if message.content.startswith("!"):
+        if message.guild and not message.author.bot:
+            asyncio.create_task(db.increment_analytics(message.guild.id, "messages_count"))
+        await bot.process_commands(message)
+        return
+
     if message.guild and not message.author.bot:
-        await db.increment_analytics(message.guild.id, "messages_count")
+        asyncio.create_task(db.increment_analytics(message.guild.id, "messages_count"))
 
         # ── AFK System: Return from AFK ─────────────────────────────────────
         afk_key = (message.guild.id, message.author.id)
