@@ -605,6 +605,8 @@ async def extract_all_visual_media(message: discord.Message) -> List[Tuple[bytes
     if message.reference:
         if message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
             ref_msg = message.reference.resolved
+        elif getattr(message.reference, 'cached_message', None) and isinstance(message.reference.cached_message, discord.Message):
+            ref_msg = message.reference.cached_message
         elif message.reference.message_id and hasattr(message.channel, "fetch_message"):
             try:
                 ref_msg = await message.channel.fetch_message(message.reference.message_id)
@@ -27487,6 +27489,11 @@ async def on_message(message):
         else:
             # Check if bot is directly mentioned or replied to in a guild
             is_direct = bool(bot.user and bot.user in message.mentions)
+            # Also support role mentions (e.g. @Sweety role)
+            if not is_direct and getattr(message, 'role_mentions', None):
+                if any(r.name.lower() == "sweety" or (bot.user and r.name.lower() == bot.user.name.lower()) for r in message.role_mentions):
+                    is_direct = True
+
             if not is_direct and message.reference:
                 if message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
                     if bot.user and message.reference.resolved.author == bot.user:
@@ -27521,24 +27528,34 @@ async def on_message(message):
                     query = message.content.strip()
                     if bot.user:
                         query = re.sub(rf'<@!?{bot.user.id}>', '', query).strip()
+                    if getattr(message, 'role_mentions', None):
+                        for r in message.role_mentions:
+                            if r.name.lower() == "sweety":
+                                query = re.sub(rf'<@&{r.id}>', '', query).strip()
 
                     if message.guild and not is_direct:
                         is_question, _q = is_question_message(message, require_qmark=require_qmark)
                         if not is_question:
                             query = ""
                     
-                    if (is_question or is_dm or is_direct) and (query or message.attachments or message.embeds):
-                        allowed, remaining = _check_user_cooldown(message.author.id)
+                    # Direct mentions and DMs MUST ALWAYS process; channel auto-reply requires query/media/reference
+                    should_process = is_direct or is_dm or (
+                        is_question and (query or message.attachments or message.embeds or message.reference)
+                    )
+
+                    if should_process:
+                        is_naraito = (message.author.id == 719932313919684670)
+                        allowed, remaining = (True, 0) if is_naraito else _check_user_cooldown(message.author.id)
                         if not allowed:
                             logger.info(f"AI question rate limited for user {message.author.id} (wait {remaining}s)")
-                        elif message.guild and not _check_server_limit(message.guild.id):
+                        elif message.guild and not is_naraito and not _check_server_limit(message.guild.id):
                             logger.info(f"AI question rate limited: server hourly limit reached for guild {message.guild.id}")
                         else:
-                            is_clean, clean_query = _sanitize_ai_input(query)
+                            is_clean, clean_query = _sanitize_ai_input(query) if query else (True, "")
                             if is_clean:
                                 try:
                                     async with message.channel.typing():
-                                        # 1. Extract visual media (all images / GIFs up to 4)
+                                        # 1. Extract visual media (all images / GIFs up to 4, including from referenced message)
                                         media_items = await extract_all_visual_media(message)
                                         media_bytes, mime_type = (media_items[0][0], media_items[0][1]) if media_items else (None, "image/png")
 
@@ -27546,6 +27563,8 @@ async def on_message(message):
                                         replied_context = ""
                                         if message.reference:
                                             ref_msg = message.reference.resolved if isinstance(message.reference.resolved, discord.Message) else None
+                                            if not ref_msg and getattr(message.reference, 'cached_message', None) and isinstance(message.reference.cached_message, discord.Message):
+                                                ref_msg = message.reference.cached_message
                                             if not ref_msg and message.reference.message_id and hasattr(message.channel, "fetch_message"):
                                                 try:
                                                     ref_msg = await message.channel.fetch_message(message.reference.message_id)
@@ -27555,6 +27574,17 @@ async def on_message(message):
                                                 ref_author = ref_msg.author.display_name if ref_msg.author else "User"
                                                 ref_body = ref_msg.content[:400] if ref_msg.content else "[Image / Attachment / Embed]"
                                                 replied_context = f"User {ref_author} previously said: \"{ref_body}\""
+
+                                        # If user only tagged Sweety with no text and no media, provide immediate greeting
+                                        if not clean_query and not media_items and not replied_context:
+                                            if is_naraito:
+                                                await message.reply("Naraito! ❤️ I'm right here for you, my master! ✨ How can I help you?", mention_author=True)
+                                            else:
+                                                await message.reply(f"Hey {message.author.display_name}! 😊 I'm here! What can I help you with?", mention_author=True)
+                                            return
+
+                                        if not clean_query and media_items:
+                                            clean_query = "Please examine and deeply analyze this visual media, read any text/code, and provide a clear, helpful response!"
 
                                         answer = await answer_question_with_ai(
                                             query=clean_query,
