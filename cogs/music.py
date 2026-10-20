@@ -2162,7 +2162,7 @@ class SearchResultsView(discord.ui.View):
                 state.pause_start = None
                 state.voice_client.play(
                     result,
-                    after=lambda e: self.cog.bot.loop.create_task(
+                    after=lambda e: self.cog.asyncio.create_task(
                         self.cog.play_next(interaction.guild)
                     )
                 )
@@ -2175,7 +2175,7 @@ class SearchResultsView(discord.ui.View):
                 else:
                     msg = await interaction.edit_original_response(embed=np_embed, view=np_view)
                     state.np_message = msg
-                state.update_task = self.cog.bot.loop.create_task(
+                state.update_task = self.cog.asyncio.create_task(
                     self.cog.live_updater(interaction.guild)
                 )
 
@@ -2394,7 +2394,7 @@ class SpotifyPlaylistsView(discord.ui.View):
             except Exception:
                 pass
 
-        tracks = await self.cog.bot.loop.run_in_executor(
+        tracks = await self.cog.asyncio.get_running_loop().run_in_executor(
             None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
         )
         if not tracks:
@@ -2421,7 +2421,7 @@ class SpotifyPlaylistsView(discord.ui.View):
             return await interaction.response.send_message("❌ No playlist selected.", ephemeral=True)
 
         await interaction.response.defer(ephemeral=True)
-        tracks = await self.cog.bot.loop.run_in_executor(
+        tracks = await self.cog.asyncio.get_running_loop().run_in_executor(
             None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
         )
         if not tracks:
@@ -2494,8 +2494,8 @@ class Music(commands.Cog):
 
     async def cog_load(self):
         """Start 24/7 voice watchdog supervisor loop and restore saved queues when cog loads."""
-        self._watchdog_task = self.bot.loop.create_task(self._watchdog_247_loop())
-        self.bot.loop.create_task(self._restore_saved_queues())
+        self._watchdog_task = asyncio.create_task(self._watchdog_247_loop())
+        asyncio.create_task(self._restore_saved_queues())
 
     async def cog_unload(self):
         """Cancel watchdog task when cog is unloaded."""
@@ -2541,7 +2541,7 @@ class Music(commands.Cog):
         if guild_id not in self.states:
             self.states[guild_id] = GuildMusicState()
             if hasattr(self.bot, "db") and self.bot.db:
-                self.bot.loop.create_task(self._restore_247(guild_id))
+                asyncio.create_task(self._restore_247(guild_id))
         return self.states[guild_id]
 
     async def is_247_enabled(self, guild_id: int) -> bool:
@@ -2891,13 +2891,13 @@ class Music(commands.Cog):
 
         if spotify:
             try:
-                s_res = await self.bot.loop.run_in_executor(
+                s_res = await asyncio.get_running_loop().run_in_executor(
                     None, lambda: spotify.search(q=clean, type="track", limit=5)
                 )
                 items = s_res.get("tracks", {}).get("items", [])
                 if items:
                     seed_id = items[0]["id"]
-                    recs = await self.bot.loop.run_in_executor(
+                    recs = await asyncio.get_running_loop().run_in_executor(
                         None, lambda: spotify.recommendations(seed_tracks=[seed_id], limit=10)
                     )
                     rec_tracks = recs.get("tracks", [])
@@ -2916,7 +2916,7 @@ class Music(commands.Cog):
         try:
             query = f"ytsearch8:{clean} mix"
             data = await asyncio.wait_for(
-                self.bot.loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False)),
+                asyncio.get_running_loop().run_in_executor(None, lambda: ytdl.extract_info(query, download=False)),
                 timeout=6.0
             )
             entries = [e for e in data.get("entries", []) if e]
@@ -3006,14 +3006,14 @@ class Music(commands.Cog):
 
         state.voice_client.play(
             ytdl_src,
-            after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
+            after=lambda e: asyncio.create_task(self.play_next(interaction.guild))
         )
         await self.set_vc_status(vc, f"📻 {station['name']}")
 
         embed = await self.build_np_embed(state)
         view = NowPlayingView(self, interaction.guild)
         state.np_message = await interaction.channel.send(embed=embed, view=view)
-        state.update_task = self.bot.loop.create_task(self.live_updater(interaction.guild))
+        state.update_task = asyncio.create_task(self.live_updater(interaction.guild))
         if not interaction.response.is_done():
             await interaction.response.send_message(f"📻 Tuned in to **{station['name']}**! (24/7 Radio Mode)", ephemeral=True)
         else:
@@ -3049,7 +3049,7 @@ class Music(commands.Cog):
         if hasattr(interaction_or_ctx, "response") and not interaction_or_ctx.response.is_done():
             await interaction_or_ctx.response.defer(ephemeral=ephemeral)
 
-        lyrics_data = await self.bot.loop.run_in_executor(
+        lyrics_data = await asyncio.get_running_loop().run_in_executor(
             None, lambda: fetch_lyrics(target_query, target_artist)
         )
 
@@ -3105,7 +3105,7 @@ class Music(commands.Cog):
                 sent_msg = await interaction_or_ctx.send(embed=initial_embed, view=view)
 
             view.message = sent_msg
-            task = self.bot.loop.create_task(view.karaoke_loop())
+            task = asyncio.create_task(view.karaoke_loop())
             view.update_task = task
             state.karaoke_task = task
         else:
@@ -3253,7 +3253,7 @@ class Music(commands.Cog):
             state.pause_start = None
             state.voice_client.play(
                 source,
-                after=lambda e: self.bot.loop.create_task(self.play_next(guild))
+                after=lambda e: asyncio.create_task(self.play_next(guild))
             )
             state.current = source
             await self.set_vc_status(state.voice_client.channel, f"🎶 {source.title}")
@@ -3261,7 +3261,7 @@ class Music(commands.Cog):
                 embed = await self.build_np_embed(state)
                 view = NowPlayingView(self, guild)
                 await state.np_message.edit(embed=embed, view=view)
-            state.update_task = self.bot.loop.create_task(self.live_updater(guild))
+            state.update_task = asyncio.create_task(self.live_updater(guild))
             return
 
         if state.loop_queue and state.current:
@@ -3306,7 +3306,7 @@ class Music(commands.Cog):
         state.current = source
         # Asynchronously log to Supabase song_history & in-memory cache
         if hasattr(self.bot, "db") and hasattr(self.bot.db, "log_song_history"):
-            self.bot.loop.create_task(
+            asyncio.create_task(
                 self.bot.db.log_song_history(
                     guild_id=guild.id,
                     song_title=getattr(source, "title", "Unknown"),
@@ -3323,7 +3323,7 @@ class Music(commands.Cog):
 
         state.voice_client.play(
             source,
-            after=lambda e: self.bot.loop.create_task(self.play_next(guild))
+            after=lambda e: asyncio.create_task(self.play_next(guild))
         )
         await self.set_vc_status(state.voice_client.channel, f"🎶 {source.title}")
 
@@ -3339,7 +3339,7 @@ class Music(commands.Cog):
         if state.text_channel and not state.np_message:
             state.np_message = await state.text_channel.send(embed=embed, view=view)
 
-        state.update_task = self.bot.loop.create_task(self.live_updater(guild))
+        state.update_task = asyncio.create_task(self.live_updater(guild))
 
     @commands.command(name="bitrate", help="Check audio bitrate of the current voice channel")
     @commands.guild_only()
@@ -3454,13 +3454,13 @@ class Music(commands.Cog):
                     state.pause_start = None
                     state.voice_client.play(
                         result,
-                        after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
+                        after=lambda e: asyncio.create_task(self.play_next(interaction.guild))
                     )
                     await self.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                     embed = await self.build_np_embed(state)
                     view = NowPlayingView(self, interaction.guild)
                     state.np_message = await interaction.followup.send(embed=embed, view=view)
-                    state.update_task = self.bot.loop.create_task(self.live_updater(interaction.guild))
+                    state.update_task = asyncio.create_task(self.live_updater(interaction.guild))
         except ValueError as ve:
             return await interaction.followup.send(str(ve), ephemeral=True)
         except Exception as e:
@@ -3805,13 +3805,13 @@ class Music(commands.Cog):
                     state.pause_start = None
                     state.voice_client.play(
                         result,
-                        after=lambda e: self.bot.loop.create_task(self.play_next(ctx.guild))
+                        after=lambda e: asyncio.create_task(self.play_next(ctx.guild))
                     )
                     await self.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                     embed = await self.build_np_embed(state)
                     view = NowPlayingView(self, ctx.guild)
                     state.np_message = await ctx.send(embed=embed, view=view)
-                    state.update_task = self.bot.loop.create_task(self.live_updater(ctx.guild))
+                    state.update_task = asyncio.create_task(self.live_updater(ctx.guild))
         except ValueError as ve:
             await ctx.send(str(ve))
         except Exception as e:
@@ -4258,7 +4258,7 @@ class Music(commands.Cog):
             state.current = source
             state.voice_client.play(
                 source,
-                after=lambda e: self.bot.loop.create_task(self.play_next(interaction.guild))
+                after=lambda e: asyncio.create_task(self.play_next(interaction.guild))
             )
             embed = await self.build_np_embed(state)
             if state.np_message:
@@ -4304,7 +4304,7 @@ class Music(commands.Cog):
             state.current = source
             state.voice_client.play(
                 source,
-                after=lambda e: self.bot.loop.create_task(self.play_next(ctx.guild))
+                after=lambda e: asyncio.create_task(self.play_next(ctx.guild))
             )
             embed = await self.build_np_embed(state)
             if state.np_message:
@@ -4503,7 +4503,7 @@ class Music(commands.Cog):
 
         await interaction.response.defer()
         user_id, prof_url = parse_spotify_user_input(profile)
-        info = await self.bot.loop.run_in_executor(
+        info = await asyncio.get_running_loop().run_in_executor(
             None, lambda: fetch_spotify_profile_info(user_id)
         )
         if not info:
@@ -4546,7 +4546,7 @@ class Music(commands.Cog):
             msg = "You haven't linked a Spotify profile yet. Run `/spotify link <profile_url>`!" if target.id == interaction.user.id else f"{target.display_name} has not linked a Spotify profile."
             return await interaction.followup.send(f"❌ {msg}", ephemeral=True)
 
-        info = await self.bot.loop.run_in_executor(
+        info = await asyncio.get_running_loop().run_in_executor(
             None, lambda: fetch_spotify_profile_info(row["spotify_id"])
         )
         data = info or row
@@ -4584,7 +4584,7 @@ class Music(commands.Cog):
             except Exception:
                 playlists = []
 
-        info = await self.bot.loop.run_in_executor(
+        info = await asyncio.get_running_loop().run_in_executor(
             None, lambda: fetch_spotify_profile_info(row["spotify_id"])
         )
         if not info:
@@ -4640,7 +4640,7 @@ class Music(commands.Cog):
                     "❌ Please link your Spotify profile with `/spotify link` or paste a direct Spotify playlist URL.",
                     ephemeral=True
                 )
-            info = await self.bot.loop.run_in_executor(
+            info = await asyncio.get_running_loop().run_in_executor(
                 None, lambda: fetch_spotify_profile_info(row["spotify_id"])
             )
             if info and info.get("playlists"):
@@ -4669,7 +4669,7 @@ class Music(commands.Cog):
             except Exception:
                 pass
 
-        tracks = await self.bot.loop.run_in_executor(
+        tracks = await asyncio.get_running_loop().run_in_executor(
             None, lambda: extract_spotify_playlist_tracks_public(playlist_url)
         )
         if not tracks:
@@ -4714,7 +4714,7 @@ class Music(commands.Cog):
         if "spotify.com/playlist/" not in playlist_url:
             return await interaction.followup.send("❌ Invalid Spotify playlist link. Format: `https://open.spotify.com/playlist/...`")
 
-        tracks = await self.bot.loop.run_in_executor(
+        tracks = await asyncio.get_running_loop().run_in_executor(
             None, lambda: extract_spotify_playlist_tracks_public(playlist_url)
         )
         if not tracks:
@@ -4800,7 +4800,7 @@ class Music(commands.Cog):
             return await ctx.send(embed=embed, view=view)
 
         user_id, prof_url = parse_spotify_user_input(profile)
-        info = await self.bot.loop.run_in_executor(
+        info = await asyncio.get_running_loop().run_in_executor(
             None, lambda: fetch_spotify_profile_info(user_id)
         )
         if not info:
@@ -5249,14 +5249,14 @@ class Music(commands.Cog):
 
         state.voice_client.play(
             ytdl_src,
-            after=lambda e: self.bot.loop.create_task(self.play_next(ctx.guild))
+            after=lambda e: asyncio.create_task(self.play_next(ctx.guild))
         )
         await self.set_vc_status(vc, f"📻 {st_info['name']}")
 
         embed = await self.build_np_embed(state)
         view = NowPlayingView(self, ctx.guild)
         state.np_message = await ctx.send(embed=embed, view=view)
-        state.update_task = self.bot.loop.create_task(self.live_updater(ctx.guild))
+        state.update_task = asyncio.create_task(self.live_updater(ctx.guild))
 
     # ─── Smart Autoplay (!autoplay / /queue autoplay) ───────────────────────────
 
