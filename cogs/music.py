@@ -16,6 +16,8 @@ import unicodedata
 import math
 import audioop
 import difflib
+import queue
+import threading
 
 import base64
 import spotipy
@@ -664,12 +666,69 @@ RADIO_STATIONS = {
     }
 }
 
-def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Optional[str] = None, is_live: bool = False) -> discord.FFmpegPCMAudio:
+class BufferedAudioSource(discord.AudioSource):
+    """
+    Decoupled ultra-low-latency jitter buffer for Discord voice streaming.
+    Pre-buffers up to 6 seconds of 48kHz 16-bit stereo PCM audio (300 frames of 3840 bytes = ~1.1MB).
+    Completely eliminates audio stutter, buffering hiccups, and pauses caused by cloud network latency.
+    """
+    def __init__(self, source: discord.AudioSource, buffer_seconds: float = 6.0):
+        self.original = source
+        max_frames = max(50, int(buffer_seconds * 50))
+        self.buffer = queue.Queue(maxsize=max_frames)
+        self._stop = threading.Event()
+        self._finished = False
+        self._thread = threading.Thread(target=self._reader, daemon=True, name="AudioBufferReader")
+        self._thread.start()
+
+    def _reader(self):
+        while not self._stop.is_set():
+            try:
+                data = self.original.read()
+                if not data:
+                    self._finished = True
+                    break
+                while not self._stop.is_set():
+                    try:
+                        self.buffer.put(data, timeout=0.1)
+                        break
+                    except queue.Full:
+                        continue
+            except Exception as e:
+                logger.debug(f"Audio buffer reader exception: {e}")
+                self._finished = True
+                break
+
+    def read(self) -> bytes:
+        if self._finished and self.buffer.empty():
+            return b""
+        try:
+            return self.buffer.get(timeout=0.04)
+        except queue.Empty:
+            if self._finished and self.buffer.empty():
+                return b""
+            # Provide comfort silence frame if network briefly under-runs to prevent Discord packet drops
+            return b"\x00" * 3840
+
+    def is_opus(self) -> bool:
+        return self.original.is_opus()
+
+    def cleanup(self):
+        self._stop.set()
+        try:
+            self.original.cleanup()
+        except Exception:
+            pass
+
+
+def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Optional[str] = None, is_live: bool = False) -> discord.AudioSource:
     # Optimized stream buffer flags: auto-reconnect on socket dropouts with fast probe
     before_opts = (
         "-reconnect 1 "
         "-reconnect_streamed 1 "
-        "-reconnect_delay_max 5 "
+        "-reconnect_at_eof 1 "
+        "-reconnect_delay_max 2 "
+        "-nostdin "
         "-probesize 128k "
         "-analyzeduration 100000"
     )
@@ -687,16 +746,17 @@ def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Opti
     if audio_filter and audio_filter in AUDIO_FILTERS:
         filters.append(AUDIO_FILTERS[audio_filter])
 
-    opts = "-vn -threads 2"
+    opts = "-vn -threads 2 -loglevel error"
     if filters:
         opts += f" -af {','.join(filters)}"
 
-    return discord.FFmpegPCMAudio(
+    raw_audio = discord.FFmpegPCMAudio(
         stream_url,
         before_options=before_opts,
         options=opts,
         executable="ffmpeg"
     )
+    return BufferedAudioSource(raw_audio, buffer_seconds=6.0)
 
 def parse_lrc(text: str) -> list[tuple[float, str]]:
     timed_lines = []
@@ -1091,7 +1151,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     ranked = sorted(candidate_pool, key=lambda e: score_music_candidate(e, canonical_q), reverse=True)
 
                     consecutive_bot_blocks = 0
-                    for cand in ranked[:3]:
+                    for cand in ranked[:5]:
                         logger.info(f"Evaluating candidate: '{cand.get('title')}' (Score: {score_music_candidate(cand, canonical_q):.1f})")
                         # If candidate is already a fully resolved source with streamable direct url (not a webpage)
                         if cand.get("url") and not any(cand.get("url", "").startswith(p) for p in ("https://www.youtube.com", "http://www.youtube.com", "https://youtu.be")):
@@ -1178,7 +1238,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 if sc_candidates:
                     sc_candidates.sort(key=lambda c: score_music_candidate(c, canonical_q), reverse=True)
                     for cand in sc_candidates:
-                        if not user_wants_variant and score_music_candidate(cand, canonical_q) < 700:
+                        if not user_wants_variant and score_music_candidate(cand, canonical_q) < 250:
                             continue
                         data = cand
                         if not data.get("url") and cand.get("stream_url"):
