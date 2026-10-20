@@ -311,11 +311,13 @@ async def call_ai_generation(prompt, system_instruction, json_mode=False):
 
 
 GEMINI_VISION_MODELS = [
+    "gemini-3-flash-preview",
+    "gemini-robotics-er-2-preview",
     "gemini-2.5-flash",
+    "gemini-3.5-flash",
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-2.5-flash-lite",
-    "gemini-3.5-flash",
     "gemini-2.5-pro"
 ]
 
@@ -444,7 +446,7 @@ async def call_gemini_ai(
         for model_name in GEMINI_VISION_MODELS:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
             try:
-                client_timeout = aiohttp.ClientTimeout(total=28)
+                client_timeout = aiohttp.ClientTimeout(total=10)
                 async with aiohttp.ClientSession(timeout=client_timeout) as session:
                     async with session.post(url, json=payload) as resp:
                         if resp.status == 200:
@@ -460,12 +462,11 @@ async def call_gemini_ai(
 
                         err_body = await resp.text()
 
-                        # Check for rate limit or quota exhaustion (429, 403 quota, RESOURCE_EXHAUSTED)
+                        # In Gemini, quotas are per-model; try the next vision model on this key before giving up
                         if resp.status == 429 or "RESOURCE_EXHAUSTED" in err_body or "quota" in err_body.lower() or "rate limit" in err_body.lower():
-                            logger.warning(f"Gemini Key #{key_idx} ({key_masked}) hit rate limit/quota error ({resp.status}). Rotating to next key...")
-                            last_err = f"Key {key_masked} Quota/Rate Limit (HTTP {resp.status})"
-                            key_rate_limited = True
-                            break  # Break out of models loop to immediately fallback to next key!
+                            logger.warning(f"Gemini API model {model_name} on key {key_masked} hit quota/rate limit ({resp.status}), trying next available model...")
+                            last_err = f"Key {key_masked} Quota on {model_name} (HTTP {resp.status})"
+                            continue
 
                         elif resp.status in (404, 500, 503):
                             logger.warning(f"Gemini API model {model_name} with key {key_masked} returned status {resp.status} ({err_body[:100]}), trying next model...")
@@ -480,12 +481,22 @@ async def call_gemini_ai(
                 last_err = gemini_err
                 continue
 
-        if key_rate_limited:
-            continue
-
-    if not all_media:
-        return await call_ai_generation(prompt, system_instruction, json_mode=json_mode)
-    raise ValueError(f"Failed to generate content with Gemini models ({last_err}).")
+    # If all Gemini models and keys fail, fall back to Groq text AI generation rather than remaining silent
+    try:
+        logger.warning(f"All Gemini models/keys exhausted ({last_err}), attempting fallback to Groq...")
+        fallback_prompt = prompt if prompt else "Analyze this message."
+        if all_media:
+            fallback_prompt = (
+                f"{fallback_prompt}\n\n"
+                f"[Note: The user attached {len(all_media)} image(s)/GIF(s), but vision AI processing is temporarily unavailable due to upstream API quota. "
+                f"Acknowledge the user's attachment warmly, answer their question as best as possible, and politely ask them to describe the image or try again shortly.]"
+            )
+        return await call_ai_generation(fallback_prompt, system_instruction, json_mode=json_mode)
+    except Exception as fallback_err:
+        logger.error(f"Fallback generation also failed: {fallback_err}")
+        if all_media:
+            return "I saw your image, but my visual sensors are temporarily overwhelmed right now! 🌸 Could you tell me a little bit about what's in it or try again in a moment?"
+        return "I'm having a tiny bit of trouble thinking right now! ✨ Could you try asking me again?" 
 
 
 async def extract_all_visual_media(message: discord.Message) -> List[Tuple[bytes, str]]:
@@ -760,6 +771,8 @@ async def answer_question_with_ai(
     replied_context: str = ""
 ) -> str:
     """Answers user questions and analyzes images/GIFs with deep vision, OCR, context understanding, memory, and loyalty to Naraito."""
+    if bot.user and query:
+        query = re.sub(rf'<@!?{bot.user.id}>', '', query).strip()
     server_info = f"in the Discord server '{server_name}'" if server_name else "on Discord"
     author_info = f"from {author_name}" if author_name else ""
     
@@ -27473,13 +27486,20 @@ async def on_message(message):
             pass
         else:
             # Check if bot is directly mentioned or replied to in a guild
-            is_direct = (bot.user and bot.user in message.mentions) or (
-                message.reference and 
-                message.reference.resolved and 
-                isinstance(message.reference.resolved, discord.Message) and 
-                bot.user and 
-                message.reference.resolved.author == bot.user
-            )
+            is_direct = bool(bot.user and bot.user in message.mentions)
+            if not is_direct and message.reference:
+                if message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
+                    if bot.user and message.reference.resolved.author == bot.user:
+                        is_direct = True
+                elif getattr(message.reference, 'cached_message', None) and bot.user and message.reference.cached_message.author == bot.user:
+                    is_direct = True
+                elif message.reference.message_id and hasattr(message.channel, "fetch_message"):
+                    try:
+                        ref_msg_check = await message.channel.fetch_message(message.reference.message_id)
+                        if bot.user and ref_msg_check.author == bot.user:
+                            is_direct = True
+                    except Exception:
+                        pass
 
             ai_reply_enabled = False
             if message.guild:
@@ -27499,10 +27519,15 @@ async def on_message(message):
                 else:
                     is_question = True
                     query = message.content.strip()
+                    if bot.user:
+                        query = re.sub(rf'<@!?{bot.user.id}>', '', query).strip()
+
                     if message.guild and not is_direct:
-                        is_question, query = is_question_message(message, require_qmark=require_qmark)
+                        is_question, _q = is_question_message(message, require_qmark=require_qmark)
+                        if not is_question:
+                            query = ""
                     
-                    if (is_question or is_dm) and (query or message.attachments or message.embeds):
+                    if (is_question or is_dm or is_direct) and (query or message.attachments or message.embeds):
                         allowed, remaining = _check_user_cooldown(message.author.id)
                         if not allowed:
                             logger.info(f"AI question rate limited for user {message.author.id} (wait {remaining}s)")
@@ -27556,6 +27581,10 @@ async def on_message(message):
                                                     await message.channel.send(chunk)
                                 except Exception as ai_err:
                                     logger.error(f"Error answering question with AI in chat: {ai_err}", exc_info=True)
+                                    try:
+                                        await message.reply("I saw your message, but my brain had a tiny hiccup processing it! ✨ Could you try asking me again?", mention_author=True)
+                                    except Exception:
+                                        pass
 
 
         # ── NBA 2K Mobile Direct Chat Guessing ────────────────────────────────
