@@ -2224,7 +2224,7 @@ class SearchResultsView(discord.ui.View):
                 else:
                     msg = await interaction.edit_original_response(embed=np_embed, view=np_view)
                     state.np_message = msg
-                state.update_task = self.cog.asyncio.create_task(
+                state.update_task = asyncio.create_task(
                     self.cog.live_updater(interaction.guild)
                 )
 
@@ -2479,7 +2479,7 @@ class SpotifyPlaylistsView(discord.ui.View):
                 except Exception:
                     pass
 
-            tracks = await self.cog.asyncio.get_running_loop().run_in_executor(
+            tracks = await asyncio.get_running_loop().run_in_executor(
                 None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
             )
             if not tracks:
@@ -2514,7 +2514,7 @@ class SpotifyPlaylistsView(discord.ui.View):
             return await interaction.response.send_message("❌ No playlist selected.", ephemeral=True)
 
         await interaction.response.defer(ephemeral=True)
-        tracks = await self.cog.asyncio.get_running_loop().run_in_executor(
+        tracks = await asyncio.get_running_loop().run_in_executor(
             None, lambda: extract_spotify_playlist_tracks_public(self.selected_url)
         )
         if not tracks:
