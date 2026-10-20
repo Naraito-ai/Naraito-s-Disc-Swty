@@ -2167,9 +2167,7 @@ class SearchResultsView(discord.ui.View):
                 state.pause_start = None
                 state.voice_client.play(
                     result,
-                    after=lambda e: self.cog.asyncio.create_task(
-                        self.cog.play_next(interaction.guild)
-                    )
+                    after=lambda e: self.cog.schedule_play_next(interaction.guild)
                 )
                 await self.cog.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                 np_embed = await self.cog.build_np_embed(state)
@@ -2499,8 +2497,20 @@ class Music(commands.Cog):
 
     async def cog_load(self):
         """Start 24/7 voice watchdog supervisor loop and restore saved queues when cog loads."""
+        self.loop = asyncio.get_running_loop()
         self._watchdog_task = asyncio.create_task(self._watchdog_247_loop())
         asyncio.create_task(self._restore_saved_queues())
+
+    def schedule_play_next(self, guild: discord.Guild):
+        """Thread-safely schedules play_next on the main asyncio event loop from the audio thread."""
+        try:
+            loop = getattr(self, "loop", None) or getattr(self.bot, "loop", None)
+            if loop and loop.is_running():
+                asyncio.run_coroutine_threadsafe(self.play_next(guild), loop)
+            else:
+                asyncio.create_task(self.play_next(guild))
+        except Exception as e:
+            logger.debug(f"Error scheduling play_next: {e}")
 
     async def cog_unload(self):
         """Cancel watchdog task when cog is unloaded."""
@@ -3011,7 +3021,7 @@ class Music(commands.Cog):
 
         state.voice_client.play(
             ytdl_src,
-            after=lambda e: asyncio.create_task(self.play_next(interaction.guild))
+            after=lambda e: self.schedule_play_next(interaction.guild)
         )
         await self.set_vc_status(vc, f"📻 {station['name']}")
 
@@ -3258,7 +3268,7 @@ class Music(commands.Cog):
             state.pause_start = None
             state.voice_client.play(
                 source,
-                after=lambda e: asyncio.create_task(self.play_next(guild))
+                after=lambda e: self.schedule_play_next(guild)
             )
             state.current = source
             await self.set_vc_status(state.voice_client.channel, f"🎶 {source.title}")
@@ -3328,7 +3338,7 @@ class Music(commands.Cog):
 
         state.voice_client.play(
             source,
-            after=lambda e: asyncio.create_task(self.play_next(guild))
+            after=lambda e: self.schedule_play_next(guild)
         )
         await self.set_vc_status(state.voice_client.channel, f"🎶 {source.title}")
 
@@ -3459,7 +3469,7 @@ class Music(commands.Cog):
                     state.pause_start = None
                     state.voice_client.play(
                         result,
-                        after=lambda e: asyncio.create_task(self.play_next(interaction.guild))
+                        after=lambda e: self.schedule_play_next(interaction.guild)
                     )
                     await self.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                     embed = await self.build_np_embed(state)
@@ -3810,7 +3820,7 @@ class Music(commands.Cog):
                     state.pause_start = None
                     state.voice_client.play(
                         result,
-                        after=lambda e: asyncio.create_task(self.play_next(ctx.guild))
+                        after=lambda e: self.schedule_play_next(ctx.guild)
                     )
                     await self.set_vc_status(state.voice_client.channel, f"🎶 {result.title}")
                     embed = await self.build_np_embed(state)
@@ -4263,7 +4273,7 @@ class Music(commands.Cog):
             state.current = source
             state.voice_client.play(
                 source,
-                after=lambda e: asyncio.create_task(self.play_next(interaction.guild))
+                after=lambda e: self.schedule_play_next(interaction.guild)
             )
             embed = await self.build_np_embed(state)
             if state.np_message:
@@ -4309,7 +4319,7 @@ class Music(commands.Cog):
             state.current = source
             state.voice_client.play(
                 source,
-                after=lambda e: asyncio.create_task(self.play_next(ctx.guild))
+                after=lambda e: self.schedule_play_next(ctx.guild)
             )
             embed = await self.build_np_embed(state)
             if state.np_message:
@@ -5254,7 +5264,7 @@ class Music(commands.Cog):
 
         state.voice_client.play(
             ytdl_src,
-            after=lambda e: asyncio.create_task(self.play_next(ctx.guild))
+            after=lambda e: self.schedule_play_next(ctx.guild)
         )
         await self.set_vc_status(vc, f"📻 {st_info['name']}")
 
