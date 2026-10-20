@@ -310,10 +310,63 @@ async def call_ai_generation(prompt, system_instruction, json_mode=False):
 
 GEMINI_VISION_MODELS = [
     "gemini-2.5-flash",
+    "gemini-flash-lite-latest",
+    "gemini-3.8-flash",
+    "gemini-flash-latest",
     "gemini-2.5-flash-lite",
-    "gemini-3.5-flash-lite",
-    "gemini-flash-latest"
+    "gemini-3.5-flash-lite"
 ]
+
+_gemini_key_counter = 0
+_gemini_key_lock = asyncio.Lock()
+
+
+def get_gemini_api_keys() -> List[str]:
+    """
+    Retrieves the list of configured Gemini API keys from environment variables.
+    Checks GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEYS, and legacy GEMINI_API_KEY.
+    """
+    keys: List[str] = []
+    # Primary numbered keys
+    for var in ("GEMINI_API_KEY_1", "GEMINI_API_KEY_2"):
+        val = os.getenv(var, "").strip().strip('"').strip("'")
+        if val and val not in keys:
+            keys.append(val)
+
+    # Optional comma or space-separated list
+    keys_csv = os.getenv("GEMINI_API_KEYS", "").strip().strip('"').strip("'")
+    if keys_csv:
+        for k in keys_csv.replace(",", " ").split():
+            k_clean = k.strip()
+            if k_clean and k_clean not in keys:
+                keys.append(k_clean)
+
+    # Fallback to single legacy GEMINI_API_KEY
+    legacy_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
+    if legacy_key and legacy_key not in keys:
+        keys.append(legacy_key)
+
+    return keys
+
+
+async def get_next_gemini_keys_sequence() -> List[str]:
+    """
+    Returns an ordered list of Gemini API keys for the current request.
+    Rotates the starting key on every request (round-robin between GEMINI_API_KEY_1 and GEMINI_API_KEY_2),
+    with remaining keys following immediately for quota/rate-limit fallback.
+    """
+    keys = get_gemini_api_keys()
+    if not keys:
+        return []
+    if len(keys) == 1:
+        return list(keys)
+
+    global _gemini_key_counter
+    async with _gemini_key_lock:
+        start_idx = _gemini_key_counter % len(keys)
+        _gemini_key_counter += 1
+
+    return keys[start_idx:] + keys[:start_idx]
 
 
 async def call_gemini_ai(
@@ -326,11 +379,12 @@ async def call_gemini_ai(
 ) -> str:
     """
     Generates content or deeply analyzes images/GIFs/documents using Google Gemini Multimodal Vision models.
-    Supports multi-image input (media_list) and resilient automatic fallback across Gemini vision endpoints.
-    Falls back to Groq if Gemini key is missing or for text-only queries.
+    Rotates across GEMINI_API_KEY_1 and GEMINI_API_KEY_2 on every request, automatically falling back
+    to the next key upon encountering 429 rate limits or quota exhaustion.
+    Falls back to Groq if all Gemini keys/models fail and no visual media is present.
     """
-    gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
-    if not gemini_key:
+    gemini_keys = await get_next_gemini_keys_sequence()
+    if not gemini_keys:
         return await call_ai_generation(prompt, system_instruction, json_mode=json_mode)
 
     # Consolidate media items into a list of (bytes, mime)
@@ -379,41 +433,57 @@ async def call_gemini_ai(
     if json_mode:
         payload["generationConfig"]["responseMimeType"] = "application/json"
 
-    # Multi-model fallback sequence
+    # Multi-key and multi-model rotation & fallback sequence
     last_err = None
-    for model_name in GEMINI_VISION_MODELS:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
-        try:
-            client_timeout = aiohttp.ClientTimeout(total=28)
-            async with aiohttp.ClientSession(timeout=client_timeout) as session:
-                async with session.post(url, json=payload) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        candidates = res_data.get("candidates", [])
-                        if candidates:
-                            parts_out = candidates[0].get("content", {}).get("parts", [])
-                            if parts_out:
-                                text = parts_out[0].get("text", "").strip()
-                                if json_mode:
-                                    text = extract_json(text)
-                                return text
-                    elif resp.status in (429, 503, 500, 404):
+    for key_idx, gemini_key in enumerate(gemini_keys, 1):
+        key_masked = f"...{gemini_key[-6:]}" if len(gemini_key) > 6 else "key"
+        key_rate_limited = False
+
+        for model_name in GEMINI_VISION_MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
+            try:
+                client_timeout = aiohttp.ClientTimeout(total=28)
+                async with aiohttp.ClientSession(timeout=client_timeout) as session:
+                    async with session.post(url, json=payload) as resp:
+                        if resp.status == 200:
+                            res_data = await resp.json()
+                            candidates = res_data.get("candidates", [])
+                            if candidates:
+                                parts_out = candidates[0].get("content", {}).get("parts", [])
+                                if parts_out:
+                                    text = parts_out[0].get("text", "").strip()
+                                    if json_mode:
+                                        text = extract_json(text)
+                                    return text
+
                         err_body = await resp.text()
-                        logger.warning(f"Gemini API model {model_name} returned status {resp.status} ({err_body[:120]}), trying next vision model...")
-                        last_err = f"HTTP {resp.status} on {model_name}"
-                        continue
-                    else:
-                        err_body = await resp.text()
-                        logger.warning(f"Gemini API returned status {resp.status}: {err_body[:200]}")
-                        last_err = f"HTTP {resp.status}: {err_body[:100]}"
-        except Exception as gemini_err:
-            logger.warning(f"Gemini generation error on model {model_name}: {gemini_err}, trying next fallback...")
-            last_err = gemini_err
+
+                        # Check for rate limit or quota exhaustion (429, 403 quota, RESOURCE_EXHAUSTED)
+                        if resp.status == 429 or "RESOURCE_EXHAUSTED" in err_body or "quota" in err_body.lower() or "rate limit" in err_body.lower():
+                            logger.warning(f"Gemini Key #{key_idx} ({key_masked}) hit rate limit/quota error ({resp.status}). Rotating to next key...")
+                            last_err = f"Key {key_masked} Quota/Rate Limit (HTTP {resp.status})"
+                            key_rate_limited = True
+                            break  # Break out of models loop to immediately fallback to next key!
+
+                        elif resp.status in (404, 500, 503):
+                            logger.warning(f"Gemini API model {model_name} with key {key_masked} returned status {resp.status} ({err_body[:100]}), trying next model...")
+                            last_err = f"HTTP {resp.status} on {model_name}"
+                            continue
+
+                        else:
+                            logger.warning(f"Gemini API returned status {resp.status}: {err_body[:160]}")
+                            last_err = f"HTTP {resp.status}: {err_body[:100]}"
+            except Exception as gemini_err:
+                logger.warning(f"Gemini generation error on model {model_name} with key {key_masked}: {gemini_err}")
+                last_err = gemini_err
+                continue
+
+        if key_rate_limited:
             continue
 
     if not all_media:
         return await call_ai_generation(prompt, system_instruction, json_mode=json_mode)
-    raise ValueError(f"Failed to analyze visual media with Gemini vision models ({last_err}).")
+    raise ValueError(f"Failed to generate content with Gemini models ({last_err}).")
 
 
 async def extract_all_visual_media(message: discord.Message) -> List[Tuple[bytes, str]]:
@@ -19500,9 +19570,9 @@ async def automod_command(interaction: discord.Interaction, status: str, mode: s
     try:
         if status == "on":
             if mode == "ai":
-                gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip('"').strip("'")
+                has_gemini = bool(get_gemini_api_keys())
                 groq_key = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
-                if not gemini_key and not groq_key:
+                if not has_gemini and not groq_key:
                     await interaction.response.send_message("❌ **Cannot enable AI Scanner**: Neither `GEMINI_API_KEY` nor `GROQ_API_KEY` is set in the environment variables.", ephemeral=True)
                     return
                     
