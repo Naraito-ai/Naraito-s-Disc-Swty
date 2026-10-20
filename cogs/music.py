@@ -2452,6 +2452,38 @@ class Music(commands.Cog):
         self._watchdog_task: Optional[asyncio.Task] = None
         self._reconnecting_guilds: set[int] = set()
 
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        """
+        Runs automatically when the bot joins or moves to a voice channel.
+        Queries guild.bitrate_limit and auto-patches the channel's bitrate
+        to its absolute maximum capacity to eliminate server-side audio compression.
+        """
+        if member.id == self.bot.user.id and after.channel and isinstance(after.channel, (discord.VoiceChannel, discord.StageChannel)):
+            await self.auto_maximize_channel_bitrate(after.channel)
+
+    async def auto_maximize_channel_bitrate(self, channel: Union[discord.VoiceChannel, discord.StageChannel]):
+        """
+        Dynamically inspects guild.bitrate_limit and upgrades channel bitrate if below capacity.
+        Guarded against Discord API rate limits by checking current bitrate before editing.
+        """
+        try:
+            guild = channel.guild
+            max_bitrate = int(getattr(guild, "bitrate_limit", 96000))
+            current_bitrate = getattr(channel, "bitrate", 64000)
+
+            if current_bitrate < max_bitrate:
+                bot_member = guild.me or guild.get_member(self.bot.user.id)
+                if bot_member and channel.permissions_for(bot_member).manage_channels:
+                    await channel.edit(bitrate=max_bitrate, reason="Sweety Ultra-High Fidelity: Auto Maximize Bitrate")
+                    logger.info(f"🔊 Auto-tuned #{channel.name} bitrate to {max_bitrate // 1000}kbps in '{guild.name}' (Tier Max).")
+                else:
+                    logger.debug(f"Missing 'Manage Channels' permission in '{guild.name}' to auto-upgrade bitrate.")
+        except discord.Forbidden:
+            logger.debug(f"Forbidden error trying to edit bitrate for #{channel.name}.")
+        except Exception as e:
+            logger.warning(f"Error auto-maximizing voice bitrate: {e}")
+
     async def cog_check(self, ctx: commands.Context) -> bool:
         """Ensure all Music cog commands are always whitelisted regardless of server mode."""
         return True
@@ -3272,6 +3304,18 @@ class Music(commands.Cog):
         state.played_history.append(track_data)
         source = await YTDLSource.regrab_stream(track_data, state.volume, audio_filter=state.filter)
         state.current = source
+        # Asynchronously log to Supabase song_history & in-memory cache
+        if hasattr(self.bot, "db") and hasattr(self.bot.db, "log_song_history"):
+            self.bot.loop.create_task(
+                self.bot.db.log_song_history(
+                    guild_id=guild.id,
+                    song_title=getattr(source, "title", "Unknown"),
+                    uri=track_data.get("webpage_url") or track_data.get("url") or "",
+                    duration=int(getattr(source, "duration", 0) or 0),
+                    requester=str(track_data.get("requester") or "")
+                )
+            )
+
         state.skip_votes.clear()
         state.start_time = time.time()
         state.paused_elapsed = 0.0

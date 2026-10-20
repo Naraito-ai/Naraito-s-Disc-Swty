@@ -17512,7 +17512,7 @@ class GeminiBot(commands.Bot):
         if not disable_api and not globals().get("_fastapi_server_started", False):
             try:
                 from api import start_fastapi
-                port = int(os.getenv("PORT", 8080))
+                port = int(os.getenv("PORT", 10000))
                 globals()["_fastapi_server_started"] = True
                 asyncio.create_task(start_fastapi(self, db, port))
                 logger.info(f"FastAPI dashboard task scheduled on port {port}.")
@@ -27727,7 +27727,7 @@ async def run_fastapi_server():
     if not disable_api:
         try:
             from api import start_fastapi
-            port = int(os.getenv("PORT", 8080))
+            port = int(os.getenv("PORT", 10000))
             _fastapi_server_started = True
             logger.info(f"🌐 [RENDER BOOT] Starting FastAPI server immediately on port {port}...")
             await start_fastapi(bot, db, port, gateway_state=_gateway_state)

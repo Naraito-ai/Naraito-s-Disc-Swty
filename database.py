@@ -11,6 +11,10 @@ from typing import Optional, List, Dict, Any, Tuple, Union, Set
 
 logger = logging.getLogger("GeminiBot.Database")
 
+
+# In-memory fast cache to skip external network lookups on repeat requests
+_IN_MEMORY_SONG_CACHE: Dict[str, Dict[str, Any]] = {}
+
 class DatabaseManager:
     def __init__(self):
         self.db_url = os.getenv("DATABASE_URL")
@@ -149,6 +153,21 @@ class DatabaseManager:
                 reason TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            """,
+            # Song History Table (Supabase Cache)
+            """
+            CREATE TABLE IF NOT EXISTS song_history (
+                id SERIAL PRIMARY KEY,
+                guild_id BIGINT NOT NULL,
+                song_title TEXT NOT NULL,
+                uri TEXT NOT NULL,
+                duration INTEGER DEFAULT 0,
+                requester TEXT DEFAULT '',
+                played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_song_history_guild_id ON song_history (guild_id);
             """,
             # AI Usage Tracking Table
             """
@@ -2627,6 +2646,40 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error loading saved music queues: {e}")
             return {}
+
+    # ── Song History & In-Memory Audio Cache ──────────────────────────────
+    async def log_song_history(self, guild_id: int, song_title: str, uri: str, duration: int = 0, requester: str = ""):
+        """Logs played song to Supabase/SQLite song_history and caches metadata."""
+        _IN_MEMORY_SONG_CACHE[uri.lower()] = {
+            "title": song_title,
+            "uri": uri,
+            "duration": duration,
+            "cached_at": time.time()
+        }
+        if self.is_postgres and self.pg_pool:
+            try:
+                query = """
+                INSERT INTO song_history (guild_id, song_title, uri, duration, requester, played_at)
+                VALUES ($1, $2, $3, $4, $5, NOW())
+                """
+                async with self.pg_pool.acquire() as conn:
+                    await conn.execute(query, int(guild_id), song_title, uri, duration, str(requester))
+            except Exception as e:
+                logger.error(f"Failed to log song to Supabase: {e}")
+        elif self.sqlite_conn:
+            try:
+                async with self._sqlite_lock:
+                    await self.sqlite_conn.execute(
+                        "INSERT INTO song_history (guild_id, song_title, uri, duration, requester) VALUES (?, ?, ?, ?, ?)",
+                        (int(guild_id), song_title, uri, duration, str(requester))
+                    )
+                    await self.sqlite_conn.commit()
+            except Exception as e:
+                logger.error(f"Failed to log song to SQLite: {e}")
+
+    def get_cached_song(self, query_or_uri: str) -> Optional[Dict[str, Any]]:
+        """Returns in-memory cached track metadata if available (0ms lookup)."""
+        return _IN_MEMORY_SONG_CACHE.get(query_or_uri.strip().lower())
 
     async def close(self):
         """Closes all database connections."""
