@@ -18320,65 +18320,65 @@ async def forget_prefix_cmd(ctx: commands.Context, *, key: str = ""):
 # ── Interactive Help Menu & System Guide ──────────────────────────────────────
 
 def make_help_embed(category: str = "all") -> discord.Embed:
-    """Builds categorical and global help guide embeds with all features."""
+    """Builds comprehensive categorical and global help guide embeds covering all Slash (/) and Prefix (!) commands."""
     if category == "nba_2k":
         embed = discord.Embed(
             title="🏀 NBA 2K Mobile Card Dex, Shootout & Economy Commands",
-            description="Collect authentic NBA 2K Mobile player cards, open packs, compete in 3-Point Shootouts, earn VC, and catch wild court drops!",
+            description="Collect authentic NBA 2K Mobile player cards, open packs, compete in 3-Point Shootouts, earn VC, and catch wild court drops!\n*All commands work with both Slash (`/`) and Prefix (`!`)*",
             color=discord.Color.from_rgb(235, 94, 40)
         )
         embed.add_field(
-            name="📦 **Packs & Drops**",
+            name="📦 **Packs & Drops (`/` and `!`)**",
             value=(
-                "• `/spawndrop [tier]` / `!spawndrop` — Instantly spawn a wild NBA 2K card drop on the court\n"
-                "• `/openpack [tier]` / `!openpack` — Open Starter (250 VC), Standard (750 VC), All-Star (1.5k VC), HOF (3k VC) & G.O.A.T. (5k VC) packs (with pity protection!)\n"
-                "• `/packodds` / `!packodds` — View exact pack drop rates and card tier odds\n"
-                "• `/catch <player>` / `!catch <name>` — First to guess player name catches wild drops in chat\n"
-                "• `/nbahint` / `!nbahint` — Reveal progressive letter hints for active wild court drops"
+                "• `/spawndrop [tier]` or `!spawndrop` — Instantly spawn a wild NBA 2K card drop on the court\n"
+                "• `/openpack [tier]` or `!openpack` — Open Starter (250 VC), Standard (750 VC), All-Star (1.5k VC), HOF (3k VC) & G.O.A.T. (5k VC) packs\n"
+                "• `/packodds` or `!packodds` — View exact pack drop rates and tier probabilities\n"
+                "• `!catch <player>` or type name directly in chat — Catch wild drops on the court\n"
+                "• `/nbahint` or `!nbahint` — Reveal progressive letter hints for active drops"
             ),
             inline=False
         )
         embed.add_field(
-            name="📖 **Binder & Inventory**",
+            name="📖 **Binder & Inventory (`/` and `!`)**",
             value=(
-                "• `/nbadex [page]` / `!nbadex` — Open your interactive NBA 2K Card Binder (includes 🔒 Privacy Toggle)\n"
-                "• `/nbaprivacy` / `!nbaprivacy` — Toggle public/private visibility for your card dex\n"
-                "• `/nbacard <card_id>` / `!nbacard` — View high-res 2K card stats, tier, OVR rating & attributes\n"
-                "• `/nbafav <card_id>` / `!nbafav` — Set your favorite showcase card on your profile\n"
-                "• `/nbafuse <card_id>` / `!nbafuse` — Combine 3 duplicate copies into a permanent Holo / Foil Edition (+5 OVR & +20% quick-sell VC)\n"
-                "• `/giftcard @user <card_id>` / `!nbagive` — Gift an owned card to another member (Exclusive cards account-bound)"
+                "• `/nbadex [page]` or `!nbadex` — Open your interactive NBA 2K Card Binder (includes 🔒 Privacy Toggle)\n"
+                "• `/nbaprivacy` or `!nbaprivacy` — Toggle public/private visibility for your card dex\n"
+                "• `/nbacard <card_id>` or `!nbacard` — View high-res 2K card stats, tier, OVR rating & attributes\n"
+                "• `/nbafav <card_id>` or `!nbafav` — Set your favorite showcase card on your profile\n"
+                "• `/nbafuse <card_id>` or `!nbafuse` — Combine 3 duplicate copies into a Holo Foil Edition (+5 OVR & +20% VC)\n"
+                "• `/nbagive @user <card_id>` or `!nbagive` — Gift an owned card to another member"
             ),
             inline=False
         )
         embed.add_field(
-            name="🎯 **3-Point Shootout Contest**",
+            name="🎯 **3-Point Shootout Contest (`/` and `!`)**",
             value=(
-                "• `/shootout [bet]` / `!shootout` / `!3pt` — Play fast-paced NBA 3-Point Contest (5 racks, Money & Starry balls)\n"
-                "• `/shootout duel @user [bet]` / `!shootout @user` — Challenge a friend to a live 1v1 3PT shootout wager\n"
-                "• `!shootout lb` / `!3pt lb` — View global 3-Point Shootout high scores leaderboard"
+                "• `/shootout [bet]` or `!shootout` / `!3pt` — Play fast-paced NBA 3-Point Contest (5 racks, Money & Starry balls)\n"
+                "• `/shootout duel @user [bet]` or `!shootout @user` — Challenge a friend to a 1v1 3PT shootout wager\n"
+                "• `!shootout lb` or `!3pt lb` — View global 3-Point Shootout leaderboard"
             ),
             inline=False
         )
         embed.add_field(
-            name="💰 **Virtual Currency (VC) & Market**",
+            name="💰 **Virtual Currency (VC) & Market (`/` and `!`)**",
             value=(
-                "• `/nbadaily` / `!nbadaily` — Claim daily 1,000 VC bonus & guaranteed Gold/Ruby/Amethyst card deposit\n"
-                "• `/nbaweekly` / `!nbaweekly` — Claim weekly 5,000 VC salary & guaranteed Ruby/Amethyst/Diamond card deposit\n"
-                "• `/nbamonthly` / `!nbamonthly` — Claim grand monthly 25,000 VC VIP salary & guaranteed Diamond/Galaxy Opal/Dark Matter card deposit\n"
-                "• `/nbabal [@user]` / `!nbabal` — Check your current VC wallet balance & pack stats\n"
-                "• `/nbasell` / `!nbasell` — Sell single card, quantity (`/nbasell quantity:3`), duplicates (`/nbasell dupes:true`), or tier (`/nbasell tier:gold all:true`)\n"
-                "• `/nbatrade @user` / `!nbatrade` — Secure multi-card & VC trade floor with countdown confirmation\n"
-                "• `/nbatop [cards|vc]` / `!nbatop` — Server leaderboards for top VC tycoons and card collectors"
+                "• `/nbadaily` or `!nbadaily` — Claim daily 1,000 VC bonus & guaranteed card deposit\n"
+                "• `/nbaweekly` or `!nbaweekly` — Claim weekly 5,000 VC salary & guaranteed card deposit\n"
+                "• `/nbamonthly` or `!nbamonthly` — Claim grand monthly 25,000 VC VIP salary\n"
+                "• `/nbabal [@user]` or `!nbabal` / `!vc` — Check your current VC wallet balance\n"
+                "• `/nbasell` or `!nbasell` — Quicksell duplicate cards for VC\n"
+                "• `/nbatrade @user` or `!nbatrade` — Secure multi-card & VC trade floor\n"
+                "• `/nbatop [cards|vc]` or `!nbatop` — Leaderboards for top VC tycoons and card collectors"
             ),
             inline=False
         )
         embed.add_field(
-            name="👑 **Server Events & World Boss Raids**",
+            name="👑 **Server Events & World Boss Raids (`/` and `!`)**",
             value=(
-                "• `/event status` / `!event status` — View active server event, leaderboard & boss HP\n"
-                "• `/event raid` / `!event raid` / `!event attack` — Attack Community Raid Boss with Starting 5 for multi-tier rewards\n"
-                "• `/event list` / `!event list` — View past server event history and rewarded champions\n"
-                "• `/event create|end|reward|cancel` — Creator tools to host tournaments with real Exclusive Immortal prizes"
+                "• `/event status` or `!event status` — View active server event, leaderboard & boss HP\n"
+                "• `/event raid` or `!event raid` / `!event attack` — Attack Community Raid Boss with Starting 5\n"
+                "• `/event list` or `!event list` — View past server event history and rewarded champions\n"
+                "• `!event create|end|reward|cancel` — Host server tournaments with Immortal prizes"
             ),
             inline=False
         )
@@ -18388,26 +18388,26 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     elif category == "dream_team":
         embed = discord.Embed(
             title="🏆 NBA 2K Starting 5 GM, Battles & VC Wagering",
-            description="Build your 5-man fantasy lineup from your card binder and battle other managers in live matchmaking & high-stakes wagers! Earn +10% VC per win streak (up to +100%)!",
+            description="Build your 5-man fantasy lineup from your card binder and battle other managers in live matchmaking & high-stakes wagers! Earn +10% VC per win streak!\n*All commands work with both Slash (`/`) and Prefix (`!`)*",
             color=discord.Color.gold()
         )
         embed.add_field(
-            name="📋 **Lineup & Squad Management**",
+            name="📋 **Lineup & Squad Management (`/` and `!`)**",
             value=(
-                "• `/autoteam` / `!autoteam` — Automatically slot your 5 highest OVR cards into Starting 5\n"
-                "• `/buildteam` / `!buildteam` — Interactive GM Lineup Builder using your owned cards\n"
-                "• `/myteam [user]` / `!myteam` — Generate high-res visual squad card, win streaks & GM badges\n"
-                "• `/setupnbachannel` / `!setupnbachannel` — Create a dedicated arena channel in the 2K Mobile Hub category"
+                "• `/autoteam` or `!autoteam` — Automatically slot your 5 highest OVR cards into Starting 5\n"
+                "• `/buildteam` or `!buildteam` — Interactive GM Lineup Builder using your owned cards\n"
+                "• `/myteam [user]` or `!myteam` — Generate high-res visual squad card, win streaks & GM badges\n"
+                "• `/setupnbachannel` or `!setupnbachannel` — Create dedicated arena channel in 2K Mobile Hub"
             ),
             inline=False
         )
         embed.add_field(
-            name="⚔️ **Matchmaking, Battles & VC Wagers**",
+            name="⚔️ **Matchmaking, Battles & VC Wagers (`/` and `!`)**",
             value=(
-                "• `/teamqueue` / `!teamqueue` — Enter live matchmaking arena queue (+10% VC per win streak!)\n"
-                "• `/teambattle <user>` / `!teambattle` — Challenge any server member to a head-to-head 5v5 showdown\n"
-                "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 Starting 5 clash (winner takes pot)\n"
-                "• `/teamleaderboard` / `!teamlb` / `!teamtop` / `!gmtop` — View server top-ranked Starting 5s and GM ratings"
+                "• `/teamqueue` or `!teamqueue` — Enter live matchmaking arena queue (+10% VC per win streak!)\n"
+                "• `/teambattle <user>` or `!teambattle` — Challenge any server member to a 5v5 showdown\n"
+                "• `/vcbet @user <amount>` or `!vcbet <@user> <amt>` — Wager VC on a 5v5 Starting 5 clash\n"
+                "• `/teamleaderboard` or `!teamlb` / `!teamtop` / `!gmtop` — View server top-ranked Starting 5s and GM ratings"
             ),
             inline=False
         )
@@ -18416,21 +18416,31 @@ def make_help_embed(category: str = "all") -> discord.Embed:
 
     elif category == "ai":
         embed = discord.Embed(
-            title="🧠 AI Intelligence & Persistent Memory",
-            description="Powered by Google Gemini 2.5 Flash & Groq with personalized long-term memory!",
+            title="🧠 AI Intelligence, Natural Chat & Vision",
+            description="Powered by Google Gemini 2.5 Flash with dual-key failover and personalized memory!",
             color=discord.Color.purple()
         )
         embed.add_field(
-            name="💬 **Personalized AI Assistant**",
+            name="💬 **Chat & Image Reading (No Slash Needed!)**",
             value=(
-                "• `/ask <question>` — Ask Sweety anything with intelligent memory recall\n"
-                "• `/remember <fact>` / `!remember` — Save personal facts, preferences, and details\n"
-                "• `/memories [user]` / `!memories` — View all remembered profile facts\n"
-                "• `/forget [key]` / `!forget` — Wipe specific or all saved memories"
+                "• `@Sweety <question>` — Ask anything directly in chat with memory personalization\n"
+                "• `!ask <question>` — Prompt Gemini AI with optional prefix command\n"
+                "• `@Sweety [attach photo/screenshot]` — Deep visual AI: reads text/OCR, solves code, and inspects images\n"
+                "• **Reply to Sweety:** Click Reply on any of Sweety's messages to continue the conversation seamlessly"
             ),
             inline=False
         )
-        embed.set_footer(text="🧠 Gemini 2.5 Flash / Groq AI • Select another category below to explore more")
+        embed.add_field(
+            name="💾 **Persistent Memory (`/` and `!`)**",
+            value=(
+                "• `/remember <fact>` or `!remember <fact>` — Teach Sweety personal facts or preferences\n"
+                "• `/memories [user]` or `!memories` — View your remembered profile facts\n"
+                "• `/forget [key]` or `!forget [key]` — Wipe specific or all saved memories\n"
+                "• `/setaireply` — Configure auto-reply channels and question mark triggers"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="🧠 Gemini 2.5 Flash Multimodal AI • Select another category below to explore more")
         return embed
 
     elif category == "architect":
@@ -18440,11 +18450,11 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             color=discord.Color.blue()
         )
         embed.add_field(
-            name="🛠️ **Server Generation & Channels**",
+            name="🛠️ **Server Generation & Channels (`/` and `!`)**",
             value=(
                 "• `/setup [theme] [desc]` — Generate full server categories, channels & roles via AI\n"
                 "• `/addcategory <desc>` — AI creates a tailored category with configured channels\n"
-                "• `/createchannel <name>` — Create text or voice channels with custom presets\n"
+                "• `/createchannel <name>` or `!createchannel` — Create text or voice channels with custom presets\n"
                 "• `/aiperms <target> <desc>` — Smart channel permissions overrides generated by AI\n"
                 "• `/dynamicvoice` — Automated Join-to-Create voice channel system\n"
                 "• `/backup` & `/restore <file>` — Export and import full server layouts as JSON"
@@ -18457,34 +18467,35 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     elif category == "moderation":
         embed = discord.Embed(
             title="🛡️ Moderation, Warnings & Server Defense",
-            description="Comprehensive auto-mod, multi-stage infraction enforcement, appeals, and security tools.",
+            description="Comprehensive auto-mod, multi-stage infraction enforcement, appeals, and security tools.\n*All commands work with both Slash (`/`) and Prefix (`!`)*",
             color=discord.Color.red()
         )
         embed.add_field(
-            name="⚠️ **Infractions & Strike Appeals**",
+            name="⚠️ **Infractions & Strike Appeals (`/` and `!`)**",
             value=(
-                "• `/warn <user> [reason]` — Warn a member (auto-escalates to timeout at threshold)\n"
-                "• `/warnings [user]` — View infractions and warning logs with appeal button\n"
-                "• `/clearwarns <user> [amt]` — Clear warnings (all or specified count)\n"
-                "• `/delwarn <id>` — Delete a single infraction by ID\n"
-                "• `/warnleaderboard` — Server infraction leaderboard\n"
-                "• `/appeal [reason]` / `!appeal <reason>` — Submit strike/timeout appeal ticket (DM & server)\n"
-                "• `/appealpanel [channel]` — Post interactive appeal button panel for muted members\n"
-                "• `/appealrole [role]` — Set staff role pinged for new appeal tickets\n"
-                "• `/whois [user]` — Deep audit of member profile, joined dates, roles & history"
+                "• `/warn <user> [reason]` or `!warn` — Warn a member (auto-escalates to timeout at threshold)\n"
+                "• `/warnings [user]` or `!warnings` — View infractions and warning logs with appeal button\n"
+                "• `/clearwarns <user>` or `!clearwarns` — Clear warnings (all or specified count)\n"
+                "• `/delwarn <id>` or `!delwarn` — Delete a single infraction by ID\n"
+                "• `/warnleaderboard` or `!warnlb` — Server infraction leaderboard\n"
+                "• `/appeal [reason]` or `!appeal <reason>` — Submit strike/timeout appeal ticket\n"
+                "• `/appealpanel [channel]` or `!appealpanel` — Post interactive appeal button panel for muted members\n"
+                "• `/appealrole [role]` or `!appealrole` — Set staff role pinged for new appeal tickets\n"
+                "• `/whois [user]` or `!whois` / `!userinfo` — Deep audit of member profile, joined dates, roles & history"
             ),
             inline=False
         )
         embed.add_field(
-            name="⚔️ **Moderation Actions & Defense**",
+            name="⚔️ **Moderation Actions & Defense (`/` and `!`)**",
             value=(
-                "• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n"
-                "• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n"
-                "• `/deafen <user>` / `/undeafen <user>` — Voice deafen\n"
-                "• `/promochannel [action] [channel]` — Auto-mod links-only promotion channels\n"
-                "• `/antighostping [status]` — Expose and catch deleted ghost pings\n"
-                "• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n"
-                "• `/lockdown <status>` / `/purge <num>` & `/unpurge` — Chat freeze & cleaner with Undo"
+                "• `/kick <user>` or `!kick` / `/ban <user>` or `!ban` / `/unban <id>` or `!unban` — Member enforcement\n"
+                "• `/mute <user> <time>` or `!mute` / `!timeout` & `/unmute <user>` or `!unmute` — Timeout controls\n"
+                "• `/deafen <user>` & `/undeafen <user>` or `!undeafen` — Voice deafen management\n"
+                "• `!kissrole set @Role` / `!kissrole remove` / `!kissrole view` — Manage role permissions for `!kiss`\n"
+                "• `/promochannel [action] [channel]` or `!promochannel` — Auto-mod links-only promotion channels\n"
+                "• `/antighostping [status]` or `!antighostping` — Expose and catch deleted ghost pings\n"
+                "• `/snipe` or `!snipe` / `!editsnipe` / `!clearsnipe` — Deleted/edited message inspection\n"
+                "• `/lockdown <status>` or `!lockdown` / `/purge <num>` or `!purge` & `/unpurge` or `!unpurge` — Chat freeze & cleaner"
             ),
             inline=False
         )
@@ -18495,7 +18506,7 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed = discord.Embed(
             title="🎵 24/7 Music & Live Karaoke Stage",
             description=(
-                "High-fidelity music playback with EBU R128 loudness normalization, 24/7 voice persistence, "
+                "Ultra-High Fidelity direct-stream audio engine with auto-bitrate maximization, 24/7 voice persistence, "
                 "curated radio, live synced lyrics teleprompter, and interactive Karaoke Stage judging!\n"
                 "*All commands support both Slash (`/`) and Prefix (`!`) formats.*"
             ),
@@ -18504,14 +18515,15 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         embed.add_field(
             name="🎶 **Music Playback & Controls (`/` and `!`)**",
             value=(
-                "• `/play <song/url>` or `!play` / `!p` — YouTube, Spotify, SoundCloud & direct audio URLs\n"
-                "• `/search <query>` or `!search` — Interactive YouTube search with top 5 picker\n"
-                "• `/nowplaying` or `!nowplaying` / `!np` — Live Spotify-style player card with controls\n"
-                "• `/skip` or `!skip` / `!s` / `!next` — Instant skip (DJ/requester) or community vote skip\n"
+                "• `/play <song/url>` or `!play <song/url>` / `!p` — YouTube, Spotify, SoundCloud & direct audio URLs\n"
+                "• `!bitrate` — Check and auto-maximize voice channel bitrate up to 384kbps\n"
+                "• `/search <query>` or `!search <query>` — Interactive search with top 5 picker\n"
+                "• `/nowplaying` or `!nowplaying` / `!np` — Live Spotify-style player card with interactive buttons\n"
+                "• `/skip` or `!skip` / `!s` — Instant skip (DJ/requester) or community vote skip\n"
                 "• `/pause` & `/resume` or `!pause` & `!resume` / `!unpause` — Pause or resume stream\n"
-                "• `/stop` or `!stop` — Stop playback, clear queue, and release voice channel\n"
-                "• `/volume <10-100>` or `!volume` / `!vol` — Adjust player volume (10% to 100%)\n"
-                "• `/seek <time>` or `!seek` — Jump to timestamp in song (e.g. `/seek 1:30` or `!seek 90`)"
+                "• `/stop` or `!stop` / `!disconnect` / `!dc` / `!leave` — Stop playback, clear queue, and release VC\n"
+                "• `/volume <10-150>` or `!volume <10-150>` / `!vol` — Adjust player volume\n"
+                "• `/seek <time>` or `!seek <seconds>` — Jump to timestamp in song (e.g. `/seek 1:30` or `!seek 90`)"
             ),
             inline=False
         )
@@ -18521,8 +18533,8 @@ def make_help_embed(category: str = "all") -> discord.Embed:
                 "• `/queue` or `!queue` / `!q` — Paginated list of upcoming tracks & total playtime\n"
                 "• `/loop [off|track|queue]` or `!loop` / `!repeat` — Cycle loop modes (Off → Track → Queue)\n"
                 "• `/shuffle` or `!shuffle` — Randomize tracks in the active queue\n"
-                "• `/remove <#>` or `!remove` / `!rm` — Remove a specific song from queue\n"
-                "• `/autoplay` or `!autoplay` — Toggle Smart Autoplay for endless similar songs"
+                "• `/remove <#>` or `!remove <#>` / `!rm` — Remove a specific song from queue\n"
+                "• `!autoplay` — Toggle Smart Autoplay for endless similar recommendations"
             ),
             inline=False
         )
@@ -18530,9 +18542,9 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             name="📻 **24/7 Voice & Curated Radio (`/` and `!`)**",
             value=(
                 "• `/247` or `!247` / `!stay` — Keep Sweety permanently connected to voice 24/7\n"
-                "• `/leave` or `!disconnect` / `!leave` / `!dc` — Disconnect from voice and disable 24/7\n"
-                "• `/radio play <station>` or `!radio <lofi|synthwave|jazz>` — 24/7 curated internet radio streams\n"
-                "• `/radio stop` or `!radio stop` — Stop radio stream playback"
+                "• `!disconnect` / `!leave` / `!dc` — Disconnect from voice and disable 24/7\n"
+                "• `!radio <lofi|synthwave|jazz>` — 24/7 curated internet radio streams\n"
+                "• `!radio stop` — Stop radio stream playback"
             ),
             inline=False
         )
@@ -18548,24 +18560,13 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             inline=False
         )
         embed.add_field(
-            name="🎧 **Spotify Integration & Custom Playlists (`/` and `!`)**",
+            name="🎧 **Custom Playlists & Equalizer Filters (`/` and `!`)**",
             value=(
-                "• `/spotify link <user>` or `!spotify link <user>` — Link your Spotify profile to browse playlists\n"
-                "• `/spotify playlists` or `!spotify playlists` — Interactive Spotify playlist browser with 1-click play\n"
-                "• `/playlist save <name>` or `!playlist save <name>` — Save active queue as a custom server playlist\n"
-                "• `/playlist play <name>` or `!playlist play <name>` — Load and play a saved playlist\n"
-                "• `/playlist list` or `!playlist list` — View your saved server playlists\n"
-                "• `/playlist delete <name>` or `!playlist delete <name>` — Delete a saved playlist"
-            ),
-            inline=False
-        )
-        embed.add_field(
-            name="🎛️ **Audio Equalizer Filters & DJ Controls (`/` and `!`)**",
-            value=(
-                "• `/filter set <preset>` or `!filter <preset>` — Apply DSP audio preset (`bassboost`, `nightcore`, `vaporwave`, `8d`, `pop`)\n"
-                "• `/filter off` or `!filter off` / `!filter reset` — Reset audio filters back to standard studio sound\n"
-                "• `/dj set_role <role>` or `!dj set <@role>` — Configure server DJ role for bypass skip & playback controls\n"
-                "• `/dj clear_role` or `!dj clear` — Remove DJ role requirement"
+                "• `!spotify playlists` — Interactive Spotify playlist browser with 1-click play\n"
+                "• `!playlist save <name>` / `!playlist play <name>` / `!playlist list` — Custom server playlists\n"
+                "• `!filter <bassboost|nightcore|vaporwave|8d|pop>` — Apply real-time DSP audio presets\n"
+                "• `!filter off` / `!filter reset` — Reset audio filters back to standard studio sound\n"
+                "• `!dj set <@role>` / `!dj clear` — Configure DJ role for bypass skip & playback controls"
             ),
             inline=False
         )
@@ -18575,24 +18576,26 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     elif category == "utility":
         embed = discord.Embed(
             title="⏰ Productivity, Social & Role Utilities",
-            description="Timers, AFK system, automatic role assignment, and social interactions.",
+            description="Timers, AFK system, automatic role assignment, and social interactions.\n*All commands work with both Slash (`/`) and Prefix (`!`)*",
             color=discord.Color.green()
         )
         embed.add_field(
-            name="⏱️ **Productivity & Status**",
+            name="⏱️ **Productivity & Status (`/` and `!`)**",
             value=(
-                "• `/remindme <time> <note>` — Set private timers & reminders\n"
-                "• `/reminders` — View or cancel active scheduled reminders\n"
-                "• `/afk [reason]` — Set AFK status with automatic mention alerts"
+                "• `/remindme <time> <note>` or `!remindme` — Set private timers & reminders\n"
+                "• `/reminders` or `!reminders` — View or cancel active scheduled reminders\n"
+                "• `!afk [reason]` — Set AFK status with automatic mention alerts (clears on next message!)\n"
+                "• `!ping` — Check bot heartbeat and gateway latency"
             ),
             inline=False
         )
         embed.add_field(
-            name="🎭 **Roles & Social**",
+            name="🎭 **Roles & Social (`/` and `!`)**",
             value=(
-                "• `/autorole <role>` — Auto-assign role to new members\n"
-                "• `/addrole` / `/removerole` / `/roleall` / `/roleallremove` — Mass role management\n"
-                "• `/hug`, `/kiss`, `/wave`, `/slap`, `/punch` — Fun animated social interactions"
+                "• `/autorole <role>` or `!autorole` — Auto-assign role to new members\n"
+                "• `/addrole` / `!addrole` & `/removerole` / `!removerole` — Individual role management\n"
+                "• `/roleall` / `/roleallremove` — Mass role management\n"
+                "• `/kiss` or `!kiss` (configure with `!kissrole`), `/hug` or `!hug`, `/slap` or `!slap`, `/punch` or `!punch`, `/wave` or `!wave` — Social interactions"
             ),
             inline=False
         )
@@ -18601,9 +18604,10 @@ def make_help_embed(category: str = "all") -> discord.Embed:
 
     # Default / Full Overview
     embed = discord.Embed(
-        title="🤖 Discord Gemini Server Builder & Shield",
+        title="✨ Sweety — All-In-One High-Fidelity Music, AI & Community Assistant",
         description=(
-            "An all-in-one AI Architect, Auto-Mod, Community Restorer Bot, 24/7 Music Engine, and NBA 2K Mobile Card Engine!\n"
+            "An all-in-one Ultra-High Fidelity 24/7 Music Engine, Gemini 2.5 Flash AI, Auto-Mod, and NBA 2K Mobile Game!\n"
+            "**All commands support both Slash (`/`) and Prefix (`!`) formats.**\n"
             "Use the dropdown menu below to view detailed commands for any category."
         ),
         color=discord.Color.blurple()
@@ -18611,45 +18615,36 @@ def make_help_embed(category: str = "all") -> discord.Embed:
     embed.add_field(
         name="🎵 **24/7 Music & Live Karaoke Stage (`/` and `!`)**",
         value=(
-            "• `/play` or `!play <song/url>` / `!p` — YouTube, Spotify playlists, SoundCloud & direct audio\n"
-            "• `/nowplaying`, `/skip`, `/pause`, `/resume`, `/volume`, `/seek`, `/queue`, `/stop`\n"
+            "• `/play` or `!play <song/url>` / `!p` — Stream any song or Spotify playlist with zero stutter\n"
+            "• `!bitrate` — Inspect and auto-maximize voice channel bitrate up to 384kbps\n"
+            "• `/nowplaying` or `!nowplaying` / `!np` — Interactive button player card\n"
+            "• `/skip` or `!skip` / `!s`, `/pause` or `!pause`, `/resume` or `!resume`, `/volume` or `!volume`\n"
+            "• `/queue` or `!queue` / `!q`, `/seek` or `!seek`, `/stop` or `!stop` / `!dc` / `!leave`\n"
             "• `/247` or `!247` — Permanent 24/7 voice channel persistence\n"
-            "• `/radio` or `!radio <lofi|synthwave|jazz>` — 24/7 curated internet radio streams\n"
-            "• `/lyrics` or `!lyrics` — Real-time synced teleprompter lyrics display\n"
-            "• `!sing` / `!stage` — Claim the stage & launch real-time crowd judging (roses, tomatoes, ratings)\n"
-            "• `!instrumental` — Hot-swap to karaoke backing track\n"
-            "• `!singers` / `!halloffame` — Server Rockstar Hall of Fame leaderboard\n"
-            "• `/spotify`, `/playlist`, `/filter`, `/dj` — Custom playlists & DSP equalizer presets"
+            "• `/lyrics` or `!lyrics` — Real-time synced teleprompter lyrics\n"
+            "• `!sing`, `!singers`, `!instrumental`, `!radio`, `!filter`, `!playlist`"
         ),
         inline=False
     )
     embed.add_field(
-        name="🏀 **NBA 2K Mobile Cards, Packs & Dex**",
+        name="🏀 **NBA 2K Mobile Cards, Packs & Dex (`/` and `!`)**",
         value=(
             "• `/spawndrop` / `!spawndrop` — Trigger wild player card drops\n"
             "• `/openpack` / `!openpack` — Open Starter, Standard, All-Star, HOF & G.O.A.T. packs\n"
             "• `/packodds` / `!packodds` — View exact pack drop rates & odds\n"
             "• `/nbadex` / `!nbadex` — Open 2K Card Binder (includes 🔒 Privacy Toggle)\n"
             "• `/nbafuse <id>` / `!nbafuse` — Fuse 3 duplicate cards into Holo Foil (+5 OVR)\n"
-            "• `/catch <player>` / `!catch` — First to guess player name catches wild drops\n"
+            "• `!catch <player>` or type name in chat — Catch wild court card drops\n"
             "• `/nbacard <id>` / `!nbacard` — High-res visual card stats, tier & attributes\n"
-            "• `/nbadaily` / `/nbaweekly` / `/nbamonthly` — Claim VC & card deposits\n"
-            "• `/nbabal` / `/nbasell` / `/nbatrade` — Wallet balance, sell & trade floor\n"
-            "• `/event` / `/nbatop` — Server tournaments, Raids & leaderboards"
+            "• `/nbadaily` / `!nbadaily`, `/nbaweekly` / `!nbaweekly`, `/nbamonthly` / `!nbamonthly` — Claim VC\n"
+            "• `/nbabal` / `!nbabal` / `!vc`, `/nbasell` / `!nbasell`, `/nbatrade` / `!nbatrade`\n"
+            "• `/shootout` / `!shootout` / `!3pt` — 3-Point Shootout minigame & wagers\n"
+            "• `/event` / `!event` — Server tournaments & Community Boss Raids"
         ),
         inline=False
     )
     embed.add_field(
-        name="🎯 **NBA All-Star 3-Point Shootout**",
-        value=(
-            "• `/shootout [bet]` / `!shootout` / `!3pt` — Play 3-Point Contest (5 racks, Money & Starry balls)\n"
-            "• `/shootout duel @user [bet]` / `!shootout @user` — 1v1 live 3PT shootout duel with VC wagers\n"
-            "• `!shootout lb` / `!3pt lb` — View global 3-Point Shootout high scores leaderboard"
-        ),
-        inline=False
-    )
-    embed.add_field(
-        name="🏆 **NBA 2K Starting 5 GM, Battles & Wagering**",
+        name="🏆 **NBA 2K Starting 5 GM, Battles & Wagering (`/` and `!`)**",
         value=(
             "• `/autoteam` / `!autoteam` — Instant auto-fill top 5 highest OVR cards into Starting 5\n"
             "• `/buildteam` / `!buildteam` — Interactive GM Lineup Builder from Card Binder\n"
@@ -18657,74 +18652,45 @@ def make_help_embed(category: str = "all") -> discord.Embed:
             "• `/teamqueue` / `!teamqueue` — Live matchmaking arena (+10% VC win streak bonus)\n"
             "• `/teambattle <user>` / `!teambattle` — 5v5 tactical card battle simulator\n"
             "• `/vcbet @user <amount>` / `!vcbet <@user> <amt>` — Wager VC on a 5v5 team battle\n"
-            "• `/teamleaderboard` / `!teamlb` / `!teamtop` / `!gmtop` — View top-rated GM Starting 5s & records\n"
-            "• `/setupnbachannel` — Create dedicated arena channel in 2K Mobile Hub"
+            "• `/teamleaderboard` / `!teamlb` / `!teamtop` / `!gmtop` — View top-ranked GM Starting 5s"
         ),
         inline=False
     )
     embed.add_field(
-        name="🧠 **AI Chat & Persistent Memory**",
+        name="🧠 **AI Chat, Vision & Persistent Memory**",
         value=(
-            "• `/ask <question>` — Ask Sweety any question with memory personalization\n"
-            "• `/remember <fact>` / `!remember` — Save personal facts for Sweety to recall\n"
+            "• `@Sweety <question>` or `!ask <question>` — Ask Sweety anything with personalized memory\n"
+            "• `@Sweety [attach photo]` — Deep visual AI: reads text/OCR, solves code, and analyzes photos\n"
+            "• `/remember <fact>` / `!remember <fact>` — Teach Sweety personal details\n"
             "• `/memories [user]` / `!memories` — View your remembered profile facts\n"
-            "• `/forget [key]` / `!forget` — Wipe specific or all saved memories"
+            "• `/forget [key]` / `!forget [key]` — Wipe specific or all saved memories"
         ),
         inline=False
     )
     embed.add_field(
-        name="🏗️ **AI Server Architect & Dynamic Channels**",
+        name="🛡️ **Moderation, Auto-Mod & Security (`/` and `!`)**",
         value=(
-            "• `/setup [theme] [desc]` — Generate full server theme, categories & roles\n"
-            "• `/addcategory <desc>` — AI builds categories & configured channels\n"
-            "• `/createchannel <name>` — Create custom text/voice channel\n"
-            "• `/aiperms <target> <desc>` — Configure roles/users channel overrides using AI\n"
-            "• `/dynamicvoice` — Setup dynamic Join-to-Create voice system\n"
-            "• `/backup` & `/restore <file>` — Export/import server layout JSON"
+            "• `/warn` / `!warn`, `/warnings` / `!warnings`, `/clearwarns` / `!clearwarns`, `/delwarn`\n"
+            "• `/appeal` / `!appeal`, `/appealpanel` / `!appealpanel`, `/appealrole`\n"
+            "• `/kick` / `!kick`, `/ban` / `!ban`, `/unban` / `!unban`, `/mute` / `!mute` / `!timeout`, `/unmute`\n"
+            "• `!kissrole set @Role` / `!kissrole remove` / `!kissrole view` — Configure kiss permissions\n"
+            "• `/promochannel` / `!promochannel`, `/antighostping` / `!antighostping`\n"
+            "• `/snipe` / `!snipe`, `!editsnipe`, `!clearsnipe`, `/lockdown` / `!lockdown`, `/purge` / `!purge`, `/unpurge`"
         ),
         inline=False
     )
     embed.add_field(
-        name="🛡️ **Strikes, Warnings & Appeals**",
+        name="⏰ **Productivity, Social & Utilities (`/` and `!`)**",
         value=(
-            "• `/appeal [reason]` / `!appeal <reason>` — Submit strike/timeout appeal ticket\n"
-            "• `/warn <user> [reason]` — Formally warn a member (Auto-escalates to timeout)\n"
-            "• `/warnings [user]` — View active infractions & warning logs with appeal button\n"
-            "• `/clearwarns <user> [amt]` — Clear warnings (all or specified amount)\n"
-            "• `/delwarn <id>` — Delete a single warning by ID\n"
-            "• `/warnleaderboard` — Server infractions leaderboard\n"
-            "• `/appealpanel [chan]` — Post interactive appeal button panel\n"
-            "• `/appealrole [role]` — Configure pinged staff role for ticket alerts\n"
-            "• `/whois [user]` — Deep audit of member profile, roles & history"
+            "• `!afk [reason]` — Set AFK status with automatic mention alerts\n"
+            "• `/remindme` / `!remindme`, `/reminders` / `!reminders` — Timers & scheduled reminders\n"
+            "• `/whois` / `!whois` / `!userinfo` — Deep audit of member profile, roles & history\n"
+            "• `/autorole` / `!autorole`, `/addrole` / `!addrole`, `/removerole` / `!removerole`\n"
+            "• `/kiss` / `!kiss`, `/hug` / `!hug`, `/slap` / `!slap`, `/punch` / `!punch`, `/wave` / `!wave`, `!ping`"
         ),
         inline=False
     )
-    embed.add_field(
-        name="⚔️ **Moderation & Security Actions**",
-        value=(
-            "• `/kick <user>` / `/ban <user>` / `/unban <id>` — Member enforcement\n"
-            "• `/mute <user> <time>` / `/unmute <user>` — Timeout controls\n"
-            "• `/deafen <user>` / `/undeafen <user>` — Voice channel deafen\n"
-            "• `/promochannel [action] [chan]` — Links-only promo channels (auto-deletes chatting)\n"
-            "• `/antighostping [status]` — Auto-catch & expose deleted ghost pings\n"
-            "• `/snipe` / `/editsnipe` / `/clearsnipe` — Deleted/edited message inspection\n"
-            "• `/lockdown <status>` / `/purge <num>` & `/unpurge` — Chat freeze & cleaner with Undo"
-        ),
-        inline=False
-    )
-    embed.add_field(
-        name="⏰ **Productivity, Social & Roles**",
-        value=(
-            "• `/remindme <time> <note>` — Set private timers & reminders\n"
-            "• `/reminders` — View or cancel active scheduled reminders\n"
-            "• `/afk [reason]` — Set AFK status with automatic mention alerts\n"
-            "• `/autorole <role>` — Auto-assign role to new members\n"
-            "• `/addrole` / `/removerole` / `/roleall` / `/roleallremove` — Role management\n"
-            "• `/hug`, `/kiss`, `/wave`, `/slap`, `/punch` — Fun social interactions"
-        ),
-        inline=False
-    )
-    embed.set_footer(text="Powered by Google Gemini 2.5 Flash / Groq • Supabase PostgreSQL")
+    embed.set_footer(text="✨ Sweety Bot • Powered by Google Gemini 2.5 Flash & Supabase PostgreSQL")
     return embed
 
 
