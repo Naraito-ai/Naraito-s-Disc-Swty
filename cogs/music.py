@@ -2486,6 +2486,7 @@ class SpotifyPlaylistsView(discord.ui.View):
         for t in tracks:
             t["requester"] = str(interaction.user.display_name)
             state.queue.append(t)
+        await self.cog._persist_queue(interaction.guild_id)
 
         embed = discord.Embed(
             title="📋 Spotify Playlist Queued",
@@ -2496,6 +2497,7 @@ class SpotifyPlaylistsView(discord.ui.View):
         await interaction.followup.send(embed=embed)
 
         if not state.voice_client.is_playing() and not state.voice_client.is_paused():
+            state.current = None
             await self.cog.play_next(interaction.guild)
 
     @discord.ui.button(label="Save to Sweety", style=discord.ButtonStyle.primary, emoji="💾", row=1)
@@ -3397,8 +3399,18 @@ class Music(commands.Cog):
         await self._persist_queue(guild.id)
         state.last_played_track = track_data
         state.played_history.append(track_data)
-        source = await YTDLSource.regrab_stream(track_data, state.volume, audio_filter=state.filter)
-        state.current = source
+        try:
+            source = await YTDLSource.regrab_stream(track_data, state.volume, audio_filter=state.filter)
+            state.current = source
+        except Exception as regrab_err:
+            logger.error(f"Failed to stream track '{track_data.get('title')}': {regrab_err}")
+            if state.text_channel:
+                try:
+                    await state.text_channel.send(f"⚠️ Could not stream **{track_data.get('title', 'Unknown')}** ({regrab_err}). Skipping to next track...")
+                except Exception:
+                    pass
+            self.schedule_play_next(guild)
+            return
         # Asynchronously log to Supabase song_history & in-memory cache
         if hasattr(self.bot, "db") and hasattr(self.bot.db, "log_song_history"):
             asyncio.create_task(
