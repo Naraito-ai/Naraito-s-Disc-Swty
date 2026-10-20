@@ -2168,10 +2168,7 @@ class SearchResultsView(discord.ui.View):
             if not vc:
                 return await interaction.followup.send("❌ Join a voice channel first.", ephemeral=True)
 
-            if not state.voice_client or not state.voice_client.is_connected():
-                state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
-            elif state.voice_client.channel != vc:
-                await state.voice_client.move_to(vc)
+            await self.ensure_voice_client(ctx.guild, vc, state)
 
             is_247 = await self.cog.is_247_enabled(interaction.guild_id)
             if is_247:
@@ -2465,10 +2462,7 @@ class SpotifyPlaylistsView(discord.ui.View):
         state = self.cog.get_state(interaction.guild_id)
         state.text_channel = interaction.channel
 
-        if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
-        elif state.voice_client.channel != vc:
-            await state.voice_client.move_to(vc)
+        await self.cog.ensure_voice_client(interaction.guild, vc, state)
 
         is_247 = await self.cog.is_247_enabled(interaction.guild_id)
         if is_247:
@@ -2639,7 +2633,31 @@ class Music(commands.Cog):
             self.states[guild_id] = GuildMusicState()
             if hasattr(self.bot, "db") and self.bot.db:
                 asyncio.create_task(self._restore_247(guild_id))
-        return self.states[guild_id]
+        state = self.states[guild_id]
+        if hasattr(self, "bot"):
+            guild = self.bot.get_guild(guild_id)
+            if guild and guild.voice_client:
+                state.voice_client = guild.voice_client
+        return state
+
+    async def ensure_voice_client(self, guild: discord.Guild, vc: discord.VoiceChannel, state: GuildMusicState) -> Optional[discord.VoiceClient]:
+        """Safely connects or moves voice_client, handling already-connected voice client seamlessly."""
+        voice_client = guild.voice_client or state.voice_client
+        if not voice_client or not voice_client.is_connected():
+            try:
+                voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
+            except discord.ClientException:
+                voice_client = guild.voice_client
+            except Exception as e:
+                logger.warning(f"Voice connect error: {e}")
+                voice_client = guild.voice_client
+        elif voice_client.channel != vc:
+            try:
+                await voice_client.move_to(vc)
+            except Exception as e:
+                logger.warning(f"Voice move_to error: {e}")
+        state.voice_client = voice_client
+        return voice_client
 
     async def is_247_enabled(self, guild_id: int) -> bool:
         """Reliably checks 24/7 status from in-memory state and database cache."""
@@ -3076,10 +3094,7 @@ class Music(commands.Cog):
         except Exception:
             pass
 
-        if not state.voice_client or not state.voice_client.is_connected():
-            state.voice_client = await vc.connect(timeout=20.0, reconnect=True, self_deaf=True)
-        elif state.voice_client.channel != vc:
-            await state.voice_client.move_to(vc)
+        await self.cog.ensure_voice_client(interaction.guild, vc, state)
 
         source = make_ffmpeg_audio(station["url"], seek_seconds=0, audio_filter=state.filter, is_live=True)
         radio_data = {
@@ -3337,7 +3352,10 @@ class Music(commands.Cog):
             state.karaoke_task = None
 
         if not state.voice_client or not state.voice_client.is_connected():
-            return
+            if guild.voice_client and guild.voice_client.is_connected():
+                state.voice_client = guild.voice_client
+            else:
+                return
 
         if state.update_task:
             state.update_task.cancel()
