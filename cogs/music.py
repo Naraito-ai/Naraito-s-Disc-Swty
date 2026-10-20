@@ -1334,9 +1334,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
                     raise ValueError("⚠️ Could not load tracks from this Spotify playlist/album. Ensure the playlist is public.")
 
             track_search_term = None
-            if spotify and "/track/" in url:
+            if spotify and ("/track/" in url or "spotify:track:" in url):
                 try:
-                    track_id = url.split("/track/")[1].split("?")[0]
+                    if "spotify:track:" in url:
+                        track_id = url.split("spotify:track:")[1].split("?")[0].strip()
+                    else:
+                        track_id = url.split("/track/")[1].split("?")[0].strip()
                     t_data = await loop.run_in_executor(None, lambda: spotify.track(track_id))
                     if t_data and t_data.get("name"):
                         artist = t_data["artists"][0]["name"] if t_data.get("artists") else ""
