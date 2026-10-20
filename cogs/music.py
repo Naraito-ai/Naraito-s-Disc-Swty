@@ -14,6 +14,7 @@ import yt_dlp
 import time
 import unicodedata
 import math
+import audioop
 
 import base64
 import spotipy
@@ -633,7 +634,14 @@ RADIO_STATIONS = {
 }
 
 def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Optional[str] = None, is_live: bool = False) -> discord.FFmpegPCMAudio:
-    before_opts = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+    # Optimized stream buffer flags: auto-reconnect on socket dropouts with fast probe
+    before_opts = (
+        "-reconnect 1 "
+        "-reconnect_streamed 1 "
+        "-reconnect_delay_max 5 "
+        "-probesize 128k "
+        "-analyzeduration 100000"
+    )
     if seek_seconds > 0:
         before_opts = f"-ss {seek_seconds} " + before_opts
 
@@ -648,11 +656,7 @@ def make_ffmpeg_audio(stream_url: str, seek_seconds: int = 0, audio_filter: Opti
     if audio_filter and audio_filter in AUDIO_FILTERS:
         filters.append(AUDIO_FILTERS[audio_filter])
 
-    # Radio streams skip loudnorm postprocessor since buffering loudnorm causes dropouts/latency on live audio
-    if not is_live:
-        filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
-
-    opts = "-vn"
+    opts = "-vn -threads 2"
     if filters:
         opts += f" -af {','.join(filters)}"
 
@@ -981,9 +985,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
         ret = self.original.read()
         if not ret:
             return b""
-        import audioop
         # Direct audio scaling: 1.0 = standard 100% loudness, 0.5 = 50%, 1.5 = 150% boost
         vol = max(0.0, min(float(self.volume), 2.0))
+        if vol == 1.0:
+            return ret
         return audioop.mul(ret, 2, vol)
 
     @classmethod
@@ -2834,7 +2839,7 @@ class Music(commands.Cog):
     async def live_updater(self, guild: discord.Guild):
         state = self.get_state(guild.id)
         while True:
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)
             try:
                 if not state.np_message or not state.current:
                     break
