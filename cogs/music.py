@@ -3341,6 +3341,74 @@ class Music(commands.Cog):
 
         state.update_task = self.bot.loop.create_task(self.live_updater(guild))
 
+    @app_commands.command(name="bitrate", description="Inspect and verify the voice channel's audio bitrate & fidelity status")
+    @app_commands.guild_only()
+    async def bitrate_command(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        member = interaction.user
+        vc = getattr(getattr(member, "voice", None), "channel", None)
+        bot_vc = getattr(getattr(guild, "voice_client", None), "channel", None)
+        target_channel = vc or bot_vc
+
+        if not target_channel:
+            return await interaction.response.send_message("❌ Join a voice channel or have Sweety in a voice channel to inspect its bitrate.", ephemeral=True)
+
+        current_kbps = getattr(target_channel, "bitrate", 64000) // 1000
+        max_kbps = int(getattr(guild, "bitrate_limit", 96000)) // 1000
+        boost_tier = getattr(guild, "premium_tier", 0)
+
+        upgraded = False
+        if getattr(target_channel, "bitrate", 64000) < int(getattr(guild, "bitrate_limit", 96000)):
+            bot_member = guild.me or guild.get_member(self.bot.user.id)
+            if bot_member and target_channel.permissions_for(bot_member).manage_channels:
+                try:
+                    await target_channel.edit(bitrate=int(getattr(guild, "bitrate_limit", 96000)), reason="Sweety Bitrate Maximizer")
+                    current_kbps = max_kbps
+                    upgraded = True
+                except Exception:
+                    pass
+
+        embed = discord.Embed(
+            title="🔊 Voice Audio & Bitrate Fidelity",
+            color=0x57F287 if current_kbps >= max_kbps else 0xFEE75C
+        )
+        embed.add_field(name="🎙️ Channel", value=target_channel.mention, inline=True)
+        embed.add_field(name="⚡ Active Bitrate", value=f"**{current_kbps} kbps**", inline=True)
+        embed.add_field(name="🏆 Max Server Limit", value=f"**{max_kbps} kbps** (Tier {boost_tier})", inline=True)
+        status_text = "🟢 **Lossless Peak** (Maximum allowed by server tier)" if current_kbps >= max_kbps else "🟡 Below Capacity"
+        if upgraded:
+            status_text += "\n*(Auto-upgraded to maximum capacity just now!)*"
+        embed.add_field(name="📊 Audio Quality", value=status_text, inline=False)
+        embed.set_footer(text="Sweety Ultra-High Fidelity Audio Engine")
+        await interaction.response.send_message(embed=embed)
+
+    @commands.command(name="bitrate", help="Check audio bitrate of the current voice channel")
+    @commands.guild_only()
+    async def bitrate_prefix(self, ctx: commands.Context):
+        guild = ctx.guild
+        member = ctx.author
+        vc = getattr(getattr(member, "voice", None), "channel", None)
+        bot_vc = getattr(getattr(guild, "voice_client", None), "channel", None)
+        target_channel = vc or bot_vc
+
+        if not target_channel:
+            return await ctx.send("❌ Join a voice channel to inspect its bitrate.")
+
+        current_kbps = getattr(target_channel, "bitrate", 64000) // 1000
+        max_kbps = int(getattr(guild, "bitrate_limit", 96000)) // 1000
+        boost_tier = getattr(guild, "premium_tier", 0)
+
+        embed = discord.Embed(
+            title="🔊 Voice Audio & Bitrate Fidelity",
+            color=0x57F287 if current_kbps >= max_kbps else 0xFEE75C
+        )
+        embed.add_field(name="🎙️ Channel", value=target_channel.mention, inline=True)
+        embed.add_field(name="⚡ Active Bitrate", value=f"**{current_kbps} kbps**", inline=True)
+        embed.add_field(name="🏆 Max Server Limit", value=f"**{max_kbps} kbps** (Tier {boost_tier})", inline=True)
+        embed.add_field(name="📊 Audio Quality", value="🟢 **Lossless Peak** (Maximum allowed by server tier)" if current_kbps >= max_kbps else "🟡 Below Capacity", inline=False)
+        embed.set_footer(text="Sweety Ultra-High Fidelity Audio Engine")
+        await ctx.send(embed=embed)
+
     @app_commands.command(name="play", description="Play a song — search by name or paste a URL")
     @app_commands.describe(query="Song name or URL")
     @app_commands.autocomplete(query=play_autocomplete)
