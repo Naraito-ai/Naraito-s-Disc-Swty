@@ -15,6 +15,7 @@ import time
 import unicodedata
 import math
 import audioop
+import difflib
 
 import base64
 import spotipy
@@ -62,7 +63,11 @@ def is_vevo_entry(cand: dict) -> bool:
 COVER_PENALTIES = [
     "cover", "tribute", "remix", "slowed", "reverb", "edit",
     "mashup", "bootleg", "nightcore", "sped up", "acoustic",
-    "karaoke", "version", "lofi", "aish", "unplugged", "funk"
+    "karaoke", "version", "lofi", "aish", "unplugged", "funk",
+    "piano", "instrumental", "orchestral", "guitar", "violin",
+    "harp", "medley", "8d audio", "bass boosted", "synthesia",
+    "tutorial", "sheet music", "backing track", "originally performed by",
+    "tribute to", "tribute band", "kids biz", "piano song masters"
 ]
 
 
@@ -70,14 +75,14 @@ def validate_canonical_match(query: str, cand_artist: str, cand_title: str) -> b
     """
     Validates whether a candidate track (from Spotify or metadata search)
     is a genuine match for the user's query, preventing unrelated tracks
-    (e.g., 'Lil Wayne - Can't Be Broken' for query 'sza broken clock')
+    (e.g., 'Sam Smith' for query 'mika mitsuraba stay with me')
     from hijacking the playback.
     """
     q_clean = query.lower()
     q_words = set(re.findall(r'\b\w{2,}\b', q_clean))
     
     # Strip common search noise words
-    noise = {"song", "track", "music", "audio", "video", "official", "lyrics", "full"}
+    noise = {"song", "track", "music", "audio", "video", "official", "lyrics", "full", "hd", "hq"}
     q_words = q_words - noise
     if not q_words:
         return True
@@ -87,23 +92,37 @@ def validate_canonical_match(query: str, cand_artist: str, cand_title: str) -> b
     a_words = set(re.findall(r'\b\w{2,}\b', a_clean)) - {"the", "feat", "ft"}
     t_words = set(re.findall(r'\b\w{2,}\b', t_clean)) - {"the", "feat", "ft"}
 
-    # Check 1: If query contains words that look like an artist, check artist overlap
-    artist_in_query = any(w in q_clean for w in a_words) or any(w in a_clean for w in q_words)
-    title_in_query = any(w in q_clean for w in t_words) or any(w in t_clean for w in q_words)
+    # Title match check: candidate title must match title words in query
+    matched_title = set()
+    for qw in q_words:
+        for tw in t_words:
+            if qw == tw or (len(qw) >= 4 and len(tw) >= 4 and (qw in tw or tw in qw)):
+                matched_title.add(qw)
+                break
+            elif len(qw) >= 3 and len(tw) >= 3 and difflib.SequenceMatcher(None, qw, tw).ratio() >= 0.70:
+                matched_title.add(qw)
+                break
 
-    # Check 2: Word overlap ratio
-    matched_words = q_words.intersection(a_words | t_words)
-    overlap_ratio = len(matched_words) / len(q_words)
-
-    # If query has 3+ words (e.g., 'sza broken clock' or 'sza broken clouds')
-    # and NONE of the artist words are in the query and overlap ratio is low (< 0.6):
-    # This is an unrelated track hallucination! Reject!
-    if len(q_words) >= 3 and not artist_in_query and overlap_ratio < 0.6:
+    # If title matched NONE of the query words, reject immediately
+    if not matched_title:
         return False
 
-    # If overlap ratio is less than 0.3, reject unless both artist and title are identified
-    if overlap_ratio < 0.3 and not (artist_in_query and title_in_query):
-        return False
+    # Check remaining query words against candidate artist
+    unmatched_query_words = q_words - matched_title
+    if unmatched_query_words:
+        has_artist_match = False
+        for qw in unmatched_query_words:
+            for aw in a_words:
+                if qw == aw or (len(qw) >= 4 and len(aw) >= 4 and (qw in aw or aw in qw)):
+                    has_artist_match = True
+                    break
+                elif len(qw) >= 3 and len(aw) >= 3 and difflib.SequenceMatcher(None, qw, aw).ratio() >= 0.65:
+                    has_artist_match = True
+                    break
+            if has_artist_match:
+                break
+        if not has_artist_match:
+            return False
 
     return True
 
@@ -121,10 +140,11 @@ def score_candidate(title: str, artist: str = "", play_count: int = 0, release_y
     artist_lower = (artist or "").lower().strip()
     q_lower = (query or "").lower().strip()
 
-    # Penalize covers heavily (check both title and artist)
+    # Penalize unwanted covers, piano versions, karaoke, remixes heavily
     for word in COVER_PENALTIES:
         if word in title_lower or word in artist_lower:
-            score -= 400.0
+            if word not in q_lower:
+                score -= 3000.0
 
     # Official licensed studio catalog bonus (JioSaavn CD masters)
     if is_studio:
@@ -139,34 +159,62 @@ def score_candidate(title: str, artist: str = "", play_count: int = 0, release_y
         else:
             score -= 200.0
 
-    # Meaningful words in query and candidate
-    q_words = [w for w in re.findall(r'\b\w{2,}\b', q_lower) if w not in ("the", "and", "feat", "ft", "for", "song", "track")]
-    a_words = [w for w in re.findall(r'\b\w{2,}\b', artist_lower) if w not in ("the", "and", "feat", "ft")]
-    t_words = [w for w in re.findall(r'\b\w{2,}\b', title_lower) if w not in ("the", "and", "feat", "ft")]
+    noise = {"song", "track", "music", "audio", "video", "official", "lyrics", "full", "hd", "hq", "the", "and", "feat", "ft", "for"}
+    q_clean_words = [w for w in re.findall(r'\b\w{2,}\b', q_lower) if w not in noise]
+    t_clean_words = [w for w in re.findall(r'\b\w{2,}\b', title_lower) if w not in noise]
+    a_clean_words = [w for w in re.findall(r'\b\w{2,}\b', artist_lower) if w not in noise]
 
-    # Strict word-boundary matching
-    matched_t_words = []
-    for w in t_words:
-        for qw in q_words:
-            if w == qw or (len(w) >= 4 and len(qw) >= 4 and (w in qw or qw in w)):
-                matched_t_words.append(w)
+    # Check title matches
+    matched_t = set()
+    for qw in q_clean_words:
+        for tw in t_clean_words:
+            if qw == tw or (len(qw) >= 4 and len(tw) >= 4 and (qw in tw or tw in qw)):
+                matched_t.add(qw)
+                break
+            elif len(qw) >= 3 and len(tw) >= 3 and difflib.SequenceMatcher(None, qw, tw).ratio() >= 0.70:
+                matched_t.add(qw)
                 break
 
-    has_artist_match = False
-    for w in a_words:
-        if len(w) >= 3 and re.search(rf'\b{re.escape(w)}\b', q_lower):
-            has_artist_match = True
-            break
-    if not has_artist_match:
-        for w in q_words:
-            if len(w) >= 3 and re.search(rf'\b{re.escape(w)}\b', artist_lower):
-                has_artist_match = True
-                break
+    # If the candidate title matches NONE of the query words:
+    if q_clean_words and not matched_t:
+        return -9999.0
 
-    # ZERO RELEVANCE CHECK: If candidate has ZERO words in common with query in BOTH title and artist,
-    # disqualify candidate entirely (e.g. Charlie Puth's 'Attention' for query 'from the start')
-    if q_words and not matched_t_words and not has_artist_match:
-        return -2000.0
+    # Unmatched query words are presumed artist terms
+    unmatched_q = [w for w in q_clean_words if w not in matched_t]
+
+    if unmatched_q:
+        significant_unmatched = [w for w in unmatched_q if len(w) >= 3]
+        matched_a = set()
+        for qw in significant_unmatched:
+            for aw in a_clean_words:
+                if qw == aw or (len(qw) >= 4 and len(aw) >= 4 and (qw in aw or aw in qw)):
+                    matched_a.add(qw)
+                    break
+                elif len(qw) >= 3 and len(aw) >= 3 and difflib.SequenceMatcher(None, qw, aw).ratio() >= 0.65:
+                    matched_a.add(qw)
+                    break
+
+        # If significant artist words were in query but ZERO match candidate artist/channel:
+        # Disqualify candidate immediately! (e.g. Sam Smith for Miki Matsubara query)
+        if significant_unmatched and not matched_a:
+            return -9999.0
+
+        if matched_a:
+            score += 600.0 * (len(matched_a) / len(significant_unmatched))
+
+    clean_cand = clean_title_for_matching(title)
+    clean_q = clean_title_for_matching(query)
+    clean_q_without_artist = clean_q
+    if unmatched_q:
+        for qw in unmatched_q:
+            clean_q_without_artist = re.sub(rf'\b{re.escape(qw)}\b', '', clean_q_without_artist).strip()
+
+    if clean_cand == clean_q or (clean_cand and clean_cand == clean_q_without_artist):
+        score += 500.0
+    elif clean_cand and (clean_cand in clean_q or clean_q in clean_cand):
+        score += 350.0
+    elif matched_t:
+        score += min(300.0, len(matched_t) * 150.0)
 
     # Play count = strongest "original" signal
     try:
@@ -174,10 +222,12 @@ def score_candidate(title: str, artist: str = "", play_count: int = 0, release_y
     except (ValueError, TypeError):
         p_count = 0
 
-    if p_count >= 5_000_000:
+    if p_count >= 100_000_000:
         score += 800.0
+    elif p_count >= 10_000_000:
+        score += 600.0
     elif p_count >= 1_000_000:
-        score += 500.0
+        score += 400.0
     elif p_count >= 100_000:
         score += 200.0
     elif p_count >= 10_000:
@@ -190,25 +240,6 @@ def score_candidate(title: str, artist: str = "", play_count: int = 0, release_y
             score += max(0, (2025 - ry) * 10)
         except (ValueError, TypeError):
             pass
-
-    # Artist match bonus
-    if has_artist_match:
-        score += 300.0
-
-    # Exact Title Match Bonus: Check if stripped title matches stripped query
-    clean_cand = clean_title_for_matching(title)
-    clean_q = clean_title_for_matching(query)
-    clean_q_without_artist = clean_q
-    if has_artist_match:
-        for aw in a_words:
-            clean_q_without_artist = re.sub(rf'\b{re.escape(aw)}\b', '', clean_q_without_artist).strip()
-
-    if clean_cand == clean_q or (clean_cand and clean_cand == clean_q_without_artist):
-        score += 500.0
-    elif clean_cand and (clean_cand in clean_q or clean_q in clean_cand):
-        score += 350.0
-    elif matched_t_words:
-        score += min(300.0, len(matched_t_words) * 150.0)
 
     # Bonus for official audio / matching artist
     if "official audio" in title_lower and "remix" not in title_lower:
@@ -1006,15 +1037,22 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 pure_q = re.sub(r'^(?:ytsearch\d*:|scsearch\d*:)\s*', '', clean_q).strip()
                 sp_res = await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: spotify.search(q=pure_q, type="track", limit=5)),
-                    timeout=2.0
+                    timeout=4.0
                 )
                 sp_items = sp_res.get("tracks", {}).get("items", []) if sp_res else []
                 for sp_t in sp_items:
                     sp_name = sp_t.get("name", "")
                     sp_artist = sp_t["artists"][0]["name"] if sp_t.get("artists") else ""
                     if sp_name and validate_canonical_match(pure_q, sp_artist, sp_name):
-                        canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
-                        logger.info(f"Canonical original track identified via Spotify: '{canonical_q}' (for query '{clean_q}')")
+                        # Determine if query contained artist-specific intent:
+                        q_words = set(re.findall(r'\b\w{2,}\b', pure_q.lower())) - {"song", "track", "music", "audio", "video", "official", "lyrics", "full", "hd", "hq"}
+                        t_words = set(re.findall(r'\b\w{2,}\b', sp_name.lower()))
+                        unmatched = q_words - t_words
+
+                        # Only rewrite if user explicitly specified artist tokens or extra qualifiers
+                        if unmatched:
+                            canonical_q = f"{sp_artist} - {sp_name}" if sp_artist else sp_name
+                            logger.info(f"Canonical original track identified via Spotify: '{canonical_q}' (for query '{clean_q}')")
                         break
             except Exception as sp_err:
                 logger.debug(f"Spotify canonical track resolution skipped: {sp_err}")
@@ -1109,7 +1147,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 cand_title = data.get("title") if (data and data.get("title")) else canonical_q
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_title, min_score=0.0)),
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_title, min_score=800.0)),
                     timeout=8.0
                 )
                 if official_track and official_track.get("url"):
@@ -1168,7 +1206,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 cand_fallback = (data.get("title") if data and data.get("title") else None) or canonical_q
                 official_track = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_fallback, min_score=0.0)),
+                    loop.run_in_executor(None, lambda: fetch_official_studio_track(cand_fallback, min_score=800.0)),
                     timeout=8.0
                 )
                 if official_track and official_track.get("url"):
