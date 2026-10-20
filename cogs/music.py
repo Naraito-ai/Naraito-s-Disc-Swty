@@ -2307,52 +2307,83 @@ async def play_autocomplete(
     interaction: discord.Interaction,
     current: str
 ) -> list[app_commands.Choice[str]]:
-    q = current.strip().lower()
-    if len(q) < 2:
+    raw = current.strip()
+    if len(raw) < 2:
         return []
+    q = raw.lower()
     if q in _autocomplete_cache:
         return _autocomplete_cache[q]
     try:
         loop = asyncio.get_event_loop()
         choices = []
+
+        # 1. Primary Choice is ALWAYS the user's exact typed query.
+        # This guarantees that if the user presses Enter immediately or clicks send
+        # without selecting an option, Discord sends what they actually typed instead of hijacking.
+        choices.append(
+            app_commands.Choice(
+                name=f"▶️ Play exact: {raw}"[:100],
+                value=raw
+            )
+        )
+
         if spotify:
             try:
                 results = await asyncio.wait_for(
                     loop.run_in_executor(
                         None,
-                        lambda: spotify.search(q=current, type="track", limit=5)
+                        lambda: spotify.search(q=raw, type="track", limit=8)
                     ),
                     timeout=2.0
                 )
                 tracks = results.get("tracks", {}).get("items", [])
-                choices = [
-                    app_commands.Choice(
-                        name=f"{t['name']} — {t['artists'][0]['name']}"[:80],
-                        value=f"{t['name']} {t['artists'][0]['name']}"
-                    )
-                    for t in tracks if t and t.get("name") and t.get("artists")
-                ]
+                for t in tracks:
+                    if len(choices) >= 5:
+                        break
+                    if not t or not t.get("name") or not t.get("artists"):
+                        continue
+                    name = t["name"]
+                    artist = t["artists"][0]["name"]
+                    title_lower = name.lower()
+                    # Filter out covers, slowed, reverb, karaoke, instrumental, remixes
+                    if any(w in title_lower for w in ("slowed", "reverb", "cover", "karaoke", "tribute", "instrumental", "remix", "piano version", "sped up")):
+                        continue
+                    val = f"{name} {artist}"
+                    if val.lower() == raw.lower():
+                        continue
+                    choices.append(app_commands.Choice(
+                        name=f"🎵 {name} — {artist}"[:100],
+                        value=val
+                    ))
             except Exception as e:
                 logger.debug(f"Spotify autocomplete search failed: {e}")
 
-        if not choices:
-            # Fallback to fast SoundCloud autocomplete search (never blocked, super fast)
+        if len(choices) < 2:
+            # Fallback to fast SoundCloud autocomplete search
             try:
                 data = await asyncio.wait_for(
                     loop.run_in_executor(
                         None,
-                        lambda: ytdl.extract_info(f"scsearch5:{current}", download=False)
+                        lambda: ytdl.extract_info(f"scsearch8:{raw}", download=False)
                     ),
                     timeout=2.5
                 )
                 entries = data.get("entries", [])
-                choices = [
-                    app_commands.Choice(
-                        name=f"{e.get('title', 'Unknown')[:80]}",
-                        value=f"{e.get('title', current)}"
-                    )
-                    for e in entries if e and e.get("title")
-                ][:5]
+                for e in entries:
+                    if len(choices) >= 5:
+                        break
+                    t_name = e.get("title", "")
+                    if not t_name:
+                        continue
+                    t_low = t_name.lower()
+                    if any(w in t_low for w in ("slowed", "reverb", "cover", "karaoke", "tribute", "instrumental", "remix", "piano version", "sped up")):
+                        continue
+                    if t_name.lower() == raw.lower():
+                        continue
+                    choices.append(app_commands.Choice(
+                        name=f"🎵 {t_name}"[:100],
+                        value=t_name
+                    ))
             except Exception as e:
                 logger.debug(f"SoundCloud autocomplete search failed: {e}")
 
@@ -2363,7 +2394,7 @@ async def play_autocomplete(
         return choices
     except Exception as e:
         logger.warning(f"Autocomplete error: {e}")
-        return []
+        return [app_commands.Choice(name=f"▶️ Play exact: {raw}"[:100], value=raw)]
 
 
 # ─── Spotify Playlists View ───────────────────────────────────────────────────
