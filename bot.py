@@ -27310,13 +27310,6 @@ async def staff_command(interaction: discord.Interaction):
 
 # ── Server Protection, Alt Detection & Staff Command Suite ─────────────────
 
-bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
-is_protected = lambda x: True
-is_creator = lambda x: True
-db = None
-delete_after_delay = None
-log_mod_action = None
-
 async def get_guild_whitelist(guild_id: int) -> set[int]:
     """Helper to fetch security whitelisted user IDs for a guild."""
     try:
