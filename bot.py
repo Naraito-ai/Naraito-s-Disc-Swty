@@ -27461,7 +27461,7 @@ async def checkalt_prefix_cmd(ctx: commands.Context, member: discord.Member):
 
 @bot.command(name="banevaders", aliases=["evaders", "checkevaders"])
 @commands.guild_only()
-@commands.cooldown(1, 10.0, commands.BucketType.user)
+@commands.cooldown(1, 5.0, commands.BucketType.user)
 async def banevaders_prefix_cmd(ctx: commands.Context):
     """Cross-reference active members with the server ban list for fuzzy matches: !banevaders"""
     if not is_protected(ctx.author):
@@ -27470,53 +27470,91 @@ async def banevaders_prefix_cmd(ctx: commands.Context):
         
     status_msg = await ctx.send("🔍 Fetching server ban list and scanning recent members for fuzzy name matches...")
     try:
-        bans = [entry async for entry in ctx.guild.bans(limit=150)]
-    except Exception as e:
-        await status_msg.edit(content=f"❌ Failed to fetch server ban list: {e}")
-        return
-        
-    if not bans:
-        await status_msg.edit(content="ℹ️ Server ban list is currently empty. No banned accounts to cross-reference.")
-        return
-        
-    now = datetime.datetime.now(datetime.timezone.utc)
-    evader_matches = []
-    recent_members = [m for m in ctx.guild.members if not m.bot and m.joined_at and (now - m.joined_at).days <= 14]
-    
-    for m in recent_members:
-        m_name = m.name.lower()
-        m_disp = m.display_name.lower()
-        for b in bans:
-            b_name = b.user.name.lower()
-            sim1 = difflib.SequenceMatcher(None, m_name, b_name).ratio()
-            sim2 = difflib.SequenceMatcher(None, m_disp, b_name).ratio()
-            sim = max(sim1, sim2)
-            if sim >= 0.75:
-                evader_matches.append({
-                    "member": m,
-                    "banned_user": b.user,
-                    "ban_reason": b.reason or "No reason specified",
-                    "similarity": int(sim * 100)
-                })
+        bans = []
+        try:
+            async for entry in ctx.guild.bans(limit=250):
+                bans.append(entry)
+        except Exception as b_err:
+            await status_msg.edit(content=f"❌ Failed to fetch server ban list: {b_err}")
+            return
+            
+        if not bans:
+            await status_msg.edit(content="ℹ️ Server ban list is currently empty. No banned accounts to cross-reference.")
+            return
 
-    embed = discord.Embed(
-        title="🚨 Ban-Evasion Match Audit",
-        color=discord.Color.dark_red() if evader_matches else discord.Color.green()
-    )
-    if not evader_matches:
-        embed.description = f"✅ Scanned **{len(recent_members)} recent members** against **{len(bans)} banned accounts**.\nZero suspected ban evaders found!"
-    else:
-        embed.description = f"⚠️ Detected **{len(evader_matches)} suspected ban evader match(es)**:"
-        for match in evader_matches[:10]:
-            m = match["member"]
-            bu = match["banned_user"]
-            embed.add_field(
-                name=f"⚠️ {m.name} ➔ {match['similarity']}% Match to Banned: {bu.name}",
-                value=f"• Current Member: {m.mention} (`{m.id}`)\n• Banned User: `{bu.name}` (`{bu.id}`)\n• Ban Reason: *{match['ban_reason']}*\n• Joined: <t:{int(m.joined_at.timestamp())}:R>",
-                inline=False
-            )
-    await status_msg.delete()
-    await ctx.send(embed=embed)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        evader_matches = []
+        recent_members = []
+        
+        for m in ctx.guild.members:
+            if getattr(m, "bot", False):
+                continue
+            j_at = getattr(m, "joined_at", None)
+            if not j_at:
+                continue
+            if j_at.tzinfo is None:
+                j_at = j_at.replace(tzinfo=datetime.timezone.utc)
+            diff_days = (now - j_at).total_seconds() / 86400
+            if diff_days <= 14:
+                recent_members.append((m, j_at))
+                
+        for m, j_at in recent_members:
+            m_name = (m.name or "").lower()
+            m_disp = (m.display_name or "").lower()
+            for b in bans:
+                bu = getattr(b, "user", None)
+                if not bu:
+                    continue
+                b_name = (bu.name or "").lower()
+                b_disp = (getattr(bu, "display_name", bu.name) or "").lower()
+                
+                sim1 = difflib.SequenceMatcher(None, m_name, b_name).ratio()
+                sim2 = difflib.SequenceMatcher(None, m_disp, b_name).ratio()
+                sim3 = difflib.SequenceMatcher(None, m_disp, b_disp).ratio()
+                sim = max(sim1, sim2, sim3)
+                
+                if sim >= 0.75:
+                    reason_str = str(b.reason or "No reason specified")
+                    if len(reason_str) > 100:
+                        reason_str = reason_str[:97] + "..."
+                    evader_matches.append({
+                        "member": m,
+                        "banned_user": bu,
+                        "ban_reason": reason_str,
+                        "similarity": int(sim * 100),
+                        "joined_at": j_at
+                    })
+
+        embed = discord.Embed(
+            title="🚨 Ban-Evasion Match Audit",
+            color=discord.Color.dark_red() if evader_matches else discord.Color.green()
+        )
+        if not evader_matches:
+            embed.description = f"✅ Scanned **{len(recent_members)} recent members** against **{len(bans)} banned accounts**.\nZero suspected ban evaders found!"
+        else:
+            embed.description = f"⚠️ Detected **{len(evader_matches)} suspected ban evader match(es)**:"
+            for match in evader_matches[:10]:
+                m = match["member"]
+                bu = match["banned_user"]
+                m_name_clean = (m.name or "User")[:25]
+                bu_name_clean = (bu.name or "Banned")[:25]
+                embed.add_field(
+                    name=f"⚠️ {m_name_clean} ➔ {match['similarity']}% Match to: {bu_name_clean}",
+                    value=f"• Current Member: {m.mention} (`{m.id}`)\n• Banned User: `{bu.name}` (`{bu.id}`)\n• Ban Reason: *{match['ban_reason']}*\n• Joined: <t:{int(match['joined_at'].timestamp())}:R>",
+                    inline=False
+                )
+                
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+        await ctx.send(embed=embed)
+    except Exception as err:
+        logger.error(f"Error in !banevaders: {err}", exc_info=True)
+        try:
+            await status_msg.edit(content=f"❌ Error during ban-evasion scan: {err}")
+        except Exception:
+            await ctx.send(f"❌ Error during ban-evasion scan: {err}")
 
 
 @bot.command(name="batchcheck", aliases=["botfarms", "twincheck"])
