@@ -16586,6 +16586,29 @@ class TeardownConfirmView(discord.ui.View):
 # ───────────────────────────────────────────────────────────────────────────
 
 
+def safe_field_value(items: List[str], separator: str = ", ", max_len: int = 1000, fallback: str = "None") -> str:
+    """Safely joins strings to guarantee Discord embed field values stay strictly <= 1024 characters."""
+    if not items:
+        return fallback
+    joined = separator.join(items)
+    if len(joined) <= max_len:
+        return joined
+
+    result = []
+    current_len = 0
+    total = len(items)
+    for idx, item in enumerate(items):
+        remaining = total - idx
+        suffix = f"... *(+{remaining} more)*"
+        item_cost = len(item) + (len(separator) if result else 0)
+        if current_len + item_cost + len(suffix) > max_len:
+            result.append(suffix)
+            break
+        result.append(item)
+        current_len += item_cost
+    return separator.join(result) if result else fallback
+
+
 async def build_server_structure(guild, data, response_channel):
     """Parses structural plan data and creates corresponding roles, categories, and channels."""
     logger.info(f"Starting AI server build for guild: {guild.name} ({guild.id})")
@@ -16760,9 +16783,11 @@ async def build_server_structure(guild, data, response_channel):
 
     # Send confirmation embed
     embed = discord.Embed(title="✅ Server Setup Complete", color=discord.Color.green())
-    embed.add_field(name="Roles Created / Verified",      value=", ".join(dict.fromkeys(roles_created))                          or "None", inline=False)
-    embed.add_field(name="Categories Created / Verified", value=", ".join(dict.fromkeys(categories_created))      or "None", inline=False)
-    embed.add_field(name="Channels Created / Verified",   value=", ".join(channels_created[:20]) + ("..." if len(channels_created) > 20 else "") or "None", inline=False)
+    roles_list = list(dict.fromkeys(roles_created))
+    cats_list = list(dict.fromkeys(categories_created))
+    embed.add_field(name=f"Roles Created / Verified ({len(roles_list)})",      value=safe_field_value(roles_list, ", "), inline=False)
+    embed.add_field(name=f"Categories Created / Verified ({len(cats_list)})", value=safe_field_value(cats_list, ", "), inline=False)
+    embed.add_field(name=f"Channels Created / Verified ({len(channels_created)})",   value=safe_field_value(channels_created, ", "), inline=False)
     
     if errors_encountered:
         errors_str = "\n".join(errors_encountered[:5]) + ("\n..." if len(errors_encountered) > 5 else "")
@@ -19148,8 +19173,8 @@ async def setup_command(interaction: discord.Interaction, theme: str = None, des
             categories_summary.append(f"**{cat.get('name')}**{private_tag} ({len(chans)} channels: {', '.join(chan_names[:5])}{'...' if len(chan_names)>5 else ''})")
 
         embed = discord.Embed(title="📋 Server Structure Preview", description="Review the generated layout below before creating channels and roles.\n*(Channels marked with 💬 include automatic topics & descriptions!)*", color=discord.Color.gold())
-        embed.add_field(name="🎭 Roles to Create", value=", ".join(roles_summary) or "None", inline=False)
-        embed.add_field(name=f"📁 Categories & Channels ({total_channels} channels total)", value="\n".join(categories_summary) or "None", inline=False)
+        embed.add_field(name=f"🎭 Roles to Create ({len(roles_summary)})", value=safe_field_value(roles_summary, ", "), inline=False)
+        embed.add_field(name=f"📁 Categories & Channels ({len(categories_summary)} categories, {total_channels} channels)", value=safe_field_value(categories_summary, "\n"), inline=False)
         embed.set_footer(text="Click Confirm & Build below to execute this plan.")
 
         view = SetupConfirmView(interaction.user, interaction.guild, data, interaction)
@@ -19386,8 +19411,8 @@ async def restore_command(interaction: discord.Interaction, file: discord.Attach
             categories_summary.append(f"**{cat.get('name')}**{private_tag} ({len(chans)} channels: {', '.join(chan_names[:5])}{'...' if len(chan_names)>5 else ''})")
 
         embed = discord.Embed(title="📋 Server Structure Preview (Restore)", description="Review the backup template layout below before creating channels and roles.", color=discord.Color.gold())
-        embed.add_field(name="🎭 Roles to Create", value=", ".join(roles_summary) or "None", inline=False)
-        embed.add_field(name=f"📁 Categories & Channels ({total_channels} channels total)", value="\n".join(categories_summary) or "None", inline=False)
+        embed.add_field(name=f"🎭 Roles to Create ({len(roles_summary)})", value=safe_field_value(roles_summary, ", "), inline=False)
+        embed.add_field(name=f"📁 Categories & Channels ({len(categories_summary)} categories, {total_channels} channels)", value=safe_field_value(categories_summary, "\n"), inline=False)
         embed.set_footer(text="Click Confirm & Build below to restore this layout.")
 
         view = SetupConfirmView(interaction.user, interaction.guild, data, interaction)
