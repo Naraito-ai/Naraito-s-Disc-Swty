@@ -27,8 +27,8 @@ logger = logging.getLogger("SweetyBot.Music")
 
 # ─── Spotify Client ───────────────────────────────────────────────────────────
 
-spotify_client_id = os.environ.get("SPOTIFY_CLIENT_ID", "fe5d5375021842a698279b2b09bf30fe").strip()
-spotify_client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "a6cc6b6d69ed401ca24b59d2a65dec4a").strip()
+spotify_client_id = os.environ.get("SPOTIFY_CLIENT_ID", "").strip()
+spotify_client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "").strip()
 
 spotify = None
 if spotify_client_id and spotify_client_secret:

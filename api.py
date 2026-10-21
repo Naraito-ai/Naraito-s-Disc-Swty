@@ -7,6 +7,8 @@ import math
 import logging
 import asyncio
 import base64
+import hmac
+import secrets
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Union, Tuple, Set
@@ -48,18 +50,35 @@ class EndpointFilter(logging.Filter):
 # FastAPI App
 app = FastAPI(title="Discord Gemini Bot Dashboard API", version="1.0.0")
 
-# CORS Setup
+# CORS Setup - Restrict to authorized frontends
+FRONTEND_URL = os.getenv("FRONTEND_URL", "").strip()
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://sweety-discord-bot-fra.onrender.com",
+]
+if FRONTEND_URL and FRONTEND_URL not in allowed_origins:
+    allowed_origins.append(FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://.*",  # Matches HTTP and HTTPS origins
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https://.*\.vercel\.app$" if not FRONTEND_URL else None,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# JWT Setup
-JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-me-in-production")
+# JWT Setup - Reject insecure default and enforce secure ephemeral key if unset
+_raw_jwt = os.getenv("JWT_SECRET", "").strip()
+if not _raw_jwt or _raw_jwt == "super-secret-key-change-me-in-production":
+    JWT_SECRET = secrets.token_urlsafe(48)
+    logger.warning("⚠️ [SECURITY] Insecure or missing JWT_SECRET in environment! Generated secure random dynamic key.")
+else:
+    JWT_SECRET = _raw_jwt
+
 JWT_ALGORITHM = "HS256"
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "").strip()
 
 # Discord OAuth2 Config
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
@@ -67,9 +86,9 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:3000/api/auth/callback")
 DISCORD_API_ENDPOINT = "https://discord.com/api/v10"
 
-# Spotify OAuth2 Config
-SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "fe5d5375021842a698279b2b09bf30fe").strip()
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "a6cc6b6d69ed401ca24b59d2a65dec4a").strip()
+# Spotify OAuth2 Config (Never hardcode fallback secrets in code)
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "").strip()
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "").strip()
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "https://sweety-discord-bot-fra.onrender.com").rstrip("/")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", f"{RENDER_EXTERNAL_URL}/api/spotify/callback")
 
@@ -169,6 +188,44 @@ class WebSocketLogHandler(logging.Handler):
         except Exception:
             pass
 
+async def verify_admin_auth(request: Request):
+    """Enforces admin authentication via X-Admin-Key header or Bearer JWT token."""
+    req_key = request.headers.get("X-Admin-Key", "").strip()
+    admin_key = os.getenv("ADMIN_API_KEY", "").strip()
+    if admin_key and req_key and hmac.compare_digest(admin_key, req_key):
+        return {"role": "admin", "auth": "api_key"}
+
+    auth_header = request.headers.get("Authorization", "").strip()
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split()[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            uid = str(payload.get("id", ""))
+            if uid == "719932313919684670" or payload.get("is_admin"):
+                return payload
+        except jwt.PyJWTError:
+            pass
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized: Admin access requires valid X-Admin-Key or authenticated Admin session."
+    )
+
+def check_ws_admin_auth(websocket: WebSocket) -> bool:
+    """Verifies WebSocket handshake using token or key parameter."""
+    token = websocket.query_params.get("token", "").strip() or websocket.query_params.get("key", "").strip()
+    admin_key = os.getenv("ADMIN_API_KEY", "").strip()
+    if admin_key and token and hmac.compare_digest(admin_key, token):
+        return True
+    if token:
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            if str(payload.get("id")) == "719932313919684670" or payload.get("is_admin"):
+                return True
+        except Exception:
+            pass
+    return False
+
 # Dependency to get current user from JWT token
 async def get_current_user(request: Request):
     auth_header = request.headers.get("Authorization")
@@ -203,8 +260,8 @@ async def health():
     return {"status": "ok"}
 
 @app.api_route("/api/sync", methods=["GET", "POST"])
-async def trigger_sync():
-    """Trigger instant slash command sync across all guilds and global Discord cache."""
+async def trigger_sync(admin: dict = Depends(verify_admin_auth)):
+    """Trigger instant slash command sync across all guilds and global Discord cache (Admin only)."""
     bot = getattr(app.state, "bot", None)
     if not bot:
         return {"error": "Bot not connected yet"}
@@ -224,7 +281,8 @@ async def trigger_sync():
     return {"status": "ok", "global": total_global, "guilds": results}
 
 @app.api_route("/api/load_music", methods=["GET", "POST"])
-async def load_music_endpoint():
+async def load_music_endpoint(admin: dict = Depends(verify_admin_auth)):
+    """Reloads music audio extension (Admin only)."""
     bot = getattr(app.state, "bot", None)
     if not bot:
         return {"error": "no bot"}
@@ -246,7 +304,8 @@ async def load_music_endpoint():
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 @app.api_route("/api/logs", methods=["GET", "POST"])
-async def get_recent_logs():
+async def get_recent_logs(admin: dict = Depends(verify_admin_auth)):
+    """Returns recent internal logs (Protected: Admin only)."""
     return {"logs": list(_recent_logs)}
 
 @app.api_route("/health/detail", methods=["GET", "HEAD", "POST", "OPTIONS"])
@@ -860,11 +919,14 @@ async def get_ai_stats():
 
 @app.websocket("/api/ws/console")
 async def websocket_console(websocket: WebSocket):
-    """Establishes a WebSocket connection for the live terminal log viewer."""
+    """Establishes an authenticated WebSocket connection for the live terminal log viewer."""
+    if not check_ws_admin_auth(websocket):
+        await websocket.close(code=1008)  # 1008: Policy Violation (Unauthorized)
+        return
     await websocket.accept()
     active_console_websockets.add(websocket)
     try:
-        await websocket.send_text(f"[{datetime.now().strftime('%H:%M:%S')}] Dashboard terminal WebSocket connection established.")
+        await websocket.send_text(f"[{datetime.now().strftime('%H:%M:%S')}] Authenticated terminal WebSocket connection established.")
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
@@ -874,7 +936,10 @@ async def websocket_console(websocket: WebSocket):
 
 @app.websocket("/api/ws/events")
 async def websocket_events(websocket: WebSocket):
-    """WebSocket connection to receive live alerts and updates."""
+    """Authenticated WebSocket connection to receive live alerts and updates."""
+    if not check_ws_admin_auth(websocket):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     active_event_websockets.add(websocket)
     try:
