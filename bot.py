@@ -2669,7 +2669,8 @@ async def handle_ghost_ping_detection(message: discord.Message):
         logger.error(f"Error handling ghost ping detection: {e}", exc_info=True)
 
 # ── Productivity Suite: Reminders & AFK System ──────────────────────────────
-_afk_cache: dict[tuple[int, int], dict] = {}  # (guild_id, user_id) -> {"reason": str, "since": float}
+_afk_cache: dict[tuple[int, int], dict] = {}  # (guild_id, user_id) -> {"reason": str, "since": float, "pings": list}
+_recent_mentions_cache: dict[tuple[int, int], list[dict]] = {}  # (guild_id, user_id) -> list of recent mentions (max 10)
 _afk_cooldown: dict[tuple[int, int], float] = {}  # prevents spamming AFK alert when mentioned repeatedly
 
 def parse_duration_string(time_str: str) -> Optional[int]:
@@ -18011,7 +18012,7 @@ class GeminiBot(commands.Bot):
                 gid = int(r["guild_id"] if isinstance(r, dict) and "guild_id" in r else r[1])
                 rsn = r["reason"] if isinstance(r, dict) and "reason" in r else r[2]
                 snc = float(r["afk_since"] if isinstance(r, dict) and "afk_since" in r else r[3])
-                _afk_cache[(gid, uid)] = {"reason": rsn, "since": snc}
+                _afk_cache[(gid, uid)] = {"reason": rsn, "since": snc, "pings": []}
             logger.info(f"✅ Loaded {len(_afk_cache)} AFK status records")
         except Exception as afk_err:
             logger.error(f"❌ AFK cache load failed: {afk_err}")
@@ -18937,6 +18938,7 @@ def make_help_embed(category: str = "all", is_staff: bool = False) -> discord.Em
                 "• `/remindme <time> <note>` or `!remindme` — Set private timers & reminders\n"
                 "• `/reminders` or `!reminders` — View or cancel active scheduled reminders\n"
                 "• `!afk [reason]` — Set AFK status with automatic mention alerts (clears on next message!)\n"
+                "• `/pings` or `!pings` — View recent mentions and messages you received while away\n"
                 "• `!ping` — Check bot heartbeat and gateway latency"
             ),
             inline=False
@@ -19034,7 +19036,7 @@ def make_help_embed(category: str = "all", is_staff: bool = False) -> discord.Em
     embed.add_field(
         name="⏰ **Productivity, Social & Utilities (`/` and `!`)**",
         value=(
-            "• `!afk [reason]` — Set AFK status with automatic mention alerts\n"
+            "• `!afk [reason]`, `/pings` / `!pings` — AFK status & missed mentions history\n"
             "• `/remindme` / `!remindme`, `/reminders` / `!reminders` — Timers & scheduled reminders\n"
             "• `/whois` / `!whois` / `!userinfo` — Deep audit of member profile, roles & history\n"
             "• `/autorole` / `!autorole`, `/addrole` / `!addrole`, `/removerole` / `!removerole`\n"
@@ -23421,7 +23423,8 @@ async def afk_prefix_cmd(ctx: commands.Context, *, reason: str = "AFK (Away From
         now = time.time()
         _afk_cache[(ctx.guild.id, ctx.author.id)] = {
             "reason": reason,
-            "since": now
+            "since": now,
+            "pings": []
         }
         await db.set_afk(ctx.author.id, ctx.guild.id, reason, now)
 
@@ -23435,6 +23438,144 @@ async def afk_prefix_cmd(ctx: commands.Context, *, reason: str = "AFK (Away From
     except Exception as e:
         logger.error(f"Error in !afk: {e}", exc_info=True)
         await ctx.send(f"❌ Failed to set AFK status: {e}")
+
+@bot.command(name="pings", aliases=["mentions", "missedpings", "recentpings", "mypings"])
+@commands.guild_only()
+@commands.cooldown(1, 4.0, commands.BucketType.user)
+async def pings_prefix_cmd(ctx: commands.Context, target_or_action: Optional[str] = None):
+    """View recent mentions and messages you received while away: !pings [clear/@user]"""
+    try:
+        # Check if action is clear
+        if target_or_action and target_or_action.lower() in ("clear", "clean", "reset", "wipe", "purge"):
+            _recent_mentions_cache.pop((ctx.guild.id, ctx.author.id), None)
+            if (ctx.guild.id, ctx.author.id) in _afk_cache:
+                _afk_cache[(ctx.guild.id, ctx.author.id)]["pings"] = []
+            embed = discord.Embed(
+                title="🧹 Mentions Cleared",
+                description=f"Cleared your recent mentions history in **{ctx.guild.name}**.",
+                color=discord.Color.green()
+            )
+            await ctx.send(embed=embed, delete_after=8)
+            return
+
+        # Determine target user
+        target_user = ctx.author
+        if ctx.message.mentions:
+            mentioned = ctx.message.mentions[0]
+            if mentioned.id != ctx.author.id:
+                is_staff = is_protected(ctx.author) or ctx.author.guild_permissions.manage_messages
+                if not is_staff:
+                    await ctx.send("🔒 You can only view your own recent mentions. Staff can view mentions for other members.", delete_after=6)
+                    return
+                target_user = mentioned
+
+        mentions_list = _recent_mentions_cache.get((ctx.guild.id, target_user.id), [])
+        if not mentions_list:
+            embed = discord.Embed(
+                title="📭 No Recent Mentions",
+                description=(
+                    f"No recent mentions recorded for **{target_user.display_name}** in this server.\n"
+                    f"*Mentions are logged automatically whenever members ping you in chat or when you return from `!afk`.*"
+                ),
+                color=discord.Color.from_rgb(120, 140, 180)
+            )
+            await ctx.send(embed=embed)
+            return
+
+        embed = discord.Embed(
+            title=f"📬 Recent Mentions for {target_user.display_name}",
+            description=f"Showing last **{len(mentions_list)}** recorded mention(s) in **{ctx.guild.name}**:\n*(Newest first • Use `!pings clear` to wipe)*\n",
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+
+        for idx, p in enumerate(reversed(mentions_list[-8:]), 1):
+            author_name = p.get("author_name", "Someone")
+            chan_str = p.get("channel_mention", f"<#{p.get('channel_id')}>")
+            time_str = f"<t:{p.get('timestamp', int(time.time()))}:R>"
+            clean_text = p.get("content", "").replace("\n", " ").strip()
+            if not clean_text:
+                clean_text = "*[No message text / attachment]*"
+            elif len(clean_text) > 120:
+                clean_text = clean_text[:117] + "..."
+            jump = p.get("jump_url", "")
+
+            embed.add_field(
+                name=f"#{idx} from {author_name} in {chan_str} ({time_str})",
+                value=f"> \"{clean_text}\"\n🔗 [Jump to Message]({jump})",
+                inline=False
+            )
+
+        embed.set_footer(text=f"Requested by {ctx.author.display_name} • Sweety Mention Tracker")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !pings: {e}", exc_info=True)
+        await ctx.send(f"❌ Error fetching mentions: {e}")
+
+
+@bot.tree.command(name="pings", description="View recent mentions and messages you received while away")
+@app_commands.describe(action="Choose whether to view mentions or clear your history")
+@app_commands.choices(action=[
+    app_commands.Choice(name="📬 View Recent Mentions", value="view"),
+    app_commands.Choice(name="🧹 Clear Mention History", value="clear"),
+])
+async def pings_slash_cmd(interaction: discord.Interaction, action: Optional[app_commands.Choice[str]] = None):
+    """Slash command to view or clear recent mentions."""
+    try:
+        act = action.value if action else "view"
+        if not interaction.guild:
+            await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
+            return
+
+        if act == "clear":
+            _recent_mentions_cache.pop((interaction.guild.id, interaction.user.id), None)
+            if (interaction.guild.id, interaction.user.id) in _afk_cache:
+                _afk_cache[(interaction.guild.id, interaction.user.id)]["pings"] = []
+            await interaction.response.send_message("🧹 Cleared your recent mentions history in this server.", ephemeral=True)
+            return
+
+        mentions_list = _recent_mentions_cache.get((interaction.guild.id, interaction.user.id), [])
+        if not mentions_list:
+            embed = discord.Embed(
+                title="📭 No Recent Mentions",
+                description=(
+                    f"No recent mentions recorded for you in **{interaction.guild.name}**.\n"
+                    f"*Mentions are logged automatically whenever members ping you in chat or when you return from `!afk`.*"
+                ),
+                color=discord.Color.from_rgb(120, 140, 180)
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        embed = discord.Embed(
+            title=f"📬 Recent Mentions for {interaction.user.display_name}",
+            description=f"Showing your last **{len(mentions_list)}** recorded mention(s) in **{interaction.guild.name}**:\n*(Newest first)*\n",
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+        for idx, p in enumerate(reversed(mentions_list[-8:]), 1):
+            author_name = p.get("author_name", "Someone")
+            chan_str = p.get("channel_mention", f"<#{p.get('channel_id')}>")
+            time_str = f"<t:{p.get('timestamp', int(time.time()))}:R>"
+            clean_text = p.get("content", "").replace("\n", " ").strip()
+            if not clean_text:
+                clean_text = "*[No message text / attachment]*"
+            elif len(clean_text) > 120:
+                clean_text = clean_text[:117] + "..."
+            jump = p.get("jump_url", "")
+
+            embed.add_field(
+                name=f"#{idx} from {author_name} in {chan_str} ({time_str})",
+                value=f"> \"{clean_text}\"\n🔗 [Jump to Message]({jump})",
+                inline=False
+            )
+
+        embed.set_footer(text="Sweety Mention Tracker • Use /pings clear to wipe")
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        logger.error(f"Error in /pings: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"❌ Error fetching mentions: {e}", ephemeral=True)
 
 
 # ── Social & Wholesome Anime Action Prefix Commands ────────────────────────
@@ -28686,46 +28827,111 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Fast-path prefix commands (!play, !queue, !skip, etc.) directly to process_commands
-    if message.content.startswith("!"):
-        if message.guild and not message.author.bot:
-            asyncio.create_task(db.increment_analytics(message.guild.id, "messages_count"))
-        await bot.process_commands(message)
-        return
-
     if message.guild and not message.author.bot:
         asyncio.create_task(db.increment_analytics(message.guild.id, "messages_count"))
 
         # ── AFK System: Return from AFK ─────────────────────────────────────
-        afk_key = (message.guild.id, message.author.id)
-        if afk_key in _afk_cache:
-            afk_data = _afk_cache.pop(afk_key, None)
-            if afk_data:
-                await db.remove_afk(message.author.id, message.guild.id)
-                away_duration = format_time_elapsed(time.time() - afk_data["since"])
-                welcome_msg = await message.channel.send(
-                    f"👋 Welcome back {message.author.mention}! I have removed your AFK status. *(You were away for {away_duration})*"
-                )
-                asyncio.create_task(delete_after_delay(welcome_msg, 8))
+        if not message.content.startswith("!afk"):
+            afk_key = (message.guild.id, message.author.id)
+            if afk_key in _afk_cache:
+                afk_data = _afk_cache.pop(afk_key, None)
+                if afk_data:
+                    try:
+                        await db.remove_afk(message.author.id, message.guild.id)
+                    except Exception as db_e:
+                        logger.debug(f"Failed to remove AFK record from DB: {db_e}")
 
-        # ── AFK System: Mentioned AFK User Alert ─────────────────────────────
+                    away_duration = format_time_elapsed(time.time() - afk_data.get("since", time.time()))
+                    missed_pings = afk_data.get("pings", [])
+                    if missed_pings:
+                        pings_count = len(missed_pings)
+                        embed = discord.Embed(
+                            title=f"👋 Welcome Back, {message.author.display_name}!",
+                            description=(
+                                f"I have removed your AFK status. *(You were away for {away_duration})*\n"
+                                f"You received **{pings_count} missed mention{'s' if pings_count > 1 else ''}** while you were away:"
+                            ),
+                            color=discord.Color.from_rgb(120, 140, 180)
+                        )
+                        for idx, p in enumerate(missed_pings[-5:], 1):
+                            author_name = p.get("author_name", "Someone")
+                            chan_str = p.get("channel_mention", f"<#{p.get('channel_id')}>")
+                            time_str = f"<t:{p.get('timestamp', int(time.time()))}:R>"
+                            clean_text = p.get("content", "").replace("\n", " ").strip()
+                            if not clean_text:
+                                clean_text = "*[No message text / attachment]*"
+                            elif len(clean_text) > 120:
+                                clean_text = clean_text[:117] + "..."
+                            jump = p.get("jump_url", "")
+
+                            embed.add_field(
+                                name=f"📌 Missed Ping #{idx} • by {author_name} in {chan_str}",
+                                value=f"> \"{clean_text}\"\n— {time_str} • [Jump to Message]({jump})",
+                                inline=False
+                            )
+                        if pings_count > 5:
+                            embed.set_footer(text=f"+{pings_count - 5} older mentions. Type !pings to view full recent mentions.")
+                        welcome_msg = await message.channel.send(embed=embed)
+                        asyncio.create_task(delete_after_delay(welcome_msg, 20))
+                    else:
+                        welcome_msg = await message.channel.send(
+                            f"👋 Welcome back {message.author.mention}! I have removed your AFK status. *(You were away for {away_duration})*"
+                        )
+                        asyncio.create_task(delete_after_delay(welcome_msg, 8))
+
+        # ── Mention Logging & AFK Mention Alerts ─────────────────────────────
         if message.mentions:
             now_ts = time.time()
+            clean_snippet = message.clean_content[:150] if message.clean_content else message.content[:150]
+            if not clean_snippet.strip():
+                clean_snippet = "*[No message text / attachment]*"
+
             for mentioned_user in message.mentions:
                 if mentioned_user.id != message.author.id and not mentioned_user.bot:
                     m_key = (message.guild.id, mentioned_user.id)
+                    ping_record = {
+                        "author_id": message.author.id,
+                        "author_name": message.author.display_name,
+                        "author_mention": message.author.mention,
+                        "channel_id": message.channel.id,
+                        "channel_name": getattr(message.channel, "name", "channel"),
+                        "channel_mention": getattr(message.channel, "mention", f"#{getattr(message.channel, 'name', 'chat')}"),
+                        "content": clean_snippet,
+                        "jump_url": message.jump_url,
+                        "timestamp": int(now_ts),
+                    }
+
+                    # Store in general recent mentions cache (max 10)
+                    if m_key not in _recent_mentions_cache:
+                        _recent_mentions_cache[m_key] = []
+                    _recent_mentions_cache[m_key].append(ping_record)
+                    if len(_recent_mentions_cache[m_key]) > 10:
+                        _recent_mentions_cache[m_key].pop(0)
+
+                    # If user is currently AFK, also log to their AFK session pings and send AFK alert
                     if m_key in _afk_cache:
+                        afk_info = _afk_cache[m_key]
+                        if "pings" not in afk_info:
+                            afk_info["pings"] = []
+                        afk_info["pings"].append(ping_record)
+                        if len(afk_info["pings"]) > 15:
+                            afk_info["pings"].pop(0)
+
                         last_alert = _afk_cooldown.get(m_key, 0)
                         if now_ts - last_alert > 10:  # 10s cooldown per AFK user to prevent spam
                             _afk_cooldown[m_key] = now_ts
-                            afk_info = _afk_cache[m_key]
-                            afk_since_ts = int(afk_info["since"])
+                            afk_since_ts = int(afk_info.get("since", now_ts))
                             afk_embed = discord.Embed(
-                                description=f"💤 **{mentioned_user.display_name}** is currently AFK: **{afk_info['reason']}** *(<t:{afk_since_ts}:R>)*",
+                                description=f"💤 **{mentioned_user.display_name}** is currently AFK: **{afk_info.get('reason', 'AFK')}** *(<t:{afk_since_ts}:R>)*",
                                 color=discord.Color.from_rgb(120, 140, 180)
                             )
                             afk_alert_msg = await message.channel.send(embed=afk_embed)
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
+
+    # Fast-path prefix commands (!play, !queue, !skip, !pings, etc.) directly to process_commands
+    if message.content.startswith("!"):
+        await bot.process_commands(message)
+        return
 
         # ── NBA 2K Mobile Wild Card Chat Spawns (Configurable message threshold) ────
         if message.guild and not message.author.bot:
