@@ -611,9 +611,9 @@ async def get_kiss_allowed_role_ids(guild_id: int) -> List[int]:
     """Returns a list of all role IDs permitted to use the kiss command in this guild."""
     role_ids: List[int] = []
     
-    # 1. Multi-role config
+    # 1. Multi-role config (Primary source of truth)
     multi_raw = await db.get_config(guild_id, "kiss_allowed_role_ids", None)
-    if multi_raw:
+    if multi_raw is not None:
         if isinstance(multi_raw, list):
             for item in multi_raw:
                 try:
@@ -632,14 +632,15 @@ async def get_kiss_allowed_role_ids(guild_id: int) -> List[int]:
                             pass
                 except Exception:
                     pass
-            if not role_ids:
+            if not role_ids and clean not in ("[]", "None", "null", ""):
                 for part in clean.replace(",", " ").split():
                     try:
                         role_ids.append(int(part))
                     except (ValueError, TypeError):
                         pass
+        return list(dict.fromkeys(role_ids))
 
-    # 2. Legacy single-role config fallback
+    # 2. Legacy single-role config fallback (only if multi_raw was never initialized)
     legacy_raw = await db.get_config(guild_id, "kiss_allowed_role_id", None)
     if legacy_raw and str(legacy_raw).lower() not in ("none", "null", "0", ""):
         try:
@@ -705,8 +706,18 @@ async def can_use_kiss_command(guild: Optional[discord.Guild], user: Union[disco
     if not allowed_role_ids:
         return False, []
         
-    if isinstance(user, discord.Member):
-        user_role_ids = {r.id for r in user.roles}
+    member = user
+    if not isinstance(member, discord.Member):
+        if hasattr(guild, "get_member"):
+            member = guild.get_member(uid)
+        if not member and hasattr(guild, "fetch_member"):
+            try:
+                member = await guild.fetch_member(uid)
+            except Exception:
+                pass
+
+    if isinstance(member, discord.Member):
+        user_role_ids = {r.id for r in member.roles}
         if any(rid in user_role_ids for rid in allowed_role_ids):
             return True, allowed_role_ids
             

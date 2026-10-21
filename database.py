@@ -741,7 +741,13 @@ class DatabaseManager:
     # ── Guild Configuration Queries ──────────────────────────────────────────
 
     async def set_config(self, guild_id: Any, key: str, value: Any):
-        """Sets a configuration option with atomic upsert."""
+        """Sets a configuration option with atomic upsert and updates local cache."""
+        cache_key = (str(guild_id), key)
+        if value is None:
+            self._config_cache[cache_key] = "None"
+        else:
+            self._config_cache[cache_key] = str(value)
+
         query = """
             INSERT INTO guild_config (guild_id, key, value) 
             VALUES (?, ?, ?) 
@@ -783,8 +789,6 @@ class DatabaseManager:
             logger.error(f"Error upserting guild {guild_id}: {e}")
             return False
 
-        # Update cache
-        self._config_cache[(str(guild_id), key)] = str(value)
 
     def _parse_config_value(self, val: Any) -> Any:
         if val == "True" or val is True: return True

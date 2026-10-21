@@ -16260,9 +16260,9 @@ async def get_kiss_allowed_role_ids(guild_id: int) -> List[int]:
     """Returns a list of all role IDs permitted to use the kiss command in this guild."""
     role_ids: List[int] = []
     
-    # 1. Multi-role config
+    # 1. Multi-role config (Primary source of truth)
     multi_raw = await db.get_config(guild_id, "kiss_allowed_role_ids", None)
-    if multi_raw:
+    if multi_raw is not None:
         if isinstance(multi_raw, list):
             for item in multi_raw:
                 try:
@@ -16281,14 +16281,15 @@ async def get_kiss_allowed_role_ids(guild_id: int) -> List[int]:
                             pass
                 except Exception:
                     pass
-            if not role_ids:
+            if not role_ids and clean not in ("[]", "None", "null", ""):
                 for part in clean.replace(",", " ").split():
                     try:
                         role_ids.append(int(part))
                     except (ValueError, TypeError):
                         pass
+        return list(dict.fromkeys(role_ids))
 
-    # 2. Legacy single-role config fallback
+    # 2. Legacy single-role config fallback (only if multi_raw was never initialized)
     legacy_raw = await db.get_config(guild_id, "kiss_allowed_role_id", None)
     if legacy_raw and str(legacy_raw).lower() not in ("none", "null", "0", ""):
         try:
@@ -16354,8 +16355,18 @@ async def can_use_kiss_command(guild: Optional[discord.Guild], user: Union[disco
     if not allowed_role_ids:
         return False, []
         
-    if isinstance(user, discord.Member):
-        user_role_ids = {r.id for r in user.roles}
+    member = user
+    if not isinstance(member, discord.Member):
+        if hasattr(guild, "get_member"):
+            member = guild.get_member(uid)
+        if not member and hasattr(guild, "fetch_member"):
+            try:
+                member = await guild.fetch_member(uid)
+            except Exception:
+                pass
+
+    if isinstance(member, discord.Member):
+        user_role_ids = {r.id for r in member.roles}
         if any(rid in user_role_ids for rid in allowed_role_ids):
             return True, allowed_role_ids
             
@@ -21956,7 +21967,13 @@ async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[disc
         is_allowed, allowed_role_ids = await can_use_kiss_command(interaction.guild, interaction.user)
         if not is_allowed:
             if allowed_role_ids:
-                mentions = [f"<@&{rid}>" for rid in allowed_role_ids]
+                mentions = []
+                for rid in allowed_role_ids:
+                    r_obj = interaction.guild.get_role(rid) if interaction.guild else None
+                    if r_obj:
+                        mentions.append(f"{r_obj.mention} (**{r_obj.name}**)")
+                    else:
+                        mentions.append(f"<@&{rid}>")
                 msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the following role(s) can use `/kiss`:\n{', '.join(mentions)}"
             else:
                 msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `/kiss`.\n*Administrators can configure role access with `/kissrole` or `!kissrole @Role`.*"
@@ -22007,8 +22024,11 @@ async def kissrole_slash_cmd(interaction: discord.Interaction, action: str, role
             if current_role_ids:
                 lines = []
                 for rid in current_role_ids:
-                    r_obj = interaction.guild.get_role(rid)
-                    lines.append(f"• {r_obj.mention if r_obj else f'`Role ID: {rid}` *(Deleted)*'}")
+                    r_obj = interaction.guild.get_role(rid) if interaction.guild else None
+                    if r_obj:
+                        lines.append(f"• {r_obj.mention} — **{r_obj.name}** (`ID: {rid}`)")
+                    else:
+                        lines.append(f"• <@&{rid}> — `Role ID: {rid}`")
                 embed.add_field(name=f"🎭 Configured Roles ({len(current_role_ids)})", value="\n".join(lines), inline=False)
             else:
                 embed.add_field(name="🎭 Configured Roles", value="*No custom roles set (Admins & Owner only)*", inline=False)
@@ -23091,7 +23111,13 @@ async def kiss_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member
         is_allowed, allowed_role_ids = await can_use_kiss_command(ctx.guild, ctx.author)
         if not is_allowed:
             if allowed_role_ids:
-                mentions = [f"<@&{rid}>" for rid in allowed_role_ids]
+                mentions = []
+                for rid in allowed_role_ids:
+                    r_obj = ctx.guild.get_role(rid) if ctx.guild else None
+                    if r_obj:
+                        mentions.append(f"{r_obj.mention} (**{r_obj.name}**)")
+                    else:
+                        mentions.append(f"<@&{rid}>")
                 msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the following role(s) can use `!kiss`:\n{', '.join(mentions)}"
             else:
                 msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `!kiss`.\n*Administrators can configure role access with `/kissrole` or `!kissrole @Role`.*"
@@ -23137,8 +23163,11 @@ async def kissrole_prefix_cmd(ctx: commands.Context, *, args: Optional[str] = No
             if current_role_ids:
                 lines = []
                 for rid in current_role_ids:
-                    r_obj = ctx.guild.get_role(rid)
-                    lines.append(f"• {r_obj.mention if r_obj else f'`Role ID: {rid}` *(Deleted)*'}")
+                    r_obj = ctx.guild.get_role(rid) if ctx.guild else None
+                    if r_obj:
+                        lines.append(f"• {r_obj.mention} — **{r_obj.name}** (`ID: {rid}`)")
+                    else:
+                        lines.append(f"• <@&{rid}> — `Role ID: {rid}`")
                 embed.add_field(name=f"🎭 Configured Roles ({len(current_role_ids)})", value="\n".join(lines), inline=False)
             else:
                 embed.add_field(name="🎭 Configured Roles", value="*No custom roles set (Admins & Owner only)*", inline=False)
