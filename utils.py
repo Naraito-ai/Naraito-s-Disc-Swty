@@ -607,8 +607,65 @@ async def log_mod_action(guild: Union[discord.Guild, int, str, None], moderator:
 
 
 
+async def get_kiss_allowed_role_ids(guild_id: int) -> List[int]:
+    """Returns a list of all role IDs permitted to use the kiss command in this guild."""
+    role_ids: List[int] = []
+    
+    # 1. Multi-role config
+    multi_raw = await db.get_config(guild_id, "kiss_allowed_role_ids", None)
+    if multi_raw:
+        if isinstance(multi_raw, list):
+            for item in multi_raw:
+                try:
+                    role_ids.append(int(item))
+                except (ValueError, TypeError):
+                    pass
+        elif isinstance(multi_raw, str):
+            clean = multi_raw.strip()
+            if clean.startswith("[") and clean.endswith("]"):
+                try:
+                    items = json.loads(clean)
+                    for item in items:
+                        try:
+                            role_ids.append(int(item))
+                        except (ValueError, TypeError):
+                            pass
+                except Exception:
+                    pass
+            if not role_ids:
+                for part in clean.replace(",", " ").split():
+                    try:
+                        role_ids.append(int(part))
+                    except (ValueError, TypeError):
+                        pass
+
+    # 2. Legacy single-role config fallback
+    legacy_raw = await db.get_config(guild_id, "kiss_allowed_role_id", None)
+    if legacy_raw and str(legacy_raw).lower() not in ("none", "null", "0", ""):
+        try:
+            lid = int(legacy_raw)
+            if lid not in role_ids:
+                role_ids.append(lid)
+        except (ValueError, TypeError):
+            pass
+
+    return list(dict.fromkeys(role_ids))
+
+
+async def set_kiss_allowed_role_ids(guild_id: int, role_ids: List[int]) -> None:
+    """Persists allowed role IDs for the kiss command in database."""
+    unique_ids = list(dict.fromkeys(role_ids))
+    if not unique_ids:
+        await db.set_config(guild_id, "kiss_allowed_role_ids", "[]")
+        await db.set_config(guild_id, "kiss_allowed_role_id", "None")
+    else:
+        json_str = json.dumps(unique_ids)
+        await db.set_config(guild_id, "kiss_allowed_role_ids", json_str)
+        await db.set_config(guild_id, "kiss_allowed_role_id", str(unique_ids[0]))
+
+
 def can_manage_kiss_role(guild: Optional[discord.Guild], user: Union[discord.Member, discord.User]) -> bool:
-    """Checks if a user has authority to configure the kiss allowed role (Owner, Admins, Creator)."""
+    """Checks if a user has authority to configure the kiss allowed roles (Owner, Admins, Mods, Creator)."""
     if not guild:
         return False
     uid = getattr(user, "id", 0)
@@ -617,51 +674,43 @@ def can_manage_kiss_role(guild: Optional[discord.Guild], user: Union[discord.Mem
     if uid == getattr(guild, "owner_id", None):
         return True
     perms = getattr(user, "guild_permissions", None)
-    if perms and perms.administrator:
+    if perms and (perms.administrator or perms.manage_guild or perms.manage_roles):
         return True
+    if isinstance(user, discord.Member):
+        for r in user.roles:
+            if r.name.lower() in ("admin", "administrator", "mod", "moderator", "staff", "manager", "server manager"):
+                return True
     return False
 
 
-
-
-async def can_use_kiss_command(guild: Optional[discord.Guild], user: Union[discord.Member, discord.User]) -> Tuple[bool, Optional[int]]:
+async def can_use_kiss_command(guild: Optional[discord.Guild], user: Union[discord.Member, discord.User]) -> Tuple[bool, List[int]]:
     """
     Checks if a user is authorized to use the kiss command.
-    Returns: (is_allowed: bool, configured_role_id: Optional[int])
-    
-    Rules:
-    - Creator (719932313919684670) is always allowed.
-    - Server Owner is always allowed.
-    - Server Administrators are always allowed.
-    - If a specific Kiss Role has been configured by Admins via /kissrole, members with that role are allowed.
+    Returns: (is_allowed: bool, configured_role_ids: List[int])
     """
     if not guild:
-        return True, None
+        return True, []
     
     uid = getattr(user, "id", 0)
     if uid == 719932313919684670:
-        return True, None
+        return True, []
     if uid == getattr(guild, "owner_id", None):
-        return True, None
+        return True, []
     
     perms = getattr(user, "guild_permissions", None)
     if perms and perms.administrator:
-        return True, None
+        return True, []
     
-    # Check if a custom role is configured
-    allowed_role_id_raw = await db.get_config(guild.id, "kiss_allowed_role_id", None)
-    allowed_role_id = None
-    if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
-        try:
-            allowed_role_id = int(allowed_role_id_raw)
-        except (ValueError, TypeError):
-            allowed_role_id = None
+    allowed_role_ids = await get_kiss_allowed_role_ids(guild.id)
+    if not allowed_role_ids:
+        return False, []
+        
+    if isinstance(user, discord.Member):
+        user_role_ids = {r.id for r in user.roles}
+        if any(rid in user_role_ids for rid in allowed_role_ids):
+            return True, allowed_role_ids
             
-    if allowed_role_id and isinstance(user, discord.Member):
-        if any(r.id == allowed_role_id for r in user.roles):
-            return True, allowed_role_id
-            
-    return False, allowed_role_id
+    return False, allowed_role_ids
 
 
 

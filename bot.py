@@ -16256,8 +16256,65 @@ def create_action_embed(action_type: str, author: Union[discord.Member, discord.
     return embed
 
 
+async def get_kiss_allowed_role_ids(guild_id: int) -> List[int]:
+    """Returns a list of all role IDs permitted to use the kiss command in this guild."""
+    role_ids: List[int] = []
+    
+    # 1. Multi-role config
+    multi_raw = await db.get_config(guild_id, "kiss_allowed_role_ids", None)
+    if multi_raw:
+        if isinstance(multi_raw, list):
+            for item in multi_raw:
+                try:
+                    role_ids.append(int(item))
+                except (ValueError, TypeError):
+                    pass
+        elif isinstance(multi_raw, str):
+            clean = multi_raw.strip()
+            if clean.startswith("[") and clean.endswith("]"):
+                try:
+                    items = json.loads(clean)
+                    for item in items:
+                        try:
+                            role_ids.append(int(item))
+                        except (ValueError, TypeError):
+                            pass
+                except Exception:
+                    pass
+            if not role_ids:
+                for part in clean.replace(",", " ").split():
+                    try:
+                        role_ids.append(int(part))
+                    except (ValueError, TypeError):
+                        pass
+
+    # 2. Legacy single-role config fallback
+    legacy_raw = await db.get_config(guild_id, "kiss_allowed_role_id", None)
+    if legacy_raw and str(legacy_raw).lower() not in ("none", "null", "0", ""):
+        try:
+            lid = int(legacy_raw)
+            if lid not in role_ids:
+                role_ids.append(lid)
+        except (ValueError, TypeError):
+            pass
+
+    return list(dict.fromkeys(role_ids))
+
+
+async def set_kiss_allowed_role_ids(guild_id: int, role_ids: List[int]) -> None:
+    """Persists allowed role IDs for the kiss command in database."""
+    unique_ids = list(dict.fromkeys(role_ids))
+    if not unique_ids:
+        await db.set_config(guild_id, "kiss_allowed_role_ids", "[]")
+        await db.set_config(guild_id, "kiss_allowed_role_id", "None")
+    else:
+        json_str = json.dumps(unique_ids)
+        await db.set_config(guild_id, "kiss_allowed_role_ids", json_str)
+        await db.set_config(guild_id, "kiss_allowed_role_id", str(unique_ids[0]))
+
+
 def can_manage_kiss_role(guild: Optional[discord.Guild], user: Union[discord.Member, discord.User]) -> bool:
-    """Checks if a user has authority to configure the kiss allowed role (Owner, Admins, Creator)."""
+    """Checks if a user has authority to configure the kiss allowed roles (Owner, Admins, Mods, Creator)."""
     if not guild:
         return False
     uid = getattr(user, "id", 0)
@@ -16266,49 +16323,44 @@ def can_manage_kiss_role(guild: Optional[discord.Guild], user: Union[discord.Mem
     if uid == getattr(guild, "owner_id", None):
         return True
     perms = getattr(user, "guild_permissions", None)
-    if perms and perms.administrator:
+    if perms and (perms.administrator or perms.manage_guild or perms.manage_roles):
         return True
+    if isinstance(user, discord.Member):
+        for r in user.roles:
+            if r.name.lower() in ("admin", "administrator", "mod", "moderator", "staff", "manager", "server manager"):
+                return True
     return False
 
 
-async def can_use_kiss_command(guild: Optional[discord.Guild], user: Union[discord.Member, discord.User]) -> Tuple[bool, Optional[int]]:
+async def can_use_kiss_command(guild: Optional[discord.Guild], user: Union[discord.Member, discord.User]) -> Tuple[bool, List[int]]:
     """
     Checks if a user is authorized to use the kiss command.
-    Returns: (is_allowed: bool, configured_role_id: Optional[int])
-    
-    Rules:
-    - Creator (719932313919684670) is always allowed.
-    - Server Owner is always allowed.
-    - Server Administrators are always allowed.
-    - If a specific Kiss Role has been configured by Admins via /kissrole, members with that role are allowed.
+    Returns: (is_allowed: bool, configured_role_ids: List[int])
     """
     if not guild:
-        return True, None
+        return True, []
     
     uid = getattr(user, "id", 0)
     if uid == 719932313919684670:
-        return True, None
+        return True, []
     if uid == getattr(guild, "owner_id", None):
-        return True, None
+        return True, []
     
     perms = getattr(user, "guild_permissions", None)
     if perms and perms.administrator:
-        return True, None
+        return True, []
     
-    # Check if a custom role is configured
-    allowed_role_id_raw = await db.get_config(guild.id, "kiss_allowed_role_id", None)
-    allowed_role_id = None
-    if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
-        try:
-            allowed_role_id = int(allowed_role_id_raw)
-        except (ValueError, TypeError):
-            allowed_role_id = None
+    allowed_role_ids = await get_kiss_allowed_role_ids(guild.id)
+    if not allowed_role_ids:
+        return False, []
+        
+    if isinstance(user, discord.Member):
+        user_role_ids = {r.id for r in user.roles}
+        if any(rid in user_role_ids for rid in allowed_role_ids):
+            return True, allowed_role_ids
             
-    if allowed_role_id and isinstance(user, discord.Member):
-        if any(r.id == allowed_role_id for r in user.roles):
-            return True, allowed_role_id
-            
-    return False, allowed_role_id
+    return False, allowed_role_ids
+
 
 
 # ── Teardown & Nuke Handlers ───────────────────────────────────────────────
@@ -21901,12 +21953,13 @@ async def punch_slash_cmd(interaction: discord.Interaction, member: Optional[dis
 @app_commands.guild_only()
 async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     try:
-        is_allowed, allowed_role_id = await can_use_kiss_command(interaction.guild, interaction.user)
+        is_allowed, allowed_role_ids = await can_use_kiss_command(interaction.guild, interaction.user)
         if not is_allowed:
-            if allowed_role_id:
-                msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the <@&{allowed_role_id}> role can use `/kiss`."
+            if allowed_role_ids:
+                mentions = [f"<@&{rid}>" for rid in allowed_role_ids]
+                msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the following role(s) can use `/kiss`:\n{', '.join(mentions)}"
             else:
-                msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `/kiss`.\n*Administrators can configure role access with `/kissrole set @Role`.*"
+                msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `/kiss`.\n*Administrators can configure role access with `/kissrole` or `!kissrole @Role`.*"
             await interaction.response.send_message(msg, ephemeral=True)
             return
             
@@ -21919,6 +21972,105 @@ async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[disc
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         else:
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="kissrole", description="Configure role access for the /kiss command (Server Owner & Admins)")
+@app_commands.describe(
+    action="Choose action: add (give access), remove (revoke access), view (list roles), or clear (reset all)",
+    role="The Discord role to give or revoke kiss command access for"
+)
+@app_commands.choices(
+    action=[
+        app_commands.Choice(name="➕ Add Role Access", value="add"),
+        app_commands.Choice(name="🎯 Set Role (Replace all with this role)", value="set"),
+        app_commands.Choice(name="➖ Remove Role Access", value="remove"),
+        app_commands.Choice(name="👀 View Allowed Roles", value="view"),
+        app_commands.Choice(name="🧹 Clear All (Admins & Owner only)", value="clear"),
+    ]
+)
+@app_commands.default_permissions(manage_roles=True)
+@app_commands.guild_only()
+async def kissrole_slash_cmd(interaction: discord.Interaction, action: str, role: Optional[discord.Role] = None):
+    try:
+        if not can_manage_kiss_role(interaction.guild, interaction.user):
+            await interaction.response.send_message("❌ Only Server Administrators, Moderators, and the Server Owner can manage kiss command permissions.", ephemeral=True)
+            return
+
+        act = action.lower()
+        if act == "view":
+            current_role_ids = await get_kiss_allowed_role_ids(interaction.guild.id)
+            embed = discord.Embed(
+                title=f"💋 Kiss Command Permissions — {interaction.guild.name}",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.add_field(name="👑 Default Access", value="• Server Owner\n• Server Administrators\n• Bot Creator", inline=False)
+            if current_role_ids:
+                lines = []
+                for rid in current_role_ids:
+                    r_obj = interaction.guild.get_role(rid)
+                    lines.append(f"• {r_obj.mention if r_obj else f'`Role ID: {rid}` *(Deleted)*'}")
+                embed.add_field(name=f"🎭 Configured Roles ({len(current_role_ids)})", value="\n".join(lines), inline=False)
+            else:
+                embed.add_field(name="🎭 Configured Roles", value="*No custom roles set (Admins & Owner only)*", inline=False)
+            embed.set_footer(text="Manage via /kissrole or !kissrole @Role")
+            await interaction.response.send_message(embed=embed)
+            return
+
+        if act == "clear":
+            await set_kiss_allowed_role_ids(interaction.guild.id, [])
+            embed = discord.Embed(
+                title="🔄 Kiss Command Roles Reset",
+                description="All custom kiss roles have been cleared.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
+            return
+
+        if not role:
+            await interaction.response.send_message("❌ Please select a role for this action!", ephemeral=True)
+            return
+
+        current_role_ids = await get_kiss_allowed_role_ids(interaction.guild.id)
+        if act == "remove":
+            if role.id in current_role_ids:
+                current_role_ids.remove(role.id)
+            await set_kiss_allowed_role_ids(interaction.guild.id, current_role_ids)
+            embed = discord.Embed(
+                title="🗑️ Kiss Command Role Removed",
+                description=f"Removed kiss command access for: {role.mention}",
+                color=discord.Color.orange()
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
+        elif act == "set":
+            current_role_ids = [role.id]
+            await set_kiss_allowed_role_ids(interaction.guild.id, current_role_ids)
+            embed = discord.Embed(
+                title="💋 Kiss Command Role Set",
+                description=f"Kiss command access set strictly to {role.mention} role!\n\n*(Server Owner and Administrators always retain access)*",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
+        else: # add
+            if role.id not in current_role_ids:
+                current_role_ids.append(role.id)
+            await set_kiss_allowed_role_ids(interaction.guild.id, current_role_ids)
+            embed = discord.Embed(
+                title="💋 Kiss Command Role Added",
+                description=f"Members with the {role.mention} role can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.set_footer(text=f"Configured by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /kissrole: {e}", exc_info=True)
+        if interaction.response.is_done():
+            await interaction.followup.send(f"❌ Failed to manage kiss permissions: {e}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ Failed to manage kiss permissions: {e}", ephemeral=True)
+
 
 
 @bot.tree.command(name="antiraid", description="Configure automated Join-Raid detection and Server Raid Shield")
@@ -22936,12 +23088,13 @@ async def punch_prefix_cmd(ctx: commands.Context, member: Optional[discord.Membe
 async def kiss_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
     """Give a sweet anime kiss: !kiss [@user] (Admins, Owner, or configured role only)"""
     try:
-        is_allowed, allowed_role_id = await can_use_kiss_command(ctx.guild, ctx.author)
+        is_allowed, allowed_role_ids = await can_use_kiss_command(ctx.guild, ctx.author)
         if not is_allowed:
-            if allowed_role_id:
-                msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the <@&{allowed_role_id}> role can use `!kiss`."
+            if allowed_role_ids:
+                mentions = [f"<@&{rid}>" for rid in allowed_role_ids]
+                msg = f"🔒 Only **Server Administrators**, the **Server Owner**, or members with the following role(s) can use `!kiss`:\n{', '.join(mentions)}"
             else:
-                msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `!kiss`.\n*Administrators can configure role access with `!kissrole set @Role`.*"
+                msg = "🔒 Only **Server Administrators** and the **Server Owner** can use `!kiss`.\n*Administrators can configure role access with `/kissrole` or `!kissrole @Role`.*"
             await ctx.send(msg)
             return
             
@@ -22955,69 +23108,149 @@ async def kiss_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member
 
 @bot.command(name="kissrole", aliases=["setkissrole", "kissroles", "kisspermission"])
 @commands.guild_only()
-@commands.cooldown(1, 5.0, commands.BucketType.user)
-async def kissrole_prefix_cmd(ctx: commands.Context, action: Optional[str] = None, role: Optional[discord.Role] = None):
-    """Configure permissions for the kiss command: !kissrole set @Role | !kissrole remove | !kissrole view"""
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def kissrole_prefix_cmd(ctx: commands.Context, *, args: Optional[str] = None):
+    """
+    Configure permissions for the kiss command:
+    • !kissrole @Role (instantly adds or gives @Role kiss access)
+    • !kissrole add @Role1 @Role2 (adds multiple roles)
+    • !kissrole remove @Role (revokes kiss access for a role)
+    • !kissrole clear / reset (resets access to Admins & Owner only)
+    • !kissrole (views current configured roles)
+    """
     try:
         if not can_manage_kiss_role(ctx.guild, ctx.author):
-            await ctx.send("❌ Only Server Administrators and the Server Owner can manage kiss command permissions.")
+            await ctx.send("❌ Only Server Administrators, Moderators, and the Server Owner can manage kiss command permissions.")
             return
-            
-        act = (action or "view").lower()
-        if act in ("set", "add", "enable"):
-            target_role = role
-            if not target_role and ctx.message.role_mentions:
-                target_role = ctx.message.role_mentions[0]
-                
-            if not target_role:
-                await ctx.send("❌ Please specify or mention a role: `!kissrole set @Role`")
-                return
-                
-            await db.set_config(ctx.guild.id, "kiss_allowed_role_id", target_role.id)
-            embed = discord.Embed(
-                title="💋 Kiss Command Role Updated",
-                description=f"Members with the {target_role.mention} role can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
-                color=discord.Color.from_rgb(255, 105, 180)
-            )
-            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
-            await ctx.send(embed=embed)
-            
-        elif act in ("remove", "reset", "clear", "delete", "disable"):
-            await db.set_config(ctx.guild.id, "kiss_allowed_role_id", "None")
-            embed = discord.Embed(
-                title="🔄 Kiss Command Role Reset",
-                description="The custom kiss role has been removed.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
-                color=discord.Color.blue()
-            )
-            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
-            await ctx.send(embed=embed)
-            
-        else:  # view
-            allowed_role_id_raw = await db.get_config(ctx.guild.id, "kiss_allowed_role_id", None)
-            allowed_role_id = None
-            if allowed_role_id_raw and str(allowed_role_id_raw).lower() not in ("none", "null", "0", ""):
-                try:
-                    allowed_role_id = int(allowed_role_id_raw)
-                except (ValueError, TypeError):
-                    allowed_role_id = None
-                    
+
+        raw_args = (args or "").strip()
+        role_mentions = list(ctx.message.role_mentions)
+
+        # 1. View current status if no arguments or explicit view keywords
+        if not raw_args or raw_args.lower() in ("view", "status", "list", "show", "get"):
+            current_role_ids = await get_kiss_allowed_role_ids(ctx.guild.id)
             embed = discord.Embed(
                 title=f"💋 Kiss Command Permissions — {ctx.guild.name}",
                 color=discord.Color.from_rgb(255, 105, 180)
             )
             embed.add_field(name="👑 Default Access", value="• Server Owner\n• Server Administrators\n• Bot Creator", inline=False)
-            if allowed_role_id:
-                role_obj = ctx.guild.get_role(allowed_role_id)
-                role_str = role_obj.mention if role_obj else f"`Role ID: {allowed_role_id}` *(Deleted Role)*"
-                embed.add_field(name="🎭 Configured Role", value=f"✅ {role_str}", inline=False)
+            if current_role_ids:
+                lines = []
+                for rid in current_role_ids:
+                    r_obj = ctx.guild.get_role(rid)
+                    lines.append(f"• {r_obj.mention if r_obj else f'`Role ID: {rid}` *(Deleted)*'}")
+                embed.add_field(name=f"🎭 Configured Roles ({len(current_role_ids)})", value="\n".join(lines), inline=False)
             else:
-                embed.add_field(name="🎭 Configured Role", value="*No custom role set (Admins & Owner only)*", inline=False)
-                
-            embed.set_footer(text="Use !kissrole set @Role to change, or !kissrole remove to reset.")
+                embed.add_field(name="🎭 Configured Roles", value="*No custom roles set (Admins & Owner only)*", inline=False)
+            embed.set_footer(text="Add: !kissrole @Role | Remove: !kissrole remove @Role | Reset: !kissrole clear")
+            await ctx.send(embed=embed)
+            return
+
+        # 2. Reset / clear all configured roles
+        if raw_args.lower() in ("clear", "reset", "remove all", "delete all"):
+            await set_kiss_allowed_role_ids(ctx.guild.id, [])
+            embed = discord.Embed(
+                title="🔄 Kiss Command Roles Reset",
+                description="All custom kiss roles have been cleared.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+            await ctx.send(embed=embed)
+            return
+
+        # 3. Determine operation type (remove vs add/set)
+        words = raw_args.split()
+        first_word = words[0].lower() if words else ""
+        is_remove_op = False
+        is_strict_set = False
+
+        if first_word in ("remove", "delete", "del", "rem", "rm", "revoke"):
+            is_remove_op = True
+            words = words[1:]
+        elif first_word in ("set", "override"):
+            is_strict_set = True
+            words = words[1:]
+        elif first_word in ("add", "enable", "grant", "give"):
+            words = words[1:]
+
+        # 4. Resolve target roles from mentions, numeric IDs, or role names
+        target_roles: List[discord.Role] = []
+        for r in role_mentions:
+            if r not in target_roles:
+                target_roles.append(r)
+
+        # Look for numeric role IDs in raw_args e.g. 1540821896130732094
+        for token in re.findall(r'\b\d{17,20}\b', raw_args):
+            rid = int(token)
+            r_obj = ctx.guild.get_role(rid)
+            if r_obj and r_obj not in target_roles:
+                target_roles.append(r_obj)
+
+        # Try name matching with remaining arguments if no roles found
+        remaining_text = " ".join(words).strip()
+        if not target_roles and remaining_text:
+            clean_name = remaining_text.lower()
+            for r in ctx.guild.roles:
+                if r.name.lower() == clean_name or clean_name in r.name.lower():
+                    if r not in target_roles and not r.is_default():
+                        target_roles.append(r)
+                        break
+
+        if not target_roles:
+            if is_remove_op:
+                await set_kiss_allowed_role_ids(ctx.guild.id, [])
+                embed = discord.Embed(
+                    title="🔄 Kiss Command Roles Reset",
+                    description="All custom kiss roles have been cleared.\n\nNow **only Server Administrators and the Server Owner** can use `/kiss` and `!kiss`.",
+                    color=discord.Color.blue()
+                )
+                await ctx.send(embed=embed)
+                return
+            await ctx.send("❌ Please specify or mention a role! Example: `!kissrole @Role` or `!kissrole remove @Role`")
+            return
+
+        current_role_ids = await get_kiss_allowed_role_ids(ctx.guild.id)
+        if is_remove_op:
+            for r in target_roles:
+                if r.id in current_role_ids:
+                    current_role_ids.remove(r.id)
+            await set_kiss_allowed_role_ids(ctx.guild.id, current_role_ids)
+            r_mentions = ", ".join(r.mention for r in target_roles)
+            embed = discord.Embed(
+                title="🗑️ Kiss Command Role(s) Removed",
+                description=f"Removed kiss command access for: {r_mentions}",
+                color=discord.Color.orange()
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+            await ctx.send(embed=embed)
+        elif is_strict_set:
+            current_role_ids = [r.id for r in target_roles]
+            await set_kiss_allowed_role_ids(ctx.guild.id, current_role_ids)
+            r_mentions = ", ".join(r.mention for r in target_roles)
+            embed = discord.Embed(
+                title="💋 Kiss Command Role(s) Set",
+                description=f"Kiss command access is now strictly set to: {r_mentions}\n\n*(Server Owner and Administrators always retain access)*",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+            await ctx.send(embed=embed)
+        else: # add / set default
+            for r in target_roles:
+                if r.id not in current_role_ids:
+                    current_role_ids.append(r.id)
+            await set_kiss_allowed_role_ids(ctx.guild.id, current_role_ids)
+            r_mentions = ", ".join(r.mention for r in target_roles)
+            embed = discord.Embed(
+                title="💋 Kiss Command Role(s) Added",
+                description=f"Members with the {r_mentions} role(s) can now use `/kiss` and `!kiss`!\n\n*(Server Owner and Administrators always retain access)*",
+                color=discord.Color.from_rgb(255, 105, 180)
+            )
+            embed.set_footer(text=f"Configured by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
             await ctx.send(embed=embed)
     except Exception as e:
         logger.error(f"Error in !kissrole: {e}", exc_info=True)
         await ctx.send(f"❌ Failed to manage kiss permissions: {e}")
+
 
 
 
