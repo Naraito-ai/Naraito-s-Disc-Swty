@@ -18635,18 +18635,24 @@ def make_help_embed(category: str = "all", is_staff: bool = False) -> discord.Em
             inline=False
         )
         embed.add_field(
-            name="🧹 **Raid Cleanup & Content Defense (Staff & Mods)**",
+            name="🧹 **Raid Cleanup & Member Enforcement (Staff & Mods)**",
             value=(
-                "• `!purge <1-100> [@user]` — Mass-delete spam or wipe recent messages from a specific raid account\n"
-                "• `!softban @user [reason]` — Bans and immediately unbans: kicks user and purges all their recent messages\n"
-                "• `!quarantine @user [reason]` — Strips member's roles and isolates them into a locked quarantine channel\n"
+                "• `!purge <1-100> [@user]` — Mass-delete spam or wipe recent messages from a raid account\n"
+                "• `!softban @user [reason]` — Bans and immediately unbans: kicks user and purges all recent messages\n"
+                "• `!quarantine @user [reason]` — Strips roles and isolates suspect into a locked quarantine channel\n"
                 "• `!strip @user` — Instantly strips all non-managed roles from a user without kicking them\n"
+                "• `!antihoist [scan|clean|on|off]` — Scans or cleans nicknames starting with hoist characters (`!`, `.`)\n"
+                "• `!cleanbots` — Audits all server bots, flags offline bots, and checks invite history"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="💬 **Chat & Content Defense Shields (Staff & Mods)**",
+            value=(
                 "• `!antiinvite [on|off|status]` — Auto-deletes unauthorized `discord.gg/` invite poaching links\n"
                 "• `!antispam [on|off|status]` — Automated chat flood detection and rapid auto-timeout shield\n"
-                "• `!antiping [limit|off]` — Mass-mention limiter (e.g. `!antiping 4` auto-mutes anyone pinging 4+ people)\n"
+                "• `!antiping [limit|off]` — Mass-mention limiter (e.g. `!antiping 4` auto-mutes anyone pinging 4+)\n"
                 "• `!capslock [percentage|off]` — Deletes messages with excessive ALL CAPS shouting (e.g. `!capslock 70`)\n"
-                "• `!antihoist [scan|clean|on|off]` — Scans or cleans nicknames starting with hoist characters (`!`, `.`, etc.)\n"
-                "• `!cleanbots` — Audits all server bots, flags offline bots, and checks invite history\n"
                 "• `!safeinvites` — Audits all active server invite links, their creators, uses, and expiration"
             ),
             inline=False
