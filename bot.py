@@ -18585,9 +18585,89 @@ async def forget_prefix_cmd(ctx: commands.Context, *, key: str = ""):
 
 # ── Interactive Help Menu & System Guide ──────────────────────────────────────
 
-def make_help_embed(category: str = "all") -> discord.Embed:
+def make_help_embed(category: str = "all", is_staff: bool = False) -> discord.Embed:
     """Builds comprehensive categorical and global help guide embeds covering all Slash (/) and Prefix (!) commands."""
-    if category == "nba_2k":
+    if category in ("staff_security", "staff", "admin", "owner", "mod", "security"):
+        if not is_staff:
+            return discord.Embed(
+                title="🔒 Restricted Category: Staff & Owner Only",
+                description="❌ This command manual is strictly restricted to Server Administrators, Moderators, and the Server Owner.",
+                color=discord.Color.red()
+            )
+        embed = discord.Embed(
+            title="👑 Admin, Moderator & Server Owner Operations Manual",
+            description=(
+                "Comprehensive server defense, anti-nuke guardians, alt detection, and rapid moderation tools.\n"
+                "*All commands below are strictly restricted to authorized server staff and the server owner.*"
+            ),
+            color=discord.Color.dark_red()
+        )
+        embed.add_field(
+            name="🚨 **Emergency & Lockdown (Admin / Owner)**",
+            value=(
+                "• `!panic` or `/panic` — Emergency 1-click panic: freezes public channels, sets 15s slowmode, auto-kicks last 10m joins\n"
+                "• `!lock [channel]` / `!unlock [channel]` — Lock or unlock chat permissions for `@everyone` in a channel\n"
+                "• `!slowmode <seconds> [channel]` — Throttle chat cooldown (e.g. `!slowmode 10` or `!slowmode 0` to disable)\n"
+                "• `!snapshot` — Capture instant live compressed backup of all roles, categories, and channels (.json.gz)"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🛡️ **Anti-Nuke & Server Shields (Admin / Owner)**",
+            value=(
+                "• `!antibot [on|off|status]` — Rogue bot shield: auto-bans unauthorized bots invited by non-owners\n"
+                "• `!roleguard [on|off|status]` — Prevents unauthorized role tampering, admin escalation, and mass deletion\n"
+                "• `!channelguard [on|off|status]` — Monitors channel deletion velocity & blocks rogue channel wiping\n"
+                "• `!whitelist [add|remove|list] @user` — Immune staff whitelist managed exclusively by the Server Owner\n"
+                "• `!antiraid [enable|strict|disable|status]` or `/antiraid` — Automated join-flood detector & alt gate\n"
+                "• `!testantinuke` — Test the anti-nuke velocity circuit breaker and auto-leave defense"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🕵️ **Alt Detection & Evader Hunter (Staff & Mods)**",
+            value=(
+                "• `!checkalts [days]` — Server-wide scan for burner accounts created within X days (default: 7)\n"
+                "• `!checkalt @user` — Deep background check with an interactive **Alt Probability Score %**\n"
+                "• `!banevaders` — Scans recent joins against the Server Ban List using fuzzy name matching\n"
+                "• `!batchcheck [hours]` — Hunts for accounts registered within 120 seconds of each other (bot farms)"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🧹 **Raid Cleanup & Content Defense (Staff & Mods)**",
+            value=(
+                "• `!purge <1-100> [@user]` — Mass-delete spam or wipe recent messages from a specific raid account\n"
+                "• `!softban @user [reason]` — Bans and immediately unbans: kicks user and purges all their recent messages\n"
+                "• `!quarantine @user [reason]` — Strips member's roles and isolates them into a locked quarantine channel\n"
+                "• `!strip @user` — Instantly strips all non-managed roles from a user without kicking them\n"
+                "• `!antiinvite [on|off|status]` — Auto-deletes unauthorized `discord.gg/` invite poaching links\n"
+                "• `!antispam [on|off|status]` — Automated chat flood detection and rapid auto-timeout shield\n"
+                "• `!antiping [limit|off]` — Mass-mention limiter (e.g. `!antiping 4` auto-mutes anyone pinging 4+ people)\n"
+                "• `!capslock [percentage|off]` — Deletes messages with excessive ALL CAPS shouting (e.g. `!capslock 70`)\n"
+                "• `!antihoist [scan|clean|on|off]` — Scans or cleans nicknames starting with hoist characters (`!`, `.`, etc.)\n"
+                "• `!cleanbots` — Audits all server bots, flags offline bots, and checks invite history\n"
+                "• `!safeinvites` — Audits all active server invite links, their creators, uses, and expiration"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="⚖️ **Moderation, Warnings & Audits (Staff & Mods)**",
+            value=(
+                "• `!warn @user [reason]` — Official strike tracking with escalating punishments (Warn → 1h → 24h → 7d)\n"
+                "• `!warnings [@user]` — View infraction history, strike count, and details for a user\n"
+                "• `!clearwarnings @user` — Reset all warnings and strikes for a member\n"
+                "• `!modstats [@mod]` — Audit moderator performance and logged moderation actions\n"
+                "• `!whois @user` / `/whois @user` — Full background check: join date, account age, badges & roles\n"
+                "• `!clearsnipe` / `/clearsnipe` — Wipe deleted and edited message snipe history\n"
+                "• `!antighostping [on|off]` — Expose and catch deleted ghost pings"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="👑 Staff & Owner Operations Suite • Highly Restricted System")
+        return embed
+
+    elif category == "nba_2k":
         embed = discord.Embed(
             title="🏀 NBA 2K Mobile Card Dex, Shootout & Economy Commands",
             description="Collect authentic NBA 2K Mobile player cards, open packs, compete in 3-Point Shootouts, earn VC, and catch wild court drops!\n*All commands work with both Slash (`/`) and Prefix (`!`)*",
@@ -18956,13 +19036,27 @@ def make_help_embed(category: str = "all") -> discord.Embed:
         ),
         inline=False
     )
+    if is_staff:
+        embed.add_field(
+            name="👑 **Admin, Moderator & Server Owner Suite (`!help staff`)**",
+            value=(
+                "• **Emergency:** `!panic`, `!lock`, `!unlock`, `!slowmode <sec>`, `!snapshot`\n"
+                "• **Anti-Nuke & Shields:** `!antibot`, `!roleguard`, `!channelguard`, `!whitelist`, `!antiraid`\n"
+                "• **Alt Detection:** `!checkalts [days]`, `!checkalt @user`, `!banevaders`, `!batchcheck`\n"
+                "• **Cleanup & Controls:** `!purge <amt>`, `!softban @user`, `!quarantine @user`, `!strip @user`\n"
+                "• **Content Defense:** `!antiinvite`, `!antispam`, `!antiping <limit>`, `!capslock <%`, `!antihoist`\n"
+                "*Select '👑 Staff & Owner Only' in the dropdown menu below for the full operations manual.*"
+            ),
+            inline=False
+        )
     embed.set_footer(text="✨ Sweety Bot • Powered by Google Gemini 2.5 Flash & Supabase PostgreSQL")
     return embed
 
 
 class HelpCategorySelect(discord.ui.Select):
-    def __init__(self, is_karaoke_mode: bool = False):
+    def __init__(self, is_karaoke_mode: bool = False, is_staff: bool = False):
         self.is_karaoke_mode = is_karaoke_mode
+        self.is_staff = is_staff
         if is_karaoke_mode:
             options = [
                 discord.SelectOption(label="Music & Live Karaoke", value="music", description="24/7 Music, Radio, Synced Lyrics & Live Stage", emoji="🎵", default=True),
@@ -18978,22 +19072,34 @@ class HelpCategorySelect(discord.ui.Select):
                 discord.SelectOption(label="Moderation & Security", value="moderation", description="Auto-mod, Warnings, Appeals & Protection", emoji="🛡️"),
                 discord.SelectOption(label="Productivity & Social", value="utility", description="Reminders, AFK, Auto-Roles & Fun", emoji="⏰"),
             ]
+            if is_staff:
+                options.append(
+                    discord.SelectOption(label="Staff & Owner Only", value="staff_security", description="Anti-Nuke, Lockdown, Alts, Shields & Mod Tools", emoji="👑")
+                )
         super().__init__(placeholder="📂 Jump to a command category...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
         selected = self.values[0]
+        is_staff = is_protected(interaction.user)
+        if selected == "staff_security" and not is_staff:
+            await interaction.response.send_message(
+                "❌ This category contains restricted commands and is only viewable by Server Admins, Moderators, and the Server Owner.",
+                ephemeral=True
+            )
+            return
         for opt in self.options:
             opt.default = (opt.value == selected)
-        embed = make_help_embed(selected)
+        embed = make_help_embed(selected, is_staff=is_staff)
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 
 class HelpView(discord.ui.View):
-    def __init__(self, user_id: Optional[int] = None, is_karaoke_mode: bool = False):
+    def __init__(self, user_id: Optional[int] = None, is_karaoke_mode: bool = False, is_staff: bool = False):
         super().__init__(timeout=180)
         self.user_id = user_id
         self.is_karaoke_mode = is_karaoke_mode
-        self.add_item(HelpCategorySelect(is_karaoke_mode=is_karaoke_mode))
+        self.is_staff = is_staff
+        self.add_item(HelpCategorySelect(is_karaoke_mode=is_karaoke_mode, is_staff=is_staff))
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if self.user_id and interaction.user.id != self.user_id:
@@ -19023,9 +19129,17 @@ async def help_command(interaction: discord.Interaction, category: Optional[str]
             if mode in ("karaoke", "music"):
                 is_karaoke = True
 
+        is_staff = is_protected(interaction.user)
         target_cat = "music" if is_karaoke else (category or "all")
-        embed = make_help_embed(target_cat)
-        view = HelpView(interaction.user.id, is_karaoke_mode=is_karaoke)
+        if target_cat in ("staff_security", "staff", "admin", "owner", "mod", "security") and not is_staff:
+            await interaction.response.send_message(
+                "❌ This category contains restricted commands and is only viewable by Server Admins, Moderators, and the Server Owner.",
+                ephemeral=True
+            )
+            return
+
+        embed = make_help_embed(target_cat, is_staff=is_staff)
+        view = HelpView(interaction.user.id, is_karaoke_mode=is_karaoke, is_staff=is_staff)
         if target_cat and target_cat != "all" and not is_karaoke:
             for opt in view.children[0].options:
                 opt.default = (opt.value == target_cat)
@@ -19077,11 +19191,22 @@ async def help_prefix_cmd(ctx: commands.Context, category: Optional[str] = "all"
                 "social": "utility",
                 "arch": "architect",
                 "build": "architect",
+                "admin": "staff_security",
+                "staff": "staff_security",
+                "owner": "staff_security",
+                "security": "staff_security",
+                "shield": "staff_security",
+                "shields": "staff_security",
             }
-            clean_cat = alias_map.get(cat_key, cat_key if cat_key in ["music", "nba_2k", "dream_team", "ai", "architect", "moderation", "utility"] else "all")
+            clean_cat = alias_map.get(cat_key, cat_key if cat_key in ["music", "nba_2k", "dream_team", "ai", "architect", "moderation", "utility", "staff_security"] else "all")
 
-        embed = make_help_embed(clean_cat)
-        view = HelpView(ctx.author.id, is_karaoke_mode=is_karaoke)
+        is_staff = is_protected(ctx.author)
+        if clean_cat == "staff_security" and not is_staff:
+            await ctx.send("❌ This category contains restricted commands and is only viewable by Server Admins, Moderators, and the Server Owner.")
+            return
+
+        embed = make_help_embed(clean_cat, is_staff=is_staff)
+        view = HelpView(ctx.author.id, is_karaoke_mode=is_karaoke, is_staff=is_staff)
         if clean_cat != "all" and not is_karaoke:
             for opt in view.children[0].options:
                 opt.default = (opt.value == clean_cat)
@@ -27183,17 +27308,1032 @@ async def staff_command(interaction: discord.Interaction):
 
 
 
+# ── Server Protection, Alt Detection & Staff Command Suite ─────────────────
+
+bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
+is_protected = lambda x: True
+is_creator = lambda x: True
+db = None
+delete_after_delay = None
+log_mod_action = None
+
+async def get_guild_whitelist(guild_id: int) -> set[int]:
+    """Helper to fetch security whitelisted user IDs for a guild."""
+    try:
+        raw = await db.get_config(guild_id, "security_whitelist", "[]")
+        data = json.loads(raw)
+        return set(int(x) for x in data)
+    except Exception:
+        return set()
+
+@bot.command(name="checkalts", aliases=["scanalt", "alts", "altscan"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def checkalts_prefix_cmd(ctx: commands.Context, days: int = 7):
+    """Scan the server for accounts created within the last X days: !checkalts [days]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+    
+    days = max(1, min(days, 90))
+    now = datetime.datetime.now(datetime.timezone.utc)
+    suspicious = []
+    
+    for m in ctx.guild.members:
+        if m.bot:
+            continue
+        created = m.created_at
+        diff_days = (now - created).days
+        diff_hours = (now - created).total_seconds() / 3600
+        
+        if diff_days <= days:
+            is_default_pfp = (m.avatar is None)
+            role_count = len([r for r in m.roles if r.name != "@everyone"])
+            
+            risk_points = 0
+            if diff_hours < 24:
+                risk_points += 3
+            elif diff_days < 3:
+                risk_points += 2
+            elif diff_days < 7:
+                risk_points += 1
+                
+            if is_default_pfp:
+                risk_points += 2
+            if role_count == 0:
+                risk_points += 1
+                
+            risk_lvl = "🔴 HIGH" if risk_points >= 4 else ("🟡 MEDIUM" if risk_points >= 2 else "🟢 LOW")
+            suspicious.append({
+                "member": m,
+                "diff_hours": diff_hours,
+                "diff_days": diff_days,
+                "default_pfp": is_default_pfp,
+                "roles": role_count,
+                "risk": risk_lvl,
+                "points": risk_points
+            })
+
+    suspicious.sort(key=lambda x: x["points"], reverse=True)
+    desc = f"Scanned **{ctx.guild.member_count} members** in `{ctx.guild.name}`.\nFound **{len(suspicious)} accounts** registered within the last {days} days."
+    embed = discord.Embed(
+        title=f"🕵️ Alt Scanner — Accounts Created < {days} Days",
+        description=desc,
+        color=discord.Color.red() if suspicious else discord.Color.green()
+    )
+    if not suspicious:
+        embed.description += "\n\n✅ **Zero suspicious alt accounts detected!**"
+    else:
+        lines = []
+        for s in suspicious[:15]:
+            m = s["member"]
+            pfp_flag = "⚠️ Default Avatar" if s["default_pfp"] else "🖼️ Custom PFP"
+            created_str = f"{s['diff_hours']:.1f}h ago" if s['diff_hours'] < 24 else f"{s['diff_days']}d ago"
+            lines.append(f"{s['risk']} {m.mention} (`{m.name}`) • Created **{created_str}** • {pfp_flag} • {s['roles']} roles")
+        embed.add_field(name="Flagged Members (Top 15)", value="\n".join(lines), inline=False)
+        if len(suspicious) > 15:
+            embed.set_footer(text=f"And {len(suspicious) - 15} more accounts. Use !checkalt @user to inspect individuals.")
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="checkalt", aliases=["alt", "inspectalt", "altcheck"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def checkalt_prefix_cmd(ctx: commands.Context, member: discord.Member):
+    """Deep inspection and Alt Risk Score on a single member: !checkalt @user"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    target = member
+    now = datetime.datetime.now(datetime.timezone.utc)
+    created_hours = (now - target.created_at).total_seconds() / 3600
+    created_days = (now - target.created_at).days
+    joined_hours = (now - target.joined_at).total_seconds() / 3600 if target.joined_at else 9999
+    
+    public_flags = [f.name.replace("_", " ").title() for f in target.public_flags.all()]
+    is_default_pfp = (target.avatar is None)
+    roles = [r.name for r in target.roles if r.name != "@everyone"]
+    
+    score = 0
+    breakdown = []
+    if created_hours < 24:
+        score += 45
+        breakdown.append("🔴 Created less than 24 hours ago (+45%)")
+    elif created_days < 7:
+        score += 25
+        breakdown.append("🟡 Created less than 7 days ago (+25%)")
+    elif created_days < 30:
+        score += 10
+        breakdown.append("🟢 Created less than 30 days ago (+10%)")
+
+    if is_default_pfp:
+        score += 25
+        breakdown.append("🔴 Using default Discord avatar (+25%)")
+    
+    if len(roles) == 0:
+        score += 15
+        breakdown.append("🟡 Zero server roles assigned (+15%)")
+    
+    if joined_hours < 1:
+        score += 10
+        breakdown.append("🟡 Joined within the last hour (+10%)")
+        
+    if public_flags:
+        score = max(0, score - 15)
+        breakdown.append(f"🛡️ Discord Badges: {', '.join(public_flags)} (-15%)")
+
+    score = min(99, score)
+    color = discord.Color.red() if score >= 60 else (discord.Color.gold() if score >= 30 else discord.Color.green())
+    
+    embed = discord.Embed(title=f"🕵️ Alt Risk Audit: {target.display_name}", color=color)
+    embed.set_thumbnail(url=target.display_avatar.url)
+    embed.add_field(name="Username & ID", value=f"`{target.name}` (`{target.id}`)", inline=True)
+    embed.add_field(name="Alt Risk Rating", value=f"**{score}% Risk** ({'🔴 HIGH' if score >= 60 else ('🟡 MEDIUM' if score >= 30 else '🟢 LOW')})", inline=True)
+    embed.add_field(name="Account Created", value=f"<t:{int(target.created_at.timestamp())}:R>\n(`{target.created_at.strftime('%Y-%m-%d %H:%M:%S')}` UTC)", inline=False)
+    if target.joined_at:
+        embed.add_field(name="Joined Server", value=f"<t:{int(target.joined_at.timestamp())}:R>", inline=True)
+    embed.add_field(name="Avatar", value="⚠️ Default Discord Icon" if is_default_pfp else "✅ Custom Profile Picture", inline=True)
+    embed.add_field(name="Roles Assigned", value=str(len(roles)), inline=True)
+    if breakdown:
+        embed.add_field(name="Risk Factor Breakdown", value="\n".join(breakdown), inline=False)
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="banevaders", aliases=["evaders", "checkevaders"])
+@commands.guild_only()
+@commands.cooldown(1, 10.0, commands.BucketType.user)
+async def banevaders_prefix_cmd(ctx: commands.Context):
+    """Cross-reference active members with the server ban list for fuzzy matches: !banevaders"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    status_msg = await ctx.send("🔍 Fetching server ban list and scanning recent members for fuzzy name matches...")
+    try:
+        bans = [entry async for entry in ctx.guild.bans(limit=150)]
+    except Exception as e:
+        await status_msg.edit(content=f"❌ Failed to fetch server ban list: {e}")
+        return
+        
+    if not bans:
+        await status_msg.edit(content="ℹ️ Server ban list is currently empty. No banned accounts to cross-reference.")
+        return
+        
+    now = datetime.datetime.now(datetime.timezone.utc)
+    evader_matches = []
+    recent_members = [m for m in ctx.guild.members if not m.bot and m.joined_at and (now - m.joined_at).days <= 14]
+    
+    for m in recent_members:
+        m_name = m.name.lower()
+        m_disp = m.display_name.lower()
+        for b in bans:
+            b_name = b.user.name.lower()
+            sim1 = difflib.SequenceMatcher(None, m_name, b_name).ratio()
+            sim2 = difflib.SequenceMatcher(None, m_disp, b_name).ratio()
+            sim = max(sim1, sim2)
+            if sim >= 0.75:
+                evader_matches.append({
+                    "member": m,
+                    "banned_user": b.user,
+                    "ban_reason": b.reason or "No reason specified",
+                    "similarity": int(sim * 100)
+                })
+
+    embed = discord.Embed(
+        title="🚨 Ban-Evasion Match Audit",
+        color=discord.Color.dark_red() if evader_matches else discord.Color.green()
+    )
+    if not evader_matches:
+        embed.description = f"✅ Scanned **{len(recent_members)} recent members** against **{len(bans)} banned accounts**.\nZero suspected ban evaders found!"
+    else:
+        embed.description = f"⚠️ Detected **{len(evader_matches)} suspected ban evader match(es)**:"
+        for match in evader_matches[:10]:
+            m = match["member"]
+            bu = match["banned_user"]
+            embed.add_field(
+                name=f"⚠️ {m.name} ➔ {match['similarity']}% Match to Banned: {bu.name}",
+                value=f"• Current Member: {m.mention} (`{m.id}`)\n• Banned User: `{bu.name}` (`{bu.id}`)\n• Ban Reason: *{match['ban_reason']}*\n• Joined: <t:{int(m.joined_at.timestamp())}:R>",
+                inline=False
+            )
+    await status_msg.delete()
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="batchcheck", aliases=["botfarms", "twincheck"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def batchcheck_prefix_cmd(ctx: commands.Context, hours: int = 48):
+    """Detect clusters of accounts registered at the exact same minute (bot farms): !batchcheck [hours]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    now = datetime.datetime.now(datetime.timezone.utc)
+    members = sorted(
+        [m for m in ctx.guild.members if not m.bot and (now - m.created_at).total_seconds() <= hours * 3600],
+        key=lambda x: x.created_at
+    )
+    
+    clusters = []
+    current_cluster = []
+    for m in members:
+        if not current_cluster:
+            current_cluster.append(m)
+        else:
+            diff = abs((m.created_at - current_cluster[-1].created_at).total_seconds())
+            if diff <= 120:
+                current_cluster.append(m)
+            else:
+                if len(current_cluster) >= 2:
+                    clusters.append(current_cluster)
+                current_cluster = [m]
+    if len(current_cluster) >= 2:
+        clusters.append(current_cluster)
+        
+    embed = discord.Embed(
+        title=f"🤖 Batch Creation Cluster Scan ({hours}h window)",
+        color=discord.Color.red() if clusters else discord.Color.green()
+    )
+    if not clusters:
+        embed.description = f"✅ No accounts registered within 120 seconds of each other in the last {hours} hours."
+    else:
+        embed.description = f"⚠️ Detected **{len(clusters)} batch clusters** (accounts registered at the same minute):"
+        for i, cluster in enumerate(clusters[:8], 1):
+            accs = ", ".join([f"{m.mention} (`{m.created_at.strftime('%H:%M:%S')}`)" for m in cluster[:5]])
+            embed.add_field(name=f"Cluster #{i} ({len(cluster)} accounts)", value=accs, inline=False)
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="lock", aliases=["lockchannel", "freeze"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def lock_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
+    """Lock down chat in the channel for @everyone: !lock [channel]"""
+    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
+        await ctx.send("❌ You need `Manage Channels` permission to lock channels.")
+        return
+        
+    target = channel or ctx.channel
+    try:
+        await target.set_permissions(ctx.guild.default_role, send_messages=False, reason=f"Channel locked by {ctx.author}")
+        embed = discord.Embed(
+            title="🔒 Channel Locked",
+            description=f"{target.mention} has been **locked**. Non-staff members cannot send messages.",
+            color=discord.Color.red()
+        )
+        embed.set_footer(text=f"Locked by {ctx.author.display_name}")
+        await ctx.send(embed=embed)
+        await log_mod_action(ctx.guild, ctx.author, target, "Lock Channel", f"Locked {target.name}")
+    except Exception as e:
+        await ctx.send(f"❌ Failed to lock channel: {e}")
+
+
+@bot.command(name="unlock", aliases=["unfreeze"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def unlock_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
+    """Unlock chat in the channel for @everyone: !unlock [channel]"""
+    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
+        await ctx.send("❌ You need `Manage Channels` permission to unlock channels.")
+        return
+        
+    target = channel or ctx.channel
+    try:
+        await target.set_permissions(ctx.guild.default_role, send_messages=None, reason=f"Channel unlocked by {ctx.author}")
+        embed = discord.Embed(
+            title="🔓 Channel Unlocked",
+            description=f"{target.mention} has been **unlocked**. Members can chat normally.",
+            color=discord.Color.green()
+        )
+        embed.set_footer(text=f"Unlocked by {ctx.author.display_name}")
+        await ctx.send(embed=embed)
+        await log_mod_action(ctx.guild, ctx.author, target, "Unlock Channel", f"Unlocked {target.name}")
+    except Exception as e:
+        await ctx.send(f"❌ Failed to unlock channel: {e}")
+
+
+@bot.command(name="slowmode", aliases=["sm"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def slowmode_prefix_cmd(ctx: commands.Context, seconds: int, channel: Optional[discord.TextChannel] = None):
+    """Set chat cooldown slowmode in seconds: !slowmode <seconds> [channel]"""
+    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
+        await ctx.send("❌ You need `Manage Channels` permission to change slowmode.")
+        return
+        
+    target = channel or ctx.channel
+    seconds = max(0, min(seconds, 21600))
+    try:
+        await target.edit(slowmode_delay=seconds, reason=f"Slowmode updated by {ctx.author}")
+        if seconds == 0:
+            await ctx.send(f"⏱️ Slowmode has been **disabled** in {target.mention}.")
+        else:
+            await ctx.send(f"⏱️ Slowmode set to **{seconds} seconds** in {target.mention}.")
+        await log_mod_action(ctx.guild, ctx.author, target, "Set Slowmode", f"Slowmode {seconds}s in {target.name}")
+    except Exception as e:
+        await ctx.send(f"❌ Failed to set slowmode: {e}")
+
+
+@bot.command(name="purge", aliases=["clear", "clean"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def purge_prefix_cmd(ctx: commands.Context, amount: int, member: Optional[discord.Member] = None):
+    """Bulk-delete messages (optionally from a specific member): !purge <amount> [@user]"""
+    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_messages:
+        await ctx.send("❌ You need `Manage Messages` permission to purge chat.")
+        return
+        
+    amount = max(1, min(amount, 100))
+    check = (lambda m: m.author.id == member.id) if member else None
+    
+    try:
+        deleted = await ctx.channel.purge(limit=amount + 1, check=check)
+        actual_deleted = len(deleted) - (1 if not member or ctx.author == member else 0)
+        actual_deleted = max(0, actual_deleted)
+        target_str = f" from {member.mention}" if member else ""
+        confirm = await ctx.send(f"🧹 Purged **{actual_deleted} messages**{target_str}!")
+        asyncio.create_task(delete_after_delay(confirm, 4))
+        await log_mod_action(ctx.guild, ctx.author, member or ctx.channel, "Purge Messages", f"Purged {actual_deleted} messages in #{ctx.channel.name}")
+    except Exception as e:
+        await ctx.send(f"❌ Failed to purge messages: {e}")
+
+
+@bot.command(name="softban")
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def softban_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reason: str = "Softban message cleanup"):
+    """Kick a member and purge all their recent messages: !softban @user [reason]"""
+    if not is_protected(ctx.author) and not ctx.author.guild_permissions.ban_members:
+        await ctx.send("❌ You need `Ban Members` permission to softban.")
+        return
+    if is_protected(member):
+        await ctx.send("❌ You cannot softban a protected staff member or server owner.")
+        return
+    if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id and not is_creator(ctx.author):
+        await ctx.send("❌ You cannot softban someone with a higher or equal role than you.")
+        return
+    if member.top_role >= ctx.guild.me.top_role:
+        await ctx.send("❌ I cannot softban this user because their role is higher than mine.")
+        return
+        
+    try:
+        await member.ban(reason=f"Softban by {ctx.author}: {reason}", delete_message_days=1)
+        await ctx.guild.unban(member, reason=f"Softban unban by {ctx.author}: {reason}")
+        await log_mod_action(ctx.guild, ctx.author, member, "Softban (Kick + Message Purge)", reason)
+        embed = discord.Embed(
+            title="🔨 Member Softbanned",
+            description=f"**{member.mention}** (`{member.name}`) was kicked and their recent messages were purged.\n**Reason:** {reason}",
+            color=discord.Color.orange()
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"❌ Failed to softban member: {e}")
+
+
+@bot.command(name="strip")
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def strip_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reason: str = "Role strip by moderator"):
+    """Strip all non-managed roles from a member without kicking them: !strip @user"""
+    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_roles:
+        await ctx.send("❌ You need `Manage Roles` permission to strip roles.")
+        return
+    if is_protected(member):
+        await ctx.send("❌ You cannot strip roles from a protected staff member or server owner.")
+        return
+    if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id and not is_creator(ctx.author):
+        await ctx.send("❌ You cannot strip someone with a higher or equal role than you.")
+        return
+        
+    roles_to_remove = [r for r in member.roles if r.name != "@everyone" and not r.managed and r < ctx.guild.me.top_role]
+    if not roles_to_remove:
+        await ctx.send(f"ℹ️ {member.mention} has no removable roles.")
+        return
+        
+    try:
+        await member.remove_roles(*roles_to_remove, reason=f"Roles stripped by {ctx.author}: {reason}")
+        await log_mod_action(ctx.guild, ctx.author, member, "Strip Roles", f"Removed {len(roles_to_remove)} roles: {reason}")
+        await ctx.send(f"🛡️ Stripped **{len(roles_to_remove)} roles** from {member.mention}.")
+    except Exception as e:
+        await ctx.send(f"❌ Failed to strip roles: {e}")
+
+
+@bot.command(name="quarantine")
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def quarantine_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reason: str = "Quarantined by staff"):
+    """Isolate a suspicious member into a locked quarantine role: !quarantine @user [reason]"""
+    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_roles:
+        await ctx.send("❌ You need `Manage Roles` permission to quarantine members.")
+        return
+    if is_protected(member):
+        await ctx.send("❌ You cannot quarantine a protected staff member or server owner.")
+        return
+    if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id and not is_creator(ctx.author):
+        await ctx.send("❌ You cannot quarantine someone with a higher or equal role than you.")
+        return
+        
+    guild = ctx.guild
+    q_role = discord.utils.find(lambda r: r.name.lower() in ("quarantine", "quarantined"), guild.roles)
+    if not q_role:
+        try:
+            q_role = await guild.create_role(name="Quarantined", color=discord.Color.dark_grey(), reason="Created Quarantine Role for Security")
+            for ch in guild.channels:
+                try:
+                    await ch.set_permissions(q_role, send_messages=False, view_channel=False)
+                except Exception:
+                    pass
+        except Exception as e:
+            await ctx.send(f"❌ Failed to initialize Quarantine role: {e}")
+            return
+            
+    try:
+        roles_to_remove = [r for r in member.roles if r.name != "@everyone" and not r.managed and r < guild.me.top_role]
+        if roles_to_remove:
+            await member.remove_roles(*roles_to_remove, reason="Pre-quarantine role stripping")
+        await member.add_roles(q_role, reason=f"Quarantined by {ctx.author}: {reason}")
+        await log_mod_action(guild, ctx.author, member, "Quarantine", reason)
+        embed = discord.Embed(
+            title="☣️ Member Quarantined",
+            description=f"**{member.mention}** has been placed in **Quarantine**.\n**Reason:** {reason}\n*All server permissions revoked.*",
+            color=discord.Color.dark_gray()
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"❌ Failed to quarantine member: {e}")
+
+
+@bot.command(name="warn")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def warn_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reason: str = "Violation of server rules"):
+    """Warn a member with automatic progressive penalties: !warn @user [reason]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ You must be a Server Moderator or Admin to run this command.")
+        return
+    if is_protected(member):
+        await ctx.send("❌ You cannot warn a protected staff member or server owner.")
+        return
+        
+    await db.add_warning(ctx.guild.id, member.id, ctx.author.id, reason)
+    warnings = await db.get_warnings(ctx.guild.id, member.id)
+    strike_count = len(warnings) if warnings else 1
+    
+    punishment = "Warning logged & DM alert dispatched."
+    timeout_duration = None
+    if strike_count == 2:
+        timeout_duration = datetime.timedelta(hours=1)
+        punishment = "⚠️ Strike 2 reached: 1-hour timeout applied."
+    elif strike_count == 3:
+        timeout_duration = datetime.timedelta(hours=24)
+        punishment = "🚨 Strike 3 reached: 24-hour timeout applied."
+    elif strike_count >= 4:
+        timeout_duration = datetime.timedelta(days=7)
+        punishment = "🚨 Strike 4+ reached: 7-day maximum timeout applied."
+        
+    if timeout_duration:
+        try:
+            await member.timeout(timeout_duration, reason=f"Automatic penalty for Strike {strike_count}: {reason}")
+        except Exception as e:
+            punishment += f" (Timeout failed: {e})"
+            
+    try:
+        dm_embed = discord.Embed(
+            title=f"⚠️ Warning Received in {ctx.guild.name}",
+            description=f"You received an official strike from moderator **{ctx.author.name}**.\n**Reason:** {reason}\n**Total Strikes:** {strike_count}\n**Action Taken:** {punishment}",
+            color=discord.Color.orange()
+        )
+        await member.send(embed=dm_embed)
+    except Exception:
+        pass
+        
+    await log_mod_action(ctx.guild, ctx.author, member, f"Warn (Strike {strike_count})", reason, punishment)
+    await ctx.send(f"⚠️ **Warned {member.mention}** (Strike #{strike_count})!\n**Reason:** {reason}\n**Action:** {punishment}")
+
+
+@bot.command(name="warnings", aliases=["strikes", "infractions"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def warnings_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
+    """View strikes and warnings for a member: !warnings [@user]"""
+    target = member or ctx.author
+    if target != ctx.author and not is_protected(ctx.author):
+        await ctx.send("❌ You can only view your own warnings.")
+        return
+        
+    warnings = await db.get_warnings(ctx.guild.id, target.id)
+    embed = discord.Embed(
+        title=f"📋 Infraction History: {target.display_name}",
+        color=discord.Color.orange() if warnings else discord.Color.green()
+    )
+    if not warnings:
+        embed.description = "✅ Clean record! Zero warnings or strikes on file."
+    else:
+        embed.description = f"Total Strikes: **{len(warnings)}**"
+        for i, w in enumerate(warnings[:10], 1):
+            mod = ctx.guild.get_member(int(w.get("moderator_id", 0)))
+            mod_str = mod.name if mod else f"ID: {w.get('moderator_id', 'Unknown')}"
+            embed.add_field(
+                name=f"Strike #{i} (ID: {w.get('id', i)})",
+                value=f"• **Reason:** {w.get('reason', 'None')}\n• **Mod:** {mod_str}\n• **Date:** {w.get('created_at', 'N/A')}",
+                inline=False
+            )
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="clearwarnings", aliases=["clearwarns", "resetwarnings", "resetstrikes"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def clearwarnings_prefix_cmd(ctx: commands.Context, member: discord.Member):
+    """Clear all strikes for a member: !clearwarnings @user"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ You must be a Server Admin or Moderator to clear warnings.")
+        return
+        
+    await db.clear_warnings(ctx.guild.id, member.id)
+    await log_mod_action(ctx.guild, ctx.author, member, "Clear Warnings", "Cleared all strikes")
+    await ctx.send(f"✅ Cleared all warnings and strikes for {member.mention}!")
+
+
+@bot.command(name="modstats")
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def modstats_prefix_cmd(ctx: commands.Context, moderator: Optional[discord.Member] = None):
+    """Audit moderator actions logged in the database: !modstats [@mod]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    target = moderator or ctx.author
+    query = "SELECT action, COUNT(*) as count FROM audit_logs WHERE guild_id = ? AND user_id = ? GROUP BY action"
+    try:
+        rows = await db.fetch(query, str(ctx.guild.id), str(target.id))
+        embed = discord.Embed(title=f"📊 Mod Stats: {target.display_name}", color=discord.Color.blue())
+        embed.set_thumbnail(url=target.display_avatar.url)
+        if not rows:
+            embed.description = "No recorded moderation actions on file in this server."
+        else:
+            total = sum(r.get("count", 0) for r in rows)
+            embed.description = f"Total Actions Logged: **{total}**\n\n"
+            for r in rows:
+                embed.add_field(name=r.get("action", "Action"), value=f"**{r.get('count', 0)}** times", inline=True)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"❌ Error fetching mod stats: {e}")
+
+
+@bot.command(name="antibot")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def antibot_prefix_cmd(ctx: commands.Context, mode: Optional[str] = None):
+    """Rogue Bot Shield: Auto-ban unauthorized bots invited by non-owners: !antibot [on|off|status]"""
+    if not is_protected(ctx.author) and ctx.author.id != ctx.guild.owner_id:
+        await ctx.send("❌ You must be a Server Administrator or Owner to configure Anti-Bot Shield.")
+        return
+        
+    if not mode or mode.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "antibot_shield", "off")
+        await ctx.send(f"🤖 **Anti-Bot Shield is currently `{curr.upper()}`**.\nUsage: `!antibot on` or `!antibot off`.")
+        return
+        
+    m = mode.lower().strip()
+    if m in ("on", "enable", "true"):
+        await db.set_config(ctx.guild.id, "antibot_shield", "on")
+        await ctx.send("🤖 **Anti-Bot Shield ENABLED!**\nAny unauthorized bots invited by non-whitelisted staff will be instantly banned on join.")
+    elif m in ("off", "disable", "false"):
+        await db.set_config(ctx.guild.id, "antibot_shield", "off")
+        await ctx.send("⚠️ **Anti-Bot Shield DISABLED.**")
+    else:
+        await ctx.send("❌ Invalid option. Use `!antibot on`, `!antibot off`, or `!antibot status`.")
+
+
+@bot.command(name="roleguard")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def roleguard_prefix_cmd(ctx: commands.Context, mode: Optional[str] = None):
+    """Role Guard: Detect unauthorized role deletions & admin privilege tampering: !roleguard [on|off|status]"""
+    if not is_protected(ctx.author) and ctx.author.id != ctx.guild.owner_id:
+        await ctx.send("❌ You must be a Server Administrator or Owner to configure Role Guard.")
+        return
+        
+    if not mode or mode.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "roleguard", "off")
+        await ctx.send(f"🛡️ **Role Guard is currently `{curr.upper()}`**.\nUsage: `!roleguard on` or `!roleguard off`.")
+        return
+        
+    m = mode.lower().strip()
+    if m in ("on", "enable", "true"):
+        await db.set_config(ctx.guild.id, "roleguard", "on")
+        await ctx.send("🛡️ **Role Guard ENABLED!**\nMonitors role tampering, unauthorized administrator grants, and deletion of protected roles.")
+    elif m in ("off", "disable", "false"):
+        await db.set_config(ctx.guild.id, "roleguard", "off")
+        await ctx.send("⚠️ **Role Guard DISABLED.**")
+    else:
+        await ctx.send("❌ Invalid option. Use `!roleguard on` or `!roleguard off`.")
+
+
+@bot.command(name="channelguard")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def channelguard_prefix_cmd(ctx: commands.Context, mode: Optional[str] = None):
+    """Channel Guard: Detect rapid channel deletions and auto-strip rogue staff permissions: !channelguard [on|off|status]"""
+    if not is_protected(ctx.author) and ctx.author.id != ctx.guild.owner_id:
+        await ctx.send("❌ You must be a Server Administrator or Owner to configure Channel Guard.")
+        return
+        
+    if not mode or mode.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "channelguard", "off")
+        await ctx.send(f"🛡️ **Channel Guard is currently `{curr.upper()}`**.\nUsage: `!channelguard on` or `!channelguard off`.")
+        return
+        
+    m = mode.lower().strip()
+    if m in ("on", "enable", "true"):
+        await db.set_config(ctx.guild.id, "channelguard", "on")
+        await ctx.send("🛡️ **Channel Guard ENABLED!**\nMonitors channel deletion velocity. Rapid channel wiping will immediately strip permissions.")
+    elif m in ("off", "disable", "false"):
+        await db.set_config(ctx.guild.id, "channelguard", "off")
+        await ctx.send("⚠️ **Channel Guard DISABLED.**")
+    else:
+        await ctx.send("❌ Invalid option. Use `!channelguard on` or `!channelguard off`.")
+
+
+@bot.command(name="whitelist")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def whitelist_prefix_cmd(ctx: commands.Context, action: str = "list", target: Optional[discord.Member] = None):
+    """Manage the immune staff security whitelist: !whitelist [add|remove|list] @user"""
+    if ctx.author.id != ctx.guild.owner_id and not is_creator(ctx.author):
+        await ctx.send("❌ Only the **Server Owner** can manage the Security Whitelist.")
+        return
+        
+    raw = await db.get_config(ctx.guild.id, "security_whitelist", "[]")
+    try:
+        wl = json.loads(raw)
+        if not isinstance(wl, list):
+            wl = []
+    except Exception:
+        wl = []
+        
+    action_lower = action.lower()
+    if action_lower == "list":
+        embed = discord.Embed(title=f"🛡️ Security Whitelist — {ctx.guild.name}", color=discord.Color.gold())
+        if not wl:
+            embed.description = f"Only Server Owner ({ctx.guild.owner.mention}) is currently immune to security velocity limits."
+        else:
+            members = []
+            for uid in wl:
+                m = ctx.guild.get_member(uid)
+                members.append(f"• {m.mention} (`{uid}`)" if m else f"• ID `{uid}`")
+            embed.description = "\n".join(members)
+        await ctx.send(embed=embed)
+    elif action_lower == "add":
+        if not target:
+            await ctx.send("❌ Please specify a user to whitelist: `!whitelist add @user`")
+            return
+        if target.id not in wl:
+            wl.append(target.id)
+            await db.set_config(ctx.guild.id, "security_whitelist", json.dumps(wl))
+        await ctx.send(f"✅ Added {target.mention} to the **Security Whitelist**.")
+    elif action_lower in ("remove", "delete"):
+        if not target:
+            await ctx.send("❌ Please specify a user to remove: `!whitelist remove @user`")
+            return
+        if target.id in wl:
+            wl.remove(target.id)
+            await db.set_config(ctx.guild.id, "security_whitelist", json.dumps(wl))
+        await ctx.send(f"🗑️ Removed {target.mention} from the **Security Whitelist**.")
+    else:
+        await ctx.send("❌ Invalid action. Use `!whitelist list`, `!whitelist add @user`, or `!whitelist remove @user`.")
+
+
+@bot.command(name="gatekeeper")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def gatekeeper_prefix_cmd(ctx: commands.Context, mode: Optional[str] = None):
+    """Emergency join gate & alt isolation during raids: !gatekeeper [on|off|status]"""
+    if not is_protected(ctx.author) and ctx.author.id != ctx.guild.owner_id:
+        await ctx.send("❌ You must be a Server Administrator or Owner to configure Gatekeeper.")
+        return
+        
+    if not mode or mode.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "gatekeeper_enabled", "off")
+        await ctx.send(f"🚪 **Gatekeeper Shield is currently `{curr.upper()}`**.\nUsage: `!gatekeeper on` or `!gatekeeper off`.")
+        return
+        
+    m = mode.lower().strip()
+    if m in ("on", "enable", "true"):
+        await db.set_config(ctx.guild.id, "gatekeeper_enabled", "on")
+        await ctx.send("🚪 **Gatekeeper Shield ENABLED!** New joiners must be verified before accessing text channels.")
+    elif m in ("off", "disable", "false"):
+        await db.set_config(ctx.guild.id, "gatekeeper_enabled", "off")
+        await ctx.send("⚠️ **Gatekeeper Shield DISABLED.**")
+    else:
+        await ctx.send("❌ Invalid option. Use `!gatekeeper on` or `!gatekeeper off`.")
+
+
+@bot.command(name="antihoist")
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def antihoist_prefix_cmd(ctx: commands.Context, mode: Optional[str] = "scan"):
+    """Scan or clean hoisted nicknames (!, ., etc.) from the sidebar: !antihoist [scan|clean|on|off]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    hoist_chars = ("!", '"', "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/", "0", "1")
+    hoisted = [m for m in ctx.guild.members if not m.bot and m.display_name.startswith(hoist_chars)]
+    
+    m_clean = (mode or "scan").lower().strip()
+    if m_clean == "clean":
+        cleaned = 0
+        for m in hoisted:
+            if m.top_role < ctx.guild.me.top_role:
+                try:
+                    new_nick = m.display_name.lstrip('!"#$%&\'()*+,-./01') or "Dehoisted"
+                    await m.edit(nick=new_nick[:32], reason=f"Anti-Hoist clean by {ctx.author}")
+                    cleaned += 1
+                except Exception:
+                    pass
+        await ctx.send(f"🧹 Cleaned **{cleaned} hoisted nicknames** out of {len(hoisted)} found!")
+    elif m_clean in ("on", "off"):
+        val = (m_clean == "on")
+        await db.set_config(ctx.guild.id, "antihoist", "on" if val else "off")
+        await ctx.send(f"🏷️ **Anti-Hoist auto-clean on join is now `{'ON' if val else 'OFF'}`.**")
+    else:
+        embed = discord.Embed(title=f"🏷️ Hoisted Members Audit ({len(hoisted)} Found)", color=discord.Color.blue())
+        if not hoisted:
+            embed.description = "✅ No members found with hoisted names (!, ., etc.)."
+        else:
+            embed.description = f"Found **{len(hoisted)} members** using special characters to stay at the top of the sidebar:\n\n"
+            embed.description += "\n".join([f"• `{m.display_name}` ({m.mention})" for m in hoisted[:15]])
+            embed.set_footer(text="Type !antihoist clean to automatically fix their nicknames.")
+        await ctx.send(embed=embed)
+
+
+@bot.command(name="cleanbots")
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def cleanbots_prefix_cmd(ctx: commands.Context):
+    """Audit all bots in the server and identify offline/dead bots: !cleanbots"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    bots = [m for m in ctx.guild.members if m.bot]
+    embed = discord.Embed(title=f"🤖 Server Bot Audit ({len(bots)} Bots Total)", color=discord.Color.blue())
+    lines = []
+    for b in bots:
+        status_icon = "🟢" if b.status != discord.Status.offline else "⚫"
+        lines.append(f"{status_icon} {b.mention} (`{b.id}`) • Joined <t:{int(b.joined_at.timestamp())}:R>")
+    embed.description = "\n".join(lines[:20])
+    if len(lines) > 20:
+        embed.set_footer(text=f"And {len(lines) - 20} more bots.")
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="safeinvites")
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def safeinvites_prefix_cmd(ctx: commands.Context):
+    """Audit active server invites and identify who created them: !safeinvites"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    try:
+        invites = await ctx.guild.invites()
+    except Exception as e:
+        await ctx.send(f"❌ Failed to fetch invites: {e}")
+        return
+        
+    embed = discord.Embed(title=f"🔗 Active Server Invites ({len(invites)} Total)", color=discord.Color.purple())
+    if not invites:
+        embed.description = "No active invites found for this server."
+    else:
+        lines = []
+        for inv in invites[:15]:
+            inviter = inv.inviter.name if inv.inviter else "System/Unknown"
+            uses = f"{inv.uses}/{inv.max_uses if inv.max_uses else '∞'}"
+            lines.append(f"• [`{inv.code}`]({inv.url}) — by **{inviter}** (Uses: `{uses}`)")
+        embed.description = "\n".join(lines)
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="antiinvite")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def antiinvite_prefix_cmd(ctx: commands.Context, mode: Optional[str] = None):
+    """Auto-delete third-party Discord invite links from non-staff: !antiinvite [on|off|status]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    if not mode or mode.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "antiinvite", False)
+        await ctx.send(f"🔗 **Anti-Invite Shield is `{'ON' if curr else 'OFF'}`**.\nUsage: `!antiinvite on` or `!antiinvite off`.")
+        return
+        
+    m = mode.lower().strip()
+    if m in ("on", "enable", "true"):
+        await db.set_config(ctx.guild.id, "antiinvite", True)
+        await ctx.send("🔗 **Anti-Invite Shield ENABLED!** Discord invite links posted by non-staff will be deleted.")
+    elif m in ("off", "disable", "false"):
+        await db.set_config(ctx.guild.id, "antiinvite", False)
+        await ctx.send("⚠️ **Anti-Invite Shield DISABLED.**")
+    else:
+        await ctx.send("❌ Invalid option. Use `!antiinvite on` or `!antiinvite off`.")
+
+
+@bot.command(name="antispam")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def antispam_prefix_cmd(ctx: commands.Context, mode: Optional[str] = None):
+    """Auto-suppress rapid message flooding in chat: !antispam [on|off|status]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    if not mode or mode.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "antispam_shield", True)
+        await ctx.send(f"🛡️ **Anti-Spam Flooding Shield is `{'ON' if curr else 'OFF'}`**.\nUsage: `!antispam on` or `!antispam off`.")
+        return
+        
+    m = mode.lower().strip()
+    if m in ("on", "enable", "true"):
+        await db.set_config(ctx.guild.id, "antispam_shield", True)
+        await ctx.send("🛡️ **Anti-Spam Shield ENABLED!** Rapid message flooding is automatically suppressed.")
+    elif m in ("off", "disable", "false"):
+        await db.set_config(ctx.guild.id, "antispam_shield", False)
+        await ctx.send("⚠️ **Anti-Spam Shield DISABLED.**")
+    else:
+        await ctx.send("❌ Invalid option. Use `!antispam on` or `!antispam off`.")
+
+
+@bot.command(name="antiping")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def antiping_prefix_cmd(ctx: commands.Context, limit: Optional[str] = None):
+    """Limit the maximum user mentions per message: !antiping [limit|off]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    if not limit or limit.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "antiping_limit", 5)
+        st = f"{curr} mentions" if curr > 0 else "OFF"
+        await ctx.send(f"📢 **Anti-Mass-Ping limit is `{st}`**.\nUsage: `!antiping 4` or `!antiping off`.")
+        return
+        
+    if limit.lower() in ("off", "disable", "0"):
+        await db.set_config(ctx.guild.id, "antiping_limit", 0)
+        await ctx.send("⚠️ **Anti-Mass-Ping Shield DISABLED.**")
+    else:
+        try:
+            val = int(limit)
+            if val < 2 or val > 20:
+                await ctx.send("❌ Please choose a limit between 2 and 20.")
+                return
+            await db.set_config(ctx.guild.id, "antiping_limit", val)
+            await ctx.send(f"📢 **Anti-Mass-Ping set to `{val}` mentions!** Anyone tagging {val}+ members will be auto-muted.")
+        except ValueError:
+            await ctx.send("❌ Please provide a valid number (e.g. `!antiping 4`).")
+
+
+@bot.command(name="capslock", aliases=["capslimit", "anticaps"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def capslock_prefix_cmd(ctx: commands.Context, percentage: Optional[str] = None):
+    """Delete messages with excessive capital letters: !capslock [percentage|off]"""
+    if not is_protected(ctx.author):
+        await ctx.send("❌ This command is restricted to Server Staff.")
+        return
+        
+    if not percentage or percentage.lower() == "status":
+        curr = await db.get_config(ctx.guild.id, "caps_limit", 0)
+        st = f"{curr}%" if curr > 0 else "OFF"
+        await ctx.send(f"🔠 **Caps Lock filter is `{st}`**.\nUsage: `!capslock 70` (blocks >=70% caps) or `!capslock off`.")
+        return
+        
+    if percentage.lower() in ("off", "disable", "0"):
+        await db.set_config(ctx.guild.id, "caps_limit", 0)
+        await ctx.send("⚠️ **Caps Lock filter DISABLED.**")
+    else:
+        try:
+            val = int(percentage.replace("%", ""))
+            if val < 40 or val > 100:
+                await ctx.send("❌ Please choose a percentage between 40% and 100%.")
+                return
+            await db.set_config(ctx.guild.id, "caps_limit", val)
+            await ctx.send(f"🔠 **Caps Lock filter ENABLED at `{val}%`!** Messages with {val}%+ capital letters will be deleted.")
+        except ValueError:
+            await ctx.send("❌ Please provide a valid number (e.g. `!capslock 70`).")
+
+
+@bot.command(name="snapshot")
+@commands.guild_only()
+@commands.cooldown(1, 15.0, commands.BucketType.user)
+async def snapshot_prefix_cmd(ctx: commands.Context):
+    """Capture instant live compressed backup of all server roles, channels, and categories: !snapshot"""
+    if not is_protected(ctx.author) and ctx.author.id != ctx.guild.owner_id:
+        await ctx.send("❌ You must be a Server Administrator or Owner to run `!snapshot`.")
+        return
+        
+    status_msg = await ctx.send("📸 Capturing instant live snapshot of server structure, roles, and channels...")
+    guild = ctx.guild
+    roles_data = [
+        {"id": r.id, "name": r.name, "color": r.color.value, "hoist": r.hoist, "permissions": r.permissions.value, "position": r.position}
+        for r in guild.roles if r.name != "@everyone"
+    ]
+    cats_data = [
+        {"id": c.id, "name": c.name, "position": c.position}
+        for c in guild.categories
+    ]
+    chans_data = [
+        {"id": ch.id, "name": ch.name, "type": str(ch.type), "category": ch.category.name if ch.category else None, "position": ch.position, "topic": getattr(ch, "topic", None)}
+        for ch in guild.channels if ch.type != discord.ChannelType.category
+    ]
+    
+    snapshot_payload = {
+        "guild_id": guild.id,
+        "guild_name": guild.name,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "created_by": str(ctx.author),
+        "roles": roles_data,
+        "categories": cats_data,
+        "channels": chans_data
+    }
+    raw_bytes = json.dumps(snapshot_payload, indent=2, ensure_ascii=False).encode('utf-8')
+    compressed = gzip.compress(raw_bytes)
+    
+    file = discord.File(io.BytesIO(compressed), filename=f"snapshot_{guild.id}_{int(time.time())}.json.gz")
+    embed = discord.Embed(
+        title="📸 Server Snapshot Captured Successfully!",
+        description=f"Saved **{len(roles_data)} roles**, **{len(cats_data)} categories**, and **{len(chans_data)} channels**.\nKeep this compressed file safe for 1-click recovery with `/restore`.",
+        color=discord.Color.green()
+    )
+    await status_msg.delete()
+    await ctx.send(embed=embed, file=file)
+
+
+
+
 # ── Discord Event Listeners ─────────────────────────────────────────────────
 
 @bot.event
 async def on_member_join(member):
-    """Event listener to handle Anti-Raid protection and auto-role assignment."""
+    """Event listener to handle Anti-Raid protection, Anti-Bot shield, Anti-Hoist and auto-role assignment."""
     try:
-        if is_protected(member):
-            return
-            
         guild = member.guild
         now = time.time()
+        
+        # ── 0. Anti-Bot Shield (Unauthorized Bot Invites) ──────────────────────
+        if member.bot:
+            antibot = await db.get_config(guild.id, "antibot_shield", "off")
+            if antibot == "on":
+                is_authorized = False
+                inviter = None
+                try:
+                    async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.bot_add):
+                        if entry.target.id == member.id:
+                            inviter = entry.user
+                            break
+                except Exception:
+                    pass
+                
+                wl = await get_guild_whitelist(guild.id)
+                if inviter and (inviter.id == guild.owner_id or inviter.id == 719932313919684670 or inviter.id in wl):
+                    is_authorized = True
+                    
+                if not is_authorized:
+                    try:
+                        await member.ban(reason="Anti-Bot Shield: Unauthorized bot added by non-owner")
+                        mod_log = await get_mod_log_channel(guild)
+                        if mod_log:
+                            e = discord.Embed(
+                                title="🤖 Anti-Bot Shield: Rogue Bot Ejected!",
+                                description=f"Auto-banned unauthorized bot {member.mention} (`{member.id}`).\n**Invited by:** {inviter.mention if inviter else 'Unknown'}",
+                                color=discord.Color.red()
+                            )
+                            await mod_log.send(embed=e)
+                        return
+                    except Exception as e:
+                        logger.warning(f"Failed to auto-ban unauthorized bot: {e}")
+            return
+
+        if is_protected(member):
+            return
+
+        # ── 0b. Anti-Hoist Check ───────────────────────────────────────────────
+        antihoist = await db.get_config(guild.id, "antihoist", "off")
+        if antihoist == "on":
+            hoist_chars = ("!", '"', "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/", "0", "1")
+            if member.display_name.startswith(hoist_chars):
+                clean_nick = member.display_name.lstrip('!"#$%&\'()*+,-./01') or "Dehoisted"
+                try:
+                    await member.edit(nick=clean_nick[:32], reason="Anti-Hoist: Auto dehoisted on join")
+                except Exception:
+                    pass
         
         # ── 1. Anti-Raid Join Flood & Alt Gate ─────────────────────────────────
         antiraid_mode = await db.get_config(guild.id, "antiraid_mode", "enable")
@@ -27969,6 +29109,33 @@ async def on_message(message):
             if automod_enabled:
                 content = message.content.strip()
                 if content:
+                    # 0a. Anti-Invite Link Shield
+                    antiinvite = await db.get_config(message.guild.id, "antiinvite", False)
+                    if antiinvite and re.search(r'(?:discord\.gg|discord\.com/invite)/[a-zA-Z0-9]+', content):
+                        try:
+                            _bot_deleted_message_ids.add(message.id)
+                            await message.delete()
+                        except Exception:
+                            pass
+                        alert = await message.channel.send(f"⚠️ {message.author.mention}, server invite links are prohibited here!")
+                        asyncio.create_task(delete_after_delay(alert, 5))
+                        return
+
+                    # 0b. Caps Lock Percentage Shield
+                    caps_limit = await db.get_config(message.guild.id, "caps_limit", 0)
+                    if caps_limit > 0 and len(content) >= 10:
+                        letters = [c for c in content if c.isalpha()]
+                        if letters:
+                            caps_ratio = sum(1 for c in letters if c.isupper()) / len(letters) * 100
+                            if caps_ratio >= caps_limit:
+                                try:
+                                    _bot_deleted_message_ids.add(message.id)
+                                    await message.delete()
+                                except Exception:
+                                    pass
+                                alert = await message.channel.send(f"⚠️ {message.author.mention}, please don't shout in ALL CAPS ({int(caps_ratio)}% caps detected)!")
+                                asyncio.create_task(delete_after_delay(alert, 5))
+                                return
                     # 1. Mass Mention / Everyone Ping Raid Filter
                     pings_count = len(re.findall(r'<@!?([0-9]+)>|<@&([0-9]+)>', content))
                     has_everyone = "@everyone" in content or "@here" in content
