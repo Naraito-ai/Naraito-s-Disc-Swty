@@ -16386,14 +16386,88 @@ async def can_use_kiss_command(guild: Optional[discord.Guild], user: Union[disco
 
 # ── Teardown & Nuke Handlers ───────────────────────────────────────────────
 
+_authorized_teardown_guilds: Set[int] = set()
+_bot_self_destructive_actions: Dict[int, List[float]] = {}
+_bot_ejecting_guilds: Set[int] = set()
+
+async def record_and_check_bot_self_eject(guild: Optional[discord.Guild], action_type: str):
+    """
+    Emergency Self-Killswitch: If Sweety itself is detected executing rapid destructive
+    actions (mass-bans, mass channel deletes, mass role deletes) that are not part of an
+    authorized /teardown, Sweety immediately auto-ejects from the server to sever all bot
+    permissions in 1 millisecond and save the server from being nuked.
+    """
+    if not guild or guild.id in _authorized_teardown_guilds or guild.id in _bot_ejecting_guilds:
+        return
+        
+    now = time.time()
+    history = _bot_self_destructive_actions.get(guild.id, [])
+    history = [t for t in history if now - t < 15.0]
+    history.append(now)
+    _bot_self_destructive_actions[guild.id] = history
+    
+    # Threshold: 3 rapid destructive actions by the bot in < 15 seconds
+    if len(history) >= 3:
+        _bot_ejecting_guilds.add(guild.id)
+        logger.critical(
+            f"🚨 [BOT EMERGENCY SELF-EJECT TRIGGERED] Rogue automated {action_type} detected from bot account on {guild.name} ({guild.id})! "
+            f"Rate: {len(history)} destructive actions in <15s. Auto-ejecting immediately to protect the server!"
+        )
+        
+        # 1. Post emergency warning to server
+        try:
+            target_chan = guild.system_channel
+            if not target_chan:
+                for c in guild.text_channels:
+                    if c.permissions_for(guild.me).send_messages:
+                        target_chan = c
+                        break
+            if target_chan:
+                embed = discord.Embed(
+                    title="🚨 CRITICAL EMERGENCY: BOT AUTO-EJECT TRIGGERED",
+                    description=(
+                        f"⚠️ **Rogue automated destruction was detected originating from the bot account!**\n\n"
+                        f"• **Action Type:** `{action_type}`\n"
+                        f"• **Action Rate:** `{len(history)} actions in <15 seconds`\n"
+                        f"• **Safety Defense:** Sweety is **automatically leaving this server right now** to instantly revoke all bot permissions and save **{guild.name}** from being nuked!\n\n"
+                        f"*(Server Owner: Once your bot credentials and host are verified, you may safely re-invite Sweety.)*"
+                    ),
+                    color=discord.Color.red()
+                )
+                await target_chan.send(content=f"🚨 <@{guild.owner_id}> **EMERGENCY BOT AUTO-EJECT ACTIVATED!**", embed=embed)
+        except Exception:
+            pass
+            
+        # 2. DM the Bot Creator (Naraito)
+        try:
+            creator = bot.get_user(719932313919684670) or await bot.fetch_user(719932313919684670)
+            if creator:
+                await creator.send(
+                    f"🚨 **[EMERGENCY BOT AUTO-EJECT TRIGGERED]**\n"
+                    f"Sweety detected automated rogue `{action_type}` actions coming from the bot on **{guild.name}** (`{guild.id}`).\n"
+                    f"Sweety **automatically left the server** to cut all bot permissions in 1ms and prevent server damage!\n"
+                    f"Please check your server and bot tokens immediately."
+                )
+        except Exception:
+            pass
+            
+        # 3. Emergency leave the guild
+        try:
+            await guild.leave()
+            logger.info(f"✅ Successfully auto-ejected from {guild.name} ({guild.id}). Server is safe.")
+        except Exception as e:
+            logger.error(f"Failed to leave guild during auto-eject: {e}")
+
 async def teardown_guild(guild):
     """Deletes only the roles, categories, and channels created by this bot in the guild."""
     stats = {"roles": 0, "categories": 0, "channels": 0}
     logger.info(f"Starting teardown for guild {guild.name} ({guild.id})...")
+    _authorized_teardown_guilds.add(guild.id)
 
     resources = await db.get_resources(guild.id)
     if not resources:
         logger.info(f"No tracked resources found for guild {guild.name}.")
+        _authorized_teardown_guilds.discard(guild.id)
         return stats
 
     channels = [r["resource_id"] for r in resources if r["resource_type"] == "channels"]
@@ -16435,6 +16509,7 @@ async def teardown_guild(guild):
 
     logger.info(f"Teardown completed for {guild.name}: {stats}")
     await db.clear_resources(guild.id)
+    _authorized_teardown_guilds.discard(guild.id)
     return stats
 
 # ── Security & Rate Limit Helpers for Production Hardening ────────────────
@@ -23137,6 +23212,47 @@ async def punch_prefix_cmd(ctx: commands.Context, member: Optional[discord.Membe
         await ctx.send(f"❌ Error: {e}")
 
 
+@bot.command(name="testantinuke", aliases=["antinuketest", "testnuke"])
+@commands.guild_only()
+async def testantinuke_prefix_cmd(ctx: commands.Context, mode: str = "mod"):
+    """
+    Test simulation for the Anti-Nuke and Auto-Eject system (Creator/Owner only):
+    • !testantinuke mod   -> Simulates compromised moderator alert & role stripping preview
+    • !testantinuke bot   -> Simulates the bot emergency self-eject alert (WITHOUT actually leaving)
+    """
+    if ctx.author.id != 719932313919684670 and ctx.author.id != getattr(ctx.guild, "owner_id", 0):
+        await ctx.send("❌ Only the Bot Creator or Server Owner can run anti-nuke diagnostic simulations.")
+        return
+
+    mode = mode.lower().strip()
+    if mode in ("bot", "self", "eject", "killswitch"):
+        embed = discord.Embed(
+            title="🚨 [SIMULATION TEST] CRITICAL EMERGENCY: BOT AUTO-EJECT TRIGGERED",
+            description=(
+                f"⚠️ **Rogue automated destruction was detected originating from the bot account!**\n\n"
+                f"• **Simulated Action:** `Rapid Channel / Member Purge`\n"
+                f"• **Action Rate:** `4 actions in <15 seconds`\n"
+                f"• **Simulated Response:** Sweety would automatically execute `await guild.leave()` immediately to kill all bot permissions and save the server.\n\n"
+                f"*(This was a simulation triggered by {ctx.author.mention}. Sweety has NOT left the server.)*"
+            ),
+            color=discord.Color.red()
+        )
+        await ctx.send(content=f"🚨 <@{ctx.guild.owner_id}> **[SIMULATION] EMERGENCY BOT AUTO-EJECT ACTIVATED!**", embed=embed)
+    else:
+        embed = discord.Embed(
+            title="🚨 [SIMULATION TEST] EMERGENCY: Anti-Nuke Circuit Breaker Triggered!",
+            description=(
+                f"⚠️ **Rapid mass-ban detected!**\n\n"
+                f"• **Responsible Account:** {ctx.author.mention} (`{ctx.author.name}` | ID: `{ctx.author.id}`)\n"
+                f"• **Rate:** `4 bans in 12 seconds (Simulated)`\n"
+                f"• **Status:** Safety lockdown activated.\n\n"
+                f"*(This was a test simulation triggered by {ctx.author.mention}. No roles were removed.)*"
+            ),
+            color=discord.Color.red()
+        )
+        await ctx.send(content=f"🚨 <@{ctx.guild.owner_id}> **[SIMULATION] POTENTIAL COMPROMISED STAFF ACCOUNT DETECTED!**", embed=embed)
+
+
 @bot.command(name="kiss", aliases=["smooch", "kisses"])
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
@@ -27006,21 +27122,41 @@ async def on_member_join(member):
 
 @bot.event
 async def on_guild_channel_delete(channel):
-    """Clean up references to manually deleted channels from database resources."""
+    """Clean up references to manually deleted channels and check for bot rogue deletion."""
     try:
         await db.delete_resource_by_id(channel.id)
         logger.info(f"Cleaned up manually deleted channel {channel.name} ({channel.id}) from database.")
     except Exception as e:
         logger.error(f"Error cleaning up deleted channel {channel.id}: {e}")
 
+    try:
+        guild = getattr(channel, "guild", None)
+        if guild:
+            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_delete):
+                if entry.target.id == channel.id and entry.user and entry.user.id == bot.user.id:
+                    await record_and_check_bot_self_eject(guild, "Rapid Channel Deletion")
+                    break
+    except Exception as e:
+        logger.debug(f"Audit check on channel delete error: {e}")
+
 @bot.event
 async def on_guild_role_delete(role):
-    """Clean up references to manually deleted roles from database resources."""
+    """Clean up references to manually deleted roles and check for bot rogue deletion."""
     try:
         await db.delete_resource_by_id(role.id)
         logger.info(f"Cleaned up manually deleted role {role.name} ({role.id}) from database.")
     except Exception as e:
         logger.error(f"Error cleaning up deleted role {role.id}: {e}")
+
+    try:
+        guild = getattr(role, "guild", None)
+        if guild:
+            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.role_delete):
+                if entry.target.id == role.id and entry.user and entry.user.id == bot.user.id:
+                    await record_and_check_bot_self_eject(guild, "Rapid Role Deletion")
+                    break
+    except Exception as e:
+        logger.debug(f"Audit check on role delete error: {e}")
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -27228,7 +27364,15 @@ async def on_member_ban(guild: discord.Guild, user: Union[discord.User, discord.
         async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.ban):
             if entry.target.id == user.id:
                 mod = entry.user
-                if not mod or mod.bot or mod.id == getattr(guild, "owner_id", 0) or mod.id == 719932313919684670:
+                if not mod:
+                    return
+
+                # If the ban was executed by Sweety itself, check self-eject killswitch
+                if mod.id == bot.user.id:
+                    await record_and_check_bot_self_eject(guild, "Rapid Member Ban")
+                    return
+
+                if mod.bot or mod.id == getattr(guild, "owner_id", 0) or mod.id == 719932313919684670:
                     return
 
                 now = time.time()
