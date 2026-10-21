@@ -16594,12 +16594,13 @@ class ConfirmActionView(discord.ui.View):
 # ── Interactive UI Views ───────────────────────────────────────────────────
 
 class SetupConfirmView(discord.ui.View):
-    def __init__(self, author, guild, plan_data, original_interaction):
+    def __init__(self, author, guild, plan_data, original_interaction, restore_messages: bool = True):
         super().__init__(timeout=180.0)
         self.author = author
         self.guild = guild
         self.plan_data = plan_data
         self.original_interaction = original_interaction
+        self.restore_messages = restore_messages
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author.id:
@@ -16613,7 +16614,7 @@ class SetupConfirmView(discord.ui.View):
             b.disabled = True
         await interaction.response.edit_message(content="⚙️ **Building server structure...** Please wait while roles and channels are generated.", embed=None, view=self)
         self.stop()
-        await build_server_structure(self.guild, self.plan_data, interaction.channel)
+        await build_server_structure(self.guild, self.plan_data, interaction.channel, restore_messages=self.restore_messages)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, emoji="❌")
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -16684,7 +16685,66 @@ def safe_field_value(items: List[str], separator: str = ", ", max_len: int = 100
     return separator.join(result) if result else fallback
 
 
-async def build_server_structure(guild, data, response_channel):
+async def restore_messages_to_channel(channel: discord.TextChannel, messages: List[Dict[str, Any]], me_member: discord.Member) -> int:
+    """Restores archived channel messages using a Discord Webhook to preserve original names and avatars."""
+    if not messages or not isinstance(channel, discord.TextChannel):
+        return 0
+    try:
+        perms = channel.permissions_for(me_member)
+        if perms.manage_webhooks:
+            webhook = None
+            try:
+                whs = await channel.webhooks()
+                for w in whs:
+                    if w.user == me_member:
+                        webhook = w
+                        break
+                if not webhook:
+                    webhook = await channel.create_webhook(name="Sweety Archive", reason="Backup Message Restoration")
+            except Exception as e:
+                logger.debug(f"Failed to create/get webhook in #{channel.name}: {e}")
+
+            if webhook:
+                count = 0
+                for m in messages:
+                    content = m.get("content", "")
+                    author_info = m.get("author", {})
+                    author_name = author_info.get("display_name") or author_info.get("name") or "Archived User"
+                    avatar = author_info.get("avatar_url")
+                    
+                    attachments = m.get("attachments", [])
+                    att_text = "\n".join(f"📎 [{a.get('filename', 'File')}]({a.get('url')})" for a in attachments if a.get("url"))
+                    full_content = (content + ("\n" + att_text if att_text else "")).strip()
+                    
+                    if full_content:
+                        try:
+                            await webhook.send(
+                                content=full_content[:2000],
+                                username=author_name[:80],
+                                avatar_url=avatar,
+                                allowed_mentions=discord.AllowedMentions.none()
+                            )
+                            count += 1
+                            await asyncio.sleep(0.4)
+                        except Exception as we:
+                            logger.debug(f"Webhook send notice in #{channel.name}: {we}")
+                return count
+
+        # Fallback if no webhook permission: send as text
+        if perms.send_messages:
+            for m in messages[:15]:
+                content = m.get("content", "")
+                author_name = m.get("author", {}).get("display_name") or "User"
+                ts = m.get("timestamp", "")[:10]
+                if content:
+                    await channel.send(f"💬 **{author_name}** `({ts})`: {content[:1800]}", allowed_mentions=discord.AllowedMentions.none())
+                    await asyncio.sleep(0.4)
+    except Exception as e:
+        logger.warning(f"Error restoring messages to channel #{channel.name}: {e}")
+    return 0
+
+
+async def build_server_structure(guild, data, response_channel, restore_messages: bool = True):
     """Parses structural plan data and creates corresponding roles, categories, and channels."""
     logger.info(f"Starting AI server build for guild: {guild.name} ({guild.id})")
     roles_created = []
@@ -16794,6 +16854,10 @@ async def build_server_structure(guild, data, response_channel):
                     channels_created.append(f"#{new_chan.name}")
                     await db.add_resource(guild.id, "channels", new_chan.id)
                     logger.info(f"Created text channel: #{new_chan.name} (Topic: {chan_topic})")
+                    
+                    if restore_messages and chan_data.get("messages"):
+                        asyncio.create_task(restore_messages_to_channel(new_chan, chan_data["messages"], guild.me))
+                        
                     await asyncio.sleep(0.3)  # Rate limiting backoff
                 elif chan_type == "voice":
                     new_chan = await guild.create_voice_channel(
@@ -16838,6 +16902,10 @@ async def build_server_structure(guild, data, response_channel):
                 channels_created.append(f"#{new_chan.name}")
                 await db.add_resource(guild.id, "channels", new_chan.id)
                 logger.info(f"Created uncategorized text channel: #{new_chan.name}")
+                
+                if restore_messages and chan_data.get("messages"):
+                    asyncio.create_task(restore_messages_to_channel(new_chan, chan_data["messages"], guild.me))
+                    
                 await asyncio.sleep(0.3)
             elif chan_type == "voice":
                 new_chan = await guild.create_voice_channel(
@@ -19318,11 +19386,19 @@ async def stylechannels_command(interaction: discord.Interaction, style: str):
             await interaction.response.send_message(f"❌ Error styling channels: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="backup", description="Export the current server structure (roles, categories, channels) as a JSON template")
+@bot.tree.command(name="backup", description="Export the server structure (roles, channels) with optional message history")
+@app_commands.describe(
+    include_messages="Whether to backup recent chat messages in text channels (default: False)",
+    messages_per_channel="Maximum messages to export per channel if include_messages is True (default: 50, max: 200)"
+)
 @app_commands.default_permissions(manage_guild=True)
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 30.0, key=lambda i: (i.guild_id, i.user.id))
-async def backup_command(interaction: discord.Interaction):
+async def backup_command(
+    interaction: discord.Interaction,
+    include_messages: bool = False,
+    messages_per_channel: Optional[int] = 50
+):
     try:
         await interaction.response.defer(thinking=True, ephemeral=False)
         guild = interaction.guild
@@ -19330,6 +19406,43 @@ async def backup_command(interaction: discord.Interaction):
             await interaction.followup.send("❌ This command can only be used in a server.", ephemeral=True)
             return
         
+        msg_limit = max(1, min(messages_per_channel or 50, 200))
+        total_messages_saved = 0
+
+        async def fetch_channel_messages(ch: discord.TextChannel) -> List[Dict[str, Any]]:
+            nonlocal total_messages_saved
+            m_list = []
+            if not include_messages:
+                return m_list
+            perms = ch.permissions_for(guild.me)
+            if not perms.read_message_history or not perms.read_messages:
+                return m_list
+            try:
+                async for m in ch.history(limit=msg_limit, oldest_first=False):
+                    attachments = [
+                        {"filename": a.filename, "url": a.url, "size": a.size}
+                        for a in m.attachments
+                    ]
+                    m_list.append({
+                        "id": str(m.id),
+                        "author": {
+                            "id": str(m.author.id),
+                            "name": m.author.name,
+                            "display_name": m.author.display_name,
+                            "avatar_url": m.author.display_avatar.url if m.author.display_avatar else None,
+                            "bot": m.author.bot
+                        },
+                        "content": m.content,
+                        "timestamp": m.created_at.isoformat(),
+                        "pinned": m.pinned,
+                        "attachments": attachments
+                    })
+                    total_messages_saved += 1
+                m_list.reverse()
+            except Exception as err:
+                logger.debug(f"Could not read messages for #{ch.name}: {err}")
+            return m_list
+
         # 1. Export Roles
         roles_list = []
         for role in guild.roles:
@@ -19378,6 +19491,9 @@ async def backup_command(interaction: discord.Interaction):
                             if overwrite.read_messages is True or overwrite.connect is True:
                                 chan_data["private_for"].append(target.name)
                                 
+                if chan_type == "text" and isinstance(chan, discord.TextChannel):
+                    chan_data["messages"] = await fetch_channel_messages(chan)
+                    
                 cat_data["channels"].append(chan_data)
                 
             categories_list.append(cat_data)
@@ -19402,29 +19518,50 @@ async def backup_command(interaction: discord.Interaction):
                         if isinstance(target, discord.Role) and target != guild.default_role:
                             if overwrite.read_messages is True or overwrite.connect is True:
                                 chan_data["private_for"].append(target.name)
+                                
+                if chan_type == "text" and isinstance(chan, discord.TextChannel):
+                    chan_data["messages"] = await fetch_channel_messages(chan)
+                    
                 uncategorized_list.append(chan_data)
             
         backup_data = {
+            "version": "2.0",
+            "guild_name": guild.name,
+            "guild_id": str(guild.id),
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "has_messages": include_messages,
             "roles": roles_list,
             "categories": categories_list,
             "uncategorized": uncategorized_list
         }
         
         safe_name = re.sub(r'[^a-zA-Z0-9_]', '', guild.name.replace(' ', '_')) or "server"
-        filename = f"backup_{safe_name}.json"
+        raw_json = json.dumps(backup_data, indent=2, ensure_ascii=False).encode('utf-8')
         
-        json_bytes = io.BytesIO(json.dumps(backup_data, indent=2, ensure_ascii=False).encode('utf-8'))
-        json_bytes.seek(0)
-        discord_file = discord.File(json_bytes, filename=filename)
+        # Automatically compress with gzip if size > 15MB
+        if len(raw_json) > 15 * 1024 * 1024:
+            import gzip
+            file_stream = io.BytesIO(gzip.compress(raw_json))
+            filename = f"backup_{safe_name}.json.gz"
+        else:
+            file_stream = io.BytesIO(raw_json)
+            filename = f"backup_{safe_name}.json"
+            
+        file_stream.seek(0)
+        discord_file = discord.File(file_stream, filename=filename)
         
         embed = discord.Embed(
             title="💾 Server Backup Generated",
-            description=f"Successfully exported layout for **{guild.name}**!\nKeep this file safe — you can restore or clone this entire layout at any time using `/restore`.",
+            description=f"Successfully exported layout and data for **{guild.name}**!\nKeep this file safe — you can restore or clone this entire layout at any time using `/restore`.",
             color=discord.Color.green()
         )
         embed.add_field(name="🎭 Roles", value=f"`{len(roles_list)}` roles", inline=True)
         embed.add_field(name="📁 Categories", value=f"`{len(categories_list)}` categories", inline=True)
-        embed.add_field(name="💬 Uncategorized", value=f"`{len(uncategorized_list)}` channels", inline=True)
+        total_chans_count = sum(len(c.get("channels", [])) for c in categories_list) + len(uncategorized_list)
+        embed.add_field(name="💬 Channels", value=f"`{total_chans_count}` channels", inline=True)
+        if include_messages:
+            embed.add_field(name="📜 Messages Archived", value=f"`{total_messages_saved}` messages (up to {msg_limit}/chan)", inline=True)
+            embed.add_field(name="⚡ Webhook Replay", value="Ready to replay on `/restore`", inline=True)
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         
         await interaction.followup.send(
@@ -19440,20 +19577,27 @@ async def backup_command(interaction: discord.Interaction):
             await interaction.response.send_message(f"❌ Failed to generate server backup: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="restore", description="Restore or clone a server structure from a backup JSON file")
-@app_commands.describe(file="The backup JSON file generated by the /backup command")
+@bot.tree.command(name="restore", description="Restore or clone a server structure and messages from a backup JSON file")
+@app_commands.describe(
+    file="The backup JSON file generated by the /backup command (.json or .json.gz)",
+    restore_messages="Whether to replay archived chat messages via Webhooks if present (default: True)"
+)
 @app_commands.default_permissions(manage_guild=True)
 @app_commands.guild_only()
 @app_commands.checks.cooldown(1, 60.0, key=lambda i: (i.guild_id, i.user.id))
-async def restore_command(interaction: discord.Interaction, file: discord.Attachment):
+async def restore_command(interaction: discord.Interaction, file: discord.Attachment, restore_messages: bool = True):
     try:
-        if not file.filename.endswith(".json"):
-            await interaction.response.send_message("❌ Please upload a valid JSON template file (.json).", ephemeral=True)
+        is_gz = file.filename.endswith(".gz") or file.filename.endswith(".gzip")
+        if not file.filename.endswith(".json") and not is_gz:
+            await interaction.response.send_message("❌ Please upload a valid backup template file (.json or .json.gz).", ephemeral=True)
             return
             
         await interaction.response.defer(thinking=True)
         try:
             file_bytes = await file.read()
+            if is_gz or file_bytes[:2] == b'\x1f\x8b':
+                import gzip
+                file_bytes = gzip.decompress(file_bytes)
             raw_data = file_bytes.decode("utf-8")
             data = json.loads(raw_data)
         except Exception as e:
@@ -19485,12 +19629,20 @@ async def restore_command(interaction: discord.Interaction, file: discord.Attach
                     
             categories_summary.append(f"**{cat.get('name')}**{private_tag} ({len(chans)} channels: {', '.join(chan_names[:5])}{'...' if len(chan_names)>5 else ''})")
 
+        total_msgs_in_template = sum(
+            len(c.get("messages", [])) 
+            for cat in data.get("categories", []) for c in cat.get("channels", [])
+        ) + sum(len(c.get("messages", [])) for c in data.get("uncategorized", []))
+
         embed = discord.Embed(title="📋 Server Structure Preview (Restore)", description="Review the backup template layout below before creating channels and roles.", color=discord.Color.gold())
         embed.add_field(name=f"🎭 Roles to Create ({len(roles_summary)})", value=safe_field_value(roles_summary, ", "), inline=False)
         embed.add_field(name=f"📁 Categories & Channels ({len(categories_summary)} categories, {total_channels} channels)", value=safe_field_value(categories_summary, "\n"), inline=False)
+        if total_msgs_in_template > 0:
+            status_tag = "✅ Will replay via Webhooks" if restore_messages else "⏸️ Skipped (restore_messages=False)"
+            embed.add_field(name="📜 Message History Archive", value=f"`{total_msgs_in_template}` messages stored in template — {status_tag}", inline=False)
         embed.set_footer(text="Click Confirm & Build below to restore this layout.")
 
-        view = SetupConfirmView(interaction.user, interaction.guild, data, interaction)
+        view = SetupConfirmView(interaction.user, interaction.guild, data, interaction, restore_messages=restore_messages)
         await interaction.followup.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in /restore: {e}")
