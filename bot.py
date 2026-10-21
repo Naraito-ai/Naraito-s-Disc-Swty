@@ -27558,30 +27558,6 @@ async def batchcheck_prefix_cmd(ctx: commands.Context, hours: int = 48):
     await ctx.send(embed=embed)
 
 
-@bot.command(name="lock", aliases=["lockchannel", "freeze"])
-@commands.guild_only()
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-async def lock_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
-    """Lock down chat in the channel for @everyone: !lock [channel]"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
-        await ctx.send("❌ You need `Manage Channels` permission to lock channels.")
-        return
-        
-    target = channel or ctx.channel
-    try:
-        await target.set_permissions(ctx.guild.default_role, send_messages=False, reason=f"Channel locked by {ctx.author}")
-        embed = discord.Embed(
-            title="🔒 Channel Locked",
-            description=f"{target.mention} has been **locked**. Non-staff members cannot send messages.",
-            color=discord.Color.red()
-        )
-        embed.set_footer(text=f"Locked by {ctx.author.display_name}")
-        await ctx.send(embed=embed)
-        await log_mod_action(ctx.guild, ctx.author, target, "Lock Channel", f"Locked {target.name}")
-    except Exception as e:
-        await ctx.send(f"❌ Failed to lock channel: {e}")
-
-
 @bot.command(name="unlock", aliases=["unfreeze"])
 @commands.guild_only()
 @commands.cooldown(1, 3.0, commands.BucketType.user)
@@ -27604,52 +27580,6 @@ async def unlock_prefix_cmd(ctx: commands.Context, channel: Optional[discord.Tex
         await log_mod_action(ctx.guild, ctx.author, target, "Unlock Channel", f"Unlocked {target.name}")
     except Exception as e:
         await ctx.send(f"❌ Failed to unlock channel: {e}")
-
-
-@bot.command(name="slowmode", aliases=["sm"])
-@commands.guild_only()
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-async def slowmode_prefix_cmd(ctx: commands.Context, seconds: int, channel: Optional[discord.TextChannel] = None):
-    """Set chat cooldown slowmode in seconds: !slowmode <seconds> [channel]"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_channels:
-        await ctx.send("❌ You need `Manage Channels` permission to change slowmode.")
-        return
-        
-    target = channel or ctx.channel
-    seconds = max(0, min(seconds, 21600))
-    try:
-        await target.edit(slowmode_delay=seconds, reason=f"Slowmode updated by {ctx.author}")
-        if seconds == 0:
-            await ctx.send(f"⏱️ Slowmode has been **disabled** in {target.mention}.")
-        else:
-            await ctx.send(f"⏱️ Slowmode set to **{seconds} seconds** in {target.mention}.")
-        await log_mod_action(ctx.guild, ctx.author, target, "Set Slowmode", f"Slowmode {seconds}s in {target.name}")
-    except Exception as e:
-        await ctx.send(f"❌ Failed to set slowmode: {e}")
-
-
-@bot.command(name="purge", aliases=["clear", "clean"])
-@commands.guild_only()
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-async def purge_prefix_cmd(ctx: commands.Context, amount: int, member: Optional[discord.Member] = None):
-    """Bulk-delete messages (optionally from a specific member): !purge <amount> [@user]"""
-    if not is_protected(ctx.author) and not ctx.author.guild_permissions.manage_messages:
-        await ctx.send("❌ You need `Manage Messages` permission to purge chat.")
-        return
-        
-    amount = max(1, min(amount, 100))
-    check = (lambda m: m.author.id == member.id) if member else None
-    
-    try:
-        deleted = await ctx.channel.purge(limit=amount + 1, check=check)
-        actual_deleted = len(deleted) - (1 if not member or ctx.author == member else 0)
-        actual_deleted = max(0, actual_deleted)
-        target_str = f" from {member.mention}" if member else ""
-        confirm = await ctx.send(f"🧹 Purged **{actual_deleted} messages**{target_str}!")
-        asyncio.create_task(delete_after_delay(confirm, 4))
-        await log_mod_action(ctx.guild, ctx.author, member or ctx.channel, "Purge Messages", f"Purged {actual_deleted} messages in #{ctx.channel.name}")
-    except Exception as e:
-        await ctx.send(f"❌ Failed to purge messages: {e}")
 
 
 @bot.command(name="softban")
@@ -27755,98 +27685,6 @@ async def quarantine_prefix_cmd(ctx: commands.Context, member: discord.Member, *
         await ctx.send(embed=embed)
     except Exception as e:
         await ctx.send(f"❌ Failed to quarantine member: {e}")
-
-
-@bot.command(name="warn")
-@commands.guild_only()
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-async def warn_prefix_cmd(ctx: commands.Context, member: discord.Member, *, reason: str = "Violation of server rules"):
-    """Warn a member with automatic progressive penalties: !warn @user [reason]"""
-    if not is_protected(ctx.author):
-        await ctx.send("❌ You must be a Server Moderator or Admin to run this command.")
-        return
-    if is_protected(member):
-        await ctx.send("❌ You cannot warn a protected staff member or server owner.")
-        return
-        
-    await db.add_warning(ctx.guild.id, member.id, ctx.author.id, reason)
-    warnings = await db.get_warnings(ctx.guild.id, member.id)
-    strike_count = len(warnings) if warnings else 1
-    
-    punishment = "Warning logged & DM alert dispatched."
-    timeout_duration = None
-    if strike_count == 2:
-        timeout_duration = datetime.timedelta(hours=1)
-        punishment = "⚠️ Strike 2 reached: 1-hour timeout applied."
-    elif strike_count == 3:
-        timeout_duration = datetime.timedelta(hours=24)
-        punishment = "🚨 Strike 3 reached: 24-hour timeout applied."
-    elif strike_count >= 4:
-        timeout_duration = datetime.timedelta(days=7)
-        punishment = "🚨 Strike 4+ reached: 7-day maximum timeout applied."
-        
-    if timeout_duration:
-        try:
-            await member.timeout(timeout_duration, reason=f"Automatic penalty for Strike {strike_count}: {reason}")
-        except Exception as e:
-            punishment += f" (Timeout failed: {e})"
-            
-    try:
-        dm_embed = discord.Embed(
-            title=f"⚠️ Warning Received in {ctx.guild.name}",
-            description=f"You received an official strike from moderator **{ctx.author.name}**.\n**Reason:** {reason}\n**Total Strikes:** {strike_count}\n**Action Taken:** {punishment}",
-            color=discord.Color.orange()
-        )
-        await member.send(embed=dm_embed)
-    except Exception:
-        pass
-        
-    await log_mod_action(ctx.guild, ctx.author, member, f"Warn (Strike {strike_count})", reason, punishment)
-    await ctx.send(f"⚠️ **Warned {member.mention}** (Strike #{strike_count})!\n**Reason:** {reason}\n**Action:** {punishment}")
-
-
-@bot.command(name="warnings", aliases=["strikes", "infractions"])
-@commands.guild_only()
-@commands.cooldown(1, 3.0, commands.BucketType.user)
-async def warnings_prefix_cmd(ctx: commands.Context, member: Optional[discord.Member] = None):
-    """View strikes and warnings for a member: !warnings [@user]"""
-    target = member or ctx.author
-    if target != ctx.author and not is_protected(ctx.author):
-        await ctx.send("❌ You can only view your own warnings.")
-        return
-        
-    warnings = await db.get_warnings(ctx.guild.id, target.id)
-    embed = discord.Embed(
-        title=f"📋 Infraction History: {target.display_name}",
-        color=discord.Color.orange() if warnings else discord.Color.green()
-    )
-    if not warnings:
-        embed.description = "✅ Clean record! Zero warnings or strikes on file."
-    else:
-        embed.description = f"Total Strikes: **{len(warnings)}**"
-        for i, w in enumerate(warnings[:10], 1):
-            mod = ctx.guild.get_member(int(w.get("moderator_id", 0)))
-            mod_str = mod.name if mod else f"ID: {w.get('moderator_id', 'Unknown')}"
-            embed.add_field(
-                name=f"Strike #{i} (ID: {w.get('id', i)})",
-                value=f"• **Reason:** {w.get('reason', 'None')}\n• **Mod:** {mod_str}\n• **Date:** {w.get('created_at', 'N/A')}",
-                inline=False
-            )
-    await ctx.send(embed=embed)
-
-
-@bot.command(name="clearwarnings", aliases=["clearwarns", "resetwarnings", "resetstrikes"])
-@commands.guild_only()
-@commands.cooldown(1, 5.0, commands.BucketType.user)
-async def clearwarnings_prefix_cmd(ctx: commands.Context, member: discord.Member):
-    """Clear all strikes for a member: !clearwarnings @user"""
-    if not is_protected(ctx.author):
-        await ctx.send("❌ You must be a Server Admin or Moderator to clear warnings.")
-        return
-        
-    await db.clear_warnings(ctx.guild.id, member.id)
-    await log_mod_action(ctx.guild, ctx.author, member, "Clear Warnings", "Cleared all strikes")
-    await ctx.send(f"✅ Cleared all warnings and strikes for {member.mention}!")
 
 
 @bot.command(name="modstats")
