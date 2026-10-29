@@ -651,6 +651,17 @@ INTENT_RULES = [
     (re.compile(r"^(?:ping|latency|bot\s+ping|heartbeat)$", re.IGNORECASE), r"ping"),
     (re.compile(r"^(?:help|commands|show\s+(?:all\s+)?commands|help\s+menu)$", re.IGNORECASE), r"help"),
 
+    # ── Custom Tags & Auto-Responders ──
+    (re.compile(r"^(?:add\s+tag|create\s+tag|set\s+tag)\s+([a-zA-Z0-9_\-]+)\s+(.+)$", re.IGNORECASE), r"tag add \1 \2"),
+    (re.compile(r"^(?:delete\s+tag|remove\s+tag)\s+([a-zA-Z0-9_\-]+)$", re.IGNORECASE), r"tag delete \1"),
+    (re.compile(r"^(?:tags|show\s+tags|tag\s+list|list\s+tags)$", re.IGNORECASE), r"tags"),
+    (re.compile(r"^(?:tag|show\s+tag|get\s+tag)\s+([a-zA-Z0-9_\-]+)$", re.IGNORECASE), r"tag \1"),
+
+    # ── Server Rules & Guidelines ──
+    (re.compile(r"^(?:sync\s+rules|read\s+rules|reload\s+rules|update\s+rules)(?:\s+(?:from\s+)?(<#\d+>|\S+))?$", re.IGNORECASE), lambda m: f"syncrules {m.group(1)}" if m.group(1) else "syncrules"),
+    (re.compile(r"^(?:rules|show\s+rules|server\s+rules|what\s+are\s+the\s+rules)$", re.IGNORECASE), r"rules"),
+    (re.compile(r"^(?:rule|show\s+rule|what\s+is\s+rule)\s+(\d+)$", re.IGNORECASE), r"rule \1"),
+
     # ── Wholesome Actions ──
     (re.compile(r"^(?:give\s+(?:a\s+)?(?:warm\s+)?hug\s+to|hug)\s*(.+)$", re.IGNORECASE), r"hug \1"),
     (re.compile(r"^(?:give\s+(?:a\s+)?kiss\s+to|kiss)\s*(.+)$", re.IGNORECASE), r"kiss \1"),

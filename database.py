@@ -409,6 +409,22 @@ class DatabaseManager:
                 blacklisted_at REAL NOT NULL
             );
             """,
+            # Custom Tags Table (Auto-Responders)
+            """
+            CREATE TABLE IF NOT EXISTS custom_tags (
+                id SERIAL PRIMARY KEY,
+                guild_id TEXT NOT NULL,
+                tag_name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                author_id TEXT NOT NULL,
+                uses INTEGER DEFAULT 0,
+                created_at REAL NOT NULL,
+                UNIQUE(guild_id, tag_name)
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_custom_tags ON custom_tags(guild_id, tag_name);
+            """,
             # NBA 2K Mobile Cards Inventory Table
             """
             CREATE TABLE IF NOT EXISTS user_nba_cards (
@@ -1473,6 +1489,77 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error removing active mute: {e}")
             return False
+
+    # ── Custom Auto-Responders & Server Tags ─────────────────────────────────
+    async def set_custom_tag(self, guild_id: Any, tag_name: str, content: str, author_id: Any) -> bool:
+        """Creates or updates a custom server tag."""
+        now = time.time()
+        tag_key = tag_name.lower().strip()
+        if not self.is_postgres:
+            query = """
+            INSERT INTO custom_tags (guild_id, tag_name, content, author_id, uses, created_at)
+            VALUES (?, ?, ?, ?, 0, ?)
+            ON CONFLICT(guild_id, tag_name) DO UPDATE SET
+                content = excluded.content,
+                author_id = excluded.author_id
+            """
+        else:
+            query = """
+            INSERT INTO custom_tags (guild_id, tag_name, content, author_id, uses, created_at)
+            VALUES ($1, $2, $3, $4, 0, $5)
+            ON CONFLICT(guild_id, tag_name) DO UPDATE SET
+                content = EXCLUDED.content,
+                author_id = EXCLUDED.author_id
+            """
+        try:
+            await self.execute(query, str(guild_id), tag_key, content, str(author_id), now)
+            return True
+        except Exception as e:
+            logger.error(f"Error setting custom tag: {e}")
+            return False
+
+    async def get_custom_tag(self, guild_id: Any, tag_name: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a single custom tag by name."""
+        tag_key = tag_name.lower().strip()
+        if not self.is_postgres:
+            query = "SELECT * FROM custom_tags WHERE guild_id = ? AND tag_name = ?"
+        else:
+            query = "SELECT * FROM custom_tags WHERE guild_id = $1 AND tag_name = $2"
+        return await self.fetchrow(query, str(guild_id), tag_key)
+
+    async def delete_custom_tag(self, guild_id: Any, tag_name: str) -> bool:
+        """Deletes a custom server tag."""
+        tag_key = tag_name.lower().strip()
+        if not self.is_postgres:
+            query = "DELETE FROM custom_tags WHERE guild_id = ? AND tag_name = ?"
+        else:
+            query = "DELETE FROM custom_tags WHERE guild_id = $1 AND tag_name = $2"
+        try:
+            await self.execute(query, str(guild_id), tag_key)
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting custom tag: {e}")
+            return False
+
+    async def get_all_custom_tags(self, guild_id: Any) -> List[Dict[str, Any]]:
+        """Retrieves all custom tags configured for a guild."""
+        if not self.is_postgres:
+            query = "SELECT tag_name, content, author_id, uses, created_at FROM custom_tags WHERE guild_id = ? ORDER BY tag_name ASC"
+        else:
+            query = "SELECT tag_name, content, author_id, uses, created_at FROM custom_tags WHERE guild_id = $1 ORDER BY tag_name ASC"
+        return await self.fetch(query, str(guild_id))
+
+    async def increment_tag_uses(self, guild_id: Any, tag_name: str):
+        """Increments the usage count of a tag."""
+        tag_key = tag_name.lower().strip()
+        if not self.is_postgres:
+            query = "UPDATE custom_tags SET uses = uses + 1 WHERE guild_id = ? AND tag_name = ?"
+        else:
+            query = "UPDATE custom_tags SET uses = uses + 1 WHERE guild_id = $1 AND tag_name = $2"
+        try:
+            await self.execute(query, str(guild_id), tag_key)
+        except Exception:
+            pass
 
     # ── Appeal Tickets System ─────────────────────────────────────────────────
     async def create_appeal_ticket(self, guild_id: Any, user_id: Any, channel_id: Any, reason: str, additional_info: str = "") -> bool:

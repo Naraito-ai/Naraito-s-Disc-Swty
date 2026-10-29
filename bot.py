@@ -1790,6 +1790,45 @@ async def auto_mute_user(member: discord.Member, guild: discord.Guild, channel: 
             logger.error(f"Failed to send Auto-Mod log embed: {e}")
 
 
+async def _relax_auto_slowmode(channel: discord.TextChannel, orig_delay: int, delay_wait: int = 30):
+    """Automatically relaxes auto-adaptive slowmode when chat velocity normalizes."""
+    await asyncio.sleep(delay_wait)
+    try:
+        chan_id = channel.id
+        if chan_id in _channel_auto_slowmode_active:
+            _channel_auto_slowmode_active.pop(chan_id, None)
+            if channel.permissions_for(channel.guild.me).manage_channels:
+                await channel.edit(slowmode_delay=orig_delay, reason="Auto-Adaptive Slowmode: Chat velocity normalized")
+    except Exception:
+        pass
+
+
+async def get_rule_violation_citation(guild: discord.Guild, category: str) -> str:
+    """Matches an automod violation against the server's synced rules."""
+    try:
+        rules_data = await db.get_config(guild.id, "server_rules", None)
+        if not rules_data:
+            return ""
+        if isinstance(rules_data, str):
+            rules_data = json.loads(rules_data)
+        rules_list = rules_data.get("rules", [])
+        cat_lower = category.lower()
+        for r in rules_list:
+            r_text = (r.get("text", "") + " " + r.get("title", "")).lower()
+            if any(kw in r_text for kw in ["ad", "invite", "promo"]) and any(c in cat_lower for c in ["invite", "promo", "ad"]):
+                return f"Rule {r.get('num')}: {r.get('text', '')[:50]}"
+            if any(kw in r_text for kw in ["phish", "scam", "malicious", "link"]) and any(c in cat_lower for c in ["phish", "scam"]):
+                return f"Rule {r.get('num')}: {r.get('text', '')[:50]}"
+            if any(kw in r_text for kw in ["spam", "flood", "ping"]) and any(c in cat_lower for c in ["spam", "ping", "flood"]):
+                return f"Rule {r.get('num')}: {r.get('text', '')[:50]}"
+            if any(kw in r_text for kw in ["respect", "toxic", "harass", "slur"]) and any(c in cat_lower for c in ["toxic", "slur", "harass"]):
+                return f"Rule {r.get('num')}: {r.get('text', '')[:50]}"
+            if any(kw in r_text for kw in ["nsfw", "porn", "explicit"]) and any(c in cat_lower for c in ["nsfw", "porn"]):
+                return f"Rule {r.get('num')}: {r.get('text', '')[:50]}"
+    except Exception:
+        pass
+    return ""
+
 async def delete_after_delay(msg, delay):
     await asyncio.sleep(delay)
     try:
@@ -2671,6 +2710,9 @@ async def handle_ghost_ping_detection(message: discord.Message):
 # ── Productivity Suite: Reminders & AFK System ──────────────────────────────
 _afk_cache: dict[tuple[int, int], dict] = {}  # (guild_id, user_id) -> {"reason": str, "since": float, "pings": list}
 _recent_mentions_cache: dict[tuple[int, int], list[dict]] = {}  # (guild_id, user_id) -> list of recent mentions (max 10)
+_guild_invites_cache: dict[int, dict[str, int]] = {}  # guild_id -> {invite_code: uses}
+_channel_msg_velocities: dict[int, list[float]] = {}  # channel_id -> list of message timestamps (last 5s)
+_channel_auto_slowmode_active: dict[int, int] = {}  # channel_id -> original slowmode delay
 _afk_cooldown: dict[tuple[int, int], float] = {}  # prevents spamming AFK alert when mentioned repeatedly
 
 def parse_duration_string(time_str: str) -> Optional[int]:
@@ -18024,6 +18066,15 @@ class GeminiBot(commands.Bot):
         except Exception as rem_err:
             logger.error(f"❌ Reminder loop start failed: {rem_err}")
             
+        # Cache guild invites for tracking
+        for g in bot.guilds:
+            try:
+                if g.me.guild_permissions.manage_guild:
+                    invs = await g.invites()
+                    _guild_invites_cache[g.id] = {inv.code: (inv.uses or 0) for inv in invs}
+            except Exception:
+                pass
+
         # Step 7: Start self-pinger & register UptimeRobot monitor
         asyncio.create_task(start_self_pinger())
         uptime_key = os.getenv("UPTIME_API_KEY", "").strip()
@@ -23678,6 +23729,256 @@ class BanAppealDecisionView(discord.ui.View):
         await interaction.followup.send(f"❌ Denied ban appeal for **{self.user_name}**.", ephemeral=True)
 
 
+
+
+# ── Server Rules Ingestion & Citation Engine ────────────────────────────────
+@bot.command(name="syncrules", aliases=["setrules", "loadrules"])
+@commands.guild_only()
+@commands.cooldown(1, 5.0, commands.BucketType.user)
+async def syncrules_prefix_cmd(ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
+    """Automatically scans and syncs server rules from #rules or target channel: !syncrules [#channel]"""
+    try:
+        if not (is_protected(ctx.author) or ctx.author.guild_permissions.manage_guild):
+            return await ctx.send("🔒 Only Staff and Administrators can sync server rules.")
+
+        target_channel = channel
+        if not target_channel:
+            # Auto-detect rules channel
+            for c in ctx.guild.text_channels:
+                c_name = c.name.lower()
+                if any(term in c_name for term in ["rule", "guideline", "server-rule", "welcome-and-rule"]):
+                    target_channel = c
+                    break
+
+        if not target_channel:
+            return await ctx.send("❌ Could not automatically find a `#rules` or `#guidelines` channel. Please specify it: `!syncrules #channel`")
+
+        if not target_channel.permissions_for(ctx.guild.me).read_message_history:
+            return await ctx.send(f"❌ I lack permission to read message history in {target_channel.mention}.")
+
+        status_msg = await ctx.send(f"🔍 Reading and analyzing rules from {target_channel.mention}...")
+
+        # Scan channel messages (up to 30 messages)
+        raw_texts = []
+        async for m in target_channel.history(limit=30, oldest_first=True):
+            if m.content and m.content.strip():
+                raw_texts.append(m.content.strip())
+            for embed in m.embeds:
+                if embed.description:
+                    raw_texts.append(embed.description.strip())
+                for field in embed.fields:
+                    raw_texts.append(f"{field.name}: {field.value}")
+
+        full_content = "\n".join(raw_texts)
+        if not full_content.strip():
+            return await status_msg.edit(content=f"❌ No rules or guidelines text found in {target_channel.mention}.")
+
+        # Parse rule clauses
+        rule_pattern = re.compile(
+            r'(?:^|\n)\s*(?:(?:Rule\s*(\d+)|\b(\d+)\.|\b(\d+)\))\s*[:\-\)]?\s*([^\n]+))',
+            re.IGNORECASE
+        )
+        parsed_rules = []
+        seen_nums = set()
+        for m in rule_pattern.finditer(full_content):
+            num_str = m.group(1) or m.group(2) or m.group(3)
+            num = int(num_str)
+            if num not in seen_nums:
+                seen_nums.add(num)
+                parsed_rules.append({"num": num, "text": m.group(4).strip()})
+
+        parsed_rules.sort(key=lambda r: r["num"])
+
+        # Fallback if no numbered list found: treat paragraphs as rules
+        if not parsed_rules:
+            paragraphs = [p.strip() for p in full_content.split("\n\n") if len(p.strip()) > 15]
+            for idx, p in enumerate(paragraphs[:15], 1):
+                parsed_rules.append({"num": idx, "text": p[:250]})
+
+        rules_payload = {
+            "channel_id": target_channel.id,
+            "channel_name": target_channel.name,
+            "updated_at": time.time(),
+            "rules": parsed_rules,
+            "raw_snippet": full_content[:1500]
+        }
+
+        await db.set_config(ctx.guild.id, "server_rules", json.dumps(rules_payload))
+
+        embed = discord.Embed(
+            title=f"📜 Server Rules Synced: {ctx.guild.name}",
+            description=(
+                f"Successfully read and indexed **{len(parsed_rules)} rule(s)** from {target_channel.mention}!\n\n"
+                f"• **Auto-Mod Integration:** Sweety will now cite these exact rules whenever rule-breakers are penalized.\n"
+                f"• **Member Inquiries:** Members can now use `!rules` or `!rule <number>` (or ask *'sweety what are the rules'*)."
+            ),
+            color=discord.Color.green()
+        )
+        for r in parsed_rules[:6]:
+            embed.add_field(name=f"Rule {r['num']}", value=f"> {r['text'][:150]}", inline=False)
+        if len(parsed_rules) > 6:
+            embed.set_footer(text=f"+{len(parsed_rules) - 6} more rules synced • Use !rules to view all")
+
+        await status_msg.edit(content=None, embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !syncrules: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to sync rules: {e}")
+
+
+@bot.command(name="rules", aliases=["guidelines", "serverrules"])
+@commands.guild_only()
+@commands.cooldown(1, 4.0, commands.BucketType.user)
+async def rules_prefix_cmd(ctx: commands.Context):
+    """View the server's official rules and guidelines: !rules"""
+    try:
+        rules_data = await db.get_config(ctx.guild.id, "server_rules", None)
+        if not rules_data:
+            return await ctx.send("ℹ️ No server rules have been synced yet. Staff can run `!syncrules [#channel]` to scan your rules channel!")
+
+        if isinstance(rules_data, str):
+            rules_data = json.loads(rules_data)
+
+        parsed_rules = rules_data.get("rules", [])
+        chan_id = rules_data.get("channel_id")
+        chan_mention = f"<#{chan_id}>" if chan_id else "#rules"
+
+        embed = discord.Embed(
+            title=f"📜 Rules & Guidelines • {ctx.guild.name}",
+            description=f"Official community rules synced from {chan_mention}:\n",
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+        for r in parsed_rules[:10]:
+            embed.add_field(name=f"Rule {r['num']}", value=f"> {r['text']}", inline=False)
+        if len(parsed_rules) > 10:
+            embed.set_footer(text=f"+{len(parsed_rules) - 10} additional rules. Check {chan_mention} for full details.")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !rules: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to display rules: {e}")
+
+
+@bot.command(name="rule")
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def rule_prefix_cmd(ctx: commands.Context, rule_num: int):
+    """View a specific server rule by its number: !rule <number>"""
+    try:
+        rules_data = await db.get_config(ctx.guild.id, "server_rules", None)
+        if not rules_data:
+            return await ctx.send("ℹ️ Server rules have not been synced yet. Staff can run `!syncrules`.")
+
+        if isinstance(rules_data, str):
+            rules_data = json.loads(rules_data)
+
+        parsed_rules = rules_data.get("rules", [])
+        matched = next((r for r in parsed_rules if r["num"] == rule_num), None)
+        if not matched:
+            return await ctx.send(f"❌ Rule **{rule_num}** was not found. Use `!rules` to view all rules.")
+
+        embed = discord.Embed(
+            title=f"📜 Rule {matched['num']} • {ctx.guild.name}",
+            description=f"> {matched['text']}",
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !rule: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+# ── Custom Auto-Responders & Tags System ─────────────────────────────────────
+@bot.command(name="tag", aliases=["t"])
+@commands.guild_only()
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+async def tag_prefix_cmd(ctx: commands.Context, subaction_or_name: str, *, content_or_name: Optional[str] = None):
+    """Send or manage custom server tags: !tag <name> or !tag add <name> <content>"""
+    try:
+        action = subaction_or_name.lower().strip()
+
+        # Subcommand: ADD / CREATE
+        if action in ("add", "create", "set", "new"):
+            if not (is_protected(ctx.author) or ctx.author.guild_permissions.manage_messages):
+                return await ctx.send("🔒 Only Staff and Moderators can create server tags.")
+            if not content_or_name or len(content_or_name.split()) < 2:
+                return await ctx.send("❌ Usage: `!tag add <tag_name> <tag_content>`")
+            tag_name = content_or_name.split()[0].lower().strip()
+            tag_content = " ".join(content_or_name.split()[1:]).strip()
+            if len(tag_name) > 30:
+                return await ctx.send("❌ Tag name must be 30 characters or fewer.")
+            success = await db.set_custom_tag(ctx.guild.id, tag_name, tag_content, ctx.author.id)
+            if success:
+                embed = discord.Embed(
+                    title="🏷️ Tag Saved",
+                    description=f"Created custom tag **`{tag_name}`**!\nMembers can trigger it with `!tag {tag_name}` or *'sweety tag {tag_name}'*.",
+                    color=discord.Color.green()
+                )
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send("❌ Failed to save tag due to a database error.")
+            return
+
+        # Subcommand: DELETE / REMOVE
+        if action in ("delete", "remove", "del"):
+            if not (is_protected(ctx.author) or ctx.author.guild_permissions.manage_messages):
+                return await ctx.send("🔒 Only Staff and Moderators can delete server tags.")
+            tag_name = (content_or_name or "").split()[0].lower().strip() if content_or_name else ""
+            if not tag_name:
+                return await ctx.send("❌ Usage: `!tag delete <tag_name>`")
+            deleted = await db.delete_custom_tag(ctx.guild.id, tag_name)
+            if deleted:
+                await ctx.send(f"🗑️ Deleted tag **`{tag_name}`**.")
+            else:
+                await ctx.send(f"❌ Tag **`{tag_name}`** not found.")
+            return
+
+        # Subcommand: LIST
+        if action in ("list", "all"):
+            tags = await db.get_all_custom_tags(ctx.guild.id)
+            if not tags:
+                return await ctx.send("ℹ️ No custom tags created yet. Staff can create one with `!tag add <name> <content>`!")
+            tag_names = [f"`{t['tag_name']}` ({t.get('uses', 0)} uses)" for t in tags]
+            embed = discord.Embed(
+                title=f"🏷️ Server Tags ({len(tags)}) • {ctx.guild.name}",
+                description=", ".join(tag_names),
+                color=discord.Color.from_rgb(120, 140, 180)
+            )
+            embed.set_footer(text="Use !tag <name> to view any tag")
+            return await ctx.send(embed=embed)
+
+        # Default: DISPLAY TAG
+        tag_record = await db.get_custom_tag(ctx.guild.id, action)
+        if not tag_record:
+            return await ctx.send(f"❌ Tag **`{action}`** not found. Use `!tags` to view available tags.")
+
+        await db.increment_tag_uses(ctx.guild.id, action)
+        await ctx.send(tag_record["content"])
+    except Exception as e:
+        logger.error(f"Error in !tag: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
+
+@bot.command(name="tags")
+@commands.guild_only()
+@commands.cooldown(1, 4.0, commands.BucketType.user)
+async def tags_prefix_cmd(ctx: commands.Context):
+    """View all available server tags: !tags"""
+    try:
+        tags = await db.get_all_custom_tags(ctx.guild.id)
+        if not tags:
+            return await ctx.send("ℹ️ No custom tags created in this server yet. Staff can add one: `!tag add <name> <content>`!")
+        tag_names = [f"`{t['tag_name']}` ({t.get('uses', 0)} uses)" for t in tags]
+        embed = discord.Embed(
+            title=f"🏷️ Available Tags ({len(tags)}) • {ctx.guild.name}",
+            description=", ".join(tag_names),
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+        embed.set_footer(text="Trigger with !tag <name> or 'sweety tag <name>'")
+        await ctx.send(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in !tags: {e}", exc_info=True)
+        await ctx.send(f"❌ Error: {e}")
+
 @bot.command(name="dm", aliases=["send", "tell", "pm", "message"])
 @commands.guild_only()
 @commands.cooldown(1, 4.0, commands.BucketType.user)
@@ -28437,6 +28738,22 @@ async def snapshot_prefix_cmd(ctx: commands.Context):
 # ── Discord Event Listeners ─────────────────────────────────────────────────
 
 @bot.event
+async def on_invite_create(invite):
+    """Tracks new invite creations for attribution."""
+    if invite.guild:
+        if invite.guild.id not in _guild_invites_cache:
+            _guild_invites_cache[invite.guild.id] = {}
+        _guild_invites_cache[invite.guild.id][invite.code] = invite.uses or 0
+
+
+@bot.event
+async def on_invite_delete(invite):
+    """Cleans up deleted invites from cache."""
+    if invite.guild and invite.guild.id in _guild_invites_cache:
+        _guild_invites_cache[invite.guild.id].pop(invite.code, None)
+
+
+@bot.event
 async def on_member_join(member):
     """Event listener to handle Anti-Raid protection, Anti-Bot shield, Anti-Hoist and auto-role assignment."""
     try:
@@ -28553,6 +28870,38 @@ async def on_member_join(member):
                     return
                 except Exception as k_err:
                     logger.warning(f"Could not auto-kick raider {member.name}: {k_err}")
+
+        # ── 1b. Invite Tracking & Attribution ─────────────────────────────────
+        try:
+            cached_invites = _guild_invites_cache.get(guild.id, {})
+            current_invites = await guild.invites() if guild.me.guild_permissions.manage_guild else []
+            used_invite = None
+            for inv in current_invites:
+                prev_uses = cached_invites.get(inv.code, 0)
+                if inv.uses > prev_uses:
+                    used_invite = inv
+                    break
+            _guild_invites_cache[guild.id] = {inv.code: (inv.uses or 0) for inv in current_invites}
+            if used_invite:
+                inviter = used_invite.inviter
+                mod_log = await get_mod_log_channel(guild)
+                if mod_log:
+                    inv_embed = discord.Embed(
+                        title="📥 Member Joined • Invite Tracked",
+                        description=(
+                            f"👤 **Member:** {member.mention} (`{member.name}` - ID: `{member.id}`)\n"
+                            f"🔗 **Invite Code:** `{used_invite.code}`\n"
+                            f"👑 **Invited By:** {inviter.mention if inviter else 'Vanity / Unknown'} (`{inviter.name if inviter else 'Unknown'}`)\n"
+                            f"📊 **Inviter Total Uses:** **{used_invite.uses}**"
+                        ),
+                        color=discord.Color.blue()
+                    )
+                    if member.display_avatar:
+                        inv_embed.set_thumbnail(url=member.display_avatar.url)
+                    inv_embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+                    await mod_log.send(embed=inv_embed)
+        except Exception as inv_err:
+            logger.debug(f"Invite tracking notice for {member.name}: {inv_err}")
 
         # ── 2. Auto-Role on Join ───────────────────────────────────────────────
         role_id = await db.get_config(guild.id, "auto_role_id")
@@ -29068,6 +29417,28 @@ async def on_message(message):
                             afk_alert_msg = await message.channel.send(embed=afk_embed)
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
 
+    # ── Auto-Adaptive Slowmode (Raid Velocity Dampener) ─────────────────
+    if message.guild and not message.author.bot and hasattr(message.channel, "slowmode_delay"):
+        chan_id = message.channel.id
+        now_vel = time.time()
+        if chan_id not in _channel_msg_velocities:
+            _channel_msg_velocities[chan_id] = []
+        _channel_msg_velocities[chan_id] = [t for t in _channel_msg_velocities[chan_id] if now_vel - t <= 5.0]
+        _channel_msg_velocities[chan_id].append(now_vel)
+
+        if len(_channel_msg_velocities[chan_id]) >= 15:
+            if chan_id not in _channel_auto_slowmode_active:
+                curr_sm = getattr(message.channel, "slowmode_delay", 0)
+                if curr_sm < 5 and message.channel.permissions_for(message.guild.me).manage_channels:
+                    _channel_auto_slowmode_active[chan_id] = curr_sm
+                    try:
+                        await message.channel.edit(slowmode_delay=5, reason="Auto-Adaptive Slowmode: Chat velocity spike / raid prevention")
+                        alert_sm = await message.channel.send("⚡ **High chat velocity detected!** Auto-slowmode (5s) engaged temporarily to prevent flooding.")
+                        asyncio.create_task(delete_after_delay(alert_sm, 8))
+                        asyncio.create_task(_relax_auto_slowmode(message.channel, curr_sm, 30))
+                    except Exception:
+                        pass
+
     # ── Two-Tier Natural Language Command Processing (NLCP) ────
     content_raw = message.content.strip()
     sweety_match = SWEETY_TRIGGER_REGEX.match(content_raw)
@@ -29455,6 +29826,32 @@ async def on_message(message):
             if automod_enabled:
                 content = message.content.strip()
                 if content:
+                    # 00. Anti-Phishing & Fake Nitro/Scam Link Shield
+                    phish_match = re.search(
+                        r'https?://[^\s/]*(?:discor(?:cl|cd|dl|b|t)|dlscord|discrod|steamcommunitv|steamcommunity-trade|nitro-gift|gift-nitro|free-nitro)[^\s]*',
+                        content,
+                        re.IGNORECASE
+                    )
+                    if phish_match:
+                        try:
+                            _bot_deleted_message_ids.add(message.id)
+                            await message.delete()
+                        except Exception:
+                            pass
+                        rule_cite = await get_rule_violation_citation(message.guild, "phishing")
+                        reason_msg = "Phishing / Malicious Scam Link"
+                        if rule_cite:
+                            reason_msg += f" ({rule_cite})"
+                        await auto_mute_user(
+                            member=message.author,
+                            guild=message.guild,
+                            channel=message.channel,
+                            reason=reason_msg,
+                            message_content=content,
+                            duration_minutes=60
+                        )
+                        return
+
                     # 0a. Anti-Invite Link Shield
                     antiinvite = await db.get_config(message.guild.id, "antiinvite", False)
                     if antiinvite and re.search(r'(?:discord\.gg|discord\.com/invite)/[a-zA-Z0-9]+', content):
