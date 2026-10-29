@@ -33,7 +33,7 @@ import aiohttp
 from typing import Optional, Union, List, Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from database import db
-from utils import get_or_create_ballers_role, assign_ballers_role, sync_all_ballers_roles
+from utils import get_or_create_ballers_role, assign_ballers_role, sync_all_ballers_roles, parse_natural_language_command, SWEETY_TRIGGER_REGEX
 
 def clean_memory():
     """Aggressively runs Python garbage collection and trims glibc heap memory on Linux to stay well under Render 512MB limit."""
@@ -29068,25 +29068,43 @@ async def on_message(message):
                             afk_alert_msg = await message.channel.send(embed=afk_embed)
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
 
-    # ── Conversational & Verbal Trigger ("hey sweety <command>", "sweety <command>") ────
+    # ── Two-Tier Natural Language Command Processing (NLCP) ────
     content_raw = message.content.strip()
-    sweety_match = re.match(r'^(?:hey\s+)?sweet(?:y|ie)[,:\s]+\s*', content_raw, re.IGNORECASE)
+    sweety_match = SWEETY_TRIGGER_REGEX.match(content_raw)
     if sweety_match and not message.author.bot:
         raw_cmd = content_raw[sweety_match.end():].strip()
 
-        # Normalize verbal aliases
-        if re.match(r'^play\s+(?:music|song)\s+', raw_cmd, re.IGNORECASE):
-            raw_cmd = re.sub(r'^play\s+(?:music|song)\s+', 'play ', raw_cmd, flags=re.IGNORECASE, count=1)
-        elif re.match(r'^(?:to\s+)?send\s+(?:something\s+to|a\s+message\s+to|message\s+to|to)\s+', raw_cmd, re.IGNORECASE):
-            raw_cmd = re.sub(r'^(?:to\s+)?send\s+(?:something\s+to|a\s+message\s+to|message\s+to|to)\s+', 'dm ', raw_cmd, flags=re.IGNORECASE, count=1)
-        elif re.match(r'^(?:to\s+)?(?:dm|tell|message)\s+(?:to\s+)?', raw_cmd, re.IGNORECASE):
-            raw_cmd = re.sub(r'^(?:to\s+)?(?:dm|tell|message)\s+(?:to\s+)?', 'dm ', raw_cmd, flags=re.IGNORECASE, count=1)
+        # Tier 1: Fast Rule-Based NLP Intent Parser (0ms latency)
+        parsed_cmd = parse_natural_language_command(content_raw)
+        if parsed_cmd:
+            first_w = parsed_cmd[1:].split()[0].lower() if parsed_cmd[1:].split() else ""
+            if bot.get_command(first_w):
+                message.content = parsed_cmd
+                await bot.process_commands(message)
+                return
 
-        first_word = raw_cmd.split()[0].lower() if raw_cmd.split() else ""
-        if bot.get_command(first_word):
-            message.content = "!" + raw_cmd
-            await bot.process_commands(message)
-            return
+        # Tier 2: AI Semantic Intent Resolver (handles complex, novel, or conversational phrasing)
+        action_indicators = ["can you", "could you", "please", "make", "turn", "set", "give", "tell", "delete", "clear", "stop", "play", "mute", "ban", "kick", "lock", "unlock", "send", "dm", "how much", "who is", "what is", "remind"]
+        has_action_intent = any(act in raw_cmd.lower() for act in action_indicators) or message.mentions or re.search(r'\d+', raw_cmd)
+        if has_action_intent and len(raw_cmd) > 3:
+            try:
+                system_inst = (
+                    "You are Sweety's natural language Discord command translator. "
+                    "Convert user instructions into a valid Discord bot command starting with ! (e.g. !play <song>, !mute <user> <duration> <reason>, "
+                    "!ban <user> <duration> <reason>, !kick <user> <reason>, !purge <number>, !slowmode <time>, !whois <user>, !pings, !bal, !np, !skip, !queue, !lock, !unlock, !remindme <time> <note>, !dm <user> <msg>, !hug <user>, etc.). "
+                    "If the user is just casually chatting, greeting, or asking a conversational question, reply ONLY with CONVERSATION. "
+                    "Output ONLY the command string or CONVERSATION."
+                )
+                ai_translation = await call_gemini_ai(prompt=raw_cmd, system_instruction=system_inst)
+                ai_translation = ai_translation.strip()
+                if ai_translation.startswith("!"):
+                    ai_first_w = ai_translation[1:].split()[0].lower() if ai_translation[1:].split() else ""
+                    if bot.get_command(ai_first_w):
+                        message.content = ai_translation
+                        await bot.process_commands(message)
+                        return
+            except Exception as ai_parse_err:
+                logger.debug(f"AI command translation notice: {ai_parse_err}")
 
     # Fast-path prefix commands (!play, !queue, !skip, !pings, etc.) directly to process_commands
     if message.content.startswith("!"):

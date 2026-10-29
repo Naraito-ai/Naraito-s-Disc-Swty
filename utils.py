@@ -570,6 +570,131 @@ def extract_duration_and_reason(raw_text: str, default_duration: Optional[str] =
     return None, None, text
 
 
+# ── Natural Language Command Processing (NLCP) Engine ───────────────────────
+SWEETY_TRIGGER_REGEX = re.compile(
+    r"^(?:(?:hey|ok|yo|hi|hello)\s+)?sweet(?:y|ie)[,:\s]+\s*|^<@!?\d+>\s*",
+    re.IGNORECASE
+)
+
+POLITE_PREFIXES = re.compile(
+    r"^(?:can\s+you\s+(?:please\s+)?|could\s+you\s+(?:please\s+)?|please\s+|will\s+you\s+|would\s+you\s+(?:mind\s+)?(?:to\s+)?|i\s+want\s+(?:you\s+to\s+|to\s+)|go\s+ahead\s+and\s+|just\s+|kindly\s+)",
+    re.IGNORECASE
+)
+
+INTENT_RULES = [
+    # ── Music Intent Rules ──
+    (re.compile(r"^(?:play|put\s+on|start|queue\s+up)\s+(?:music|song|track)?\s*(.+)$", re.IGNORECASE), r"play \1"),
+    (re.compile(r"^(?:skip|next|pass)(?:\s+(?:this\s+)?(?:song|track|music))?$", re.IGNORECASE), r"skip"),
+    (re.compile(r"^(?:pause|freeze)(?:\s+(?:the\s+)?(?:music|song|track))?$", re.IGNORECASE), r"pause"),
+    (re.compile(r"^(?:resume|unpause|continue)(?:\s+(?:the\s+)?(?:music|song|track))?$", re.IGNORECASE), r"resume"),
+    (re.compile(r"^(?:stop|disconnect|leave\s+(?:vc|voice|channel))(?:\s+(?:playing|music))?$", re.IGNORECASE), r"stop"),
+    (re.compile(r"^(?:what(?:\s*'?s|\s+is)\s+(?:playing|currently\s+playing|this\s+song)|now\s*playing|current\s+song)$", re.IGNORECASE), r"np"),
+    (re.compile(r"^(?:show\s+)?(?:the\s+)?(?:queue|playlist|song\s+list|up\s+next)$", re.IGNORECASE), r"queue"),
+    (re.compile(r"^(?:shuffle|mix)(?:\s+(?:the\s+)?(?:queue|playlist|songs))?$", re.IGNORECASE), r"shuffle"),
+    (re.compile(r"^(?:loop|repeat)(?:\s+(?:this\s+)?(?:song|track|queue))?$", re.IGNORECASE), r"loop"),
+    (re.compile(r"^(?:lyrics|words\s+to|lyrics\s+for)\s*(.+)$", re.IGNORECASE), r"lyrics \1"),
+    (re.compile(r"^(?:set\s+)?volume\s+(?:to\s+)?(\d+)$", re.IGNORECASE), r"volume \1"),
+
+    # ── Direct Messaging ──
+    (re.compile(r"^(?:to\s+)?(?:send\s+(?:something\s+to|a\s+message\s+to|message\s+to|to)|dm|pm|tell|message)\s+(<@!?\d+>|\S+)\s+(.+)$", re.IGNORECASE), r"dm \1 \2"),
+
+    # ── Moderation Intent Rules ──
+    (re.compile(r"^(?:mute|timeout|silence)\s+(.+)$", re.IGNORECASE), r"mute \1"),
+    (re.compile(r"^(?:unmute|remove\s+timeout\s+(?:from\s+)?)\s+(.+)$", re.IGNORECASE), r"unmute \1"),
+    (re.compile(r"^(?:kick|remove\s+from\s+server)\s+(.+)$", re.IGNORECASE), r"kick \1"),
+    (re.compile(r"^(?:ban|tempban)\s+(.+)$", re.IGNORECASE), r"ban \1"),
+    (re.compile(r"^(?:unban|pardon)\s+(.+)$", re.IGNORECASE), r"unban \1"),
+    (re.compile(r"^(?:purge|clear|clean|delete)\s+(\d+)(?:\s+messages?)?$", re.IGNORECASE), r"purge \1"),
+    (re.compile(r"^(?:warn|give\s+a?\s*strike\s+to)\s+(.+)$", re.IGNORECASE), r"warn \1"),
+    (re.compile(r"^(?:show\s+)?(?:warnings|strikes)\s+(?:for|of)?\s*(.+)$", re.IGNORECASE), r"warnings \1"),
+    (re.compile(r"^(?:clearwarnings|clearwarns|clear\s+warn(?:ing)?s|reset\s+warn(?:ing)?s)\s+(?:for\s+)?(.+)$", re.IGNORECASE), r"clearwarnings \1"),
+    (re.compile(r"^(?:lock|lockdown)(?:\s+(?:this\s+|the\s+)?(?:channel|chat|room))?$", re.IGNORECASE), r"lock"),
+    (re.compile(r"^(?:unlock|lift\s+lockdown)(?:\s+(?:this\s+|the\s+)?(?:channel|chat|room))?$", re.IGNORECASE), r"unlock"),
+    (re.compile(r"^(?:slowmode|slow\s+mode)(?:\s+(?:to|set))?\s*(.+)$", re.IGNORECASE), r"slowmode \1"),
+    (re.compile(r"^(?:modstats|moderation\s+stats)$", re.IGNORECASE), r"modstats"),
+
+    # ── Security & Audits ──
+    (re.compile(r"^(?:checkalts|check\s+alt\s+accounts?|scan\s+(?:for\s+)?alts?)$", re.IGNORECASE), r"checkalts"),
+    (re.compile(r"^(?:banevaders|check\s+ban\s+evaders?|ban\s+evaders?)$", re.IGNORECASE), r"banevaders"),
+    (re.compile(r"^(?:cleanbots|audit\s+bots?|bot\s+audit)$", re.IGNORECASE), r"cleanbots"),
+    (re.compile(r"^(?:antibot)(?:\s+(on|off|enable|disable))?$", re.IGNORECASE), lambda m: f"antibot {m.group(1)}" if m.group(1) else "antibot"),
+    (re.compile(r"^(?:antispam)(?:\s+(on|off|enable|disable))?$", re.IGNORECASE), lambda m: f"antispam {m.group(1)}" if m.group(1) else "antispam"),
+    (re.compile(r"^(?:antiping)(?:\s+(on|off|enable|disable))?$", re.IGNORECASE), lambda m: f"antiping {m.group(1)}" if m.group(1) else "antiping"),
+    (re.compile(r"^(?:antiinvite)(?:\s+(on|off|enable|disable))?$", re.IGNORECASE), lambda m: f"antiinvite {m.group(1)}" if m.group(1) else "antiinvite"),
+    (re.compile(r"^(?:antihoist)(?:\s+(on|off|enable|disable))?$", re.IGNORECASE), lambda m: f"antihoist {m.group(1)}" if m.group(1) else "antihoist"),
+    (re.compile(r"^(?:roleguard)(?:\s+(on|off|enable|disable))?$", re.IGNORECASE), lambda m: f"roleguard {m.group(1)}" if m.group(1) else "roleguard"),
+    (re.compile(r"^(?:channelguard)(?:\s+(on|off|enable|disable))?$", re.IGNORECASE), lambda m: f"channelguard {m.group(1)}" if m.group(1) else "channelguard"),
+
+    # ── Economy & Leveling ──
+    (re.compile(r"^(?:what(?:\s*'?s|\s+is)\s+(?:my\s+)?(?:balance|bal|wallet)|how\s+much\s+(?:money|coins)\s+do\s+i\s+have|check\s+coins?|my\s+balance|balance|bal)$", re.IGNORECASE), r"bal"),
+    (re.compile(r"^(?:pay|give|send\s+coins\s+to)\s+(<@!?\d+>|\S+)\s+(\d+)(?:\s+coins?)?$", re.IGNORECASE), r"pay \1 \2"),
+    (re.compile(r"^(?:daily|claim\s+daily(?:\s+reward|\s+coins)?)$", re.IGNORECASE), r"daily"),
+    (re.compile(r"^(?:show\s+(?:my\s+)?)?(?:rank|level|xp|check\s+level|my\s+level)(?:\s+(.+))?$", re.IGNORECASE), lambda m: f"rank {m.group(1)}" if m.group(1) else "rank"),
+    (re.compile(r"^(?:leaderboard|levels|top\s+levels|richest|rich)$", re.IGNORECASE), r"rich"),
+
+    # ── NBA 2K Mobile & Dex ──
+    (re.compile(r"^(?:show\s+)?(?:nba\s+)?(?:card|stats|profile)\s*(?:for\s+)?(.+)$", re.IGNORECASE), r"nbacard \1"),
+    (re.compile(r"^(?:show\s+)?(.+?)\s+(?:card|stats|profile)$", re.IGNORECASE), r"nbacard \1"),
+    (re.compile(r"^(?:show\s+)?(?:my\s+)?(?:inventory|binder|cards)$", re.IGNORECASE), r"nbadex"),
+    (re.compile(r"^(?:show\s+)?(?:my\s+)?(?:lineup|team|dream\s*team)$", re.IGNORECASE), r"myteam"),
+    (re.compile(r"^(?:shootout|shoot\s+hoops)$", re.IGNORECASE), r"shootout"),
+
+    # ── Productivity & Utility ──
+    (re.compile(r"^(?:remind\s*me|set\s+(?:a\s+)?reminder)\s+(?:in\s+)?(.+)$", re.IGNORECASE), r"remindme \1"),
+    (re.compile(r"^(?:show\s+)?(?:my\s+)?reminders$", re.IGNORECASE), r"reminders"),
+    (re.compile(r"^(?:who\s+pinged\s+me|show\s+(?:my\s+)?pings|recent\s+pings|my\s+pings|missed\s+mentions|mentions)$", re.IGNORECASE), r"pings"),
+    (re.compile(r"^(?:clear\s+pings|pings\s+clear|wipe\s+pings)$", re.IGNORECASE), r"pings clear"),
+    (re.compile(r"^(?:i\s+am\s+(?:going\s+)?afk|set\s+(?:my\s+)?(?:status\s+to\s+)?afk|afk)\s*(.*)$", re.IGNORECASE), lambda m: f"afk {m.group(1).strip()}" if m.group(1).strip() else "afk"),
+    (re.compile(r"^(?:whois|userinfo|who\s+is|user\s+info|profile)\s*(.+)$", re.IGNORECASE), r"whois \1"),
+    (re.compile(r"^(?:serverinfo|server\s+info|about\s+(?:this\s+)?server)$", re.IGNORECASE), r"serverinfo"),
+    (re.compile(r"^(?:avatar|pfp|profile\s+picture)(?:\s+(.+))?$", re.IGNORECASE), lambda m: f"avatar {m.group(1)}" if m.group(1) else "avatar"),
+    (re.compile(r"^(?:ping|latency|bot\s+ping|heartbeat)$", re.IGNORECASE), r"ping"),
+    (re.compile(r"^(?:help|commands|show\s+(?:all\s+)?commands|help\s+menu)$", re.IGNORECASE), r"help"),
+
+    # ── Wholesome Actions ──
+    (re.compile(r"^(?:give\s+(?:a\s+)?(?:warm\s+)?hug\s+to|hug)\s*(.+)$", re.IGNORECASE), r"hug \1"),
+    (re.compile(r"^(?:give\s+(?:a\s+)?kiss\s+to|kiss)\s*(.+)$", re.IGNORECASE), r"kiss \1"),
+    (re.compile(r"^(?:slap)\s*(.+)$", re.IGNORECASE), r"slap \1"),
+    (re.compile(r"^(?:punch)\s*(.+)$", re.IGNORECASE), r"punch \1"),
+    (re.compile(r"^(?:wave(?:\s+to)?|say\s+hi\s+to)\s*(.+)$", re.IGNORECASE), r"wave \1"),
+]
+
+def parse_natural_language_command(text: str) -> Optional[str]:
+    """
+    Tier-1 Fast Pattern Intent Matcher:
+    Extracts and maps natural language phrasing (e.g. 'can you play starboy', 'please mute @user 10m')
+    into standard Discord bot commands starting with '!' (0ms latency).
+    Returns formatted command string like '!play starboy' or None if no match.
+    """
+    cleaned = text.strip()
+    m = SWEETY_TRIGGER_REGEX.match(cleaned)
+    if not m:
+        return None
+    
+    cmd_body = cleaned[m.end():].strip()
+    if not cmd_body:
+        return None
+
+    # Strip polite fillers
+    cmd_body = POLITE_PREFIXES.sub("", cmd_body).strip()
+
+    # Match intent rules
+    for pattern, replacement in INTENT_RULES:
+        if callable(replacement):
+            match = pattern.match(cmd_body)
+            if match:
+                return "!" + replacement(match)
+        else:
+            if pattern.match(cmd_body):
+                return "!" + pattern.sub(replacement, cmd_body)
+
+    # Fallback: if the first word directly matches a command
+    words = cmd_body.split()
+    if words:
+        return "!" + cmd_body
+    return None
+
+
 
 def format_time_elapsed(seconds: float) -> str:
     """Formats elapsed seconds into a clean human readable string like '14 minutes', '2 hours, 10 mins'."""

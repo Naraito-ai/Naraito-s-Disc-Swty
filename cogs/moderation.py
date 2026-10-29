@@ -1,4 +1,4 @@
-_temp_bans_cache: Dict[Tuple[int, int], float] = {}
+_temp_bans_cache: dict[tuple[int, int], float] = {}
 
 import os
 import asyncio
@@ -10,7 +10,7 @@ import logging
 import datetime
 from typing import Optional, Union, Tuple, List, Dict, Any
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 from database import db
 from utils import (
