@@ -30535,6 +30535,99 @@ async def on_message(message):
 
 # ── Main Entry Point ────────────────────────────────────────────────────────
 
+# ── Interactive Ticket & AI Summarization Systems ────────────────────────────
+
+@bot.command(name="ticketsetup", aliases=["setuptickets", "ticketpanel"])
+# Custom permission check inside command
+async def ticketsetup_cmd(ctx, channel: Optional[discord.TextChannel] = None):
+    """Deploys the interactive Support & Appeal ticket panel with one-click buttons."""
+    # Check permissions: Admin, Manage Guild, Server Owner, or Protected Staff
+    is_admin = False
+    if ctx.guild:
+        perms = ctx.author.guild_permissions
+        is_admin = perms.administrator or perms.manage_guild or perms.manage_channels or ctx.author.id == ctx.guild.owner_id or is_protected(ctx.author)
+    if not is_admin:
+        return await ctx.send("❌ You need **Administrator** or **Manage Server** permission to deploy the ticket panel.")
+    target_chan = channel or ctx.channel
+    embed = discord.Embed(
+        title="🎫 Server Support & Appeal Desk",
+        description=(
+            "Need assistance from server staff or looking to appeal a moderation action?\n"
+            "Click one of the buttons below to open a private ticket with our team!\n\n"
+            "• 📩 **Open Support Ticket** — General inquiries, questions, server help, or member reports.\n"
+            "• ⚖️ **Submit Strike / Ban Appeal** — Appeal an active warning, timeout, or mute.\n\n"
+            "🔒 *Your ticket will be created in a private channel visible only to you and moderators.*"
+        ),
+        color=discord.Color.from_rgb(255, 105, 180),
+        timestamp=datetime.datetime.utcnow()
+    )
+    embed.set_footer(text="Sweety Ticket System • Instant Staff Support")
+    view = TicketPanelLauncherView()
+    await target_chan.send(embed=embed, view=view)
+    if target_chan != ctx.channel:
+        await ctx.send(f"✅ Ticket panel deployed to {target_chan.mention}!")
+
+
+@bot.command(name="summarize", aliases=["tldr", "catchup"])
+@commands.cooldown(1, 10, commands.BucketType.channel)
+async def summarize_cmd(ctx, limit: Optional[int] = 50, channel: Optional[discord.TextChannel] = None):
+    """Generates an AI executive summary / catch-up of recent channel conversation."""
+    target_chan = channel or ctx.channel
+    limit = max(10, min(limit or 50, 100))
+    
+    async with ctx.typing():
+        raw_msgs = []
+        author_names = set()
+        async for m in target_chan.history(limit=limit, oldest_first=False):
+            if m.id == ctx.message.id:
+                continue
+            content = m.clean_content.strip() if hasattr(m, 'clean_content') else (m.content or "").strip()
+            if not content or content.startswith(('!', '/', '?', '.', '-')):
+                continue
+            author_names.add(m.author.display_name)
+            raw_msgs.append(f"{m.author.display_name}: {content}")
+
+        if len(raw_msgs) < 3:
+            return await ctx.send(f"🌸 Not enough recent chat activity found in {target_chan.mention} to summarize! Chat is currently quiet.")
+
+        raw_msgs.reverse()
+        chat_log = "\n".join(raw_msgs[-60:])
+
+        system_instruction = (
+            "You are Sweety, a warm, helpful, and perceptive AI Discord assistant. "
+            "Analyze the recent chat history and generate a concise, structured catch-up summary for someone who just returned. "
+            "Formatting guidelines:\n"
+            "- Keep the response under 250 words.\n"
+            "- Use clean Markdown bullet points.\n"
+            "- Include these 3 sections with emojis:\n"
+            "  📌 **Key Topics**: What members were talking about.\n"
+            "  ⚡ **Highlights & Decisions**: Notable funny moments, announcements, arguments, or agreements.\n"
+            "  💬 **Current Status**: Where the chat left off or the current vibe.\n"
+            "- Be accurate to the actual messages; do not invent made-up details."
+        )
+
+        prompt = f"Here is the recent conversation in #{target_chan.name}:\n\n{chat_log}\n\nPlease generate the catch-up summary:"
+        
+        try:
+            summary_text = await call_gemini_ai(prompt=prompt, system_instruction=system_instruction)
+            if not summary_text or len(summary_text.strip()) < 10:
+                summary_text = "⚠️ Unable to generate summary at this moment. Please try again shortly."
+        except Exception as e:
+            logger.error(f"Error calling Gemini in !summarize: {e}")
+            summary_text = "⚠️ An error occurred while communicating with the AI service. Please try again later."
+
+        embed = discord.Embed(
+            title=f"✨ Channel Catch-Up — #{target_chan.name}",
+            description=summary_text,
+            color=discord.Color.from_rgb(255, 105, 180),
+            timestamp=datetime.datetime.utcnow()
+        )
+        embed.add_field(name="📊 Analyzed", value=f"**{len(raw_msgs)}** messages across **{len(author_names)}** members", inline=True)
+        embed.add_field(name="📍 Channel", value=target_chan.mention, inline=True)
+        embed.set_footer(text="Sweety AI • Powered by Gemini • Use !summarize anytime to catch up")
+        await ctx.send(embed=embed)
+
+
 _fastapi_server_started = False
 
 async def run_fastapi_server():
@@ -30647,91 +30740,3 @@ if __name__ == "__main__":
             asyncio.run(main())
         except KeyboardInterrupt:
             logger.info("Shutting down bot...")
-
-
-
-
-# ── Interactive Ticket & AI Summarization Systems ────────────────────────────
-
-@bot.command(name="ticketsetup", aliases=["setuptickets", "ticketpanel"])
-@commands.has_permissions(administrator=True)
-async def ticketsetup_cmd(ctx, channel: Optional[discord.TextChannel] = None):
-    """Deploys the interactive Support & Appeal ticket panel with one-click buttons."""
-    target_chan = channel or ctx.channel
-    embed = discord.Embed(
-        title="🎫 Server Support & Appeal Desk",
-        description=(
-            "Need assistance from server staff or looking to appeal a moderation action?\n"
-            "Click one of the buttons below to open a private ticket with our team!\n\n"
-            "• 📩 **Open Support Ticket** — General inquiries, questions, server help, or member reports.\n"
-            "• ⚖️ **Submit Strike / Ban Appeal** — Appeal an active warning, timeout, or mute.\n\n"
-            "🔒 *Your ticket will be created in a private channel visible only to you and moderators.*"
-        ),
-        color=discord.Color.from_rgb(255, 105, 180),
-        timestamp=datetime.datetime.utcnow()
-    )
-    embed.set_footer(text="Sweety Ticket System • Instant Staff Support")
-    view = TicketPanelLauncherView()
-    await target_chan.send(embed=embed, view=view)
-    if target_chan != ctx.channel:
-        await ctx.send(f"✅ Ticket panel deployed to {target_chan.mention}!")
-
-
-@bot.command(name="summarize", aliases=["tldr", "catchup"])
-@commands.cooldown(1, 10, commands.BucketType.channel)
-async def summarize_cmd(ctx, limit: Optional[int] = 50, channel: Optional[discord.TextChannel] = None):
-    """Generates an AI executive summary / catch-up of recent channel conversation."""
-    target_chan = channel or ctx.channel
-    limit = max(10, min(limit or 50, 100))
-    
-    async with ctx.typing():
-        raw_msgs = []
-        author_names = set()
-        async for m in target_chan.history(limit=limit, oldest_first=False):
-            if m.id == ctx.message.id:
-                continue
-            content = m.clean_content.strip() if hasattr(m, 'clean_content') else (m.content or "").strip()
-            if not content or content.startswith(('!', '/', '?', '.', '-')):
-                continue
-            author_names.add(m.author.display_name)
-            raw_msgs.append(f"{m.author.display_name}: {content}")
-
-        if len(raw_msgs) < 3:
-            return await ctx.send(f"🌸 Not enough recent chat activity found in {target_chan.mention} to summarize! Chat is currently quiet.")
-
-        raw_msgs.reverse()
-        chat_log = "\n".join(raw_msgs[-60:])
-
-        system_instruction = (
-            "You are Sweety, a warm, helpful, and perceptive AI Discord assistant. "
-            "Analyze the recent chat history and generate a concise, structured catch-up summary for someone who just returned. "
-            "Formatting guidelines:\n"
-            "- Keep the response under 250 words.\n"
-            "- Use clean Markdown bullet points.\n"
-            "- Include these 3 sections with emojis:\n"
-            "  📌 **Key Topics**: What members were talking about.\n"
-            "  ⚡ **Highlights & Decisions**: Notable funny moments, announcements, arguments, or agreements.\n"
-            "  💬 **Current Status**: Where the chat left off or the current vibe.\n"
-            "- Be accurate to the actual messages; do not invent made-up details."
-        )
-
-        prompt = f"Here is the recent conversation in #{target_chan.name}:\n\n{chat_log}\n\nPlease generate the catch-up summary:"
-        
-        try:
-            summary_text = await call_gemini_ai(prompt=prompt, system_instruction=system_instruction)
-            if not summary_text or len(summary_text.strip()) < 10:
-                summary_text = "⚠️ Unable to generate summary at this moment. Please try again shortly."
-        except Exception as e:
-            logger.error(f"Error calling Gemini in !summarize: {e}")
-            summary_text = "⚠️ An error occurred while communicating with the AI service. Please try again later."
-
-        embed = discord.Embed(
-            title=f"✨ Channel Catch-Up — #{target_chan.name}",
-            description=summary_text,
-            color=discord.Color.from_rgb(255, 105, 180),
-            timestamp=datetime.datetime.utcnow()
-        )
-        embed.add_field(name="📊 Analyzed", value=f"**{len(raw_msgs)}** messages across **{len(author_names)}** members", inline=True)
-        embed.add_field(name="📍 Channel", value=target_chan.mention, inline=True)
-        embed.set_footer(text="Sweety AI • Powered by Gemini • Use !summarize anytime to catch up")
-        await ctx.send(embed=embed)
