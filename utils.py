@@ -531,6 +531,46 @@ def parse_duration_string(time_str: str) -> Optional[int]:
 
 
 
+def extract_duration_and_reason(raw_text: str, default_duration: Optional[str] = None) -> Tuple[Optional[int], Optional[str], str]:
+    """
+    Intelligently extracts a duration (e.g. '10m', '2h', '1d', '30s', '10 minutes', '2 hours', '3 days', '1 week')
+    and leaves the remaining text as the reason.
+    If no duration was found, uses default_duration (if provided) and keeps the full text as the reason.
+    """
+    text = (raw_text or "").strip()
+    if not text:
+        if default_duration:
+            sec = parse_duration_string(default_duration)
+            return sec, default_duration, "No reason provided"
+        return None, None, "No reason provided"
+
+    words = text.split()
+
+    # Check if first 2 words form a duration (e.g., '10 minutes', '2 hours', '3 days', '1 week')
+    time_units = {'s', 'sec', 'secs', 'second', 'seconds', 'm', 'min', 'mins', 'minute', 'minutes', 'h', 'hr', 'hrs', 'hour', 'hours', 'd', 'day', 'days', 'w', 'wk', 'wks', 'week', 'weeks', 'mo', 'month', 'months', 'y', 'yr', 'yrs', 'year', 'years'}
+    if len(words) >= 2 and words[1].lower() in time_units:
+        candidate_2 = f"{words[0]} {words[1]}"
+        sec_2 = parse_duration_string(candidate_2)
+        if sec_2:
+            reason = " ".join(words[2:]).strip() or "No reason provided"
+            return sec_2, candidate_2, reason
+
+    # Check if first word is a duration (e.g., '10m', '2h', '1d', '30s', '1w', '48hr', '10min')
+    candidate_1 = words[0]
+    has_unit = any(u in candidate_1.lower() for u in ['s', 'm', 'h', 'd', 'w', 'y'])
+    sec_1 = parse_duration_string(candidate_1)
+    if sec_1 and (has_unit or candidate_1.isdigit()):
+        reason = " ".join(words[1:]).strip() or "No reason provided"
+        return sec_1, candidate_1, reason
+
+    # No duration prefix detected: entire input is reason
+    if default_duration:
+        sec = parse_duration_string(default_duration)
+        return sec, default_duration, text
+    return None, None, text
+
+
+
 def format_time_elapsed(seconds: float) -> str:
     """Formats elapsed seconds into a clean human readable string like '14 minutes', '2 hours, 10 mins'."""
     sec = max(0, int(seconds))

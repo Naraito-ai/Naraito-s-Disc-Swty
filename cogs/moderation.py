@@ -1,3 +1,5 @@
+_temp_bans_cache: Dict[Tuple[int, int], float] = {}
+
 import os
 import asyncio
 import time
@@ -17,7 +19,7 @@ from utils import (
     create_action_embed, ACTION_METADATA, ensure_muted_role,
     get_or_recover_appeal_ticket, restore_purged_messages,
     _purge_history_buffer, _bot_deleted_message_ids, TICKET_CHANNEL_ID,
-    resolve_member_or_user
+    resolve_member_or_user, extract_duration_and_reason
 )
 
 logger = logging.getLogger("SweetyBot.Moderation")
@@ -137,6 +139,37 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        try:
+            self.check_expired_tempbans.start()
+        except Exception:
+            pass
+
+    def cog_unload(self):
+        try:
+            self.check_expired_tempbans.cancel()
+        except Exception:
+            pass
+
+    @tasks.loop(minutes=1)
+    async def check_expired_tempbans(self):
+        """Periodically checks and unbans users whose temporary bans have expired."""
+        now = time.time()
+        expired = [key for key, exp_time in list(_temp_bans_cache.items()) if exp_time <= now]
+        for gid, uid in expired:
+            _temp_bans_cache.pop((gid, uid), None)
+            guild = self.bot.get_guild(gid)
+            if not guild:
+                continue
+            try:
+                user = await self.bot.fetch_user(uid)
+                await guild.unban(user, reason="Temporary ban duration expired")
+                logger.info(f"Automatically unbanned {user.name} ({uid}) from {guild.name}: temp-ban expired.")
+                try:
+                    await user.send(f"ℹ️ Your temporary ban in **{guild.name}** has expired. You may now rejoin the server.")
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.debug(f"Could not auto-unban {uid} in {gid}: {e}")
 
     @app_commands.command(name="appeal", description="Submit an official appeal for your active warnings, strikes, or timeout")
     @app_commands.describe(reason="Reason for your appeal (optional if opening interactive modal)")
@@ -1188,12 +1221,12 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 
 
-    @commands.command(name="ban")
+    @commands.command(name="ban", aliases=["tempban"])
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     @commands.cooldown(1, 3.0, commands.BucketType.user)
-    async def ban_prefix_cmd(self, ctx: commands.Context, member: discord.User, *, reason: Optional[str] = "No reason provided"):
-        """Ban a user from the server: !ban @user [reason]"""
+    async def ban_prefix_cmd(self, ctx: commands.Context, member: discord.User, *, args: str = ""):
+        """Ban a user: !ban @user [duration e.g. 7d, 24h, 3 days] [reason]"""
         try:
             if member.id == ctx.bot.user.id:
                 return await ctx.send("❌ I cannot ban myself!")
@@ -1203,10 +1236,32 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 return await ctx.send("❌ This user is staff/immune and cannot be banned.")
             if guild_member and guild_member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
                 return await ctx.send("❌ You cannot ban this member because they have a higher or equal role.")
+
+            seconds, duration_str, reason = extract_duration_and_reason(args, default_duration=None)
             clean_reason = discord.utils.escape_mentions(reason[:500])
-            await ctx.guild.ban(member, reason=clean_reason, delete_message_days=0)
-            await ctx.send(f"✅ **{member.name}** has been banned from the server. (Reason: {clean_reason})")
-            await log_mod_action(ctx.guild, ctx.author, member, "Ban", clean_reason)
+
+            # Attempt to DM user before ban so they have the reason and appeal instructions
+            ban_type = f"temporarily banned for **{duration_str}**" if duration_str else "permanently banned"
+            dm_text = (
+                f"⚖️ You have been {ban_type} from **{ctx.guild.name}**.\n"
+                f"**Reason:** {clean_reason}\n\n"
+                f"📩 *If you believe this was a mistake, you can DM Sweety: `!appeal {ctx.guild.id} <your reason>` to submit an official appeal.*"
+            )
+            try:
+                await member.send(dm_text)
+            except Exception:
+                pass
+
+            await ctx.guild.ban(member, reason=f"{clean_reason} | Duration: {duration_str or 'Permanent'}", delete_message_days=0)
+
+            if seconds and seconds > 0:
+                unban_at = time.time() + seconds
+                _temp_bans_cache[(ctx.guild.id, member.id)] = unban_at
+                await ctx.send(f"🔨 **{member.name}** has been **temporarily banned** for **{duration_str}**. (Reason: {clean_reason})")
+                await log_mod_action(ctx.guild, ctx.author, member, f"Temp-Ban ({duration_str})", clean_reason)
+            else:
+                await ctx.send(f"🔨 **{member.name}** has been **permanently banned** from the server. (Reason: {clean_reason})")
+                await log_mod_action(ctx.guild, ctx.author, member, "Ban", clean_reason)
         except Exception as e:
             logger.error(f"Error in !ban: {e}")
             await ctx.send(f"❌ Error: {e}")
@@ -1234,20 +1289,20 @@ class ModerationCog(commands.Cog, name="Moderation"):
     @commands.guild_only()
     @commands.has_permissions(moderate_members=True)
     @commands.cooldown(1, 3.0, commands.BucketType.user)
-    async def mute_prefix_cmd(self, ctx: commands.Context, member: discord.Member, duration: str = "10m", *, reason: Optional[str] = "No reason provided"):
-        """Timeout (mute) a member: !mute @user [duration e.g. 10m, 1h, 1d] [reason]"""
+    async def mute_prefix_cmd(self, ctx: commands.Context, member: discord.Member, *, args: str = ""):
+        """Timeout (mute) a member: !mute @user [duration e.g. 10m, 2h, 1d, 3 days] [reason]"""
         try:
             if is_protected(member) or member.id == ctx.guild.owner_id:
                 return await ctx.send("❌ This member is staff/immune and cannot be timed out.")
             if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
                 return await ctx.send("❌ You cannot mute this member because they have a higher or equal role.")
-            seconds = parse_time_string(duration)
+            seconds, duration_str, reason = extract_duration_and_reason(args, default_duration="10m")
             if not seconds or seconds < 10 or seconds > 2419200:
-                return await ctx.send("❌ Invalid duration. Please provide a time between 10 seconds and 28 days (e.g. `10m`, `2h`, `1d`).")
+                return await ctx.send("❌ Invalid duration. Discord timeouts must be between 10 seconds and 28 days (e.g. `10m`, `2h`, `1d`, `3 days`).")
             until = discord.utils.utcnow() + datetime.timedelta(seconds=seconds)
             await member.timeout(until, reason=reason)
-            await ctx.send(f"🔇 **{member.display_name}** has been timed out for **{duration}**. (Reason: {reason})")
-            await log_mod_action(ctx.guild, ctx.author, member, f"Timeout ({duration})", reason)
+            await ctx.send(f"🔇 **{member.display_name}** has been timed out for **{duration_str}**. (Reason: {reason})")
+            await log_mod_action(ctx.guild, ctx.author, member, f"Timeout ({duration_str})", reason)
         except Exception as e:
             logger.error(f"Error in !mute: {e}")
             await ctx.send(f"❌ Error: {e}")

@@ -23577,6 +23577,146 @@ async def pings_slash_cmd(interaction: discord.Interaction, action: Optional[app
         if not interaction.response.is_done():
             await interaction.response.send_message(f"❌ Error fetching mentions: {e}", ephemeral=True)
 
+class BanAppealDecisionView(discord.ui.View):
+    """Staff decision view for ban appeals with Accept & Deny buttons."""
+    def __init__(self, guild_id: int, user_id: int, user_name: str):
+        super().__init__(timeout=None)
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.user_name = user_name
+
+    @discord.ui.button(label="Accept & Unban", style=discord.ButtonStyle.success, emoji="✅", custom_id="btn_accept_ban_appeal")
+    async def accept_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.client.get_guild(self.guild_id)
+        if not guild:
+            return await interaction.response.send_message("❌ Server not found.", ephemeral=True)
+
+        if not (is_protected(interaction.user) or interaction.user.guild_permissions.ban_members):
+            return await interaction.response.send_message("❌ You do not have permission to unban members.", ephemeral=True)
+
+        await interaction.response.defer()
+
+        # Unban user
+        try:
+            user = await interaction.client.fetch_user(self.user_id)
+            await guild.unban(user, reason=f"Ban appeal accepted by {interaction.user}")
+        except Exception as e:
+            return await interaction.followup.send(f"❌ Failed to unban user: {e}", ephemeral=True)
+
+        # Create single-use invite
+        invite_url = "https://discord.gg/"
+        try:
+            fallback_channel = guild.system_channel
+            if not fallback_channel:
+                for c in guild.text_channels:
+                    if c.permissions_for(guild.me).create_instant_invite:
+                        fallback_channel = c
+                        break
+            if fallback_channel and fallback_channel.permissions_for(guild.me).create_instant_invite:
+                inv = await fallback_channel.create_invite(max_uses=1, unique=True, reason="Ban appeal accepted invite")
+                invite_url = inv.url
+        except Exception:
+            pass
+
+        # DM the user
+        try:
+            dm_embed = discord.Embed(
+                title=f"🎉 Ban Appeal Accepted: {guild.name}",
+                description=(
+                    f"Congratulations! Your ban appeal for **{guild.name}** was **ACCEPTED** by {interaction.user.mention}.\n\n"
+                    f"🔗 **Your Rejoin Invite:** {invite_url}\n\n"
+                    f"Please review the server rules upon returning."
+                ),
+                color=discord.Color.green()
+            )
+            await user.send(embed=dm_embed)
+        except Exception:
+            pass
+
+        for item in self.children:
+            item.disabled = True
+
+        orig_embed = interaction.message.embeds[0] if interaction.message.embeds else discord.Embed()
+        orig_embed.color = discord.Color.green()
+        orig_embed.add_field(name="⚖️ Resolution", value=f"✅ **Accepted & Unbanned** by {interaction.user.mention}", inline=False)
+        await interaction.message.edit(embed=orig_embed, view=self)
+        await interaction.followup.send(f"✅ Unbanned **{self.user_name}** and sent a rejoin invite.", ephemeral=True)
+        try:
+            await log_mod_action(guild, interaction.user, user, "Ban Appeal Accepted", "Unbanned via DM appeal panel")
+        except Exception:
+            pass
+
+    @discord.ui.button(label="Deny Appeal", style=discord.ButtonStyle.danger, emoji="❌", custom_id="btn_deny_ban_appeal")
+    async def deny_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.client.get_guild(self.guild_id)
+        if not guild:
+            return await interaction.response.send_message("❌ Server not found.", ephemeral=True)
+
+        if not (is_protected(interaction.user) or interaction.user.guild_permissions.ban_members):
+            return await interaction.response.send_message("❌ You do not have permission to deny ban appeals.", ephemeral=True)
+
+        await interaction.response.defer()
+
+        try:
+            user = await interaction.client.fetch_user(self.user_id)
+            dm_embed = discord.Embed(
+                title=f"❌ Ban Appeal Denied: {guild.name}",
+                description=f"Your ban appeal for **{guild.name}** was reviewed and **DENIED** by server staff.",
+                color=discord.Color.red()
+            )
+            await user.send(embed=dm_embed)
+        except Exception:
+            pass
+
+        for item in self.children:
+            item.disabled = True
+
+        orig_embed = interaction.message.embeds[0] if interaction.message.embeds else discord.Embed()
+        orig_embed.color = discord.Color.red()
+        orig_embed.add_field(name="⚖️ Resolution", value=f"❌ **Denied** by {interaction.user.mention}", inline=False)
+        await interaction.message.edit(embed=orig_embed, view=self)
+        await interaction.followup.send(f"❌ Denied ban appeal for **{self.user_name}**.", ephemeral=True)
+
+
+@bot.command(name="dm", aliases=["send", "tell", "pm", "message"])
+@commands.guild_only()
+@commands.cooldown(1, 4.0, commands.BucketType.user)
+async def dm_prefix_cmd(ctx: commands.Context, member: discord.Member, *, message_text: str):
+    """Send a direct message to a server member: !dm @user <message> or 'hey sweety send @user <message>'"""
+    try:
+        is_staff = is_protected(ctx.author) or ctx.author.guild_permissions.manage_messages
+        if not is_staff:
+            await ctx.send("🔒 Only Staff and Moderators can use Sweety to send Direct Messages to members.", delete_after=6)
+            return
+
+        clean_text = discord.utils.escape_mentions(message_text.strip())[:1500]
+        if not clean_text:
+            await ctx.send("❌ Please provide a message to send.", delete_after=6)
+            return
+
+        embed = discord.Embed(
+            title=f"📬 Direct Message from {ctx.guild.name}",
+            description=clean_text,
+            color=discord.Color.from_rgb(120, 140, 180)
+        )
+        embed.set_author(name=f"Sent by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url if ctx.author.display_avatar else None)
+        embed.set_footer(text=f"Server: {ctx.guild.name} • Staff ID: {ctx.author.id}")
+        embed.timestamp = discord.utils.utcnow()
+
+        try:
+            await member.send(embed=embed)
+            await ctx.send(f"✅ Successfully sent Direct Message to **{member.display_name}**.", delete_after=8)
+            try:
+                await log_mod_action(ctx.guild, ctx.author, member, "Direct Message", clean_text)
+            except Exception:
+                pass
+        except (discord.Forbidden, discord.HTTPException):
+            await ctx.send(f"❌ Could not DM **{member.display_name}**. Their Direct Messages are closed or blocked.")
+    except Exception as e:
+        logger.error(f"Error in !dm: {e}", exc_info=True)
+        await ctx.send(f"❌ Failed to send DM: {e}")
+
+
 
 # ── Social & Wholesome Anime Action Prefix Commands ────────────────────────
 
@@ -28928,45 +29068,65 @@ async def on_message(message):
                             afk_alert_msg = await message.channel.send(embed=afk_embed)
                             asyncio.create_task(delete_after_delay(afk_alert_msg, 12))
 
+    # ── Conversational & Verbal Trigger ("hey sweety <command>", "sweety <command>") ────
+    content_raw = message.content.strip()
+    sweety_match = re.match(r'^(?:hey\s+)?sweet(?:y|ie)[,:\s]+\s*', content_raw, re.IGNORECASE)
+    if sweety_match and not message.author.bot:
+        raw_cmd = content_raw[sweety_match.end():].strip()
+
+        # Normalize verbal aliases
+        if re.match(r'^play\s+(?:music|song)\s+', raw_cmd, re.IGNORECASE):
+            raw_cmd = re.sub(r'^play\s+(?:music|song)\s+', 'play ', raw_cmd, flags=re.IGNORECASE, count=1)
+        elif re.match(r'^(?:to\s+)?send\s+(?:something\s+to|a\s+message\s+to|message\s+to|to)\s+', raw_cmd, re.IGNORECASE):
+            raw_cmd = re.sub(r'^(?:to\s+)?send\s+(?:something\s+to|a\s+message\s+to|message\s+to|to)\s+', 'dm ', raw_cmd, flags=re.IGNORECASE, count=1)
+        elif re.match(r'^(?:to\s+)?(?:dm|tell|message)\s+(?:to\s+)?', raw_cmd, re.IGNORECASE):
+            raw_cmd = re.sub(r'^(?:to\s+)?(?:dm|tell|message)\s+(?:to\s+)?', 'dm ', raw_cmd, flags=re.IGNORECASE, count=1)
+
+        first_word = raw_cmd.split()[0].lower() if raw_cmd.split() else ""
+        if bot.get_command(first_word):
+            message.content = "!" + raw_cmd
+            await bot.process_commands(message)
+            return
+
     # Fast-path prefix commands (!play, !queue, !skip, !pings, etc.) directly to process_commands
     if message.content.startswith("!"):
         await bot.process_commands(message)
         return
 
-        # ── NBA 2K Mobile Wild Card Chat Spawns (Configurable message threshold) ────
-        if message.guild and not message.author.bot:
-            if await get_guild_server_mode(message.guild.id) in ("karaoke", "music"):
-                pass  # Strictly disable NBA wild card drops in karaoke server mode
-            elif is_valid_drop_channel(message.channel, allow_system=False):
-                chan_id = message.channel.id
-                _guild_last_active_channels[message.guild.id] = chan_id
-                _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
-                now_drop_ts = time.time()
+    # ── NBA 2K Mobile Wild Card Chat Spawns (Configurable message threshold) ────
+    if message.guild and not message.author.bot:
+        if await get_guild_server_mode(message.guild.id) in ("karaoke", "music"):
+            pass  # Strictly disable NBA wild card drops in karaoke server mode
+        elif is_valid_drop_channel(message.channel, allow_system=False):
+            chan_id = message.channel.id
+            _guild_last_active_channels[message.guild.id] = chan_id
+            _nba_drop_msg_counts[chan_id] = _nba_drop_msg_counts.get(chan_id, 0) + 1
+            now_drop_ts = time.time()
 
-                try:
-                    threshold = int(await db.get_config(message.guild.id, "nba_drop_msg_threshold", 25))
-                except (ValueError, TypeError):
-                    threshold = 25
-                if threshold < 5:
-                    threshold = 5
+            try:
+                threshold = int(await db.get_config(message.guild.id, "nba_drop_msg_threshold", 25))
+            except (ValueError, TypeError):
+                threshold = 25
+            if threshold < 5:
+                threshold = 5
 
-                # Trigger drop after configured messages in chat
-                if _nba_drop_msg_counts[chan_id] >= threshold:
-                    _nba_drop_msg_counts[chan_id] = 0
-                    _nba_drop_last_timestamps[chan_id] = now_drop_ts
-                    _nba_drop_last_timestamps[message.guild.id] = now_drop_ts
+            # Trigger drop after configured messages in chat
+            if _nba_drop_msg_counts[chan_id] >= threshold:
+                _nba_drop_msg_counts[chan_id] = 0
+                _nba_drop_last_timestamps[chan_id] = now_drop_ts
+                _nba_drop_last_timestamps[message.guild.id] = now_drop_ts
 
-                    # Require configured NBA drop channel (Never auto-drop in random/general chat channels)
-                    configured_id = await db.get_config(message.guild.id, "nba_drop_channel", None)
-                    if configured_id:
-                        drop_chan = message.guild.get_channel(int(configured_id))
-                        if drop_chan and isinstance(drop_chan, discord.TextChannel) and drop_chan.permissions_for(message.guild.me).send_messages:
-                            active = get_active_nba_drop(drop_chan.id, message.guild.id)
-                            if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
-                                try:
-                                    await spawn_nba_card_drop(drop_chan)
-                                except Exception as drop_err:
-                                    logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
+                # Require configured NBA drop channel (Never auto-drop in random/general chat channels)
+                configured_id = await db.get_config(message.guild.id, "nba_drop_channel", None)
+                if configured_id:
+                    drop_chan = message.guild.get_channel(int(configured_id))
+                    if drop_chan and isinstance(drop_chan, discord.TextChannel) and drop_chan.permissions_for(message.guild.me).send_messages:
+                        active = get_active_nba_drop(drop_chan.id, message.guild.id)
+                        if not active or active.get("claimed") or (now_drop_ts - active.get("spawned_at", 0) > 300):
+                            try:
+                                await spawn_nba_card_drop(drop_chan)
+                            except Exception as drop_err:
+                                logger.error(f"Error spawning NBA card drop in chat: {drop_err}")
 
 
     # ── Solution 3: Direct Message !appeal Command & Appeal Assistant ──────────
@@ -28988,8 +29148,11 @@ async def on_message(message):
                 await message.reply(embed=embed, view=view)
                 return
 
-            # Find target guild where user is in and has mutes or warnings
             target_guild = None
+            is_banned_appeal = False
+            ban_info = None
+
+            # First: check if user is a member with active strikes, mutes, or warnings
             for g in bot.guilds:
                 if g.get_member(message.author.id):
                     active_mute = await db.get_active_mute(g.id, message.author.id)
@@ -28997,16 +29160,100 @@ async def on_message(message):
                     if active_mute or len(warnings) >= 1:
                         target_guild = g
                         break
-            if not target_guild and bot.guilds:
+
+            if not target_guild:
                 for g in bot.guilds:
                     if g.get_member(message.author.id):
                         target_guild = g
                         break
 
+            # Second: if not in any guild, check if user is BANNED from any server
             if not target_guild:
-                await message.reply("❌ Could not find a server where you have active strikes, warnings, or timeouts to submit your appeal.")
+                # Support: !appeal <guild_id> <reason>
+                words = appeal_reason.split()
+                if words and words[0].isdigit():
+                    possible_gid = int(words[0])
+                    guild_match = bot.get_guild(possible_gid)
+                    if guild_match:
+                        try:
+                            ban_check = await guild_match.fetch_ban(message.author)
+                            if ban_check:
+                                target_guild = guild_match
+                                is_banned_appeal = True
+                                ban_info = ban_check
+                                appeal_reason = " ".join(words[1:]).strip() or "No reason provided"
+                        except Exception:
+                            pass
+
+                if not target_guild:
+                    for g in bot.guilds:
+                        try:
+                            ban_check = await g.fetch_ban(message.author)
+                            if ban_check:
+                                target_guild = g
+                                is_banned_appeal = True
+                                ban_info = ban_check
+                                break
+                        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                            continue
+
+            if not target_guild:
+                await message.reply("❌ Could not find a server where you have an active ban, strike, warning, or timeout to submit an appeal.")
                 return
 
+            # Branch A: Ban Appeal for Banned Member
+            if is_banned_appeal:
+                mod_chan = await get_mod_log_channel(target_guild)
+                if not mod_chan:
+                    for cat in target_guild.categories:
+                        if any(term in cat.name.lower() for term in ["staff", "mod", "ticket", "admin"]):
+                            for c in cat.text_channels:
+                                if c.permissions_for(target_guild.me).send_messages:
+                                    mod_chan = c
+                                    break
+                        if mod_chan:
+                            break
+                if not mod_chan:
+                    for c in target_guild.text_channels:
+                        c_name = c.name.lower()
+                        if any(term in c_name for term in ["mod", "staff", "log", "appeal", "audit", "admin"]) and c.permissions_for(target_guild.me).send_messages:
+                            mod_chan = c
+                            break
+                if not mod_chan:
+                    mod_chan = target_guild.system_channel
+
+                if not mod_chan or not mod_chan.permissions_for(target_guild.me).send_messages:
+                    await message.reply(f"❌ Failed to deliver ban appeal to **{target_guild.name}**: No accessible staff channel found. Please contact the server owner directly.")
+                    return
+
+                embed = discord.Embed(
+                    title=f"⚖️ Ban Appeal Submitted: {message.author.name}",
+                    description="A banned user has submitted an official ban appeal via Direct Message.",
+                    color=discord.Color.orange()
+                )
+                embed.add_field(name="👤 User", value=f"{message.author.mention} (`{message.author.name}` - ID: `{message.author.id}`)", inline=False)
+                ban_reason_text = getattr(ban_info, "reason", "No reason logged") or "No reason logged"
+                embed.add_field(name="📜 Original Ban Reason", value=ban_reason_text, inline=False)
+                embed.add_field(name="📝 User's Appeal Statement", value=f"> \"{appeal_reason}\"", inline=False)
+                embed.set_footer(text="Staff Review • Click Accept to unban & invite, or Deny to reject")
+                embed.timestamp = discord.utils.utcnow()
+
+                view = BanAppealDecisionView(guild_id=target_guild.id, user_id=message.author.id, user_name=message.author.name)
+                await mod_chan.send(embed=embed, view=view)
+
+                reply_embed = discord.Embed(
+                    title="✅ Ban Appeal Submitted",
+                    description=(
+                        f"Your official ban appeal has been forwarded to the staff of **{target_guild.name}**.\n\n"
+                        f"• **Status:** Pending staff review.\n"
+                        f"• **Notification:** You will receive a direct message notification here once staff accepts or denies your appeal."
+                    ),
+                    color=discord.Color.green()
+                )
+                await message.reply(embed=reply_embed)
+                return
+
+            # Branch B: In-Server Strike / Timeout Appeal Ticket
             active_appeal = await db.get_active_appeal_by_user(target_guild.id, message.author.id)
             if active_appeal:
                 chan_id = active_appeal.get("channel_id")
