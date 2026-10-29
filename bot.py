@@ -30628,6 +30628,87 @@ async def summarize_cmd(ctx, limit: Optional[int] = 50, channel: Optional[discor
         await ctx.send(embed=embed)
 
 
+@bot.tree.command(name="ticketsetup", description="Deploy the interactive Support & Appeal ticket panel with one-click buttons")
+@app_commands.describe(channel="The channel to deploy the ticket panel in (defaults to current channel)")
+async def ticketsetup_tree_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+    perms = interaction.user.guild_permissions
+    is_admin = perms.administrator or perms.manage_guild or perms.manage_channels or interaction.user.id == interaction.guild.owner_id or is_protected(interaction.user)
+    if not is_admin:
+        return await interaction.response.send_message("❌ You need **Administrator** or **Manage Server** permission to deploy the ticket panel.", ephemeral=True)
+    target_chan = channel or interaction.channel
+    embed = discord.Embed(
+        title="🎫 Server Support & Appeal Desk",
+        description=(
+            "Need assistance from server staff or looking to appeal a moderation action?\n"
+            "Click one of the buttons below to open a private ticket with our team!\n\n"
+            "• 📩 **Open Support Ticket** — General inquiries, questions, server help, or member reports.\n"
+            "• ⚖️ **Submit Strike / Ban Appeal** — Appeal an active warning, timeout, or mute.\n\n"
+            "🔒 *Your ticket will be created in a private channel visible only to you and moderators.*"
+        ),
+        color=discord.Color.from_rgb(255, 105, 180),
+        timestamp=datetime.datetime.utcnow()
+    )
+    embed.set_footer(text="Sweety Ticket System • Instant Staff Support")
+    view = TicketPanelLauncherView()
+    await target_chan.send(embed=embed, view=view)
+    await interaction.response.send_message(f"✅ Ticket panel deployed to {target_chan.mention}!", ephemeral=True)
+
+
+@bot.tree.command(name="summarize", description="Generate an AI executive catch-up summary of recent channel conversation")
+@app_commands.describe(limit="Number of recent messages to analyze (default: 50, max: 100)")
+async def summarize_tree_cmd(interaction: discord.Interaction, limit: Optional[int] = 50):
+    await interaction.response.defer()
+    target_chan = interaction.channel
+    limit = max(10, min(limit or 50, 100))
+    raw_msgs = []
+    author_names = set()
+    async for m in target_chan.history(limit=limit, oldest_first=False):
+        content = m.clean_content.strip() if hasattr(m, 'clean_content') else (m.content or "").strip()
+        if not content or content.startswith(('!', '/', '?', '.', '-')):
+            continue
+        author_names.add(m.author.display_name)
+        raw_msgs.append(f"{m.author.display_name}: {content}")
+
+    if len(raw_msgs) < 3:
+        return await interaction.followup.send(f"🌸 Not enough recent chat activity found in {target_chan.mention} to summarize! Chat is currently quiet.")
+
+    raw_msgs.reverse()
+    chat_log = "\n".join(raw_msgs[-60:])
+
+    system_instruction = (
+        "You are Sweety, a warm, helpful, and perceptive AI Discord assistant. "
+        "Analyze the recent chat history and generate a concise, structured catch-up summary for someone who just returned. "
+        "Formatting guidelines:\n"
+        "- Keep the response under 250 words.\n"
+        "- Use clean Markdown bullet points.\n"
+        "- Include these 3 sections with emojis:\n"
+        "  📌 **Key Topics**: What members were talking about.\n"
+        "  ⚡ **Highlights & Decisions**: Notable funny moments, announcements, arguments, or agreements.\n"
+        "  💬 **Current Status**: Where the chat left off or the current vibe.\n"
+        "- Be accurate to the actual messages; do not invent made-up details."
+    )
+
+    prompt = f"Here is the recent conversation in #{target_chan.name}:\n\n{chat_log}\n\nPlease generate the catch-up summary:"
+    try:
+        summary_text = await call_gemini_ai(prompt=prompt, system_instruction=system_instruction)
+        if not summary_text or len(summary_text.strip()) < 10:
+            summary_text = "⚠️ Unable to generate summary at this moment. Please try again shortly."
+    except Exception as e:
+        logger.error(f"Error calling Gemini in /summarize: {e}")
+        summary_text = "⚠️ An error occurred while communicating with the AI service. Please try again later."
+
+    embed = discord.Embed(
+        title=f"✨ Channel Catch-Up — #{target_chan.name}",
+        description=summary_text,
+        color=discord.Color.from_rgb(255, 105, 180),
+        timestamp=datetime.datetime.utcnow()
+    )
+    embed.add_field(name="📊 Analyzed", value=f"**{len(raw_msgs)}** messages across **{len(author_names)}** members", inline=True)
+    embed.add_field(name="📍 Channel", value=target_chan.mention, inline=True)
+    embed.set_footer(text="Sweety AI • Powered by Gemini • Use /summarize anytime to catch up")
+    await interaction.followup.send(embed=embed)
+
+
 _fastapi_server_started = False
 
 async def run_fastapi_server():
