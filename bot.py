@@ -22244,13 +22244,7 @@ async def nbagive_slash_cmd(interaction: discord.Interaction, user: discord.Memb
             await interaction.response.send_message(f"❌ Error gifting card: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="godmode", description="👑 Creator: Supreme God Mode — Unlock all cards, Holo Foils, Exclusives, 10M VC & GM Mastery")
-@app_commands.describe(
-    user="The target member to receive God Mode (defaults to yourself)",
-    count="Copies of each card to unlock (default: 99)",
-    vc_amount="Amount of Virtual Currency to grant (default: 10,000,000)"
-)
-@app_commands.guild_only()
+
 async def godmode_slash_cmd(interaction: discord.Interaction, user: Optional[discord.Member] = None, count: int = 99, vc_amount: int = 10000000):
     try:
         asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
@@ -22271,13 +22265,7 @@ async def godmode_slash_cmd(interaction: discord.Interaction, user: Optional[dis
             await interaction.response.send_message(f"❌ Error executing God Mode: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="nbagrant", description="👑 Grant an Exclusive or Rare NBA card directly to a user's binder (Creator Only)")
-@app_commands.describe(
-    user="The target member to receive the card",
-    card="Card ID or Player Name (e.g. Jordan, excl-jordan-99, LeBron 99)",
-    count="Number of copies to grant (default 1)"
-)
-@app_commands.guild_only()
+
 async def nbagrant_slash_cmd(interaction: discord.Interaction, user: discord.Member, card: str, count: int = 1):
     try:
         asyncio.create_task(assign_ballers_role(interaction.user, interaction.guild))
@@ -22326,12 +22314,7 @@ async def nbagrant_slash_cmd(interaction: discord.Interaction, user: discord.Mem
             await interaction.response.send_message(f"❌ Error granting card: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="stripexclusives", description="🛡️ Strip away / revoke all Exclusive cards from a user or globally (Creator Only)")
-@app_commands.describe(
-    user="Optional: Specific member to strip all Exclusive cards from",
-    all_users="Optional: Set to True to strip all Exclusive cards from all users globally"
-)
-@app_commands.guild_only()
+
 async def stripexclusives_slash_cmd(
     interaction: discord.Interaction,
     user: Optional[discord.Member] = None,
@@ -22666,10 +22649,7 @@ async def createchannel_slash_cmd(
 
 # ── Social & Wholesome Anime Action Slash Commands ──────────────────────────
 
-@bot.tree.command(name="hug", description="Give a warm, wholesome hug to someone or yourself")
-@app_commands.describe(member="The member you want to hug (leave blank to hug yourself)")
-@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
+
 async def hug_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     try:
         target = member or interaction.user
@@ -22683,10 +22663,7 @@ async def hug_slash_cmd(interaction: discord.Interaction, member: Optional[disco
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="wave", description="Wave hello or goodbye with a cheerful anime wave")
-@app_commands.describe(member="The member you want to wave at")
-@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
+
 async def wave_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     try:
         target = member or interaction.user
@@ -22700,10 +22677,7 @@ async def wave_slash_cmd(interaction: discord.Interaction, member: Optional[disc
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="slap", description="Deliver a comedic cartoon/anime comedy slapstick")
-@app_commands.describe(member="The member you want to slap")
-@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
+
 async def slap_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     try:
         target = member or interaction.user
@@ -22717,10 +22691,7 @@ async def slap_slash_cmd(interaction: discord.Interaction, member: Optional[disc
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="punch", description="Deliver a comedic superhero punch")
-@app_commands.describe(member="The member you want to punch")
-@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
+
 async def punch_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     try:
         target = member or interaction.user
@@ -22734,10 +22705,7 @@ async def punch_slash_cmd(interaction: discord.Interaction, member: Optional[dis
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="kiss", description="Give a romantic anime kiss (Admins/Owner or authorized role only)")
-@app_commands.describe(member="The member you want to kiss")
-@app_commands.checks.cooldown(1, 2.0, key=lambda i: (i.guild_id, i.user.id))
-@app_commands.guild_only()
+
 async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     try:
         is_allowed, allowed_role_ids = await can_use_kiss_command(interaction.guild, interaction.user)
@@ -22767,22 +22735,7 @@ async def kiss_slash_cmd(interaction: discord.Interaction, member: Optional[disc
             await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 
-@bot.tree.command(name="kissrole", description="Configure role access for the /kiss command (Server Owner & Admins)")
-@app_commands.describe(
-    action="Choose action: add (give access), remove (revoke access), view (list roles), or clear (reset all)",
-    role="The Discord role to give or revoke kiss command access for"
-)
-@app_commands.choices(
-    action=[
-        app_commands.Choice(name="➕ Add Role Access", value="add"),
-        app_commands.Choice(name="🎯 Set Role (Replace all with this role)", value="set"),
-        app_commands.Choice(name="➖ Remove Role Access", value="remove"),
-        app_commands.Choice(name="👀 View Allowed Roles", value="view"),
-        app_commands.Choice(name="🧹 Clear All (Admins & Owner only)", value="clear"),
-    ]
-)
-@app_commands.default_permissions(manage_roles=True)
-@app_commands.guild_only()
+
 async def kissrole_slash_cmd(interaction: discord.Interaction, action: str, role: Optional[discord.Role] = None):
     try:
         if not can_manage_kiss_role(interaction.guild, interaction.user):
@@ -30626,87 +30579,6 @@ async def summarize_cmd(ctx, limit: Optional[int] = 50, channel: Optional[discor
         embed.add_field(name="📍 Channel", value=target_chan.mention, inline=True)
         embed.set_footer(text="Sweety AI • Powered by Gemini • Use !summarize anytime to catch up")
         await ctx.send(embed=embed)
-
-
-@bot.tree.command(name="ticketsetup", description="Deploy the interactive Support & Appeal ticket panel with one-click buttons")
-@app_commands.describe(channel="The channel to deploy the ticket panel in (defaults to current channel)")
-async def ticketsetup_tree_cmd(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
-    perms = interaction.user.guild_permissions
-    is_admin = perms.administrator or perms.manage_guild or perms.manage_channels or interaction.user.id == interaction.guild.owner_id or is_protected(interaction.user)
-    if not is_admin:
-        return await interaction.response.send_message("❌ You need **Administrator** or **Manage Server** permission to deploy the ticket panel.", ephemeral=True)
-    target_chan = channel or interaction.channel
-    embed = discord.Embed(
-        title="🎫 Server Support & Appeal Desk",
-        description=(
-            "Need assistance from server staff or looking to appeal a moderation action?\n"
-            "Click one of the buttons below to open a private ticket with our team!\n\n"
-            "• 📩 **Open Support Ticket** — General inquiries, questions, server help, or member reports.\n"
-            "• ⚖️ **Submit Strike / Ban Appeal** — Appeal an active warning, timeout, or mute.\n\n"
-            "🔒 *Your ticket will be created in a private channel visible only to you and moderators.*"
-        ),
-        color=discord.Color.from_rgb(255, 105, 180),
-        timestamp=datetime.datetime.utcnow()
-    )
-    embed.set_footer(text="Sweety Ticket System • Instant Staff Support")
-    view = TicketPanelLauncherView()
-    await target_chan.send(embed=embed, view=view)
-    await interaction.response.send_message(f"✅ Ticket panel deployed to {target_chan.mention}!", ephemeral=True)
-
-
-@bot.tree.command(name="summarize", description="Generate an AI executive catch-up summary of recent channel conversation")
-@app_commands.describe(limit="Number of recent messages to analyze (default: 50, max: 100)")
-async def summarize_tree_cmd(interaction: discord.Interaction, limit: Optional[int] = 50):
-    await interaction.response.defer()
-    target_chan = interaction.channel
-    limit = max(10, min(limit or 50, 100))
-    raw_msgs = []
-    author_names = set()
-    async for m in target_chan.history(limit=limit, oldest_first=False):
-        content = m.clean_content.strip() if hasattr(m, 'clean_content') else (m.content or "").strip()
-        if not content or content.startswith(('!', '/', '?', '.', '-')):
-            continue
-        author_names.add(m.author.display_name)
-        raw_msgs.append(f"{m.author.display_name}: {content}")
-
-    if len(raw_msgs) < 3:
-        return await interaction.followup.send(f"🌸 Not enough recent chat activity found in {target_chan.mention} to summarize! Chat is currently quiet.")
-
-    raw_msgs.reverse()
-    chat_log = "\n".join(raw_msgs[-60:])
-
-    system_instruction = (
-        "You are Sweety, a warm, helpful, and perceptive AI Discord assistant. "
-        "Analyze the recent chat history and generate a concise, structured catch-up summary for someone who just returned. "
-        "Formatting guidelines:\n"
-        "- Keep the response under 250 words.\n"
-        "- Use clean Markdown bullet points.\n"
-        "- Include these 3 sections with emojis:\n"
-        "  📌 **Key Topics**: What members were talking about.\n"
-        "  ⚡ **Highlights & Decisions**: Notable funny moments, announcements, arguments, or agreements.\n"
-        "  💬 **Current Status**: Where the chat left off or the current vibe.\n"
-        "- Be accurate to the actual messages; do not invent made-up details."
-    )
-
-    prompt = f"Here is the recent conversation in #{target_chan.name}:\n\n{chat_log}\n\nPlease generate the catch-up summary:"
-    try:
-        summary_text = await call_gemini_ai(prompt=prompt, system_instruction=system_instruction)
-        if not summary_text or len(summary_text.strip()) < 10:
-            summary_text = "⚠️ Unable to generate summary at this moment. Please try again shortly."
-    except Exception as e:
-        logger.error(f"Error calling Gemini in /summarize: {e}")
-        summary_text = "⚠️ An error occurred while communicating with the AI service. Please try again later."
-
-    embed = discord.Embed(
-        title=f"✨ Channel Catch-Up — #{target_chan.name}",
-        description=summary_text,
-        color=discord.Color.from_rgb(255, 105, 180),
-        timestamp=datetime.datetime.utcnow()
-    )
-    embed.add_field(name="📊 Analyzed", value=f"**{len(raw_msgs)}** messages across **{len(author_names)}** members", inline=True)
-    embed.add_field(name="📍 Channel", value=target_chan.mention, inline=True)
-    embed.set_footer(text="Sweety AI • Powered by Gemini • Use /summarize anytime to catch up")
-    await interaction.followup.send(embed=embed)
 
 
 _fastapi_server_started = False
