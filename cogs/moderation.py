@@ -1882,7 +1882,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
 
 
-    @commands.command(name="appealpanel", aliases=["setappealpanel", "postappealpanel", "ticketpanel"])
+    @commands.command(name="appealpanel", aliases=["setappealpanel", "postappealpanel"])
     @commands.has_permissions(administrator=True)
     @commands.cooldown(1, 5.0, commands.BucketType.user)
     @commands.guild_only()

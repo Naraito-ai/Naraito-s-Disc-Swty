@@ -30537,7 +30537,7 @@ async def on_message(message):
 
 # ── Interactive Ticket & AI Summarization Systems ────────────────────────────
 
-@bot.command(name="ticketsetup", aliases=["setuptickets", "ticketpanel"])
+@bot.command(name="ticketsetup", aliases=["setuptickets", "setupdesk"])
 # Custom permission check inside command
 async def ticketsetup_cmd(ctx, channel: Optional[discord.TextChannel] = None):
     """Deploys the interactive Support & Appeal ticket panel with one-click buttons."""
