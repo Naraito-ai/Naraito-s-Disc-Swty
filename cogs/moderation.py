@@ -1,6 +1,7 @@
 _temp_bans_cache: dict[tuple[int, int], float] = {}
 
 import os
+import io
 import asyncio
 import time
 import math
@@ -2294,6 +2295,338 @@ class DMAppealLauncherView(discord.ui.View):
 
 
 
+
+async def generate_ticket_transcript(channel: discord.TextChannel) -> Tuple[io.BytesIO, str, int]:
+    """Generates a clean text transcript of channel history."""
+    buffer = io.BytesIO()
+    lines = [
+        "==================================================================",
+        f"  SWEETY TICKET TRANSCRIPT — #{channel.name}",
+        f"  Server: {channel.guild.name} ({channel.guild.id})",
+        f"  Channel ID: {channel.id}",
+        f"  Generated at: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        "==================================================================\n"
+    ]
+    count = 0
+    async for msg in channel.history(limit=500, oldest_first=True):
+        count += 1
+        ts = msg.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        author_str = f"{msg.author.name}#{msg.author.discriminator}" if getattr(msg.author, 'discriminator', '0') != "0" else msg.author.name
+        content = msg.clean_content or msg.content or ""
+        if msg.attachments:
+            att_urls = " [Attachments: " + ", ".join([a.url for a in msg.attachments]) + "]"
+            content += att_urls
+        if msg.embeds:
+            for emb in msg.embeds:
+                emb_info = []
+                if emb.title:
+                    emb_info.append(f"Title: {emb.title}")
+                if emb.description:
+                    emb_info.append(f"Desc: {emb.description}")
+                if emb_info:
+                    content += f" [Embed: {' | '.join(emb_info)}]"
+        lines.append(f"[{ts}] {author_str} ({msg.author.id}): {content}")
+
+    transcript_text = "\n".join(lines)
+    buffer.write(transcript_text.encode("utf-8"))
+    buffer.seek(0)
+    return buffer, transcript_text, count
+
+
+async def close_ticket_with_transcript(interaction: discord.Interaction):
+    """Gracefully closes a ticket channel, saves an automatic transcript, DMs it to the user, and archives to mod-logs."""
+    await interaction.response.send_message("🔒 **Archiving ticket and generating transcript... Closing channel in 5 seconds...**")
+    
+    channel = interaction.channel
+    guild = interaction.guild
+
+    # 1. Recover ticket target user
+    ticket = await get_or_recover_appeal_ticket(interaction)
+    target_uid = int(ticket["user_id"]) if ticket and ticket.get("user_id") else None
+
+    # 2. Generate transcript
+    discord_file = None
+    transcript_fp = None
+    count = 0
+    try:
+        transcript_fp, _, count = await generate_ticket_transcript(channel)
+        transcript_filename = f"transcript-{channel.name}.txt"
+        discord_file = discord.File(fp=transcript_fp, filename=transcript_filename)
+    except Exception as e:
+        logger.warning(f"Error generating transcript for {channel.id}: {e}")
+
+    # 3. DM transcript to user
+    if target_uid:
+        try:
+            target_user = interaction.client.get_user(target_uid) or await interaction.client.fetch_user(target_uid)
+            if target_user:
+                dm_embed = discord.Embed(
+                    title=f"🔒 Ticket Closed — #{channel.name}",
+                    description=(
+                        f"Your ticket in **{guild.name if guild else 'the server'}** has been closed by {interaction.user.mention}.\n"
+                        f"A complete record of your conversation has been attached below for your records."
+                    ),
+                    color=discord.Color.dark_grey(),
+                    timestamp=datetime.datetime.utcnow()
+                )
+                dm_embed.add_field(name="📄 Messages Recorded", value=f"{count} messages", inline=True)
+                dm_embed.set_footer(text="Sweety Ticket System • Thank you for contacting staff")
+                if discord_file and transcript_fp:
+                    await target_user.send(embed=dm_embed, file=discord_file)
+                    transcript_fp.seek(0)
+                    discord_file = discord.File(fp=transcript_fp, filename=transcript_filename)
+                else:
+                    await target_user.send(embed=dm_embed)
+        except Exception as dm_err:
+            logger.debug(f"Could not DM transcript to user {target_uid}: {dm_err}")
+
+    # 4. Log to mod-log
+    if guild:
+        try:
+            log_chan = discord.utils.get(guild.text_channels, name="🚨-mod-logs") or \
+                       discord.utils.get(guild.text_channels, name="mod-logs") or \
+                       discord.utils.get(guild.text_channels, name="mod-log") or \
+                       discord.utils.get(guild.text_channels, name="audit-log")
+            if log_chan:
+                log_embed = discord.Embed(
+                    title=f"📁 Ticket Closed & Archived — #{channel.name}",
+                    description=(
+                        f"• **Channel:** `#{channel.name}` (`{channel.id}`)\n"
+                        f"• **Closed By:** {interaction.user.mention} (`{interaction.user.id}`)\n"
+                        f"• **Target Member:** <@{target_uid}> (`{target_uid}`)\n"
+                        f"• **Total Messages:** {count}\n"
+                    ),
+                    color=discord.Color.blurple(),
+                    timestamp=datetime.datetime.utcnow()
+                )
+                if discord_file:
+                    await log_chan.send(embed=log_embed, file=discord_file)
+                else:
+                    await log_chan.send(embed=log_embed)
+        except Exception as log_err:
+            logger.warning(f"Failed to log closed ticket transcript to mod-logs: {log_err}")
+
+    # 5. Mark DB closed
+    if guild:
+        try:
+            await db.close_appeal_ticket(guild.id, channel.id, f"Closed by {interaction.user.name}", interaction.user.id)
+        except Exception as db_err:
+            logger.debug(f"Error marking ticket closed in DB: {db_err}")
+
+    await asyncio.sleep(4)
+    try:
+        await channel.delete(reason=f"Ticket closed by {interaction.user.display_name}")
+    except Exception as e:
+        logger.warning(f"Failed to delete ticket channel {channel.id}: {e}")
+
+
+class SupportTicketModal(discord.ui.Modal, title="Open Support Ticket"):
+    subject_input = discord.ui.TextInput(
+        label="Ticket Subject",
+        placeholder="Brief summary of your inquiry or issue...",
+        required=True,
+        max_length=100
+    )
+    details_input = discord.ui.TextInput(
+        label="Details / Description",
+        style=discord.TextStyle.paragraph,
+        placeholder="Please describe how staff can help you in detail...",
+        required=True,
+        min_length=10,
+        max_length=1000
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        user = interaction.user
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("❌ Tickets must be opened directly within the server.", ephemeral=True)
+            return
+
+        active_ticket = await db.get_active_appeal_by_user(guild.id, user.id)
+        if active_ticket:
+            chan_id_raw = active_ticket.get("channel_id")
+            chan = guild.get_channel(int(chan_id_raw)) if chan_id_raw else None
+            if chan:
+                chan_link = f"https://discord.com/channels/{guild.id}/{chan.id}"
+                await interaction.followup.send(f"ℹ️ You already have an open ticket pending review: [{chan.name}]({chan_link}) ({chan.mention}).", ephemeral=True)
+                return
+            else:
+                await db.close_appeal_ticket(guild.id, int(chan_id_raw) if chan_id_raw else 0, "Channel deleted", user.id)
+
+        member = guild.get_member(user.id) or user
+        ticket_chan = await create_support_ticket_channel(guild, member, self.subject_input.value, self.details_input.value)
+        if ticket_chan:
+            chan_link = f"https://discord.com/channels/{guild.id}/{ticket_chan.id}"
+            await interaction.followup.send(
+                f"✅ **Your support ticket has been opened: [{ticket_chan.name}]({chan_link}) ({ticket_chan.mention})!**\n"
+                f"Please head to the channel to chat directly with server staff.",
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send("❌ Failed to create support ticket channel. Please contact an admin directly.", ephemeral=True)
+
+
+class SupportTicketControlView(discord.ui.View):
+    """View attached to general support tickets with a Close Ticket button."""
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Close Ticket", style=discord.ButtonStyle.secondary, emoji="🔒", custom_id="btn_support_close")
+    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await close_ticket_with_transcript(interaction)
+
+
+class TicketPanelLauncherView(discord.ui.View):
+    """Persistent view attached to server support & appeal desk panels."""
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Open Support Ticket", style=discord.ButtonStyle.primary, emoji="📩", custom_id="btn_launch_support_ticket")
+    async def open_support(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(SupportTicketModal())
+
+    @discord.ui.button(label="Submit Strike / Ban Appeal", style=discord.ButtonStyle.secondary, emoji="⚖️", custom_id="btn_launch_appeal_ticket")
+    async def open_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(StrikeAppealModal())
+
+
+async def create_support_ticket_channel(
+    guild: discord.Guild,
+    user: Union[discord.Member, discord.User],
+    subject: str,
+    details: str = ""
+) -> Optional[discord.TextChannel]:
+    """Creates a private support ticket channel, grants the user talk permissions, and pings moderators/admins."""
+    clean_name = re.sub(r'[^a-zA-Z0-9]', '', user.name.lower())[:15] or f"user-{user.id}"
+    channel_name = f"ticket-{clean_name}"
+
+    target_category = None
+    for cat in guild.categories:
+        c_name = cat.name.lower()
+        if any(term in c_name for term in ["ticket", "support", "staff", "mod", "admin"]):
+            target_category = cat
+            break
+            
+    if not target_category and TICKET_CHANNEL_ID:
+        ticket_chan = guild.get_channel(TICKET_CHANNEL_ID)
+        if ticket_chan and ticket_chan.category:
+            target_category = ticket_chan.category
+
+    target_member = guild.get_member(user.id) or user
+    overwrites = {
+        guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        guild.me: discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+            embed_links=True,
+            attach_files=True,
+            manage_channels=True,
+            manage_messages=True
+        )
+    }
+
+    if isinstance(target_member, (discord.Member, discord.User)):
+        overwrites[target_member] = discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+            embed_links=True,
+            attach_files=True
+        )
+
+    def is_bot_or_excluded_role(r: discord.Role) -> bool:
+        if r.is_default() or r.managed:
+            return True
+        if hasattr(r, 'tags') and r.tags and (r.tags.bot_id or r.tags.is_bot_managed()):
+            return True
+        r_name = r.name.lower()
+        if any(b in r_name for b in ["bot", "sapphire", "ticket king", "jockie", "tourney", "invite tracker", "mee6", "dyno", "carl", "honorary", "buildmaster"]):
+            return True
+        if r.members and all(m.bot for m in r.members):
+            return True
+        return False
+
+    custom_role_id_raw = await db.get_config(guild.id, "appeal_ping_role_id", None)
+    custom_ping_role = None
+    if custom_role_id_raw and str(custom_role_id_raw).lower() not in ("none", "null", "0", ""):
+        try:
+            custom_ping_role = guild.get_role(int(custom_role_id_raw))
+        except (ValueError, TypeError):
+            custom_ping_role = None
+
+    if custom_ping_role:
+        overwrites[custom_ping_role] = discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+            embed_links=True,
+            attach_files=True
+        )
+        staff_ping_str = custom_ping_role.mention
+        for role in guild.roles:
+            if is_bot_or_excluded_role(role):
+                continue
+            if (role.permissions.administrator or role.name.lower() in ["admin", "administrator", "space admins"]) and role.id != custom_ping_role.id:
+                overwrites[role] = discord.PermissionOverwrite(
+                    view_channel=True,
+                    send_messages=True,
+                    read_message_history=True,
+                    embed_links=True,
+                    attach_files=True
+                )
+    else:
+        admin_roles = [
+            r for r in guild.roles 
+            if not is_bot_or_excluded_role(r) and (r.permissions.administrator or r.name.lower() in ["admin", "administrator", "space admins"])
+        ]
+        for role in admin_roles:
+            overwrites[role] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True,
+                embed_links=True,
+                attach_files=True
+            )
+        staff_ping_str = " ".join([r.mention for r in admin_roles[:3]]) if admin_roles else "🛡️ **Admins**"
+
+    try:
+        channel = await guild.create_text_channel(
+            name=channel_name,
+            category=target_category,
+            overwrites=overwrites,
+            topic=f"Support Ticket for {user.name} ({user.id}) | Auto-generated by Sweety"
+        )
+    except Exception as e:
+        logger.error(f"Failed to create support ticket channel in {guild.name}: {e}")
+        return None
+
+    # Save to database
+    await db.create_appeal_ticket(guild.id, user.id, channel.id, f"[SUPPORT] {subject}", details)
+
+    embed = discord.Embed(
+        title=f"📩 Support Ticket — {user.name}",
+        description=f"Welcome {user.mention}! A staff member will be with you shortly. Please describe your inquiry or issue below.",
+        color=discord.Color.from_rgb(255, 105, 180),
+        timestamp=datetime.datetime.utcnow()
+    )
+    embed.add_field(name="👤 User Information", value=f"• **Username:** {user.name} (`{user.id}`)\n• **Account Created:** <t:{int(user.created_at.timestamp())}:R>", inline=False)
+    embed.add_field(name="📌 Subject", value=subject, inline=False)
+    if details:
+        embed.add_field(name="📝 Details", value=details, inline=False)
+    embed.set_footer(text="Sweety Ticket System • Staff can click 'Close Ticket' below when finished")
+
+    view = SupportTicketControlView()
+    await channel.send(
+        content=f"🔔 **Staff Alert:** {staff_ping_str}\n👋 {user.mention}, thank you for opening a support ticket! Staff has been notified.",
+        embed=embed,
+        view=view
+    )
+    return channel
+
+
 class AppealReviewView(discord.ui.View):
     """Persistent view attached to staff appeal tickets with Accept, Deny, and Close buttons."""
     def __init__(self):
@@ -2527,12 +2860,7 @@ class AppealReviewView(discord.ui.View):
 
     @discord.ui.button(label="Close Ticket", style=discord.ButtonStyle.secondary, emoji="🔒", custom_id="btn_appeal_close")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🔒 **Closing and archiving appeal ticket channel in 5 seconds...**")
-        await asyncio.sleep(5)
-        try:
-            await interaction.channel.delete(reason=f"Appeal ticket closed by {interaction.user.display_name}")
-        except Exception as e:
-            logger.warning(f"Failed to delete appeal ticket channel {interaction.channel_id}: {e}")
+        await close_ticket_with_transcript(interaction)
 
 
 

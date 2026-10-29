@@ -662,6 +662,13 @@ INTENT_RULES = [
     (re.compile(r"^(?:rules|show\s+rules|server\s+rules|what\s+are\s+the\s+rules)$", re.IGNORECASE), r"rules"),
     (re.compile(r"^(?:rule|show\s+rule|what\s+is\s+rule)\s+(\d+)$", re.IGNORECASE), r"rule \1"),
 
+    # ── AI Catch-Up & Summarization ──
+    (re.compile(r"^(?:give\s+(?:me\s+)?a\s+)?(?:tldr|summary|catch[\s\-]?up|summarize)(?:\s+(?:of\s+)?(?:the\s+)?(?:channel|chat|this|general|here))?(?:\s+(\d+))?$", re.IGNORECASE), lambda m: f"summarize {m.group(1)}" if m.group(1) else "summarize"),
+    (re.compile(r"^what\s+(?:happened|did\s+i\s+miss|is\s+happening)(?:\s+(?:here|in\s+chat|in\s+channel))?$", re.IGNORECASE), r"summarize"),
+
+    # ── Interactive Support & Appeal Tickets ──
+    (re.compile(r"^(?:setup\s+tickets?|ticket\s+setup|setup\s+ticket\s+panel|create\s+ticket\s+panel)(?:\s+(<#\d+>|\S+))?$", re.IGNORECASE), lambda m: f"ticketsetup {m.group(1)}" if m.group(1) else "ticketsetup"),
+
     # ── Wholesome Actions ──
     (re.compile(r"^(?:give\s+(?:a\s+)?(?:warm\s+)?hug\s+to|hug)\s*(.+)$", re.IGNORECASE), r"hug \1"),
     (re.compile(r"^(?:give\s+(?:a\s+)?kiss\s+to|kiss)\s*(.+)$", re.IGNORECASE), r"kiss \1"),
