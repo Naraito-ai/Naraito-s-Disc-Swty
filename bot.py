@@ -33,7 +33,7 @@ import aiohttp
 from typing import Optional, Union, List, Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from database import db
-from utils import get_or_create_ballers_role, assign_ballers_role, sync_all_ballers_roles, parse_natural_language_command, SWEETY_TRIGGER_REGEX, create_server_rejoin_invite, find_appeal_guild_for_user
+from utils import get_or_create_ballers_role, assign_ballers_role, sync_all_ballers_roles, parse_natural_language_command, SWEETY_TRIGGER_REGEX, create_server_rejoin_invite, find_appeal_guild_for_user, create_appeal_ticket_channel, DMAppealLauncherView, StrikeAppealModal, AppealReviewView, BanAppealDecisionView
 
 def clean_memory():
     """Aggressively runs Python garbage collection and trims glibc heap memory on Linux to stay well under Render 512MB limit."""
@@ -29642,7 +29642,7 @@ _recent_mod_bans: Dict[int, List[float]] = {}
 
 @bot.event
 async def on_member_ban(guild: discord.Guild, user: Union[discord.User, discord.Member]):
-    """Monitors for rapid mass bans by staff accounts (Anti-Nuke Circuit Breaker)."""
+    """Monitors for rapid mass bans by staff accounts (Anti-Nuke Circuit Breaker) and ensures ban records/DMs."""
     try:
         await asyncio.sleep(0.5)
         async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.ban):
@@ -29650,6 +29650,42 @@ async def on_member_ban(guild: discord.Guild, user: Union[discord.User, discord.
                 mod = entry.user
                 if not mod:
                     return
+
+                # If ban was executed outside of Sweety (e.g. right-click ban or another bot), log to db & deliver appeal DM
+                if mod.id != bot.user.id:
+                    ban_reason = entry.reason or "No reason specified"
+                    try:
+                        await db.add_ban(guild.id, user.id, mod.id, ban_reason)
+                    except Exception:
+                        pass
+
+                    try:
+                        ban_dm = discord.Embed(
+                            title=f"⚖️ You have been banned from {guild.name}",
+                            description=(
+                                f"**Reason:** {ban_reason}\n\n"
+                                f"📩 **Ban Appeal Information:**\n"
+                                f"If you believe this ban was made in error or wish to appeal, you can:\n"
+                                f"• Click the **Submit Appeal** button below to open the appeal form modal.\n"
+                                f"• Or send a Direct Message to Sweety: `!appeal {guild.id} <your reason>`"
+                            ),
+                            color=discord.Color.red(),
+                            timestamp=discord.utils.utcnow()
+                        )
+                        if guild.icon:
+                            ban_dm.set_thumbnail(url=guild.icon.url)
+                        ban_dm.set_footer(text=f"Server ID: {guild.id} • Sweety Moderation")
+                        await user.send(embed=ban_dm, view=DMAppealLauncherView(guild_id=guild.id))
+                    except Exception:
+                        try:
+                            fallback_text = (
+                                f"⚖️ You have been permanently banned from **{guild.name}**.\n"
+                                f"**Reason:** {ban_reason}\n\n"
+                                f"📩 *If you believe this was a mistake, you can DM Sweety: `!appeal {guild.id} <your reason>` to submit an official appeal.*"
+                            )
+                            await user.send(fallback_text)
+                        except Exception:
+                            pass
 
                 # If the ban was executed by Sweety itself, check self-eject killswitch
                 if mod.id == bot.user.id:

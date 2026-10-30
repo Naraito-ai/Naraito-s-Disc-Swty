@@ -21,7 +21,9 @@ from utils import (
     get_or_recover_appeal_ticket, restore_purged_messages,
     _purge_history_buffer, _bot_deleted_message_ids, TICKET_CHANNEL_ID,
     resolve_member_or_user, extract_duration_and_reason,
-    create_server_rejoin_invite, find_appeal_guild_for_user
+    create_server_rejoin_invite, find_appeal_guild_for_user,
+    create_appeal_ticket_channel, DMAppealLauncherView, StrikeAppealModal,
+    AppealReviewView, BanAppealDecisionView
 )
 
 logger = logging.getLogger("SweetyBot.Moderation")
@@ -61,12 +63,34 @@ async def issue_warning_logic(guild: discord.Guild, member: discord.Member, mode
             logger.warning(f"Failed to timeout member {member.id} for 7 days: {e}")
     elif total_warns >= 6:
         try:
+            # Send notification DM before ban call while user still shares the server
+            try:
+                ban_dm_embed = discord.Embed(
+                    title=f"⛔ Permanent Ban Issued in {guild.name}",
+                    description=f"You have accumulated **6 strikes** and have been permanently banned from **{guild.name}**.",
+                    color=discord.Color.red()
+                )
+                ban_dm_embed.add_field(name="Final Strike Reason", value=clean_reason, inline=False)
+                ban_dm_embed.add_field(
+                    name="📩 How to Appeal",
+                    value=f"Click the button below or DM Sweety: `!appeal {guild.id} <your reason>`",
+                    inline=False
+                )
+                ban_dm_embed.set_footer(text=f"Server ID: {guild.id} • Sweety Moderation")
+                await member.send(embed=ban_dm_embed, view=DMAppealLauncherView(guild_id=guild.id))
+            except Exception:
+                pass
+
             if not is_protected(member):
                 await member.ban(reason=f"Auto-Escalation: 6 Strikes Reached - Permanent Server Ban ({clean_reason})", delete_message_days=0)
             escalation_action = (
                 "\n\n⛔ **Auto-Escalation: Permanent Ban Applied**\n"
                 "• **Penalty:** **Permanently banned** from the server (Accumulated 6 Strikes)."
             )
+            try:
+                await db.add_ban(guild.id, member.id, moderator.id, f"Auto-Escalation: 6 Strikes Reached ({clean_reason})")
+            except Exception:
+                pass
         except Exception as e:
             logger.warning(f"Failed to ban member {member.id} for 6 strikes: {e}")
     elif total_warns > 3:
@@ -460,15 +484,39 @@ class ModerationCog(commands.Cog, name="Moderation"):
             clean_reason = discord.utils.escape_mentions(reason[:500])
             try:
                 # Pre-ban notification to user with appeal instructions & button
+                dm_sent = False
                 try:
-                    dm_text = (
-                        f"⚖️ You have been permanently banned from **{interaction.guild.name}**.\n"
-                        f"**Reason:** {clean_reason}\n\n"
-                        f"📩 *If you believe this was a mistake, you can click the button below or DM Sweety: `!appeal {interaction.guild.id} <your reason>` to submit an official appeal.*"
+                    ban_embed = discord.Embed(
+                        title=f"⚖️ You have been permanently banned from {interaction.guild.name}",
+                        description=(
+                            f"**Reason:** {clean_reason}\n\n"
+                            f"📩 **Ban Appeal Information:**\n"
+                            f"If you believe this ban was made in error or wish to appeal, you can:\n"
+                            f"• Click the **Submit Appeal** button below to open the appeal form modal.\n"
+                            f"• Or send a Direct Message to Sweety: `!appeal {interaction.guild.id} <your reason>`"
+                        ),
+                        color=discord.Color.red(),
+                        timestamp=discord.utils.utcnow()
                     )
-                    await member.send(dm_text, view=DMAppealLauncherView(guild_id=interaction.guild.id))
-                except Exception:
-                    pass
+                    if interaction.guild.icon:
+                        ban_embed.set_thumbnail(url=interaction.guild.icon.url)
+                    ban_embed.set_footer(text=f"Server ID: {interaction.guild.id} • Sweety Moderation")
+
+                    view = DMAppealLauncherView(guild_id=interaction.guild.id)
+                    await member.send(embed=ban_embed, view=view)
+                    dm_sent = True
+                except Exception as dme:
+                    logger.warning(f"Could not send ban DM with view to {member.id}: {dme}")
+                    try:
+                        fallback_text = (
+                            f"⚖️ You have been permanently banned from **{interaction.guild.name}**.\n"
+                            f"**Reason:** {clean_reason}\n\n"
+                            f"📩 *If you believe this was a mistake, you can DM Sweety: `!appeal {interaction.guild.id} <your reason>` to submit an official appeal.*"
+                        )
+                        await member.send(fallback_text)
+                        dm_sent = True
+                    except Exception as dme2:
+                        logger.warning(f"Could not send fallback ban DM to {member.id} (DMs closed or blocked): {dme2}")
 
                 seconds = delete_message_days * 86400
                 await interaction.guild.ban(member, reason=clean_reason, delete_message_seconds=seconds)
@@ -476,8 +524,10 @@ class ModerationCog(commands.Cog, name="Moderation"):
                     await db.add_ban(interaction.guild.id, member.id, interaction.user.id, clean_reason)
                 except Exception:
                     pass
-                await interaction.response.send_message(f"✅ **{member.display_name}** has been banned from the server. (Reason: {clean_reason})")
-                await log_mod_action(interaction.guild, interaction.user, member, "Ban", clean_reason, f"Deleted messages history: {delete_message_days} days")
+
+                delivery_note = " • 📬 User notified in DMs with appeal instructions." if dm_sent else " • ⚠️ *(User's DMs are closed; could not deliver DM)*"
+                await interaction.response.send_message(f"✅ **{member.display_name}** has been banned from the server. (Reason: {clean_reason}){delivery_note}")
+                await log_mod_action(interaction.guild, interaction.user, member, "Ban", clean_reason, f"Deleted messages history: {delete_message_days} days. DM Sent: {dm_sent}")
             except Exception as e:
                 logger.error(f"Ban command failed: {e}", exc_info=True)
                 await interaction.response.send_message("❌ Failed to ban user due to an internal error.", ephemeral=True)
@@ -1262,17 +1312,41 @@ class ModerationCog(commands.Cog, name="Moderation"):
             seconds, duration_str, reason = extract_duration_and_reason(args, default_duration=None)
             clean_reason = discord.utils.escape_mentions(reason[:500])
 
-            # Attempt to DM user before ban so they have the reason and appeal instructions
+            # Pre-ban notification to user with appeal instructions & button
             ban_type = f"temporarily banned for **{duration_str}**" if duration_str else "permanently banned"
-            dm_text = (
-                f"⚖️ You have been {ban_type} from **{ctx.guild.name}**.\n"
-                f"**Reason:** {clean_reason}\n\n"
-                f"📩 *If you believe this was a mistake, you can DM Sweety: `!appeal {ctx.guild.id} <your reason>` to submit an official appeal.*"
-            )
+            dm_sent = False
             try:
-                await member.send(dm_text, view=DMAppealLauncherView(guild_id=ctx.guild.id))
-            except Exception:
-                pass
+                ban_embed = discord.Embed(
+                    title=f"⚖️ You have been {ban_type} from {ctx.guild.name}",
+                    description=(
+                        f"**Reason:** {clean_reason}\n\n"
+                        f"📩 **Ban Appeal Information:**\n"
+                        f"If you believe this was a mistake or wish to appeal, you can:\n"
+                        f"• Click the **Submit Appeal** button below to open the appeal form modal.\n"
+                        f"• Or send a Direct Message to Sweety: `!appeal {ctx.guild.id} <your reason>`"
+                    ),
+                    color=discord.Color.red(),
+                    timestamp=discord.utils.utcnow()
+                )
+                if ctx.guild.icon:
+                    ban_embed.set_thumbnail(url=ctx.guild.icon.url)
+                ban_embed.set_footer(text=f"Server ID: {ctx.guild.id} • Sweety Moderation")
+
+                view = DMAppealLauncherView(guild_id=ctx.guild.id)
+                await member.send(embed=ban_embed, view=view)
+                dm_sent = True
+            except Exception as dme:
+                logger.warning(f"Could not send ban DM with view to {member.id}: {dme}")
+                try:
+                    fallback_text = (
+                        f"⚖️ You have been {ban_type} from **{ctx.guild.name}**.\n"
+                        f"**Reason:** {clean_reason}\n\n"
+                        f"📩 *If you believe this was a mistake, you can DM Sweety: `!appeal {ctx.guild.id} <your reason>` to submit an official appeal.*"
+                    )
+                    await member.send(fallback_text)
+                    dm_sent = True
+                except Exception as dme2:
+                    logger.warning(f"Could not send fallback ban DM to {member.id} (DMs closed or blocked): {dme2}")
 
             await ctx.guild.ban(member, reason=f"{clean_reason} | Duration: {duration_str or 'Permanent'}", delete_message_days=0)
             try:
@@ -1280,14 +1354,15 @@ class ModerationCog(commands.Cog, name="Moderation"):
             except Exception:
                 pass
 
+            delivery_note = " • 📬 User notified in DMs with appeal instructions." if dm_sent else " • ⚠️ *(User's DMs are closed; could not deliver DM)*"
             if seconds and seconds > 0:
                 unban_at = time.time() + seconds
                 _temp_bans_cache[(ctx.guild.id, member.id)] = unban_at
-                await ctx.send(f"🔨 **{member.name}** has been **temporarily banned** for **{duration_str}**. (Reason: {clean_reason})")
-                await log_mod_action(ctx.guild, ctx.author, member, f"Temp-Ban ({duration_str})", clean_reason)
+                await ctx.send(f"🔨 **{member.name}** has been **temporarily banned** for **{duration_str}**. (Reason: {clean_reason}){delivery_note}")
+                await log_mod_action(ctx.guild, ctx.author, member, f"Temp-Ban ({duration_str})", clean_reason, f"DM Sent: {dm_sent}")
             else:
-                await ctx.send(f"🔨 **{member.name}** has been **permanently banned** from the server. (Reason: {clean_reason})")
-                await log_mod_action(ctx.guild, ctx.author, member, "Ban", clean_reason)
+                await ctx.send(f"🔨 **{member.name}** has been **permanently banned** from the server. (Reason: {clean_reason}){delivery_note}")
+                await log_mod_action(ctx.guild, ctx.author, member, "Ban", clean_reason, f"DM Sent: {dm_sent}")
         except Exception as e:
             logger.error(f"Error in !ban: {e}")
             await ctx.send(f"❌ Error: {e}")
