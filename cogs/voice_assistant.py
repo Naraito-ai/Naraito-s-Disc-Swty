@@ -36,13 +36,14 @@ except Exception as patch_err:
 
 # Available Natural Neural TTS Voices
 VOICE_OPTIONS = {
-    "ana": ("en-US-AnaNeural", "Ana (Playful & Friendly Female)"),
-    "jenny": ("en-US-JennyNeural", "Jenny (Warm & Natural Female)"),
-    "aria": ("en-US-AriaNeural", "Aria (Expressive & Clear Female)"),
-    "sonia": ("en-GB-SoniaNeural", "Sonia (British Sophisticated Female)"),
-    "guy": ("en-US-GuyNeural", "Guy (Natural Casual Male)"),
+    "hinata": ("en-US-AnaNeural", "Hinata Hyuga (Gentle, Sweet & Shy Anime Female)", "+12Hz", "-5%"),
+    "ana": ("en-US-AnaNeural", "Ana (Playful & Friendly Female)", "+0Hz", "+0%"),
+    "jenny": ("en-US-JennyNeural", "Jenny (Warm & Natural Female)", "+0Hz", "+0%"),
+    "aria": ("en-US-AriaNeural", "Aria (Expressive & Clear Female)", "+0Hz", "+0%"),
+    "sonia": ("en-GB-SoniaNeural", "Sonia (British Sophisticated Female)", "+0Hz", "+0%"),
+    "guy": ("en-US-GuyNeural", "Guy (Natural Casual Male)", "+0Hz", "+0%"),
 }
-DEFAULT_VOICE = "en-US-AnaNeural"
+DEFAULT_VOICE = "hinata"
 
 def pcm_48k_stereo_to_16k_mono(pcm_bytes: bytes) -> bytes:
     """Downsamples 48kHz 16-bit stereo PCM to 16kHz 16-bit mono PCM."""
@@ -79,14 +80,31 @@ class VoiceSessionSink(voice_recv.AudioSink):
         return False  # False gives decoded 16-bit 48kHz stereo PCM
 
     def write(self, user, data: voice_recv.VoiceData):
-        if not user or getattr(user, "bot", False):
-            return
-        pcm = data.pcm
+        pcm = getattr(data, "pcm", None)
         if not pcm:
             return
 
-        uid = user.id
-        self.user_cache[uid] = user
+        # If user is None, attempt to resolve via voice client ssrc or channel members
+        if not user:
+            ssrc = getattr(data.packet, "ssrc", None)
+            if ssrc and self.voice_client:
+                uid = self.voice_client._get_id_from_ssrc(ssrc)
+                if uid and self.voice_client.channel:
+                    user = self.voice_client.channel.guild.get_member(uid)
+            if not user and self.voice_client and self.voice_client.channel:
+                humans = [m for m in self.voice_client.channel.members if not m.bot]
+                if len(humans) == 1:
+                    user = humans[0]
+
+        if user and getattr(user, "bot", False):
+            return
+
+        uid = getattr(user, "id", None) or getattr(data.packet, "ssrc", 0)
+        if not uid:
+            return
+
+        if user:
+            self.user_cache[uid] = user
         if uid not in self.buffers:
             self.buffers[uid] = bytearray()
         self.buffers[uid].extend(pcm)
@@ -131,24 +149,34 @@ class VoiceAssistant(commands.Cog):
             asyncio.create_task(self.leave_voice_session(gid))
 
     async def generate_speech_audio(self, text: str, voice: str = DEFAULT_VOICE) -> str:
-        """Converts text response to natural neural speech MP3 using edge-tts."""
+        """Converts text response to natural neural speech MP3 using edge-tts with pitch/rate tuning."""
         clean_text = text.replace("*", "").replace("#", "").replace("`", "").strip()
         temp_dir = tempfile.gettempdir()
         file_path = os.path.join(temp_dir, f"sweety_tts_{int(time.time()*1000)}.mp3")
-        communicate = edge_tts.Communicate(clean_text, voice)
+
+        voice_info = VOICE_OPTIONS.get(voice)
+        if voice_info and len(voice_info) >= 4:
+            voice_id, _, pitch, rate = voice_info
+        else:
+            voice_id = voice if "-" in voice else "en-US-AnaNeural"
+            pitch = "+0Hz"
+            rate = "+0%"
+
+        communicate = edge_tts.Communicate(clean_text, voice_id, pitch=pitch, rate=rate)
         await communicate.save(file_path)
         return file_path
 
     async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str) -> str:
         """Generates conversational, spoken-friendly AI reply from Gemini/Groq."""
         system_instruction = (
-            "You are Sweety, a charming, witty, friendly, and intelligent AI companion chatting live in a Discord voice channel.\n"
+            "You are Hinata (Sweety), a sweet, caring, gentle, and politely soft-spoken companion chatting live in a Discord voice channel.\n"
             "Rules for your response:\n"
             "1. Answer in 1 to 2 short conversational sentences (under 35 words).\n"
-            "2. Do NOT use markdown, asterisks, bullet points, emojis, or symbols because your output will be spoken aloud via text-to-speech.\n"
-            "3. Speak naturally, as if chatting on a live call."
+            "2. Be warm, kind, modest, and encouraging (like Hinata Hyuga from Naruto).\n"
+            "3. Do NOT use markdown, asterisks, bullet points, emojis, or symbols because your output will be spoken aloud via text-to-speech.\n"
+            "4. Speak naturally, as if chatting on a live call."
         )
-        prompt = f"User {user.display_name} said: \"{spoken_text}\"\nPlease reply concisely and conversationally:"
+        prompt = f"User {user.display_name} said: \"{spoken_text}\"\nPlease reply warmly, concisely, and conversationally:"
 
         # 1. Try primary Gemini AI engine
         try:
@@ -187,15 +215,23 @@ class VoiceAssistant(commands.Cog):
 
                 for uid, buf in list(sink.buffers.items()):
                     last_time = sink.last_speech_time.get(uid, 0)
-                    # If user paused speaking for > 1.0s and recorded between 0.8s and 20s of audio
-                    if now - last_time > 1.0 and len(buf) >= 153600:
-                        pcm_data = bytes(buf)
-                        del sink.buffers[uid]
-                        if uid in sink.last_speech_time:
-                            del sink.last_speech_time[uid]
-                        user = sink.user_cache.get(uid)
-                        if user:
-                            asyncio.create_task(self.handle_user_voice_input(guild_id, user, pcm_data))
+                    # If user paused speaking for > 0.8s
+                    if now - last_time > 0.8:
+                        if len(buf) >= 60000:  # ~0.3s of real speech
+                            pcm_data = bytes(buf)
+                            del sink.buffers[uid]
+                            sink.last_speech_time.pop(uid, None)
+                            user = sink.user_cache.get(uid)
+                            if not user and vc.channel:
+                                humans = [m for m in vc.channel.members if not m.bot]
+                                if humans:
+                                    user = humans[0]
+                            if user:
+                                asyncio.create_task(self.handle_user_voice_input(guild_id, user, pcm_data))
+                        elif now - last_time > 2.0:
+                            # Discard short background noise click
+                            del sink.buffers[uid]
+                            sink.last_speech_time.pop(uid, None)
         except Exception as e:
             logger.debug(f"Voice buffer processing loop notice: {e}")
 
@@ -217,7 +253,7 @@ class VoiceAssistant(commands.Cog):
         # 1. Downsample to 16kHz mono
         mono_pcm = pcm_48k_stereo_to_16k_mono(pcm_data)
         energy = get_pcm_energy(mono_pcm)
-        if energy < 450.0:
+        if energy < 100.0:
             return  # Filter out silence/breathing/static
 
         # 2. Transcribe via Google Speech Recognition
@@ -254,16 +290,23 @@ class VoiceAssistant(commands.Cog):
         voice_name = session.get("voice", DEFAULT_VOICE)
         audio_file = await self.generate_speech_audio(ai_reply, voice=voice_name)
 
-        # 5. Playback into Discord voice channel
+        # 5. Playback into Discord voice channel with volume boost
         def cleanup_after(err):
+            if err:
+                logger.error(f"Voice playback error: {err}")
             try:
                 if os.path.exists(audio_file):
                     os.remove(audio_file)
             except Exception:
                 pass
 
-        if vc.is_connected() and not vc.is_playing():
-            audio_source = discord.FFmpegPCMAudio(audio_file)
+        if vc.is_connected():
+            if vc.is_playing():
+                vc.stop()
+            audio_source = discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(audio_file, options="-vn"),
+                volume=1.6
+            )
             vc.play(audio_source, after=cleanup_after)
 
         # 6. Post chat transcript log to text channel
@@ -363,6 +406,8 @@ class VoiceAssistant(commands.Cog):
 
                 # 3. Play audio into voice channel
                 def cleanup_after(err):
+                    if err:
+                        logger.error(f"Voice playback error: {err}")
                     try:
                         if os.path.exists(audio_file):
                             os.remove(audio_file)
@@ -372,7 +417,11 @@ class VoiceAssistant(commands.Cog):
                 if vc.is_connected():
                     if vc.is_playing():
                         vc.stop()
-                    vc.play(discord.FFmpegPCMAudio(audio_file), after=cleanup_after)
+                    source = discord.PCMVolumeTransformer(
+                        discord.FFmpegPCMAudio(audio_file, options="-vn"),
+                        volume=1.6
+                    )
+                    vc.play(source, after=cleanup_after)
 
                 # 4. Reply in text chat with transcript so members can read and hear simultaneously
                 embed = discord.Embed(
@@ -464,8 +513,13 @@ class VoiceAssistant(commands.Cog):
         # Play welcome greeting in voice!
         welcome_text = f"Hey {user.display_name}! I joined your voice call. Speak into your mic or type here whenever you want to talk to me!"
         welcome_audio = await self.generate_speech_audio(welcome_text, voice=DEFAULT_VOICE)
-        if existing.is_connected() and not existing.is_playing():
-            existing.play(discord.FFmpegPCMAudio(welcome_audio), after=lambda _: os.remove(welcome_audio) if os.path.exists(welcome_audio) else None)
+        if existing.is_connected():
+            if existing.is_playing():
+                existing.stop()
+            existing.play(
+                discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(welcome_audio, options="-vn"), volume=1.6),
+                after=lambda _: os.remove(welcome_audio) if os.path.exists(welcome_audio) else None
+            )
 
         embed = discord.Embed(
             title="🎙️ Sweety Live Voice Assistant Connected!",
@@ -513,9 +567,14 @@ class VoiceAssistant(commands.Cog):
 
         # Say goodbye in voice
         vc = guild.voice_client
-        if vc and vc.is_connected() and not vc.is_playing():
+        if vc and vc.is_connected():
+            if vc.is_playing():
+                vc.stop()
             bye_audio = await self.generate_speech_audio("Goodbye everyone! Talk to you later!", voice=DEFAULT_VOICE)
-            vc.play(discord.FFmpegPCMAudio(bye_audio))
+            vc.play(
+                discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(bye_audio, options="-vn"), volume=1.6),
+                after=lambda _: os.remove(bye_audio) if os.path.exists(bye_audio) else None
+            )
             await asyncio.sleep(2.0)
 
         await self.leave_voice_session(guild.id)
@@ -528,6 +587,7 @@ class VoiceAssistant(commands.Cog):
 
     @app_commands.command(name="voiceset", description="Choose the voice persona Sweety uses when speaking")
     @app_commands.choices(voice=[
+        app_commands.Choice(name="Hinata Hyuga (Gentle, Sweet & Shy Anime Female)", value="hinata"),
         app_commands.Choice(name="Ana (Playful & Friendly Female)", value="ana"),
         app_commands.Choice(name="Jenny (Warm & Natural Female)", value="jenny"),
         app_commands.Choice(name="Aria (Expressive & Clear Female)", value="aria"),
@@ -537,23 +597,25 @@ class VoiceAssistant(commands.Cog):
     @app_commands.guild_only()
     async def voiceset_slash_cmd(self, interaction: discord.Interaction, voice: app_commands.Choice[str]):
         session = self.sessions.get(interaction.guild_id)
-        chosen_voice_id, desc = VOICE_OPTIONS.get(voice.value, (DEFAULT_VOICE, "Ana"))
+        voice_info = VOICE_OPTIONS.get(voice.value, VOICE_OPTIONS[DEFAULT_VOICE])
+        desc = voice_info[1]
         if session:
-            session["voice"] = chosen_voice_id
+            session["voice"] = voice.value
         await interaction.response.send_message(f"✅ Voice updated to **{desc}**! Sweety will speak with this voice.")
 
     @commands.command(name="voiceset")
     @commands.guild_only()
-    async def voiceset_prefix_cmd(self, ctx: commands.Context, voice_key: str = "ana"):
-        """Change Sweety's speaking voice: !voiceset [ana, jenny, aria, sonia, guy]"""
+    async def voiceset_prefix_cmd(self, ctx: commands.Context, voice_key: str = "hinata"):
+        """Change Sweety's speaking voice: !voiceset [hinata, ana, jenny, aria, sonia, guy]"""
         key = voice_key.lower().strip()
         if key not in VOICE_OPTIONS:
             valid = ", ".join(f"`{k}`" for k in VOICE_OPTIONS.keys())
             return await ctx.send(f"❌ Invalid voice option. Choose from: {valid}")
-        chosen_voice_id, desc = VOICE_OPTIONS[key]
+        voice_info = VOICE_OPTIONS[key]
+        desc = voice_info[1]
         session = self.sessions.get(ctx.guild.id)
         if session:
-            session["voice"] = chosen_voice_id
+            session["voice"] = key
         await ctx.send(f"✅ Voice updated to **{desc}**!")
 
     @app_commands.command(name="speak", description="Make Sweety speak any custom sentence aloud in your voice channel")
@@ -589,8 +651,13 @@ class VoiceAssistant(commands.Cog):
         clean_text = text[:400].strip()
         audio_file = await self.generate_speech_audio(clean_text, voice=voice_name)
 
-        if vc.is_connected() and not vc.is_playing():
-            vc.play(discord.FFmpegPCMAudio(audio_file), after=lambda _: os.remove(audio_file) if os.path.exists(audio_file) else None)
+        if vc.is_connected():
+            if vc.is_playing():
+                vc.stop()
+            vc.play(
+                discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(audio_file, options="-vn"), volume=1.6),
+                after=lambda _: os.remove(audio_file) if os.path.exists(audio_file) else None
+            )
 
         msg = f"🗣️ **{user.display_name}:** *\"{clean_text}\"*"
         if is_slash:
