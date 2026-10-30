@@ -270,7 +270,7 @@ class VoiceAssistant(commands.Cog):
     async def voicechat_slash_cmd(self, interaction: discord.Interaction, channel: Optional[discord.VoiceChannel] = None):
         await self._start_voice_session(interaction, channel=channel)
 
-    @commands.command(name="voicechat", aliases=["joinvoice", "talk", "voicestart", "vcchat"])
+    @commands.command(name="voicechat", aliases=["joinvoice", "voicestart", "vcchat"])
     @commands.guild_only()
     async def voicechat_prefix_cmd(self, ctx: commands.Context, channel: Optional[discord.VoiceChannel] = None):
         """Join voice channel to talk with Sweety: !voicechat or !joinvoice"""
@@ -352,7 +352,7 @@ class VoiceAssistant(commands.Cog):
     async def leavevoice_slash_cmd(self, interaction: discord.Interaction):
         await self._stop_voice_session(interaction)
 
-    @commands.command(name="leavevoice", aliases=["stopvoice", "disconnectvoice", "bye", "vcleave"])
+    @commands.command(name="leavevoice", aliases=["stopvoice", "disconnectvoice", "vcleave"])
     @commands.guild_only()
     async def leavevoice_prefix_cmd(self, ctx: commands.Context):
         """Disconnect Sweety from voice: !leavevoice"""
