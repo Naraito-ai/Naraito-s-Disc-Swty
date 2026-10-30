@@ -36,7 +36,7 @@ except Exception as patch_err:
 
 # Available Natural Neural TTS Voices
 VOICE_OPTIONS = {
-    "hinata": ("en-US-AnaNeural", "Hinata Hyuga (Gentle, Sweet & Shy Anime Female)", "+12Hz", "-5%"),
+    "hinata": ("en-US-AnaNeural", "Hinata Hyuga (Gentle, Sweet & Shy Anime Female)", "+14Hz", "-6%"),
     "ana": ("en-US-AnaNeural", "Ana (Playful & Friendly Female)", "+0Hz", "+0%"),
     "jenny": ("en-US-JennyNeural", "Jenny (Warm & Natural Female)", "+0Hz", "+0%"),
     "aria": ("en-US-AriaNeural", "Aria (Expressive & Clear Female)", "+0Hz", "+0%"),
@@ -93,7 +93,7 @@ class VoiceSessionSink(voice_recv.AudioSink):
                     user = self.voice_client.channel.guild.get_member(uid)
             if not user and self.voice_client and self.voice_client.channel:
                 humans = [m for m in self.voice_client.channel.members if not m.bot]
-                if len(humans) == 1:
+                if humans:
                     user = humans[0]
 
         if user and getattr(user, "bot", False):
@@ -169,14 +169,15 @@ class VoiceAssistant(commands.Cog):
     async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str) -> str:
         """Generates conversational, spoken-friendly AI reply from Gemini/Groq."""
         system_instruction = (
-            "You are Hinata (Sweety), a sweet, caring, gentle, and politely soft-spoken companion chatting live in a Discord voice channel.\n"
-            "Rules for your response:\n"
-            "1. Answer in 1 to 2 short conversational sentences (under 35 words).\n"
-            "2. Be warm, kind, modest, and encouraging (like Hinata Hyuga from Naruto).\n"
-            "3. Do NOT use markdown, asterisks, bullet points, emojis, or symbols because your output will be spoken aloud via text-to-speech.\n"
-            "4. Speak naturally, as if chatting on a live call."
+            "You are Hinata Hyuga from Naruto, talking live with your dear friend in a Discord voice channel.\n"
+            "Rules for your personality and speech:\n"
+            "1. Stay in character as Hinata Hyuga: gentle, soft-spoken, sweet, modest, slightly shy, and deeply caring.\n"
+            "2. Use natural Hinata mannerisms: occasionally start with a shy hesitation ('U-um...', 'Ah...', 'Well...'), but remain attentive, thoughtful, and encouraging.\n"
+            "3. Answer in 1 to 2 short conversational sentences (under 30 words).\n"
+            "4. NEVER use markdown symbols (*, _, #, `, emojis) because your response will be read aloud via text-to-speech.\n"
+            "5. Speak directly and naturally as if on a real voice phone call."
         )
-        prompt = f"User {user.display_name} said: \"{spoken_text}\"\nPlease reply warmly, concisely, and conversationally:"
+        prompt = f"User {user.display_name} said: \"{spoken_text}\"\nPlease reply warmly, concisely, and conversationally in character:"
 
         # 1. Try primary Gemini AI engine
         try:
@@ -196,9 +197,9 @@ class VoiceAssistant(commands.Cog):
         except Exception as e:
             logger.warning(f"Error calling call_ai_generation for voice: {e}")
 
-        return f"Hey {user.display_name}! I heard your message loud and clear."
+        return f"U-um, hello {user.display_name}... I can hear you clearly! What would you like to talk about?"
 
-    @tasks.loop(seconds=0.35)
+    @tasks.loop(seconds=0.3)
     async def process_voice_buffers(self):
         """Monitors silence intervals across active voice sessions to trigger transcription."""
         try:
@@ -209,15 +210,17 @@ class VoiceAssistant(commands.Cog):
                 if not sink or not vc or not vc.is_connected():
                     continue
 
-                # Don't listen to incoming audio while bot itself is speaking
+                # Don't listen to incoming audio while bot itself is speaking, clear buffers to avoid echo
                 if vc.is_playing():
+                    sink.buffers.clear()
+                    sink.last_speech_time.clear()
                     continue
 
                 for uid, buf in list(sink.buffers.items()):
                     last_time = sink.last_speech_time.get(uid, 0)
-                    # If user paused speaking for > 0.8s
-                    if now - last_time > 0.8:
-                        if len(buf) >= 60000:  # ~0.3s of real speech
+                    # If user paused speaking for > 0.7s
+                    if now - last_time > 0.7:
+                        if len(buf) >= 30000:  # ~0.15s of real speech
                             pcm_data = bytes(buf)
                             del sink.buffers[uid]
                             sink.last_speech_time.pop(uid, None)
@@ -228,8 +231,8 @@ class VoiceAssistant(commands.Cog):
                                     user = humans[0]
                             if user:
                                 asyncio.create_task(self.handle_user_voice_input(guild_id, user, pcm_data))
-                        elif now - last_time > 2.0:
-                            # Discard short background noise click
+                        elif now - last_time > 1.5:
+                            # Discard short background click
                             del sink.buffers[uid]
                             sink.last_speech_time.pop(uid, None)
         except Exception as e:
@@ -253,7 +256,9 @@ class VoiceAssistant(commands.Cog):
         # 1. Downsample to 16kHz mono
         mono_pcm = pcm_48k_stereo_to_16k_mono(pcm_data)
         energy = get_pcm_energy(mono_pcm)
-        if energy < 100.0:
+        logger.info(f"🎙️ [Voice Audio Detected] User: {user.display_name}, Size: {len(pcm_data)} bytes, Energy: {energy:.1f}")
+        if energy < 30.0:
+            logger.debug(f"Audio energy below threshold ({energy:.1f} < 30.0), ignoring ambient silence.")
             return  # Filter out silence/breathing/static
 
         # 2. Transcribe via Google Speech Recognition
@@ -272,19 +277,20 @@ class VoiceAssistant(commands.Cog):
             # Run blocking recognize_google in threadpool
             transcription = await asyncio.to_thread(self.recognizer.recognize_google, audio_data)
         except sr.UnknownValueError:
+            logger.debug("Speech recognition: UnknownValueError (speech could not be decoded)")
             return  # Inaudible
         except Exception as e:
-            logger.debug(f"Speech transcription error: {e}")
+            logger.warning(f"Speech transcription error: {e}")
             return
 
         if not transcription or len(transcription.strip()) < 2:
             return
 
-        logger.info(f"🎙️ [Voice Chat] {user.display_name} said: '{transcription}'")
+        logger.info(f"🎙️ [Voice Chat Input] {user.display_name} said: '{transcription}'")
 
         # 3. Query Gemini AI for voice response
         ai_reply = await self.generate_voice_ai_response(user, transcription)
-        logger.info(f"🤖 [Voice Chat Reply] Sweety -> '{ai_reply}'")
+        logger.info(f"🌸 [Hinata Voice Reply] Sweety -> '{ai_reply}'")
 
         # 4. Generate Neural TTS
         voice_name = session.get("voice", DEFAULT_VOICE)
@@ -303,6 +309,13 @@ class VoiceAssistant(commands.Cog):
         if vc.is_connected():
             if vc.is_playing():
                 vc.stop()
+            # Ensure un-deafened before playing
+            guild = user.guild
+            if guild.me.voice and (guild.me.voice.self_deaf or guild.me.voice.self_mute):
+                try:
+                    await guild.change_voice_state(channel=vc.channel, self_deaf=False, self_mute=False)
+                except Exception:
+                    pass
             audio_source = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(audio_file, options="-vn"),
                 volume=1.6
@@ -313,8 +326,8 @@ class VoiceAssistant(commands.Cog):
         if text_channel:
             try:
                 log_embed = discord.Embed(
-                    description=f"🎙️ **{user.display_name}:** *\"{transcription}\"*\n🤖 **Sweety:** {ai_reply}",
-                    color=discord.Color.from_rgb(180, 140, 255)
+                    description=f"🎙️ **{user.display_name}:** *\"{transcription}\"*\n🌸 **Hinata:** {ai_reply}",
+                    color=discord.Color.from_rgb(255, 182, 193)
                 )
                 await text_channel.send(embed=log_embed)
             except Exception:
@@ -378,7 +391,7 @@ class VoiceAssistant(commands.Cog):
         user_in_vc = bool(
             message.author.voice and message.author.voice.channel and target_vc and message.author.voice.channel.id == target_vc.id
         )
-        bot_mentioned = bool(self.bot.user and self.bot.user in message.mentions) or "sweety" in content.lower()
+        bot_mentioned = bool(self.bot.user and self.bot.user in message.mentions) or "sweety" in content.lower() or "hinata" in content.lower()
 
         # Trigger if typed in the voice channel itself, or if typed in session channel by participant or with mention
         if not (is_in_vc_chat or (is_in_session_text and (user_in_vc or bot_mentioned))):
@@ -390,7 +403,7 @@ class VoiceAssistant(commands.Cog):
             clean_text = re.sub(rf'<@!?{self.bot.user.id}>', '', clean_text).strip()
 
         if not clean_text:
-            clean_text = "Hey Sweety!"
+            clean_text = "Hey Hinata!"
 
         logger.info(f"💬 [Voice Chat Text] {message.author.display_name} in #{getattr(message.channel, 'name', 'vc')}: '{clean_text}'")
 
@@ -398,7 +411,7 @@ class VoiceAssistant(commands.Cog):
             async with message.channel.typing():
                 # 1. Generate spoken-friendly AI reply
                 ai_reply = await self.generate_voice_ai_response(message.author, clean_text)
-                logger.info(f"🤖 [Voice Chat Reply] Sweety -> '{ai_reply}'")
+                logger.info(f"🌸 [Hinata Chat Reply] Sweety -> '{ai_reply}'")
 
                 # 2. Synthesize Neural TTS
                 voice_name = session.get("voice", DEFAULT_VOICE)
@@ -417,6 +430,13 @@ class VoiceAssistant(commands.Cog):
                 if vc.is_connected():
                     if vc.is_playing():
                         vc.stop()
+                    # Ensure un-deafened before playing
+                    guild = message.guild
+                    if guild.me.voice and (guild.me.voice.self_deaf or guild.me.voice.self_mute):
+                        try:
+                            await guild.change_voice_state(channel=vc.channel, self_deaf=False, self_mute=False)
+                        except Exception:
+                            pass
                     source = discord.PCMVolumeTransformer(
                         discord.FFmpegPCMAudio(audio_file, options="-vn"),
                         volume=1.6
@@ -425,8 +445,8 @@ class VoiceAssistant(commands.Cog):
 
                 # 4. Reply in text chat with transcript so members can read and hear simultaneously
                 embed = discord.Embed(
-                    description=f"🗣️ **{message.author.display_name}:** *\"{clean_text}\"*\n🎙️ **Sweety:** {ai_reply}",
-                    color=discord.Color.from_rgb(180, 140, 255)
+                    description=f"🗣️ **{message.author.display_name}:** *\"{clean_text}\"*\n🌸 **Hinata:** {ai_reply}",
+                    color=discord.Color.from_rgb(255, 182, 193)
                 )
                 await message.reply(embed=embed, mention_author=False)
         except Exception as e:
@@ -462,6 +482,23 @@ class VoiceAssistant(commands.Cog):
         if is_slash:
             await ctx_or_interaction.response.defer()
 
+        # Mark session active immediately so music watchdog and event listeners do not interfere
+        self.sessions[guild.id] = {
+            "status": "connecting",
+            "voice": DEFAULT_VOICE,
+            "text_channel": ctx_or_interaction.channel
+        }
+
+        # Stop any active music playback before taking over voice
+        music_cog = self.bot.cogs.get("Music")
+        if music_cog:
+            try:
+                m_state = music_cog.get_state(guild.id)
+                if m_state and m_state.voice_client and m_state.voice_client.is_playing():
+                    m_state.voice_client.stop()
+            except Exception as me:
+                logger.debug(f"Music cog stop notice: {me}")
+
         # Check existing connection
         existing = guild.voice_client
         if existing and existing.is_connected():
@@ -470,9 +507,17 @@ class VoiceAssistant(commands.Cog):
                     await existing.disconnect(force=True)
                 except Exception:
                     pass
+                await asyncio.sleep(0.5)
                 try:
-                    existing = await target_vc.connect(cls=voice_recv.VoiceRecvClient)
+                    existing = await target_vc.connect(
+                        cls=voice_recv.VoiceRecvClient,
+                        self_deaf=False,
+                        self_mute=False,
+                        reconnect=True,
+                        timeout=20.0
+                    )
                 except Exception as ce:
+                    self.sessions.pop(guild.id, None)
                     msg = f"❌ Failed to connect to voice channel: {ce}"
                     if is_slash:
                         return await ctx_or_interaction.followup.send(msg)
@@ -481,12 +526,25 @@ class VoiceAssistant(commands.Cog):
                 await existing.move_to(target_vc)
         else:
             try:
-                existing = await target_vc.connect(cls=voice_recv.VoiceRecvClient)
+                existing = await target_vc.connect(
+                    cls=voice_recv.VoiceRecvClient,
+                    self_deaf=False,
+                    self_mute=False,
+                    reconnect=True,
+                    timeout=20.0
+                )
             except Exception as ce:
+                self.sessions.pop(guild.id, None)
                 msg = f"❌ Failed to connect to voice channel: {ce}"
                 if is_slash:
                     return await ctx_or_interaction.followup.send(msg)
                 return await ctx_or_interaction.send(msg)
+
+        # Force un-deafened voice state in Discord Gateway
+        try:
+            await guild.change_voice_state(channel=target_vc, self_deaf=False, self_mute=False)
+        except Exception as ve:
+            logger.warning(f"Voice state un-deafen notice: {ve}")
 
         # Initialize voice receive sink
         if hasattr(existing, "is_listening") and existing.is_listening():
@@ -510,8 +568,8 @@ class VoiceAssistant(commands.Cog):
             "voice": DEFAULT_VOICE
         }
 
-        # Play welcome greeting in voice!
-        welcome_text = f"Hey {user.display_name}! I joined your voice call. Speak into your mic or type here whenever you want to talk to me!"
+        # Play Hinata welcome greeting in voice!
+        welcome_text = f"U-um, hello {user.display_name}! I am Hinata. I joined your voice call! Please talk to me through your microphone or type here, and I will answer you!"
         welcome_audio = await self.generate_speech_audio(welcome_text, voice=DEFAULT_VOICE)
         if existing.is_connected():
             if existing.is_playing():
@@ -522,18 +580,19 @@ class VoiceAssistant(commands.Cog):
             )
 
         embed = discord.Embed(
-            title="🎙️ Sweety Live Voice Assistant Connected!",
+            title="🌸 Hinata Voice Assistant Connected!",
             description=(
-                f"Connected to **{target_vc.name}**!\n\n"
-                "**How to Talk to Sweety:**\n"
-                "• **Via Microphone:** Simply speak into your mic in the voice channel. When you pause, Sweety answers out loud!\n"
-                "• **Via Text Chat:** Type any message in this voice channel's chat, and Sweety will answer out loud with voice!\n\n"
-                "• Use `/voiceset` or `!voiceset` to change her voice persona.\n"
+                f"🌸 **Voice Preset:** Hinata Hyuga (Gentle, Sweet & Shy Anime Female)\n"
+                f"🎙️ **Connected to:** **{target_vc.name}**\n\n"
+                "**How to Talk to Hinata:**\n"
+                "• **Via Microphone:** Simply speak into your mic in the voice channel! Hinata listens and answers out loud.\n"
+                "• **Via Text Chat:** Type any message in this voice channel's chat, and Hinata will speak her answer back to you!\n\n"
+                "• Use `/voiceset` or `!voiceset` if you ever want to change her voice persona.\n"
                 "• Click **Disconnect** below or type `!leavevoice` when finished."
             ),
-            color=discord.Color.from_rgb(180, 140, 255)
+            color=discord.Color.from_rgb(255, 182, 193)
         )
-        embed.set_footer(text="Sweety Live Voice • Powered by Gemini AI & Neural TTS")
+        embed.set_footer(text="Sweety Live Voice • Hinata Persona • Powered by Gemini AI & Neural TTS")
         view = VoiceControlView(self, guild.id)
 
         if is_slash:
@@ -565,17 +624,20 @@ class VoiceAssistant(commands.Cog):
         if is_slash:
             await ctx_or_interaction.response.defer()
 
-        # Say goodbye in voice
+        # Say goodbye in Hinata voice
         vc = guild.voice_client
         if vc and vc.is_connected():
             if vc.is_playing():
                 vc.stop()
-            bye_audio = await self.generate_speech_audio("Goodbye everyone! Talk to you later!", voice=DEFAULT_VOICE)
+            bye_audio = await self.generate_speech_audio(
+                "U-um... goodbye everyone. It was wonderful talking with you. Please take care!",
+                voice=DEFAULT_VOICE
+            )
             vc.play(
                 discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(bye_audio, options="-vn"), volume=1.6),
                 after=lambda _: os.remove(bye_audio) if os.path.exists(bye_audio) else None
             )
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(2.5)
 
         await self.leave_voice_session(guild.id)
 
@@ -654,6 +716,12 @@ class VoiceAssistant(commands.Cog):
         if vc.is_connected():
             if vc.is_playing():
                 vc.stop()
+            # Ensure un-deafened before playing
+            if guild.me.voice and (guild.me.voice.self_deaf or guild.me.voice.self_mute):
+                try:
+                    await guild.change_voice_state(channel=vc.channel, self_deaf=False, self_mute=False)
+                except Exception:
+                    pass
             vc.play(
                 discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(audio_file, options="-vn"), volume=1.6),
                 after=lambda _: os.remove(audio_file) if os.path.exists(audio_file) else None

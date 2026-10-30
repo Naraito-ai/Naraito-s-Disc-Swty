@@ -2712,6 +2712,11 @@ class Music(commands.Cog):
         """Scans all guilds for active 24/7 mode and reconnects any missing or moved voice clients."""
         for guild in list(self.bot.guilds):
             try:
+                # Do not interfere if VoiceAssistant is active or running in this guild
+                va_cog = self.bot.cogs.get("VoiceAssistant")
+                if va_cog and guild.id in getattr(va_cog, "sessions", {}):
+                    continue
+
                 is_247 = await self.is_247_enabled(guild.id)
                 if not is_247:
                     continue
@@ -2795,6 +2800,11 @@ class Music(commands.Cog):
             return
 
         guild = member.guild
+        # Do not interfere if VoiceAssistant is active or running in this guild
+        va_cog = self.bot.cogs.get("VoiceAssistant")
+        if va_cog and guild.id in getattr(va_cog, "sessions", {}):
+            return
+
         state = self.get_state(guild.id)
 
         # 1. Bot disconnected completely
