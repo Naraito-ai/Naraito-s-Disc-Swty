@@ -18,3 +18,6 @@ PyNaCl
 davey
 spotipy
 pyDes
+discord-ext-voice-recv
+edge-tts
+SpeechRecognition
