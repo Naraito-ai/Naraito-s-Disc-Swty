@@ -152,28 +152,35 @@ class VoiceAssistant(commands.Cog):
     @tasks.loop(seconds=0.35)
     async def process_voice_buffers(self):
         """Monitors silence intervals across active voice sessions to trigger transcription."""
-        now = time.time()
-        for guild_id, session in list(self.sessions.items()):
-            sink: VoiceSessionSink = session.get("sink")
-            vc = session.get("voice_client")
-            if not sink or not vc or not vc.is_connected():
-                continue
+        try:
+            now = time.time()
+            for guild_id, session in list(self.sessions.items()):
+                sink: VoiceSessionSink = session.get("sink")
+                vc = session.get("voice_client")
+                if not sink or not vc or not vc.is_connected():
+                    continue
 
-            # Don't listen to incoming audio while bot itself is speaking
-            if vc.is_playing():
-                continue
+                # Don't listen to incoming audio while bot itself is speaking
+                if vc.is_playing():
+                    continue
 
-            for uid, buf in list(sink.buffers.items()):
-                last_time = sink.last_speech_time.get(uid, 0)
-                # If user paused speaking for > 1.0s and recorded between 0.8s and 20s of audio
-                if now - last_time > 1.0 and len(buf) >= 153600:
-                    pcm_data = bytes(buf)
-                    del sink.buffers[uid]
-                    if uid in sink.last_speech_time:
-                        del sink.last_speech_time[uid]
-                    user = sink.user_cache.get(uid)
-                    if user:
-                        asyncio.create_task(self.handle_user_voice_input(guild_id, user, pcm_data))
+                for uid, buf in list(sink.buffers.items()):
+                    last_time = sink.last_speech_time.get(uid, 0)
+                    # If user paused speaking for > 1.0s and recorded between 0.8s and 20s of audio
+                    if now - last_time > 1.0 and len(buf) >= 153600:
+                        pcm_data = bytes(buf)
+                        del sink.buffers[uid]
+                        if uid in sink.last_speech_time:
+                            del sink.last_speech_time[uid]
+                        user = sink.user_cache.get(uid)
+                        if user:
+                            asyncio.create_task(self.handle_user_voice_input(guild_id, user, pcm_data))
+        except Exception as e:
+            logger.debug(f"Voice buffer processing loop notice: {e}")
+
+    @process_voice_buffers.before_loop
+    async def before_voice_buffers(self):
+        await self.bot.wait_until_ready()
 
     async def handle_user_voice_input(self, guild_id: int, user: discord.Member, pcm_data: bytes):
         """Transcribes user voice input, gets AI response, and plays back TTS in voice."""
