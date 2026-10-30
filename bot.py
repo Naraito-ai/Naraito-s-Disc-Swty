@@ -24,6 +24,7 @@ import unicodedata
 import urllib.request
 import ssl
 import gc
+import difflib
 from collections import OrderedDict
 import discord
 from discord.ext import commands, tasks
@@ -1700,6 +1701,8 @@ def is_protected(member: Union[discord.Member, discord.User, int, None]) -> bool
             return True
 
     return False
+
+is_admin_or_mod = is_protected
 
 def is_staff_or_immune(member) -> bool:
     """Alias for backwards compatibility — delegates 100% to is_protected."""
