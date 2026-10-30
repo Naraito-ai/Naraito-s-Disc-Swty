@@ -75,6 +75,12 @@ class VoiceSessionSink(voice_recv.AudioSink):
         self.buffers[uid].extend(pcm)
         self.last_speech_time[uid] = time.time()
 
+    def cleanup(self):
+        """Cleans up internal audio buffers when sink is released."""
+        self.buffers.clear()
+        self.last_speech_time.clear()
+        self.user_cache.clear()
+
 class VoiceControlView(discord.ui.View):
     """Interactive control panel view for active voice assistant sessions."""
     def __init__(self, cog, guild_id: int):
@@ -263,6 +269,8 @@ class VoiceAssistant(commands.Cog):
             vc = session.get("voice_client")
             if vc:
                 try:
+                    if hasattr(vc, "is_listening") and vc.is_listening():
+                        vc.stop_listening()
                     if vc.is_playing():
                         vc.stop()
                     await vc.disconnect(force=True)
@@ -302,7 +310,19 @@ class VoiceAssistant(commands.Cog):
         # Check existing connection
         existing = guild.voice_client
         if existing and existing.is_connected():
-            if existing.channel.id != target_vc.id:
+            if not isinstance(existing, voice_recv.VoiceRecvClient):
+                try:
+                    await existing.disconnect(force=True)
+                except Exception:
+                    pass
+                try:
+                    existing = await target_vc.connect(cls=voice_recv.VoiceRecvClient)
+                except Exception as ce:
+                    msg = f"❌ Failed to connect to voice channel: {ce}"
+                    if is_slash:
+                        return await ctx_or_interaction.followup.send(msg)
+                    return await ctx_or_interaction.send(msg)
+            elif existing.channel.id != target_vc.id:
                 await existing.move_to(target_vc)
         else:
             try:
@@ -314,6 +334,12 @@ class VoiceAssistant(commands.Cog):
                 return await ctx_or_interaction.send(msg)
 
         # Initialize voice receive sink
+        if hasattr(existing, "is_listening") and existing.is_listening():
+            try:
+                existing.stop_listening()
+            except Exception:
+                pass
+
         sink = VoiceSessionSink()
         try:
             existing.listen(sink)
