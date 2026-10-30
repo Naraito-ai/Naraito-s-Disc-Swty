@@ -124,36 +124,34 @@ class VoiceAssistant(commands.Cog):
 
     async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str) -> str:
         """Generates conversational, spoken-friendly AI reply from Gemini/Groq."""
-        prompt = (
+        system_instruction = (
             "You are Sweety, a charming, witty, friendly, and intelligent AI companion chatting live in a Discord voice channel.\n"
             "Rules for your response:\n"
-            "1. Answer in 1 to 2 short conversational sentences (under 30 words).\n"
+            "1. Answer in 1 to 2 short conversational sentences (under 35 words).\n"
             "2. Do NOT use markdown, asterisks, bullet points, emojis, or symbols because your output will be spoken aloud via text-to-speech.\n"
-            "3. Speak naturally, as if chatting on a phone call.\n\n"
-            f"User: {user.display_name}\n"
-            f"User said: \"{spoken_text}\"\n"
-            "Sweety's response:"
+            "3. Speak naturally, as if chatting on a live call."
         )
+        prompt = f"User {user.display_name} said: \"{spoken_text}\"\nPlease reply concisely and conversationally:"
 
-        # Call existing bot AI response generator if available, else direct fallback
+        # 1. Try primary Gemini AI engine
         try:
-            if hasattr(self.bot, "generate_ai_response"):
-                res = await self.bot.generate_ai_response(prompt, user_id=user.id, guild_id=user.guild.id)
-                if res and isinstance(res, str):
-                    return res.strip()
-        except Exception as e:
-            logger.warning(f"Error calling bot generate_ai_response: {e}")
-
-        # Fallback to direct Groq/Gemini HTTP query
-        from bot import query_gemini_api
-        try:
-            res = await query_gemini_api(prompt)
-            if res:
+            from bot import call_gemini_ai
+            res = await call_gemini_ai(prompt=prompt, system_instruction=system_instruction)
+            if res and isinstance(res, str) and len(res.strip()) > 0:
                 return res.strip()
         except Exception as e:
-            logger.warning(f"Error calling query_gemini_api for voice: {e}")
+            logger.warning(f"Error calling call_gemini_ai for voice: {e}")
 
-        return f"Hey {user.display_name}! I heard you, but my brain had a brief connection hiccup. Could you say that again?"
+        # 2. Fallback to Groq/Llama engine
+        try:
+            from bot import call_ai_generation
+            res = await call_ai_generation(prompt=prompt, system_instruction=system_instruction)
+            if res and isinstance(res, str) and len(res.strip()) > 0:
+                return res.strip()
+        except Exception as e:
+            logger.warning(f"Error calling call_ai_generation for voice: {e}")
+
+        return f"Hey {user.display_name}! I heard your message loud and clear."
 
     @tasks.loop(seconds=0.35)
     async def process_voice_buffers(self):
@@ -277,6 +275,97 @@ class VoiceAssistant(commands.Cog):
                 except Exception as e:
                     logger.debug(f"Error disconnecting voice client: {e}")
 
+    def is_voice_chat_channel(self, guild_id: int, channel_id: int) -> bool:
+        """Checks if a given channel is the active voice channel (or its chat) for this guild."""
+        session = self.sessions.get(guild_id)
+        if not session:
+            return False
+        vc = session.get("voice_client")
+        if not vc or not vc.is_connected():
+            return False
+        target_vc = session.get("voice_channel") or getattr(vc, "channel", None)
+        return bool(target_vc and target_vc.id == channel_id)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Answers with voice whenever members type text messages in the active voice channel."""
+        if not message.guild or message.author.bot:
+            return
+
+        content = message.content.strip()
+        if not content:
+            return
+
+        # Do not intercept prefix or slash commands
+        if content.startswith(('!', '/', '$', '.', '?')):
+            return
+
+        session = self.sessions.get(message.guild.id)
+        if not session:
+            return
+
+        vc = session.get("voice_client")
+        if not vc or not vc.is_connected():
+            return
+
+        target_vc = session.get("voice_channel") or getattr(vc, "channel", None)
+        text_channel = session.get("text_channel")
+
+        # Check if message is in the voice channel's text chat or the session text channel
+        is_in_vc_chat = bool(target_vc and message.channel.id == target_vc.id)
+        is_in_session_text = bool(text_channel and message.channel.id == text_channel.id)
+
+        user_in_vc = bool(
+            message.author.voice and message.author.voice.channel and target_vc and message.author.voice.channel.id == target_vc.id
+        )
+        bot_mentioned = bool(self.bot.user and self.bot.user in message.mentions) or "sweety" in content.lower()
+
+        # Trigger if typed in the voice channel itself, or if typed in session channel by participant or with mention
+        if not (is_in_vc_chat or (is_in_session_text and (user_in_vc or bot_mentioned))):
+            return
+
+        # Clean mention tags from query
+        clean_text = content
+        if self.bot.user:
+            clean_text = re.sub(rf'<@!?{self.bot.user.id}>', '', clean_text).strip()
+
+        if not clean_text:
+            clean_text = "Hey Sweety!"
+
+        logger.info(f"💬 [Voice Chat Text] {message.author.display_name} in #{getattr(message.channel, 'name', 'vc')}: '{clean_text}'")
+
+        try:
+            async with message.channel.typing():
+                # 1. Generate spoken-friendly AI reply
+                ai_reply = await self.generate_voice_ai_response(message.author, clean_text)
+                logger.info(f"🤖 [Voice Chat Reply] Sweety -> '{ai_reply}'")
+
+                # 2. Synthesize Neural TTS
+                voice_name = session.get("voice", DEFAULT_VOICE)
+                audio_file = await self.generate_speech_audio(ai_reply, voice=voice_name)
+
+                # 3. Play audio into voice channel
+                def cleanup_after(err):
+                    try:
+                        if os.path.exists(audio_file):
+                            os.remove(audio_file)
+                    except Exception:
+                        pass
+
+                if vc.is_connected():
+                    if vc.is_playing():
+                        vc.stop()
+                    vc.play(discord.FFmpegPCMAudio(audio_file), after=cleanup_after)
+
+                # 4. Reply in text chat with transcript so members can read and hear simultaneously
+                embed = discord.Embed(
+                    description=f"🗣️ **{message.author.display_name}:** *\"{clean_text}\"*\n🎙️ **Sweety:** {ai_reply}",
+                    color=discord.Color.from_rgb(180, 140, 255)
+                )
+                await message.reply(embed=embed, mention_author=False)
+        except Exception as e:
+            logger.error(f"Error handling voice chat text response: {e}", exc_info=True)
+
     # ── Voice Assistant Commands ─────────────────────────────────────────────
 
     @app_commands.command(name="voicechat", description="Connect Sweety to your voice channel to talk with her live via mic!")
@@ -349,13 +438,14 @@ class VoiceAssistant(commands.Cog):
         text_channel = ctx_or_interaction.channel
         self.sessions[guild.id] = {
             "voice_client": existing,
+            "voice_channel": target_vc,
             "sink": sink,
             "text_channel": text_channel,
             "voice": DEFAULT_VOICE
         }
 
         # Play welcome greeting in voice!
-        welcome_text = f"Hey {user.display_name}! I joined your voice call. Speak into your mic whenever you want to talk to me!"
+        welcome_text = f"Hey {user.display_name}! I joined your voice call. Speak into your mic or type here whenever you want to talk to me!"
         welcome_audio = await self.generate_speech_audio(welcome_text, voice=DEFAULT_VOICE)
         if existing.is_connected() and not existing.is_playing():
             existing.play(discord.FFmpegPCMAudio(welcome_audio), after=lambda _: os.remove(welcome_audio) if os.path.exists(welcome_audio) else None)
@@ -365,9 +455,9 @@ class VoiceAssistant(commands.Cog):
             description=(
                 f"Connected to **{target_vc.name}**!\n\n"
                 "**How to Talk to Sweety:**\n"
-                "• Simply speak into your mic in the voice channel.\n"
-                "• When you pause, Sweety will transcribe your speech and answer out loud!\n\n"
-                "• Use `/voiceset` or `!voiceset` to change her voice.\n"
+                "• **Via Microphone:** Simply speak into your mic in the voice channel. When you pause, Sweety answers out loud!\n"
+                "• **Via Text Chat:** Type any message in this voice channel's chat, and Sweety will answer out loud with voice!\n\n"
+                "• Use `/voiceset` or `!voiceset` to change her voice persona.\n"
                 "• Click **Disconnect** below or type `!leavevoice` when finished."
             ),
             color=discord.Color.from_rgb(180, 140, 255)

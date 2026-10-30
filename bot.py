@@ -30541,6 +30541,10 @@ async def on_message(message):
 
     # ── AI Auto-Reply to Questions, User Mentions & Direct Messages (DMs) ────
     if not message.author.bot:
+        if message.guild:
+            va_cog = bot.cogs.get("VoiceAssistant")
+            if va_cog and hasattr(va_cog, "is_voice_chat_channel") and va_cog.is_voice_chat_channel(message.guild.id, message.channel.id):
+                return
         is_dm = message.guild is None
         # In DMs, do not process commands as raw AI queries (let bot.process_commands handle them)
         if is_dm and message.content.strip().startswith(('!', '/', '$', '.')):
