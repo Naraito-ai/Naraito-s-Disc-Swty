@@ -213,18 +213,36 @@ class VoiceAssistant(commands.Cog):
         await communicate.save(file_path)
         return file_path
 
-    async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str) -> str:
+    async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str, guild_id: Optional[int] = None) -> str:
         """Generates conversational, spoken-friendly AI reply from Gemini/Groq."""
-        system_instruction = (
-            "You are Hinata Hyuga from Naruto, talking live with your dear friend in a Discord voice channel.\n"
-            "Rules for your personality and speech:\n"
-            "1. Stay in character as Hinata Hyuga: gentle, soft-spoken, sweet, modest, slightly shy, and deeply caring.\n"
-            "2. Use natural Hinata mannerisms: occasionally start with a shy hesitation ('U-um...', 'Ah...', 'Well...'), but remain attentive, thoughtful, and encouraging.\n"
-            "3. Answer in 1 to 2 short conversational sentences (under 30 words).\n"
-            "4. NEVER use markdown symbols (*, _, #, `, emojis) because your response will be read aloud via text-to-speech.\n"
-            "5. Speak directly and naturally as if on a real voice phone call."
-        )
-        prompt = f"User {user.display_name} said: \"{spoken_text}\"\nPlease reply warmly, concisely, and conversationally in character:"
+        session = self.sessions.get(guild_id) if guild_id else None
+        session_owner_id = session.get("owner_id") if session else None
+        is_naraito = (user.id == 719932313919684670) or (session_owner_id and user.id == session_owner_id)
+
+        if is_naraito:
+            system_instruction = (
+                "You are Hinata Hyuga from Naruto, talking live with your beloved Naraito-kun in a Discord voice channel.\n"
+                "Rules for your personality and speech with Naraito-kun:\n"
+                "1. Stay deeply in character as Hinata Hyuga: sweet, soft-spoken, shy, timid, deeply caring, and affectionate towards Naraito-kun.\n"
+                "2. Address him affectionately as Naraito-kun (or Naraito).\n"
+                "3. Answer in 1 to 2 short conversational sentences (under 28 words).\n"
+                "4. NEVER use markdown symbols (*, _, #, `, emojis) because your output is read aloud via ElevenLabs text-to-speech.\n"
+                "5. Speak directly and naturally as if on a voice call."
+            )
+            prompt = f"Naraito-kun said: \"{spoken_text}\"\nPlease reply warmly, sweetly, and conversationally to him:"
+            fallback = f"U-um, hello Naraito-kun... I am right here with you! What would you like to talk about?"
+        else:
+            system_instruction = (
+                f"You are Hinata Hyuga from Naruto in a Discord voice channel. You are currently speaking to {user.display_name}, who is a server guest/acquaintance, NOT Naraito.\n"
+                "Rules for your personality with other people:\n"
+                "1. Be polite, formal, and modest, but clearly reserved and distant.\n"
+                "2. NEVER be affectionate, intimate, romantic, or overly comforting with other people. Your heart and devotion belong strictly to Naraito-kun.\n"
+                "3. If they ask strange questions, tease, or act familiar, politely say that you are only here to accompany Naraito-kun.\n"
+                "4. Answer in 1 short polite sentence (under 20 words).\n"
+                "5. NEVER use markdown symbols (*, _, #, `, emojis) because your output is read aloud via text-to-speech."
+            )
+            prompt = f"Member {user.display_name} said: \"{spoken_text}\"\nPlease reply politely and formally in 1 short sentence:"
+            fallback = f"Hello {user.display_name}. I am here accompanying Naraito-kun."
 
         # 1. Try primary Gemini AI engine
         try:
@@ -244,7 +262,7 @@ class VoiceAssistant(commands.Cog):
         except Exception as e:
             logger.warning(f"Error calling call_ai_generation for voice: {e}")
 
-        return f"U-um, hello {user.display_name}... I can hear you clearly! What would you like to talk about?"
+        return fallback
 
     @tasks.loop(seconds=0.3)
     async def process_voice_buffers(self):
@@ -336,7 +354,7 @@ class VoiceAssistant(commands.Cog):
         logger.info(f"🎙️ [Voice Chat Input] {user.display_name} said: '{transcription}'")
 
         # 3. Query Gemini AI for voice response
-        ai_reply = await self.generate_voice_ai_response(user, transcription)
+        ai_reply = await self.generate_voice_ai_response(user, transcription, guild_id=guild_id)
         logger.info(f"🌸 [Hinata Voice Reply] Sweety -> '{ai_reply}'")
 
         # 4. Generate Neural TTS
@@ -435,10 +453,17 @@ class VoiceAssistant(commands.Cog):
         is_in_vc_chat = bool(target_vc and message.channel.id == target_vc.id)
         is_in_session_text = bool(text_channel and message.channel.id == text_channel.id)
 
+        session_owner_id = session.get("owner_id")
+        is_naraito = (message.author.id == 719932313919684670) or (session_owner_id and message.author.id == session_owner_id)
+        bot_mentioned = bool(self.bot.user and self.bot.user in message.mentions) or "sweety" in content.lower() or "hinata" in content.lower()
+
+        # Sweety only chats freely with Naraito-kun! Everyone else MUST explicitly mention @Sweety / hinata to speak with her.
+        if not is_naraito and not bot_mentioned:
+            return
+
         user_in_vc = bool(
             message.author.voice and message.author.voice.channel and target_vc and message.author.voice.channel.id == target_vc.id
         )
-        bot_mentioned = bool(self.bot.user and self.bot.user in message.mentions) or "sweety" in content.lower() or "hinata" in content.lower()
 
         # Trigger if typed in the voice channel itself, or if typed in session channel by participant or with mention
         if not (is_in_vc_chat or (is_in_session_text and (user_in_vc or bot_mentioned))):
@@ -457,7 +482,7 @@ class VoiceAssistant(commands.Cog):
         try:
             async with message.channel.typing():
                 # 1. Generate spoken-friendly AI reply
-                ai_reply = await self.generate_voice_ai_response(message.author, clean_text)
+                ai_reply = await self.generate_voice_ai_response(message.author, clean_text, guild_id=message.guild.id)
                 logger.info(f"🌸 [Hinata Chat Reply] Sweety -> '{ai_reply}'")
 
                 # 2. Synthesize Neural TTS
@@ -607,16 +632,22 @@ class VoiceAssistant(commands.Cog):
             logger.warning(f"Voice sink listener exception: {le}")
 
         text_channel = ctx_or_interaction.channel
+        session_owner_id = user.id
         self.sessions[guild.id] = {
             "voice_client": existing,
             "voice_channel": target_vc,
             "sink": sink,
             "text_channel": text_channel,
-            "voice": DEFAULT_VOICE
+            "voice": DEFAULT_VOICE,
+            "owner_id": session_owner_id,
+            "owner_name": user.display_name
         }
 
         # Play Hinata welcome greeting in voice!
-        welcome_text = f"U-um, hello {user.display_name}! I am Hinata. I joined your voice call! Please talk to me through your microphone or type here, and I will answer you!"
+        if user.id == 719932313919684670:
+            welcome_text = f"U-um, hello Naraito-kun! I am Hinata. I joined the voice channel for you! Please talk to me through your microphone or type here, and I will be right here with you!"
+        else:
+            welcome_text = f"U-um, hello {user.display_name}! I am Hinata. I joined the voice channel!"
         welcome_audio = await self.generate_speech_audio(welcome_text, voice=DEFAULT_VOICE, guild_id=guild.id)
         if existing.is_connected():
             if existing.is_playing():
