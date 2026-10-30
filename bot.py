@@ -33,7 +33,7 @@ import aiohttp
 from typing import Optional, Union, List, Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from database import db
-from utils import get_or_create_ballers_role, assign_ballers_role, sync_all_ballers_roles, parse_natural_language_command, SWEETY_TRIGGER_REGEX
+from utils import get_or_create_ballers_role, assign_ballers_role, sync_all_ballers_roles, parse_natural_language_command, SWEETY_TRIGGER_REGEX, create_server_rejoin_invite, find_appeal_guild_for_user
 
 def clean_memory():
     """Aggressively runs Python garbage collection and trims glibc heap memory on Linux to stay well under Render 512MB limit."""
@@ -17072,7 +17072,7 @@ class StrikeAppealModal(discord.ui.Modal, title="Submit Strike / Warning Appeal"
     reason_input = discord.ui.TextInput(
         label="Reason for appeal",
         style=discord.TextStyle.paragraph,
-        placeholder="Explain why this warning or strike should be appealed...",
+        placeholder="Explain why this warning, timeout, or ban should be appealed...",
         required=True,
         min_length=10,
         max_length=1000
@@ -17085,31 +17085,101 @@ class StrikeAppealModal(discord.ui.Modal, title="Submit Strike / Warning Appeal"
         max_length=1000
     )
 
+    def __init__(self, guild_id: Optional[int] = None):
+        super().__init__()
+        self.guild_id = guild_id
+
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         user = interaction.user
         guild = interaction.guild
 
-        # If launched from DM, locate the target guild
+        is_banned = False
+        ban_info = None
+
+        if self.guild_id:
+            guild = interaction.client.get_guild(self.guild_id)
+
+        # If launched from DM or server not known, locate target guild accurately
         if not guild:
-            for g in interaction.client.guilds:
-                if g.get_member(user.id):
-                    active_mute = await db.get_active_mute(g.id, user.id)
-                    warnings = await db.get_warnings(g.id, user.id)
-                    if active_mute or len(warnings) >= 1:
-                        guild = g
-                        break
-            if not guild and interaction.client.guilds:
-                for g in interaction.client.guilds:
-                    if g.get_member(user.id):
-                        guild = g
-                        break
+            guild, is_banned, ban_info = await find_appeal_guild_for_user(
+                interaction.client,
+                user,
+                explicit_text=self.reason_input.value
+            )
 
         if not guild:
-            await interaction.followup.send("❌ Could not find a server with active strikes or warnings to submit your appeal.", ephemeral=True)
+            await interaction.followup.send(
+                "❌ Could not find a server where you have an active ban, strike, warning, or timeout to submit an appeal.\n"
+                "💡 If you were banned from a specific server, you can submit your appeal in DMs via: `!appeal <server_id> <your reason>`",
+                ephemeral=True
+            )
             return
 
-        # Check existing active ticket
+        # Double check if banned from guild
+        if not is_banned:
+            try:
+                b_check = await guild.fetch_ban(user)
+                if b_check:
+                    is_banned = True
+                    ban_info = b_check
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                pass
+
+        # Branch 1: User is BANNED from this guild -> Route directly to staff channels (#mod-logs)
+        if is_banned or guild.get_member(user.id) is None:
+            mod_chan = await get_mod_log_channel(guild)
+            if not mod_chan:
+                for cat in guild.categories:
+                    if any(term in cat.name.lower() for term in ["staff", "mod", "ticket", "admin"]):
+                        for c in cat.text_channels:
+                            if c.permissions_for(guild.me).send_messages:
+                                mod_chan = c
+                                break
+                    if mod_chan:
+                        break
+            if not mod_chan:
+                for c in guild.text_channels:
+                    c_name = c.name.lower()
+                    if any(term in c_name for term in ["mod", "staff", "log", "appeal", "audit", "admin"]) and c.permissions_for(guild.me).send_messages:
+                        mod_chan = c
+                        break
+            if not mod_chan:
+                mod_chan = guild.system_channel
+
+            if not mod_chan or not mod_chan.permissions_for(guild.me).send_messages:
+                await interaction.followup.send(
+                    f"❌ Failed to submit ban appeal for **{guild.name}**: No accessible staff channel found. Please contact the server owner directly.",
+                    ephemeral=True
+                )
+                return
+
+            ban_reason_str = ban_info.reason if (ban_info and ban_info.reason) else "No reason recorded"
+            staff_embed = discord.Embed(
+                title=f"⚖️ Ban Appeal Submitted — {user}",
+                description=f"A banned user has submitted an appeal for **{guild.name}** via direct message.",
+                color=discord.Color.orange(),
+                timestamp=datetime.datetime.utcnow()
+            )
+            staff_embed.set_thumbnail(url=user.display_avatar.url)
+            staff_embed.add_field(name="👤 User", value=f"{user.mention} (`{user.name}` | ID: `{user.id}`)", inline=True)
+            staff_embed.add_field(name="🔨 Original Ban Reason", value=ban_reason_str[:500], inline=True)
+            staff_embed.add_field(name="📝 User's Appeal Statement", value=self.reason_input.value[:1000], inline=False)
+            if self.extra_input.value:
+                staff_embed.add_field(name="ℹ️ Additional Context", value=self.extra_input.value[:1000], inline=False)
+            staff_embed.set_footer(text=f"Ban Appeal • Sweety Moderation • Guild ID: {guild.id}")
+
+            view = BanAppealDecisionView(guild_id=guild.id, user_id=user.id, user_name=user.name)
+            await mod_chan.send(embed=staff_embed, view=view)
+
+            await interaction.followup.send(
+                f"✅ **Your ban appeal has been submitted directly to the staff of {guild.name}!**\n"
+                f"Server moderators will review your appeal. If accepted, you will receive an unban notification and rejoin link right here in DMs.",
+                ephemeral=True
+            )
+            return
+
+        # Branch 2: Active Member (Strike/Warning/Timeout) -> Open interactive appeal channel ticket
         active_ticket = await db.get_active_appeal_by_user(guild.id, user.id)
         if active_ticket:
             await interaction.followup.send(f"ℹ️ You already have an open appeal ticket pending review in **{guild.name}**.", ephemeral=True)
@@ -17129,28 +17199,47 @@ class StrikeAppealModal(discord.ui.Modal, title="Submit Strike / Warning Appeal"
 
 
 class DMAppealLauncherView(discord.ui.View):
-    """Persistent view attached to warning/strike DMs and server appeal panels."""
-    def __init__(self):
+    """Persistent view attached to warning/strike/ban DMs and server appeal panels."""
+    def __init__(self, guild_id: Optional[int] = None):
         super().__init__(timeout=None)
+        self.guild_id = guild_id
 
-    @discord.ui.button(label="📩 Submit Strike Appeal", style=discord.ButtonStyle.primary, custom_id="btn_submit_dm_appeal")
+    @discord.ui.button(label="📩 Submit Appeal", style=discord.ButtonStyle.primary, custom_id="btn_submit_dm_appeal")
     async def open_appeal_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(StrikeAppealModal())
+        await interaction.response.send_modal(StrikeAppealModal(guild_id=self.guild_id))
 
     @discord.ui.button(label="📜 Check My Infractions", style=discord.ButtonStyle.secondary, custom_id="btn_appeal_check_status")
     async def check_my_status(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
         user = interaction.user
+
+        if self.guild_id:
+            guild = interaction.client.get_guild(self.guild_id)
+
         if not guild:
-            for g in interaction.client.guilds:
-                if g.get_member(user.id):
-                    warns = await db.get_warnings(g.id, user.id)
-                    mute = await db.get_active_mute(g.id, user.id)
-                    if warns or mute:
-                        guild = g
-                        break
+            guild, is_banned, _ = await find_appeal_guild_for_user(interaction.client, user)
+
         if not guild:
-            await interaction.response.send_message("ℹ️ No active infraction record found for you.", ephemeral=True)
+            await interaction.response.send_message("ℹ️ No active infraction record or active ban found for you across Sweety servers.", ephemeral=True)
+            return
+
+        # Check ban status
+        try:
+            ban_entry = await guild.fetch_ban(user)
+        except Exception:
+            ban_entry = None
+
+        if ban_entry:
+            embed = discord.Embed(
+                title=f"🔨 Ban Status — {guild.name}",
+                color=discord.Color.red(),
+                timestamp=datetime.datetime.utcnow()
+            )
+            embed.add_field(name="Account", value=f"{user.mention} (`{user.id}`)", inline=True)
+            embed.add_field(name="Status", value="**Banned**", inline=True)
+            embed.add_field(name="Reason", value=ban_entry.reason or "No reason provided", inline=False)
+            embed.set_footer(text="Click 'Submit Appeal' to submit an appeal to server staff.")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         warns = await db.get_warnings(guild.id, user.id)
@@ -17158,7 +17247,7 @@ class DMAppealLauncherView(discord.ui.View):
         strike_count = len(warns) if warns else 0
 
         embed = discord.Embed(
-            title=f"📜 Infraction Status — {user.display_name}",
+            title=f"📜 Infraction Status — {user.display_name} ({guild.name})",
             color=discord.Color.gold() if (warns or mute) else discord.Color.green(),
             timestamp=datetime.datetime.utcnow()
         )
@@ -17180,7 +17269,7 @@ class DMAppealLauncherView(discord.ui.View):
         else:
             embed.add_field(name="Record", value="✅ You currently have a clean record with 0 warnings.", inline=False)
 
-        embed.set_footer(text="Click 'Submit Strike Appeal' if you wish to appeal a strike or timeout.")
+        embed.set_footer(text="Click 'Submit Appeal' if you wish to appeal a strike, timeout, or ban.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
@@ -17609,6 +17698,68 @@ class AppealReviewView(discord.ui.View):
                 except Exception:
                     member = None
 
+        # Check if user is currently banned in the guild
+        is_user_banned = False
+        target_user = member
+        if not target_user:
+            try:
+                target_user = await interaction.client.fetch_user(target_uid)
+            except Exception:
+                target_user = None
+
+        if guild:
+            try:
+                ban_entry = await guild.fetch_ban(discord.Object(id=target_uid))
+                if ban_entry:
+                    is_user_banned = True
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                is_user_banned = False
+
+        rejoin_invite_url = None
+        if is_user_banned and guild:
+            # 1. Unban the user from the guild
+            try:
+                unban_target = target_user or discord.Object(id=target_uid)
+                await guild.unban(unban_target, reason=f"Ban appeal accepted in ticket #{interaction.channel.name} by {interaction.user.display_name}")
+            except Exception as unban_err:
+                logger.error(f"Error unbanning user {target_uid} in appeal ticket: {unban_err}")
+
+            # 2. Generate guaranteed single-use rejoin invite
+            rejoin_invite_url = await create_server_rejoin_invite(guild)
+
+            # 3. Direct Message the user celebratory rejoin notice
+            dm_delivered = False
+            if target_user:
+                try:
+                    accept_embed = discord.Embed(
+                        title=f"🎉 Ban Appeal Accepted: {guild.name}",
+                        description=(
+                            f"Congratulations! Your ban appeal for **{guild.name}** was **ACCEPTED** by **{interaction.user.display_name}**.\n\n"
+                            f"🔗 **Your Server Rejoin Invite:**\n{rejoin_invite_url}\n\n"
+                            f"*(This invite is valid for 7 days. Please follow all server rules upon rejoining.)*"
+                        ),
+                        color=discord.Color.green(),
+                        timestamp=datetime.datetime.utcnow()
+                    )
+                    accept_embed.set_footer(text="Sweety Moderation • Welcome back!")
+                    await target_user.send(embed=accept_embed)
+                    dm_delivered = True
+                except Exception as dme:
+                    logger.debug(f"Could not DM unbanned user {target_uid}: {dme}")
+
+            # 4. Notify staff in ticket channel
+            ticket_notice = f"✅ **Ban Appeal Accepted!** User <@{target_uid}> has been unbanned by {interaction.user.mention}."
+            if dm_delivered:
+                ticket_notice += f"\n📬 Rejoin invite (`{rejoin_invite_url}`) successfully sent to user's DMs."
+            else:
+                ticket_notice += f"\n⚠️ **Note:** User's DMs are closed or inaccessible. Staff can manually send them this rejoin invite:\n`{rejoin_invite_url}`"
+            await interaction.channel.send(ticket_notice)
+
+            try:
+                await log_mod_action(guild, interaction.user, target_user or discord.Object(id=target_uid), "Ban Appeal Accepted", f"Unbanned in appeal ticket #{interaction.channel.name}")
+            except Exception:
+                pass
+
         # Unmute member if muted: remove native timeout + @Muted role
         if member:
             try:
@@ -17623,7 +17774,7 @@ class AppealReviewView(discord.ui.View):
             except Exception as re:
                 logger.warning(f"Could not remove @Muted role for {target_uid}: {re}")
 
-            # Send DM to user
+            # Send DM to active member
             try:
                 accept_embed = discord.Embed(
                     title="✅ Warning / Strike Appeal Accepted",
@@ -17654,30 +17805,20 @@ class AppealReviewView(discord.ui.View):
         except Exception as res_err:
             logger.error(f"Error resolving appeal ticket in DB: {res_err}")
 
-        # Update review buttons
+        # Disable buttons
         for item in self.children:
-            if getattr(item, "custom_id", "") in ("btn_appeal_accept", "btn_appeal_deny"):
-                item.disabled = True
-        
-        status_embed = discord.Embed(
-            title="✅ Appeal Accepted & Record Updated",
-            description=(
-                f"• **Reviewed by:** {interaction.user.mention} (`{interaction.user.id}`)\n"
-                f"• **Target User:** <@{target_uid}> (`{target_uid}`)\n"
-                f"• **Action Taken:** 1 Warning/strike cleared from DB, timeout/mute removed if active, and DM confirmation sent.\n"
-                f"• **Timestamp:** <t:{int(time.time())}:F>"
-            ),
-            color=discord.Color.green()
-        )
+            item.disabled = True
         try:
-            if interaction.message:
-                await interaction.message.edit(view=self)
-        except Exception as edit_err:
-            logger.debug(f"Could not edit appeal message buttons: {edit_err}")
+            await interaction.message.edit(view=self)
+        except Exception:
+            pass
 
-        await interaction.channel.send(embed=status_embed)
-        if guild:
-            asyncio.create_task(log_mod_action(guild, interaction.user, member or target_uid, "Strike Appeal Accepted", f"Accepted appeal for user ID {target_uid} (1 strike cleared)"))
+        rejoin_note = f"\n🔗 **Rejoin Invite:** {rejoin_invite_url}" if rejoin_invite_url else ""
+        await interaction.followup.send(
+            f"✅ **Appeal Accepted!** The warning/strike/ban record for <@{target_uid}> has been cleared.{rejoin_note}\n"
+            f"This ticket channel will automatically be closed and archived when you click **Close Ticket**.",
+            ephemeral=False
+        )
 
     @discord.ui.button(label="Deny Appeal", style=discord.ButtonStyle.danger, emoji="❌", custom_id="btn_appeal_deny")
     async def deny_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -18162,6 +18303,7 @@ class GeminiBot(commands.Bot):
         self.add_view(AppealReviewView())
         self.add_view(SupportTicketControlView())
         self.add_view(TicketPanelLauncherView())
+        self.add_view(BanAppealDecisionView())
 
     @tasks.loop(minutes=5)
     async def check_expired_mutes(self):
@@ -23913,105 +24055,167 @@ async def pings_slash_cmd(interaction: discord.Interaction, action: Optional[app
 
 class BanAppealDecisionView(discord.ui.View):
     """Staff decision view for ban appeals with Accept & Deny buttons."""
-    def __init__(self, guild_id: int, user_id: int, user_name: str):
+    def __init__(self, guild_id: int = 0, user_id: int = 0, user_name: str = ""):
         super().__init__(timeout=None)
         self.guild_id = guild_id
         self.user_id = user_id
         self.user_name = user_name
 
+    def _extract_context_from_interaction(self, interaction: discord.Interaction):
+        """Helper to recover guild_id, user_id, and user_name across bot reboots."""
+        guild = interaction.guild or (interaction.client.get_guild(self.guild_id) if self.guild_id else None)
+        target_uid = self.user_id
+        target_name = self.user_name
+
+        if interaction.message and interaction.message.embeds:
+            emb = interaction.message.embeds[0]
+            # Extract guild ID from footer if self.guild_id is 0
+            if not guild and emb.footer and emb.footer.text:
+                m_g = re.search(r'Guild ID:\s*(\d{17,20})', emb.footer.text)
+                if m_g:
+                    guild = interaction.client.get_guild(int(m_g.group(1)))
+
+            # Extract user_id from fields
+            if not target_uid:
+                for field in emb.fields:
+                    m_u = re.search(r'ID:\s*`?(\d{17,20})`?', field.value)
+                    if m_u:
+                        target_uid = int(m_u.group(1))
+                    m_n = re.search(r'`([^`]+)`\s*\|\s*ID:', field.value)
+                    if m_n:
+                        target_name = m_n.group(1)
+
+        return guild, target_uid, target_name
+
     @discord.ui.button(label="Accept & Unban", style=discord.ButtonStyle.success, emoji="✅", custom_id="btn_accept_ban_appeal")
     async def accept_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
-        guild = interaction.client.get_guild(self.guild_id)
+        guild, target_uid, target_name = self._extract_context_from_interaction(interaction)
+
         if not guild:
-            return await interaction.response.send_message("❌ Server not found.", ephemeral=True)
+            return await interaction.response.send_message("❌ Server context could not be determined. Please unban the user manually.", ephemeral=True)
 
         if not (is_protected(interaction.user) or interaction.user.guild_permissions.ban_members):
             return await interaction.response.send_message("❌ You do not have permission to unban members.", ephemeral=True)
 
         await interaction.response.defer()
 
-        # Unban user
+        # Fetch Discord user
+        user = None
+        if target_uid:
+            try:
+                user = await interaction.client.fetch_user(target_uid)
+            except Exception:
+                user = None
+
+        unban_target = user or (discord.Object(id=target_uid) if target_uid else None)
+        if not unban_target:
+            return await interaction.followup.send("❌ Could not determine user to unban.", ephemeral=True)
+
+        # 1. Unban user from guild
         try:
-            user = await interaction.client.fetch_user(self.user_id)
-            await guild.unban(user, reason=f"Ban appeal accepted by {interaction.user}")
+            await guild.unban(unban_target, reason=f"Ban appeal accepted by {interaction.user}")
         except Exception as e:
-            return await interaction.followup.send(f"❌ Failed to unban user: {e}", ephemeral=True)
+            return await interaction.followup.send(f"❌ Failed to unban user from server: {e}", ephemeral=True)
 
-        # Create single-use invite
-        invite_url = "https://discord.gg/"
-        try:
-            fallback_channel = guild.system_channel
-            if not fallback_channel:
-                for c in guild.text_channels:
-                    if c.permissions_for(guild.me).create_instant_invite:
-                        fallback_channel = c
-                        break
-            if fallback_channel and fallback_channel.permissions_for(guild.me).create_instant_invite:
-                inv = await fallback_channel.create_invite(max_uses=1, unique=True, reason="Ban appeal accepted invite")
-                invite_url = inv.url
-        except Exception:
-            pass
+        # 2. Create guaranteed single-use rejoin invite link
+        invite_url = await create_server_rejoin_invite(guild)
 
-        # DM the user
-        try:
-            dm_embed = discord.Embed(
-                title=f"🎉 Ban Appeal Accepted: {guild.name}",
-                description=(
-                    f"Congratulations! Your ban appeal for **{guild.name}** was **ACCEPTED** by {interaction.user.mention}.\n\n"
-                    f"🔗 **Your Rejoin Invite:** {invite_url}\n\n"
-                    f"Please review the server rules upon returning."
-                ),
-                color=discord.Color.green()
-            )
-            await user.send(embed=dm_embed)
-        except Exception:
-            pass
+        # 3. Deliver celebratory unban DM with rejoin link
+        dm_sent = False
+        if user:
+            try:
+                dm_embed = discord.Embed(
+                    title=f"🎉 Ban Appeal Accepted: {guild.name}",
+                    description=(
+                        f"Congratulations! Your ban appeal for **{guild.name}** was **ACCEPTED** by {interaction.user.mention}.\n\n"
+                        f"🔗 **Your Server Rejoin Invite:**\n{invite_url}\n\n"
+                        f"*(This invite is valid for 7 days. Please review and adhere to all server rules upon rejoining.)*"
+                    ),
+                    color=discord.Color.green(),
+                    timestamp=datetime.datetime.utcnow()
+                )
+                dm_embed.set_footer(text="Sweety Moderation • Welcome back!")
+                await user.send(embed=dm_embed)
+                dm_sent = True
+            except Exception as dm_err:
+                logger.debug(f"Could not DM unbanned user {target_uid}: {dm_err}")
 
+        # Disable buttons
         for item in self.children:
             item.disabled = True
 
         orig_embed = interaction.message.embeds[0] if interaction.message.embeds else discord.Embed()
         orig_embed.color = discord.Color.green()
-        orig_embed.add_field(name="⚖️ Resolution", value=f"✅ **Accepted & Unbanned** by {interaction.user.mention}", inline=False)
-        await interaction.message.edit(embed=orig_embed, view=self)
-        await interaction.followup.send(f"✅ Unbanned **{self.user_name}** and sent a rejoin invite.", ephemeral=True)
+        resolution_text = f"✅ **Accepted & Unbanned** by {interaction.user.mention}\n🔗 **Rejoin Invite:** {invite_url}"
+        if not dm_sent:
+            resolution_text += "\n⚠️ *User's DMs are closed; staff must send invite manually.*"
+        orig_embed.add_field(name="⚖️ Resolution", value=resolution_text, inline=False)
+
         try:
-            await log_mod_action(guild, interaction.user, user, "Ban Appeal Accepted", "Unbanned via DM appeal panel")
+            await interaction.message.edit(embed=orig_embed, view=self)
+        except Exception:
+            pass
+
+        followup_msg = f"✅ Successfully unbanned **{target_name or target_uid}**."
+        if dm_sent:
+            followup_msg += f" Rejoin invite (`{invite_url}`) sent to their DMs."
+        else:
+            followup_msg += f"\n⚠️ **User's DMs are closed.** Please send them the invite manually:\n`{invite_url}`"
+
+        await interaction.followup.send(followup_msg, ephemeral=True)
+
+        try:
+            await log_mod_action(guild, interaction.user, user or unban_target, "Ban Appeal Accepted", f"Unbanned via DM appeal panel. Invite: {invite_url}")
         except Exception:
             pass
 
     @discord.ui.button(label="Deny Appeal", style=discord.ButtonStyle.danger, emoji="❌", custom_id="btn_deny_ban_appeal")
     async def deny_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
-        guild = interaction.client.get_guild(self.guild_id)
+        guild, target_uid, target_name = self._extract_context_from_interaction(interaction)
+
         if not guild:
-            return await interaction.response.send_message("❌ Server not found.", ephemeral=True)
+            return await interaction.response.send_message("❌ Server context could not be determined.", ephemeral=True)
 
         if not (is_protected(interaction.user) or interaction.user.guild_permissions.ban_members):
             return await interaction.response.send_message("❌ You do not have permission to deny ban appeals.", ephemeral=True)
 
         await interaction.response.defer()
 
-        try:
-            user = await interaction.client.fetch_user(self.user_id)
-            dm_embed = discord.Embed(
-                title=f"❌ Ban Appeal Denied: {guild.name}",
-                description=f"Your ban appeal for **{guild.name}** was reviewed and **DENIED** by server staff.",
-                color=discord.Color.red()
-            )
-            await user.send(embed=dm_embed)
-        except Exception:
-            pass
+        user = None
+        if target_uid:
+            try:
+                user = await interaction.client.fetch_user(target_uid)
+            except Exception:
+                user = None
+
+        if user:
+            try:
+                dm_embed = discord.Embed(
+                    title=f"❌ Ban Appeal Denied: {guild.name}",
+                    description=f"Your ban appeal for **{guild.name}** was reviewed and **DENIED** by server staff.",
+                    color=discord.Color.red(),
+                    timestamp=datetime.datetime.utcnow()
+                )
+                await user.send(embed=dm_embed)
+            except Exception:
+                pass
 
         for item in self.children:
             item.disabled = True
 
         orig_embed = interaction.message.embeds[0] if interaction.message.embeds else discord.Embed()
         orig_embed.color = discord.Color.red()
-        orig_embed.add_field(name="⚖️ Resolution", value=f"❌ **Denied** by {interaction.user.mention}", inline=False)
-        await interaction.message.edit(embed=orig_embed, view=self)
-        await interaction.followup.send(f"❌ Denied ban appeal for **{self.user_name}**.", ephemeral=True)
+        orig_embed.add_field(name="⚖️ Resolution", value=f"❌ **Denied** by {interaction.user.mention} (Ban remains active)", inline=False)
+        try:
+            await interaction.message.edit(embed=orig_embed, view=self)
+        except Exception:
+            pass
 
-
+        await interaction.followup.send(f"❌ Ban appeal for **{target_name or target_uid}** has been denied.", ephemeral=True)
+        try:
+            await log_mod_action(guild, interaction.user, user or target_uid, "Ban Appeal Denied", "Ban appeal rejected by staff")
+        except Exception:
+            pass
 
 
 # ── Server Rules Ingestion & Citation Engine ────────────────────────────────
@@ -29808,10 +30012,10 @@ async def on_message(message):
             appeal_reason = content[7:].strip()
             if not appeal_reason:
                 embed = discord.Embed(
-                    title="📩 Submit a Strike / Timeout Appeal",
+                    title="📩 Submit a Strike / Timeout / Ban Appeal",
                     description=(
                         "**Usage:** `!appeal <your reason here>`\n"
-                        "**Example:** `!appeal I apologize for the misunderstanding and would like to appeal my strike.`\n\n"
+                        "**Example:** `!appeal I apologize for the misunderstanding and would like to appeal.`\n\n"
                         "Or click the button below to open the interactive appeal form modal!"
                     ),
                     color=discord.Color.blue()
@@ -29820,57 +30024,22 @@ async def on_message(message):
                 await message.reply(embed=embed, view=view)
                 return
 
-            target_guild = None
-            is_banned_appeal = False
-            ban_info = None
+            target_guild, is_banned_appeal, ban_info = await find_appeal_guild_for_user(
+                bot,
+                message.author,
+                explicit_text=appeal_reason
+            )
 
-            # First: check if user is a member with active strikes, mutes, or warnings
-            for g in bot.guilds:
-                if g.get_member(message.author.id):
-                    active_mute = await db.get_active_mute(g.id, message.author.id)
-                    warnings = await db.get_warnings(g.id, message.author.id)
-                    if active_mute or len(warnings) >= 1:
-                        target_guild = g
-                        break
+            # If user provided guild ID as first word, strip it from appeal reason
+            words = appeal_reason.split()
+            if words and words[0].isdigit() and target_guild and int(words[0]) == target_guild.id:
+                appeal_reason = " ".join(words[1:]).strip() or "No reason provided"
 
             if not target_guild:
-                for g in bot.guilds:
-                    if g.get_member(message.author.id):
-                        target_guild = g
-                        break
-
-            # Second: if not in any guild, check if user is BANNED from any server
-            if not target_guild:
-                # Support: !appeal <guild_id> <reason>
-                words = appeal_reason.split()
-                if words and words[0].isdigit():
-                    possible_gid = int(words[0])
-                    guild_match = bot.get_guild(possible_gid)
-                    if guild_match:
-                        try:
-                            ban_check = await guild_match.fetch_ban(message.author)
-                            if ban_check:
-                                target_guild = guild_match
-                                is_banned_appeal = True
-                                ban_info = ban_check
-                                appeal_reason = " ".join(words[1:]).strip() or "No reason provided"
-                        except Exception:
-                            pass
-
-                if not target_guild:
-                    for g in bot.guilds:
-                        try:
-                            ban_check = await g.fetch_ban(message.author)
-                            if ban_check:
-                                target_guild = g
-                                is_banned_appeal = True
-                                ban_info = ban_check
-                                break
-                        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                            continue
-
-            if not target_guild:
-                await message.reply("❌ Could not find a server where you have an active ban, strike, warning, or timeout to submit an appeal.")
+                await message.reply(
+                    "❌ Could not find a server where you have an active ban, strike, warning, or timeout to submit an appeal.\n"
+                    "💡 If you were banned, you can specify your server ID: `!appeal <server_id> <your reason>`"
+                )
                 return
 
             # Branch A: Ban Appeal for Banned Member

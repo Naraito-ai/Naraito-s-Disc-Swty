@@ -790,6 +790,180 @@ async def log_mod_action(guild: Union[discord.Guild, int, str, None], moderator:
 
 
 
+
+async def create_server_rejoin_invite(guild: discord.Guild) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Guarantees creating or retrieving an active rejoin invite link for an unbanned member.
+    Returns (invite_url, error_message).
+    """
+    if not guild:
+        return None, "Server not found."
+
+    candidates: List[discord.abc.GuildChannel] = []
+
+    # Priority channels: rules, welcome/system
+    if getattr(guild, "rules_channel", None):
+        candidates.append(guild.rules_channel)
+    if getattr(guild, "system_channel", None) and guild.system_channel not in candidates:
+        candidates.append(guild.system_channel)
+
+    # Add other text channels
+    for ch in guild.text_channels:
+        if ch not in candidates:
+            candidates.append(ch)
+
+    # 1. Attempt to create a fresh 7-day single-use invite on the best available text channel
+    for ch in candidates:
+        try:
+            perms = ch.permissions_for(guild.me)
+            if perms.create_instant_invite:
+                inv = await ch.create_invite(
+                    max_age=604800,  # 7 days
+                    max_uses=1,      # single use
+                    unique=True,
+                    reason="Ban appeal accepted - member rejoin invite link"
+                )
+                if inv and getattr(inv, "url", None):
+                    return inv.url, None
+        except Exception as e:
+            logger.debug(f"Could not create invite on channel {ch.id} ({ch.name}): {e}")
+            continue
+
+    # 2. Fallback: Check if bot has manage_guild to inspect existing active server invites
+    try:
+        if guild.me.guild_permissions.manage_guild:
+            existing = await guild.invites()
+            for inv in existing:
+                if not getattr(inv, "revoked", False):
+                    max_u = getattr(inv, "max_uses", 0) or 0
+                    uses = getattr(inv, "uses", 0) or 0
+                    if max_u == 0 or uses < max_u:
+                        return inv.url, None
+    except Exception as e:
+        logger.debug(f"Could not fetch existing guild invites for {guild.id}: {e}")
+
+    # 3. Fallback: try voice or stage channels
+    for ch in list(guild.voice_channels) + list(getattr(guild, "stage_channels", [])):
+        try:
+            if ch.permissions_for(guild.me).create_instant_invite:
+                inv = await ch.create_invite(
+                    max_age=604800,
+                    max_uses=1,
+                    unique=True,
+                    reason="Ban appeal accepted - rejoin invite link"
+                )
+                if inv and getattr(inv, "url", None):
+                    return inv.url, None
+        except Exception:
+            continue
+
+    return None, "Bot lacks 'Create Invite' permission across server channels."
+
+
+async def find_appeal_guild_for_user(
+    bot_instance,
+    user: Union[discord.User, discord.Member],
+    explicit_text: Optional[str] = None
+) -> Tuple[Optional[discord.Guild], bool, Optional[Any]]:
+    """
+    Intelligently identifies which server a member is appealing for from a Direct Message.
+    Returns (guild, is_banned, ban_entry).
+    Priority:
+    1. Explicit Guild ID or Guild Name in the command text (e.g. !appeal 123456789 <reason>)
+    2. Active Server Bans: Servers where the user is actively BANNED (checked via bans table & fetch_ban)
+    3. Active Mutes / Timeouts: Servers where the user is currently muted/timed out
+    4. Active Strikes: Servers where the user has recorded warning strikes
+    5. Member Guild: Guilds where the user is an active member
+    """
+    uid = getattr(user, "id", user)
+    clean_text = (explicit_text or "").strip()
+
+    # Priority 1: Explicit Guild ID or Guild Name in text
+    if clean_text:
+        words = clean_text.split()
+        if words and words[0].isdigit():
+            possible_gid = int(words[0])
+            matched_g = bot_instance.get_guild(possible_gid)
+            if matched_g:
+                try:
+                    ban_entry = await matched_g.fetch_ban(discord.Object(id=uid))
+                    return matched_g, True, ban_entry
+                except Exception:
+                    return matched_g, False, None
+
+        lower_text = clean_text.lower()
+        for g in bot_instance.guilds:
+            g_name = g.name.lower()
+            if g_name in lower_text or lower_text.startswith(g_name):
+                try:
+                    ban_entry = await g.fetch_ban(discord.Object(id=uid))
+                    return g, True, ban_entry
+                except Exception:
+                    return g, False, None
+
+    # Priority 2: Check Active Bans in Database first
+    try:
+        ban_rows = await db.fetch(
+            "SELECT guild_id, reason FROM bans WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10",
+            str(uid)
+        )
+        if ban_rows:
+            for row in ban_rows:
+                gid = int(row.get("guild_id", 0))
+                g = bot_instance.get_guild(gid)
+                if g:
+                    try:
+                        ban_entry = await g.fetch_ban(discord.Object(id=uid))
+                        return g, True, ban_entry
+                    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                        continue
+    except Exception as db_ban_err:
+        logger.debug(f"DB ban lookup notice: {db_ban_err}")
+
+    # Priority 2b: Scan guilds where user is NOT a current member to check for active Discord bans
+    for g in bot_instance.guilds:
+        # If user is NOT currently in this guild, check if they are banned
+        if g.get_member(uid) is None:
+            try:
+                ban_entry = await g.fetch_ban(discord.Object(id=uid))
+                if ban_entry:
+                    return g, True, ban_entry
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                continue
+
+    # Priority 3: Check Active Mutes / Timeouts
+    for g in bot_instance.guilds:
+        m = g.get_member(uid)
+        if m:
+            try:
+                active_mute = await db.get_active_mute(g.id, uid)
+                if active_mute and float(active_mute.get("unmute_at", 0)) > time.time():
+                    return g, False, None
+                if m.is_timed_out():
+                    return g, False, None
+            except Exception:
+                pass
+
+    # Priority 4: Check Active Warning Strikes
+    for g in bot_instance.guilds:
+        m = g.get_member(uid)
+        if m:
+            try:
+                warnings = await db.get_warnings(g.id, uid)
+                if warnings and len(warnings) >= 1:
+                    return g, False, None
+            except Exception:
+                pass
+
+    # Priority 5: Fallback to any guild where user is currently a member
+    for g in bot_instance.guilds:
+        if g.get_member(uid):
+            return g, False, None
+
+    return None, False, None
+
+
+
 async def get_kiss_allowed_role_ids(guild_id: int) -> List[int]:
     """Returns a list of all role IDs permitted to use the kiss command in this guild."""
     role_ids: List[int] = []
