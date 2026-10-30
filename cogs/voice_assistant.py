@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import time
 import wave
 import struct
@@ -9,6 +10,7 @@ import logging
 from typing import Optional, Dict
 
 import discord
+import discord.opus
 from discord.ext import commands, tasks
 from discord import app_commands
 import discord.ext.voice_recv as voice_recv
@@ -16,6 +18,21 @@ import edge_tts
 import speech_recognition as sr
 
 logger = logging.getLogger("SweetyBot.VoiceAssistant")
+
+# Monkey patch discord.opus.Decoder.decode to handle network packet loss without crashing PacketRouter
+try:
+    _orig_opus_decode = discord.opus.Decoder.decode
+
+    def _safe_opus_decode(self, data, *, fec=False):
+        try:
+            return _orig_opus_decode(self, data, fec=fec)
+        except Exception as e:
+            logger.debug(f"Silenced opus decoding error: {e}")
+            return b"\x00" * 3840
+
+    discord.opus.Decoder.decode = _safe_opus_decode
+except Exception as patch_err:
+    logger.debug(f"Could not patch opus decoder: {patch_err}")
 
 # Available Natural Neural TTS Voices
 VOICE_OPTIONS = {
