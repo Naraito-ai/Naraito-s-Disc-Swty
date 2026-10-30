@@ -9,6 +9,7 @@ import tempfile
 import logging
 from typing import Optional, Dict
 
+import aiohttp
 import discord
 import discord.opus
 from discord.ext import commands, tasks
@@ -18,6 +19,10 @@ import edge_tts
 import speech_recognition as sr
 
 logger = logging.getLogger("SweetyBot.VoiceAssistant")
+
+# ElevenLabs Configuration
+DEFAULT_ELEVENLABS_KEY = "sk_afd027c36df7bdc508c8204ecc8b2ee1b86b3808534f079a"
+DEFAULT_HINATA_VOICE_ID = "l9dcqaWruIsn8VqDUlp4" # "Shy Gentle Anime Girl" (Hinata Hyuga Persona)
 
 # Monkey patch discord.opus.Decoder.decode to handle network packet loss without crashing PacketRouter
 try:
@@ -36,7 +41,7 @@ except Exception as patch_err:
 
 # Available Natural Neural TTS Voices
 VOICE_OPTIONS = {
-    "hinata": ("en-US-AnaNeural", "Hinata Hyuga (Gentle, Sweet & Shy Anime Female)", "+14Hz", "-6%"),
+    "hinata": ("l9dcqaWruIsn8VqDUlp4", "Hinata Hyuga (ElevenLabs: Shy Gentle Anime Girl)", "+0Hz", "+0%"),
     "ana": ("en-US-AnaNeural", "Ana (Playful & Friendly Female)", "+0Hz", "+0%"),
     "jenny": ("en-US-JennyNeural", "Jenny (Warm & Natural Female)", "+0Hz", "+0%"),
     "aria": ("en-US-AriaNeural", "Aria (Expressive & Clear Female)", "+0Hz", "+0%"),
@@ -141,26 +146,68 @@ class VoiceAssistant(commands.Cog):
         self.sessions: Dict[int, dict] = {} # guild_id -> session info
         self.recognizer = sr.Recognizer()
         self.process_voice_buffers.start()
-        logger.info("VoiceAssistant Cog initialized successfully.")
+        logger.info("VoiceAssistant Cog initialized successfully with ElevenLabs & Edge-TTS support.")
 
     def cog_unload(self):
         self.process_voice_buffers.cancel()
         for gid in list(self.sessions.keys()):
             asyncio.create_task(self.leave_voice_session(gid))
 
-    async def generate_speech_audio(self, text: str, voice: str = DEFAULT_VOICE) -> str:
-        """Converts text response to natural neural speech MP3 using edge-tts with pitch/rate tuning."""
+    async def generate_speech_audio(self, text: str, voice: str = DEFAULT_VOICE, guild_id: Optional[int] = None) -> str:
+        """Converts text response to natural neural speech MP3 using ElevenLabs with pitch/rate Edge-TTS fallback."""
         clean_text = text.replace("*", "").replace("#", "").replace("`", "").strip()
         temp_dir = tempfile.gettempdir()
         file_path = os.path.join(temp_dir, f"sweety_tts_{int(time.time()*1000)}.mp3")
 
+        # 1. Try ElevenLabs Neural Voice if Hinata or ElevenLabs voice is selected
+        eleven_key = os.getenv("ELEVENLABS_API_KEY", DEFAULT_ELEVENLABS_KEY).strip()
+        hinata_voice_id = None
+        if guild_id and hasattr(self.bot, "db"):
+            try:
+                hinata_voice_id = await self.bot.db.get_config(guild_id, "elevenlabs_hinata_voice_id", None)
+            except Exception:
+                pass
+        if not hinata_voice_id:
+            hinata_voice_id = os.getenv("ELEVENLABS_HINATA_VOICE_ID", DEFAULT_HINATA_VOICE_ID).strip()
+
+        if eleven_key and (voice == "hinata" or voice == "elevenlabs"):
+            target_vid = hinata_voice_id or DEFAULT_HINATA_VOICE_ID
+            try:
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{target_vid}"
+                payload = {
+                    "text": clean_text,
+                    "model_id": "eleven_turbo_v2_5",
+                    "voice_settings": {
+                        "stability": 0.65,
+                        "similarity_boost": 0.80
+                    }
+                }
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as session:
+                    async with session.post(
+                        url,
+                        json=payload,
+                        headers={"xi-api-key": eleven_key, "Content-Type": "application/json"}
+                    ) as resp:
+                        if resp.status == 200:
+                            audio_bytes = await resp.read()
+                            with open(file_path, "wb") as f:
+                                f.write(audio_bytes)
+                            logger.info(f"✨ [ElevenLabs TTS] Successfully synthesized audio with voice '{target_vid}' ({len(audio_bytes)} bytes)")
+                            return file_path
+                        else:
+                            err_body = await resp.text()
+                            logger.warning(f"ElevenLabs TTS returned HTTP {resp.status}: {err_body[:100]}")
+            except Exception as ele_err:
+                logger.warning(f"ElevenLabs TTS exception: {ele_err}")
+
+        # 2. Fallback to Edge-TTS Neural Voice
         voice_info = VOICE_OPTIONS.get(voice)
         if voice_info and len(voice_info) >= 4:
             voice_id, _, pitch, rate = voice_info
         else:
-            voice_id = voice if "-" in voice else "en-US-AnaNeural"
-            pitch = "+0Hz"
-            rate = "+0%"
+            voice_id = "en-US-AnaNeural"
+            pitch = "+14Hz"
+            rate = "-6%"
 
         communicate = edge_tts.Communicate(clean_text, voice_id, pitch=pitch, rate=rate)
         await communicate.save(file_path)
@@ -294,7 +341,7 @@ class VoiceAssistant(commands.Cog):
 
         # 4. Generate Neural TTS
         voice_name = session.get("voice", DEFAULT_VOICE)
-        audio_file = await self.generate_speech_audio(ai_reply, voice=voice_name)
+        audio_file = await self.generate_speech_audio(ai_reply, voice=voice_name, guild_id=guild_id)
 
         # 5. Playback into Discord voice channel with volume boost
         def cleanup_after(err):
@@ -415,7 +462,7 @@ class VoiceAssistant(commands.Cog):
 
                 # 2. Synthesize Neural TTS
                 voice_name = session.get("voice", DEFAULT_VOICE)
-                audio_file = await self.generate_speech_audio(ai_reply, voice=voice_name)
+                audio_file = await self.generate_speech_audio(ai_reply, voice=voice_name, guild_id=message.guild.id)
 
                 # 3. Play audio into voice channel
                 def cleanup_after(err):
@@ -570,7 +617,7 @@ class VoiceAssistant(commands.Cog):
 
         # Play Hinata welcome greeting in voice!
         welcome_text = f"U-um, hello {user.display_name}! I am Hinata. I joined your voice call! Please talk to me through your microphone or type here, and I will answer you!"
-        welcome_audio = await self.generate_speech_audio(welcome_text, voice=DEFAULT_VOICE)
+        welcome_audio = await self.generate_speech_audio(welcome_text, voice=DEFAULT_VOICE, guild_id=guild.id)
         if existing.is_connected():
             if existing.is_playing():
                 existing.stop()
@@ -582,23 +629,83 @@ class VoiceAssistant(commands.Cog):
         embed = discord.Embed(
             title="🌸 Hinata Voice Assistant Connected!",
             description=(
-                f"🌸 **Voice Preset:** Hinata Hyuga (Gentle, Sweet & Shy Anime Female)\n"
+                f"🌸 **Voice Engine:** ElevenLabs Neural AI (`Shy Gentle Anime Girl`)\n"
                 f"🎙️ **Connected to:** **{target_vc.name}**\n\n"
                 "**How to Talk to Hinata:**\n"
-                "• **Via Microphone:** Simply speak into your mic in the voice channel! Hinata listens and answers out loud.\n"
+                "• **Via Microphone:** Simply speak into your mic in the voice channel! Hinata listens and answers out loud in her real voice.\n"
                 "• **Via Text Chat:** Type any message in this voice channel's chat, and Hinata will speak her answer back to you!\n\n"
-                "• Use `/voiceset` or `!voiceset` if you ever want to change her voice persona.\n"
+                "• Use `/sethinata <id>` or `!sethinata <id>` if you ever change your ElevenLabs voice ID.\n"
                 "• Click **Disconnect** below or type `!leavevoice` when finished."
             ),
             color=discord.Color.from_rgb(255, 182, 193)
         )
-        embed.set_footer(text="Sweety Live Voice • Hinata Persona • Powered by Gemini AI & Neural TTS")
+        embed.set_footer(text="Sweety Live Voice • Hinata Persona • Powered by ElevenLabs & Gemini AI")
         view = VoiceControlView(self, guild.id)
 
         if is_slash:
             await ctx_or_interaction.followup.send(embed=embed, view=view)
         else:
             await ctx_or_interaction.send(embed=embed, view=view)
+
+    @app_commands.command(name="sethinata", description="Set or update your ElevenLabs Hinata Voice ID")
+    @app_commands.describe(voice_id="The ElevenLabs Voice ID from your VoiceLab")
+    @app_commands.guild_only()
+    async def sethinata_slash_cmd(self, interaction: discord.Interaction, voice_id: str):
+        await self._set_hinata_voice_id(interaction, voice_id)
+
+    @commands.command(name="sethinata", aliases=["hinatavoice", "sethinatavoice"])
+    @commands.guild_only()
+    async def sethinata_prefix_cmd(self, ctx: commands.Context, voice_id: str):
+        """Set your custom ElevenLabs Hinata Voice ID: !sethinata <voice_id>"""
+        await self._set_hinata_voice_id(ctx, voice_id)
+
+    async def _set_hinata_voice_id(self, ctx_or_interaction, voice_id: str):
+        is_slash = isinstance(ctx_or_interaction, discord.Interaction)
+        guild = ctx_or_interaction.guild
+        vid = voice_id.strip()
+
+        if is_slash:
+            await ctx_or_interaction.response.defer()
+
+        # Validate with ElevenLabs API
+        eleven_key = os.getenv("ELEVENLABS_API_KEY", DEFAULT_ELEVENLABS_KEY).strip()
+        voice_name = vid
+        try:
+            url = f"https://api.elevenlabs.io/v1/voices/{vid}"
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                async with session.get(url, headers={"xi-api-key": eleven_key}) as resp:
+                    if resp.status == 200:
+                        vdata = await resp.json()
+                        voice_name = vdata.get("name", vid)
+                    elif resp.status == 400 or resp.status == 404:
+                        msg = f"⚠️ Could not find Voice ID `{vid}` in your ElevenLabs account. Please verify the ID."
+                        if is_slash:
+                            return await ctx_or_interaction.followup.send(msg)
+                        return await ctx_or_interaction.send(msg)
+        except Exception as e:
+            logger.debug(f"ElevenLabs voice validation notice: {e}")
+
+        # Save to database
+        if hasattr(self.bot, "db"):
+            try:
+                await self.bot.db.set_config(guild.id, "elevenlabs_hinata_voice_id", vid)
+            except Exception as de:
+                logger.warning(f"Could not save voice ID to db: {de}")
+
+        embed = discord.Embed(
+            title="🌸 Hinata Voice ID Updated!",
+            description=(
+                f"✅ Sweety will now speak using your custom ElevenLabs voice:\n\n"
+                f"• **Voice Name:** `{voice_name}`\n"
+                f"• **Voice ID:** `{vid}`\n\n"
+                "Test it anytime by speaking into your mic or typing `/speak`!"
+            ),
+            color=discord.Color.from_rgb(255, 182, 193)
+        )
+        if is_slash:
+            await ctx_or_interaction.followup.send(embed=embed)
+        else:
+            await ctx_or_interaction.send(embed=embed)
 
     @app_commands.command(name="leavevoice", description="Disconnect Sweety from the voice channel")
     @app_commands.guild_only()
@@ -631,7 +738,8 @@ class VoiceAssistant(commands.Cog):
                 vc.stop()
             bye_audio = await self.generate_speech_audio(
                 "U-um... goodbye everyone. It was wonderful talking with you. Please take care!",
-                voice=DEFAULT_VOICE
+                voice=DEFAULT_VOICE,
+                guild_id=guild.id
             )
             vc.play(
                 discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(bye_audio, options="-vn"), volume=1.6),
@@ -649,7 +757,7 @@ class VoiceAssistant(commands.Cog):
 
     @app_commands.command(name="voiceset", description="Choose the voice persona Sweety uses when speaking")
     @app_commands.choices(voice=[
-        app_commands.Choice(name="Hinata Hyuga (Gentle, Sweet & Shy Anime Female)", value="hinata"),
+        app_commands.Choice(name="Hinata Hyuga (ElevenLabs: Shy Gentle Anime Girl)", value="hinata"),
         app_commands.Choice(name="Ana (Playful & Friendly Female)", value="ana"),
         app_commands.Choice(name="Jenny (Warm & Natural Female)", value="jenny"),
         app_commands.Choice(name="Aria (Expressive & Clear Female)", value="aria"),
@@ -711,7 +819,7 @@ class VoiceAssistant(commands.Cog):
         voice_name = session.get("voice", DEFAULT_VOICE)
 
         clean_text = text[:400].strip()
-        audio_file = await self.generate_speech_audio(clean_text, voice=voice_name)
+        audio_file = await self.generate_speech_audio(clean_text, voice=voice_name, guild_id=guild.id)
 
         if vc.is_connected():
             if vc.is_playing():
