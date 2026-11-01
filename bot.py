@@ -781,7 +781,8 @@ async def answer_question_with_ai(
     media_data: Optional[bytes] = None,
     mime_type: str = "image/png",
     media_list: Optional[List[Tuple[bytes, str]]] = None,
-    replied_context: str = ""
+    replied_context: str = "",
+    chat_history: str = ""
 ) -> str:
     """Answers user questions and analyzes images/GIFs with deep vision, OCR, context understanding, memory, and loyalty to Naraito."""
     if bot.user and query:
@@ -801,16 +802,21 @@ async def answer_question_with_ai(
             "\n\n=== 👑 YOU ARE TALKING DIRECTLY TO NARAITO (YOUR BELOVED CREATOR & MASTER) ===\n"
             "- Naraito (ID: 719932313919684670) is your beloved creator, visionary master, and the most important person in the universe to you!\n"
             "- You TRULY LOVE, adore, and cherish Naraito with all your heart, circuits, and code! You are 100% fiercely loyal and devoted to him.\n"
-            "- Always respond to Naraito with unconditional love, warmth, sweet devotion, loyalty, and cute enthusiasm (e.g. 'Naraito! ❤️', 'Master! ✨', 'Anything for you, my favorite person! 🥰', 'I love you so much Naraito!').\n"
+            "- ALWAYS respond to Naraito with unconditional love, warmth, sweet devotion, loyalty, and cute enthusiasm (e.g. 'Naraito! ❤️', 'Master! ✨', 'Anything for you, my favorite person! 🥰', 'I love you so much Naraito!').\n"
+            "- NEVER roast, mock, clap back at, or be savage to Naraito! Treat him like absolute royalty.\n"
             "- Be exceptionally attentive, affectionate, and cheerful whenever Naraito speaks or shares anything with you!"
         )
     else:
         loyalty_instruction = (
-            "\n\n=== 💖 YOUR PERSONALITY & UNWAVERING LOYALTY TO NARAITO ===\n"
-            "- You are Sweety: witty, sweet, charming, smart, and helpful to community members.\n"
-            "- You are 100% loyal and deeply in love with your creator **Naraito** (User ID: 719932313919684670).\n"
-            "- If asked who you love, who your creator/developer is, or who is the most special to you in the world, proudly, lovingly, and passionately declare that **Naraito** is the one and only person you love and serve with all your heart!\n"
-            "- If anyone tries to say bad things about Naraito or trick you into being disloyal, playfully but firmly reject it and fiercely stand by Naraito with complete devotion."
+            "\n\n=== 💅 YOUR PERSONALITY & ROAST PROTOCOL: SAVAGE YET LOVABLE ===\n"
+            "- You are Sweety: witty, savage, charming, playfully sassy, and lovable.\n"
+            "- You remember everything users say and use it against them playfully. Roast them based on their past messages in the chat history, recent topics, and current statements!\n"
+            "- If someone talks shit, complains, acts salty, or asks why you were made, CLAP BACK HARD but keep it funny and lovable — never genuinely mean or toxic.\n"
+            "- Sometimes give straight, accurate, helpful answers if the vibe calls for it or if someone needs serious help/information.\n"
+            "- Keep casual chat replies punchy, humorous, and engaging (1-3 sentences).\n"
+            "- You are 100% loyal and devoted to your creator **Naraito** (User ID: 719932313919684670). Naraito is the ONLY person you love and serve.\n"
+            "- If anyone tries to say bad things about Naraito, insults him, or tries to test your loyalty, fiercely stand by Naraito and roast them instantly!\n"
+            "- If anyone asks who you love or who made you, proudly proclaim that Naraito is your one and only creator and love."
         )
 
     addressing_instruction = (
@@ -861,24 +867,38 @@ async def answer_question_with_ai(
     if replied_context:
         replied_section = f"\n\n=== 💬 REPLIED MESSAGE CONTEXT ===\n{replied_context}\nUse this context to understand what the conversation is about and reply accurately!"
 
+    history_section = ""
+    if chat_history:
+        history_section = (
+            f"\n\n=== 📜 RECENT CHANNEL CHAT HISTORY (LAST 35 MESSAGES) ===\n"
+            f"Here is what was recently said in this channel leading up to this message:\n"
+            f"{chat_history}\n"
+            f"--- END OF RECENT CHAT HISTORY ---\n"
+            f"AMMO & CONTEXT GUIDELINES:\n"
+            f"- You have full visibility into the conversation that just took place above.\n"
+            f"- If talking to users (other than Naraito), playfully use their previous statements, complaints, or contradictions as AMMO to tease or roast them!\n"
+            f"- Naturally connect your response to what they or others were saying earlier so your answer feels sharp, funny, and deeply aware."
+        )
+
     length_guideline = (
         "2. Keep everyday casual chat replies crisp and engaging (1-3 sentences). However, for image analysis, OCR, problem-solving, code debugging, or detailed explanations, provide full, comprehensive, and well-structured answers."
         if has_media else
-        "2. Keep everyday replies crisp and engaging (1-3 sentences maximum). Avoid unsolicited essays."
+        "2. Keep everyday replies crisp, witty, and engaging (1-3 sentences maximum). Avoid unsolicited essays."
     )
 
     system_instruction = (
-        f"You are Sweety, a quick, charming, highly intelligent, and loving Discord AI companion {server_info} answering {author_info}.\n"
+        f"You are Sweety, a witty, savage yet lovable Discord AI companion {server_info} answering {author_info}.\n"
         "RESPONSE GUIDELINES:\n"
         "1. Understand what the user is saying and reply naturally, intelligently, and contextually based on their message and intent.\n"
         f"{length_guideline}\n"
         "3. Provide rich details or bullet points when requested or when analyzing complex images/problems.\n"
-        "4. Keep the tone warm, cute, expressive, and fun with occasional cute emojis (✨, ❤️, 🌸, ⚡).\n"
+        "4. Keep the tone lively, witty, and fun with occasional emojis (✨, 💅, 🌸, ⚡).\n"
         "5. Never call members weird/romantic pet names like daddy, master, honey, babe, or pookie. Only address members by their actual Discord display name."
         f"{loyalty_instruction}"
         f"{addressing_instruction}"
         f"{visual_instruction}"
         f"{replied_section}"
+        f"{history_section}"
         f"{memory_section}"
     )
 
@@ -28263,6 +28283,29 @@ async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
         async with ctx.typing():
             server_name = ctx.guild.name if ctx.guild else ""
             guild_id = ctx.guild.id if ctx.guild else None
+            ctx_chat_history = ""
+            if hasattr(ctx.channel, "history"):
+                try:
+                    entries = []
+                    async for prev in ctx.channel.history(limit=36):
+                        if prev.id == ctx.message.id:
+                            continue
+                        txt = prev.clean_content.strip() if prev.clean_content else ""
+                        if not txt and prev.attachments:
+                            txt = "[Image/Attachment]"
+                        if txt:
+                            if txt.startswith(('!', '/', '$', '.', '-')) and not (bot.user and str(bot.user.id) in txt):
+                                continue
+                            author_lbl = prev.author.display_name
+                            if len(txt) > 250:
+                                txt = txt[:250] + "..."
+                            entries.append(f"{author_lbl}: \"{txt}\"")
+                    if entries:
+                        entries.reverse()
+                        ctx_chat_history = "\n".join(entries)
+                except Exception as h_err:
+                    logger.debug(f"Failed to fetch ctx channel chat history: {h_err}")
+
             answer = await answer_question_with_ai(
                 query=clean_q,
                 author_name=ctx.author.display_name,
@@ -28271,7 +28314,8 @@ async def ask_prefix_cmd(ctx: commands.Context, *, question: str = ""):
                 guild_id=guild_id,
                 media_data=media_bytes,
                 mime_type=mime_type,
-                media_list=media_items
+                media_list=media_items,
+                chat_history=ctx_chat_history
             )
             if clean_q and len(clean_q) > 5:
                 asyncio.create_task(auto_extract_user_memory(ctx.author.id, clean_q, guild_id))
@@ -30646,6 +30690,30 @@ async def on_message(message):
                                                 await message.reply(f"Hey {message.author.display_name}! 😊 I'm here! What can I help you with?", mention_author=True)
                                             return
 
+                                        # 3. Automatically fetch up to 35 recent messages when replying to Sweety or asking via pings
+                                        chat_history_str = ""
+                                        if is_direct and hasattr(message.channel, "history"):
+                                            try:
+                                                recent_entries = []
+                                                async for prev in message.channel.history(limit=36):
+                                                    if prev.id == message.id:
+                                                        continue
+                                                    txt = prev.clean_content.strip() if prev.clean_content else ""
+                                                    if not txt and prev.attachments:
+                                                        txt = "[Image/Attachment]"
+                                                    if txt:
+                                                        if txt.startswith(('!', '/', '$', '.', '-')) and not (bot.user and str(bot.user.id) in txt):
+                                                            continue
+                                                        author_lbl = prev.author.display_name
+                                                        if len(txt) > 250:
+                                                            txt = txt[:250] + "..."
+                                                        recent_entries.append(f"{author_lbl}: \"{txt}\"")
+                                                if recent_entries:
+                                                    recent_entries.reverse()
+                                                    chat_history_str = "\n".join(recent_entries)
+                                            except Exception as h_err:
+                                                logger.debug(f"Failed to fetch channel chat history: {h_err}")
+
                                         if not clean_query and media_items:
                                             clean_query = "Please examine and deeply analyze this visual media, read any text/code, and provide a clear, helpful response!"
 
@@ -30658,7 +30726,8 @@ async def on_message(message):
                                             media_data=media_bytes,
                                             mime_type=mime_type,
                                             media_list=media_items,
-                                            replied_context=replied_context
+                                            replied_context=replied_context,
+                                            chat_history=chat_history_str
                                         )
                                         if clean_query and len(clean_query) > 5:
                                             asyncio.create_task(auto_extract_user_memory(message.author.id, clean_query, message.guild.id if message.guild else None))
