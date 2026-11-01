@@ -906,7 +906,11 @@ async def answer_question_with_ai(
         "Please carefully examine and analyze this visual media in full detail. Read any text, code, numbers, formulas, or handwriting present, identify key elements or context, and provide a comprehensive, clear, and helpful response!"
         if has_media else "Look at this and tell me what you think!"
     )
-    full_prompt = query if query else default_prompt
+    user_text = query if query else default_prompt
+    speaker_header = f"=== 👤 CURRENT MESSAGE METADATA ===\n- Current Speaker: {author_name} (User ID: {user_id})"
+    if replied_context:
+        speaker_header += f"\n- {replied_context}"
+    full_prompt = f"{speaker_header}\n\n- Message from {author_name}: \"{user_text}\""
 
     # For text-only chats and questions, prioritize ultra-fast Groq AI (0.12s response time)
     if not has_media:
@@ -30594,26 +30598,35 @@ async def on_message(message):
         if is_dm and message.content.strip().startswith(('!', '/', '$', '.')):
             pass
         else:
-            # Check if bot is directly mentioned or replied to in a guild
-            is_direct = bool(bot.user and bot.user in message.mentions)
-            # Also support role mentions (e.g. @Sweety role)
-            if not is_direct and getattr(message, 'role_mentions', None):
+            # 1. Check if bot is directly mentioned
+            bot_mentioned = bool(bot.user and bot.user in message.mentions)
+            if not bot_mentioned and getattr(message, 'role_mentions', None):
                 if any(r.name.lower() == "sweety" or (bot.user and r.name.lower() == bot.user.name.lower()) for r in message.role_mentions):
-                    is_direct = True
+                    bot_mentioned = True
 
-            if not is_direct and message.reference:
-                if message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
-                    if bot.user and message.reference.resolved.author == bot.user:
-                        is_direct = True
-                elif getattr(message.reference, 'cached_message', None) and bot.user and message.reference.cached_message.author == bot.user:
-                    is_direct = True
-                elif message.reference.message_id and hasattr(message.channel, "fetch_message"):
+            # 2. Extract replied-to message context and verify if replying directly to Sweety
+            is_reply_to_bot = False
+            replied_context = ""
+            if message.reference:
+                ref_msg = message.reference.resolved if isinstance(message.reference.resolved, discord.Message) else None
+                if not ref_msg and getattr(message.reference, 'cached_message', None) and isinstance(message.reference.cached_message, discord.Message):
+                    ref_msg = message.reference.cached_message
+                if not ref_msg and message.reference.message_id and hasattr(message.channel, "fetch_message"):
                     try:
-                        ref_msg_check = await message.channel.fetch_message(message.reference.message_id)
-                        if bot.user and ref_msg_check.author == bot.user:
-                            is_direct = True
+                        ref_msg = await message.channel.fetch_message(message.reference.message_id)
                     except Exception:
-                        pass
+                        ref_msg = None
+                if ref_msg:
+                    ref_author = ref_msg.author.display_name if ref_msg.author else "User"
+                    ref_body = ref_msg.clean_content[:300] if ref_msg.clean_content else (ref_msg.content[:300] if ref_msg.content else "[Image / Attachment]")
+                    if bot.user and ref_msg.author.id == bot.user.id:
+                        is_reply_to_bot = True
+                        replied_context = f"Replying directly to Sweety's message: \"{ref_body}\""
+                    else:
+                        replied_context = f"Replying to {ref_author}'s message: \"{ref_body}\""
+
+            # is_direct is True ONLY if the bot was pinged OR user replied directly to Sweety's message
+            is_direct = bot_mentioned or is_reply_to_bot
 
             ai_reply_enabled = False
             if message.guild:
@@ -30665,22 +30678,6 @@ async def on_message(message):
                                         # 1. Extract visual media (all images / GIFs up to 4, including from referenced message)
                                         media_items = await extract_all_visual_media(message)
                                         media_bytes, mime_type = (media_items[0][0], media_items[0][1]) if media_items else (None, "image/png")
-
-                                        # 2. Extract replied-to message context (including fetching unresolved referenced messages)
-                                        replied_context = ""
-                                        if message.reference:
-                                            ref_msg = message.reference.resolved if isinstance(message.reference.resolved, discord.Message) else None
-                                            if not ref_msg and getattr(message.reference, 'cached_message', None) and isinstance(message.reference.cached_message, discord.Message):
-                                                ref_msg = message.reference.cached_message
-                                            if not ref_msg and message.reference.message_id and hasattr(message.channel, "fetch_message"):
-                                                try:
-                                                    ref_msg = await message.channel.fetch_message(message.reference.message_id)
-                                                except Exception:
-                                                    ref_msg = None
-                                            if ref_msg:
-                                                ref_author = ref_msg.author.display_name if ref_msg.author else "User"
-                                                ref_body = ref_msg.content[:400] if ref_msg.content else "[Image / Attachment / Embed]"
-                                                replied_context = f"User {ref_author} previously said: \"{ref_body}\""
 
                                         # If user only tagged Sweety with no text and no media, provide immediate greeting
                                         if not clean_query and not media_items and not replied_context:

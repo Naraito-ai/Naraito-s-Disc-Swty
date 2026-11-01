@@ -213,11 +213,11 @@ class VoiceAssistant(commands.Cog):
         await communicate.save(file_path)
         return file_path
 
-    async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str, guild_id: Optional[int] = None) -> str:
+    async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str, guild_id: Optional[int] = None, replied_context: str = "") -> str:
         """Generates conversational, spoken-friendly AI reply from Gemini/Groq."""
-        session = self.sessions.get(guild_id) if guild_id else None
-        session_owner_id = session.get("owner_id") if session else None
-        is_naraito = (user.id == 719932313919684670) or (session_owner_id and user.id == session_owner_id)
+        # Strictly Naraito ID 719932313919684670 or name containing naraito (never treat other session users as Naraito)
+        is_naraito = (user.id == 719932313919684670) or ("naraito" in user.display_name.lower())
+        reply_info = f" ({replied_context})" if replied_context else ""
 
         if is_naraito:
             system_instruction = (
@@ -229,7 +229,7 @@ class VoiceAssistant(commands.Cog):
                 "4. NEVER use markdown symbols (*, _, #, `, emojis) because your output is read aloud via ElevenLabs text-to-speech.\n"
                 "5. Speak directly and naturally as if on a voice call."
             )
-            prompt = f"Naraito-kun said: \"{spoken_text}\"\nPlease reply warmly, sweetly, and conversationally to him:"
+            prompt = f"Speaker: Naraito-kun{reply_info}\nNaraito-kun said: \"{spoken_text}\"\nPlease reply warmly, sweetly, and conversationally to him:"
             fallback = f"U-um, hello Naraito-kun... I am right here with you! What would you like to talk about?"
         else:
             system_instruction = (
@@ -241,7 +241,7 @@ class VoiceAssistant(commands.Cog):
                 "4. Answer in 1 short polite sentence (under 20 words).\n"
                 "5. NEVER use markdown symbols (*, _, #, `, emojis) because your output is read aloud via text-to-speech."
             )
-            prompt = f"Member {user.display_name} said: \"{spoken_text}\"\nPlease reply politely and formally in 1 short sentence:"
+            prompt = f"Speaker: {user.display_name}{reply_info}\nMember {user.display_name} said: \"{spoken_text}\"\nPlease reply politely and formally in 1 short sentence:"
             fallback = f"Hello {user.display_name}. I am here accompanying Naraito-kun."
 
         # 1. Try primary Gemini AI engine
@@ -453,16 +453,32 @@ class VoiceAssistant(commands.Cog):
         is_in_vc_chat = bool(target_vc and message.channel.id == target_vc.id)
         is_in_session_text = bool(text_channel and message.channel.id == text_channel.id)
 
-        session_owner_id = session.get("owner_id")
-        is_naraito = (message.author.id == 719932313919684670) or (session_owner_id and message.author.id == session_owner_id)
         bot_mentioned = bool(self.bot.user and self.bot.user in message.mentions) or "sweety" in content.lower() or "hinata" in content.lower()
 
-        user_in_vc = bool(
-            message.author.voice and message.author.voice.channel and target_vc and message.author.voice.channel.id == target_vc.id
-        )
+        # Check if message is a reply to Sweety or another user
+        is_reply_to_sweety = False
+        replied_context = ""
+        if message.reference:
+            ref = message.reference.resolved if isinstance(message.reference.resolved, discord.Message) else None
+            if not ref and getattr(message.reference, 'cached_message', None) and isinstance(message.reference.cached_message, discord.Message):
+                ref = message.reference.cached_message
+            if not ref and message.reference.message_id and hasattr(message.channel, "fetch_message"):
+                try:
+                    ref = await message.channel.fetch_message(message.reference.message_id)
+                except Exception:
+                    ref = None
+            if ref:
+                ref_author_name = ref.author.display_name if ref.author else "someone"
+                ref_text = ref.clean_content[:200] if ref.clean_content else (ref.content[:200] if ref.content else "[Media]")
+                if self.bot.user and ref.author.id == self.bot.user.id:
+                    is_reply_to_sweety = True
+                    replied_context = f"Replying directly to Sweety: \"{ref_text}\""
+                else:
+                    replied_context = f"Replying to {ref_author_name}: \"{ref_text}\""
 
-        # Trigger if typed in the voice channel itself, or if typed in session channel by participant or with mention
-        if not (is_in_vc_chat or (is_in_session_text and (user_in_vc or bot_mentioned))):
+        # STRICT: In voice channels, only speak/respond if explicitly pinged/named OR replying directly to Sweety!
+        # Do not interrupt members talking to each other!
+        if not (bot_mentioned or is_reply_to_sweety):
             return
 
         # Clean mention tags from query
@@ -478,7 +494,7 @@ class VoiceAssistant(commands.Cog):
         try:
             async with message.channel.typing():
                 # 1. Generate spoken-friendly AI reply
-                ai_reply = await self.generate_voice_ai_response(message.author, clean_text, guild_id=message.guild.id)
+                ai_reply = await self.generate_voice_ai_response(message.author, clean_text, guild_id=message.guild.id, replied_context=replied_context)
                 logger.info(f"🌸 [Hinata Chat Reply] Sweety -> '{ai_reply}'")
 
                 # 2. Synthesize Neural TTS
