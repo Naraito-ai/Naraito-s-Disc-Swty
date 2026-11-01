@@ -983,6 +983,8 @@ class GuildMusicState:
             self.karaoke_task = None
 
     def get_elapsed(self) -> float:
+        if self.current and hasattr(self.current, "get_audio_elapsed"):
+            return self.current.get_audio_elapsed()
         if self.start_time is None:
             return 0.0
         if self.pause_start is not None:
@@ -1006,7 +1008,7 @@ class GuildMusicState:
 # ─── YTDLSource ───────────────────────────────────────────────────────────────
 
 class YTDLSource(discord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=1.0):
+    def __init__(self, source, *, data, volume=1.0, seek_seconds=0):
         super().__init__(source, volume)
         self.data = data
         self.title = data.get("title", "Unknown")
@@ -1016,16 +1018,23 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.requester = data.get("requester", "Unknown")
         self.uploader = data.get("uploader", "Unknown")
         self.view_count = data.get("view_count", 0)
+        self.frames_read: int = 0
+        self.seek_offset: float = float(seek_seconds or 0.0)
 
     def read(self) -> bytes:
         ret = self.original.read()
         if not ret:
             return b""
+        self.frames_read += 1
         # Direct audio scaling: 1.0 = standard 100% loudness, 0.5 = 50%, 1.5 = 150% boost
         vol = max(0.0, min(float(self.volume), 2.0))
         if vol == 1.0:
             return ret
         return audioop.mul(ret, 2, vol)
+
+    def get_audio_elapsed(self) -> float:
+        # In discord.py voice, each PCM frame read represents exactly 20 milliseconds (0.02s)
+        return self.seek_offset + (self.frames_read * 0.02)
 
     @classmethod
     async def _search_and_extract(cls, search_query: str, *, loop=None, volume=1.0, seek_seconds=0, audio_filter=None, requester="Unknown", exclude_video_ids=None):
@@ -1229,7 +1238,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         is_live = bool(data.get("is_live"))
         source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
-        return cls(source, data=data, volume=volume), False
+        return cls(source, data=data, volume=volume, seek_seconds=seek_seconds), False
 
     @classmethod
     async def from_url(cls, url, *, loop=None, volume=1.0, seek_seconds=0, audio_filter=None, requester="Unknown"):
@@ -1339,7 +1348,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                             if official_track and official_track.get("url"):
                                 official_track["requester"] = requester
                                 source = make_ffmpeg_audio(official_track["url"], seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=False)
-                                return cls(source, data=official_track, volume=volume), False
+                                return cls(source, data=official_track, volume=volume, seek_seconds=seek_seconds), False
                     except Exception as oe_err:
                         logger.debug(f"Pre-emptive YouTube oEmbed studio master check skipped: {oe_err}")
 
@@ -1436,7 +1445,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data["requester"] = requester
             is_live = bool(data.get("is_live"))
             source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
-            return cls(source, data=data, volume=volume), False
+            return cls(source, data=data, volume=volume, seek_seconds=seek_seconds), False
 
         # ── 3. Plain Text Search Query ────────────────────────────────────────
         return await cls._search_and_extract(url, loop=loop, volume=volume, seek_seconds=seek_seconds, audio_filter=audio_filter, requester=requester)
@@ -1457,7 +1466,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             if not is_webpage and not is_googlevideo:
                 is_live = bool(data.get("is_live"))
                 source = make_ffmpeg_audio(raw_stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
-                return cls(source, data=data, volume=volume)
+                return cls(source, data=data, volume=volume, seek_seconds=seek_seconds)
 
         # 2. Check if we have a direct YouTube / SoundCloud webpage URL to extract fresh stream formats
         web_url = data.get("webpage_url") or data.get("url") or ""
@@ -1489,7 +1498,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 fresh["requester"] = requester
                 is_live = bool(fresh.get("is_live") or data.get("is_live"))
                 source = make_ffmpeg_audio(stream_url, seek_seconds=seek_seconds, audio_filter=audio_filter, is_live=is_live)
-                return cls(source, data=fresh, volume=volume)
+                return cls(source, data=fresh, volume=volume, seek_seconds=seek_seconds)
 
         # 3. Fallback: Search track by title (Essential for Spotify playlist items, queued title strings, and failed direct extractions)
         search_target = title or (web_url if not is_http else "") or data.get("name", "")
@@ -1565,43 +1574,50 @@ class LiveKaraokeView(discord.ui.View):
     def build_teleprompter_embed(self, elapsed: float, duration: int) -> discord.Embed:
         lines = self.timed_lines
         idx = -1
+        # 0.25s anticipation for client audio buffer & human reaction time
+        effective_elapsed = max(0.0, elapsed + 0.25)
         for i, (t, _) in enumerate(lines):
-            if elapsed >= t:
+            if effective_elapsed >= t:
                 idx = i
             else:
                 break
 
         if idx == -1:
-            body = "🎵 *(Intro instrumental playing...)*\n\n▶️ **Next:** " + lines[0][1]
+            first_lyric = lines[0][1] if lines else "..."
+            body = f"🎵 *(Intro Instrumental)*\n\n🔜 **Up Next:** `{first_lyric}`"
         else:
             display = []
             for p in range(max(0, idx - 2), idx):
                 display.append(f"*{lines[p][1]}*")
-            display.append(f"▶️ **🔥 {lines[idx][1]} 🔥**")
+            display.append(f"✨ **{lines[idx][1]}**")
             for n in range(idx + 1, min(len(lines), idx + 3)):
                 display.append(f"`{lines[n][1]}`")
             body = "\n".join(display)
 
-        cur_min, cur_sec = divmod(int(elapsed or 0), 60)
-        tot_min, tot_sec = divmod(int(duration or 0), 60)
-        pct = min(1.0, max(0.0, float(elapsed or 0) / float(duration))) if duration and duration > 0 else 0
-        bar_len = 16
-        filled = int(pct * bar_len)
-        bar = "▬" * filled + "🔘" + "▬" * (bar_len - filled)
-        prog_header = f"`{cur_min}:{cur_sec:02d}` {bar} `{tot_min}:{tot_sec:02d}`"
+        state = self.cog.get_state(self.guild.id)
+        is_paused = state.voice_client and state.voice_client.is_paused()
+        status_icon = "⏸️" if is_paused else "▶️"
+
+        elapsed_str = fmt_duration(elapsed)
+        total_str = fmt_duration(duration) if duration > 0 else "LIVE"
+        bar = progress_bar(elapsed, duration, length=14)
+        prog_line = f"{status_icon} `{elapsed_str}` {bar} `{total_str}`"
 
         embed = discord.Embed(
-            title=f"🎙️ Live Karaoke — {self.track_name}",
-            description=f"**Artist:** {self.artist_name}\n{prog_header}\n\n{body}",
+            title=f"🎤 {self.track_name[:256]}",
+            url=state.current.url if (state.current and state.current.url.startswith("http")) else None,
+            description=f"**Artist:** {self.artist_name}\n{prog_line}\n\n{body}",
             color=0x1DB954
         )
-        embed.set_footer(text="Live Synced Karaoke • Real-time line-by-line sync")
+        if state.current and getattr(state.current, "thumbnail", None):
+            embed.set_thumbnail(url=state.current.thumbnail)
+        embed.set_footer(text="Synced Live Karaoke • Real-Time Teleprompter")
         return embed
 
     async def karaoke_loop(self):
         state = self.cog.get_state(self.guild.id)
-        consecutive_fails = 0
-        base_interval = 3.0
+        last_edit_time = 0.0
+        last_idx = -2
 
         while not self.is_finished():
             try:
@@ -1613,40 +1629,56 @@ class LiveKaraokeView(discord.ui.View):
                 if self.mode == "live" and self.message:
                     elapsed = state.get_elapsed()
                     dur = int(getattr(state.current, "duration", 0) or 0) or int(self.timed_lines[-1][0] + 15)
-                    embed = self.build_teleprompter_embed(elapsed, dur)
-                    embed_desc = embed.description
-                    if embed_desc != self.last_text:
-                        self.last_text = embed_desc
-                        try:
-                            if hasattr(self.message, "channel") and hasattr(self.message.channel, "get_partial_message"):
-                                msg_obj = self.message.channel.get_partial_message(self.message.id)
-                                await msg_obj.edit(embed=embed, view=self)
-                            else:
-                                await self.message.edit(embed=embed, view=self)
-                            consecutive_fails = 0
-                        except discord.HTTPException as http_err:
-                            consecutive_fails += 1
-                            backoff = min(30.0, base_interval * (2 ** (consecutive_fails - 1)))
-                            if http_err.status == 429:
-                                retry_after = getattr(http_err, "retry_after", backoff)
-                                wait_time = max(float(retry_after or 0.0), backoff)
-                                logger.warning(f"Rate limited in karaoke_loop, backing off {wait_time:.1f}s (fail #{consecutive_fails})")
-                                await asyncio.sleep(wait_time)
-                            else:
-                                logger.debug(f"HTTP exception in karaoke edit: {http_err}")
-                                await asyncio.sleep(backoff)
-                        except Exception as edit_err:
-                            consecutive_fails += 1
-                            backoff = min(30.0, base_interval * (2 ** (consecutive_fails - 1)))
-                            logger.debug(f"Karaoke edit error: {edit_err}")
-                            await asyncio.sleep(backoff)
 
-                await asyncio.sleep(base_interval)
+                    effective_elapsed = max(0.0, elapsed + 0.25)
+                    curr_idx = -1
+                    for i, (t, _) in enumerate(self.timed_lines):
+                        if effective_elapsed >= t:
+                            curr_idx = i
+                        else:
+                            break
+
+                    now = time.time()
+                    time_since_edit = now - last_edit_time
+                    line_changed = (curr_idx != last_idx)
+                    progress_interval_met = (time_since_edit >= 3.0)
+
+                    # Only edit if the lyric line changed OR at least 3.0s passed (and enforce min 1.2s between edits)
+                    if (line_changed or progress_interval_met) and time_since_edit >= 1.2:
+                        embed = self.build_teleprompter_embed(elapsed, dur)
+                        embed_desc = embed.description
+                        if embed_desc != self.last_text:
+                            self.last_text = embed_desc
+                            last_idx = curr_idx
+                            last_edit_time = now
+                            try:
+                                if hasattr(self.message, "channel") and hasattr(self.message.channel, "get_partial_message"):
+                                    msg_obj = self.message.channel.get_partial_message(self.message.id)
+                                    await msg_obj.edit(embed=embed, view=self)
+                                else:
+                                    await self.message.edit(embed=embed, view=self)
+                            except discord.HTTPException as http_err:
+                                if http_err.status == 429:
+                                    retry_after = getattr(http_err, "retry_after", 3.0) or 3.0
+                                    await asyncio.sleep(float(retry_after))
+                                    continue
+
+                    # Dynamic sleep: sleep until the exact moment the next lyric line begins!
+                    if curr_idx + 1 < len(self.timed_lines):
+                        next_time = self.timed_lines[curr_idx + 1][0]
+                        time_until_next = max(0.2, (next_time - 0.25) - elapsed)
+                        sleep_dur = min(max(time_until_next, 0.8), 2.5)
+                    else:
+                        sleep_dur = 2.5
+
+                    await asyncio.sleep(sleep_dur)
+                else:
+                    await asyncio.sleep(2.0)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.debug(f"Karaoke loop notice: {e}")
-                await asyncio.sleep(base_interval)
+                await asyncio.sleep(2.0)
 
     @discord.ui.button(emoji="◀️", label="Prev", style=discord.ButtonStyle.secondary, row=0)
     async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2923,7 +2955,7 @@ class Music(commands.Cog):
     async def live_updater(self, guild: discord.Guild):
         state = self.get_state(guild.id)
         while True:
-            await asyncio.sleep(5)
+            await asyncio.sleep(4)
             try:
                 if not state.np_message or not state.current:
                     break
