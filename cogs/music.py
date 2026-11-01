@@ -2896,78 +2896,28 @@ class Music(commands.Cog):
         total = src.duration or 0
 
         is_paused = state.voice_client and state.voice_client.is_paused()
-        status_text = "Paused" if is_paused else "Playing"
-        status_icon = "⏸" if is_paused else "▶"
+        status_icon = "⏸️" if is_paused else "▶️"
 
-        if state.loop:
-            loop_str = "🔂 Track"
-        elif state.loop_queue:
-            loop_str = "🔁 Queue"
-        else:
-            loop_str = "Off"
-
-        vol_display = getattr(state, "user_volume_level", None)
-        if vol_display is None:
-            vol_display = int(round(state.volume * 100))
-
-        bar = progress_bar(elapsed, total, length=16)
         elapsed_str = fmt_duration(elapsed)
         total_str = fmt_duration(total) if total > 0 else "LIVE"
-        percent_str = f"{int(min(1.0, elapsed / total) * 100)}%" if total > 0 else "Live"
+        bar = progress_bar(elapsed, total, length=14)
 
-        # Dynamic visualizer wave
-        if is_paused:
-            wave = "⏸️ `PAUSED`"
+        if total > 0:
+            progress_line = f"{status_icon} `{elapsed_str}` {bar} `{total_str}`"
         else:
-            waves = [" ▂▃▅▆▇", "▃▅▇▆▅▃", "▅▆▇▅▃ ", "▇▆▅▃ ▂"]
-            wave = f"🎶 `{waves[int(elapsed) % len(waves)]}`"
-
-        queue_len = len(state.queue)
-        next_track = list(state.queue)[0].get("title", "Unknown")[:35] if queue_len else "Nothing"
-
-        views = src.view_count
-        if views >= 1_000_000:
-            views_str = f"{views/1_000_000:.1f}M"
-        elif views >= 1_000:
-            views_str = f"{views/1_000:.1f}K"
-        elif views > 0:
-            views_str = str(views)
-        else:
-            views_str = "N/A"
-
-        vol_icon = "🔊" if vol_display >= 60 else ("🔉" if vol_display >= 20 else "🔈")
+            progress_line = f"🔴 `{elapsed_str}` ━━━━━━━━● `LIVE`"
 
         is_sp = "spotify" in src.url.lower() or "spotify" in src.title.lower()
         embed = discord.Embed(
-            title=src.title,
+            title=src.title[:256],
             url=src.url if src.url.startswith("http") else None,
+            description=progress_line,
             color=0x1DB954 if is_sp else 0x5865F2
         )
-        embed.set_author(
-            name=f"🎵 {status_text} • Vol {vol_display}% • Loop {loop_str}"
-        )
+
         if src.thumbnail:
-            embed.set_thumbnail(url=src.thumbnail)
+            embed.set_image(url=src.thumbnail)
 
-        # Monospace Spotify-style media player bar
-        player_box = f"```\n{status_icon}  {elapsed_str}  {bar}  {total_str}\n```"
-        filter_str = f" • Filter: `{state.filter}`" if state.filter else ""
-        autoplay_str = " • 📻 `Autoplay`" if state.autoplay else ""
-
-        embed.add_field(
-            name=f"Progress • {percent_str}",
-            value=f"{player_box}{wave}  •  {vol_icon} `{vol_display}%`  •  Loop: `{loop_str}`{filter_str}{autoplay_str}",
-            inline=False
-        )
-        embed.add_field(name="👤 Requested by", value=src.requester, inline=True)
-        embed.add_field(name="🎙️ Channel", value=src.uploader or "Unknown", inline=True)
-        embed.add_field(name="👁️ Views", value=views_str, inline=True)
-        embed.add_field(
-            name=f"📋 Queue — {queue_len} track{'s' if queue_len != 1 else ''} up next",
-            value=f"Next: **{next_track}**" if queue_len else "Nothing queued",
-            inline=False
-        )
-        embed.set_footer(text="Sweety Music • Spotify Style Player • Click 🎤 for Lyrics")
         return embed
 
     async def live_updater(self, guild: discord.Guild):
