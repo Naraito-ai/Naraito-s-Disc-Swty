@@ -457,10 +457,6 @@ class VoiceAssistant(commands.Cog):
         is_naraito = (message.author.id == 719932313919684670) or (session_owner_id and message.author.id == session_owner_id)
         bot_mentioned = bool(self.bot.user and self.bot.user in message.mentions) or "sweety" in content.lower() or "hinata" in content.lower()
 
-        # Sweety only chats freely with Naraito-kun! Everyone else MUST explicitly mention @Sweety / hinata to speak with her.
-        if not is_naraito and not bot_mentioned:
-            return
-
         user_in_vc = bool(
             message.author.voice and message.author.voice.channel and target_vc and message.author.voice.channel.id == target_vc.id
         )

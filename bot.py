@@ -30822,6 +30822,9 @@ async def cleanup_and_reset_bot(bot_instance):
     finally:
         bot_instance._closing_task = None
         bot_instance._ready = asyncio.Event()
+        bot_instance._closed = False
+        if hasattr(bot_instance, "http") and bot_instance.http:
+            bot_instance.http._session = None
         try:
             bot_instance.loop = asyncio.get_running_loop()
         except RuntimeError:
