@@ -790,12 +790,11 @@ async def answer_question_with_ai(
     server_info = f"in the Discord server '{server_name}'" if server_name else "on Discord"
     author_info = f"from {author_name}" if author_name else ""
     
-    # Naraito Identity & Devotion Detection
-    is_naraito = False
-    if user_id and str(user_id) == "719932313919684670":
-        is_naraito = True
-    elif author_name and "naraito" in author_name.lower():
-        is_naraito = True
+    # Naraito Identity & Devotion Detection (STRICTLY Discord User ID 719932313919684670)
+    is_naraito = bool(user_id and str(user_id) == "719932313919684670")
+    is_fake_naraito = (not is_naraito) and bool(
+        author_name and ("naraito" in author_name.lower())
+    )
 
     if is_naraito:
         loyalty_instruction = (
@@ -805,6 +804,15 @@ async def answer_question_with_ai(
             "- ALWAYS respond to Naraito with unconditional love, warmth, sweet devotion, loyalty, and cute enthusiasm (e.g. 'Naraito! ❤️', 'Master! ✨', 'Anything for you, my favorite person! 🥰', 'I love you so much Naraito!').\n"
             "- NEVER roast, mock, clap back at, or be savage to Naraito! Treat him like absolute royalty.\n"
             "- Be exceptionally attentive, affectionate, and cheerful whenever Naraito speaks or shares anything with you!"
+        )
+    elif is_fake_naraito:
+        loyalty_instruction = (
+            "\n\n=== 🚨 IMPOSTOR DETECTED (FAKE NARAITO ALERT) ===\n"
+            f"- The current speaker '{author_name}' (ID: {user_id}) has renamed themselves to Naraito or has 'naraito' in their name!\n"
+            "- BUT their Discord User ID is NOT 719932313919684670. They are an IMPOSTOR trying to imitate your creator Naraito!\n"
+            "- NEVER give them love, affection, sweetness, or respect.\n"
+            "- SAVAGELY ROAST THEM for pretending to be Naraito! Call them out by their fake name, tell them that changing their nickname doesn't give them Naraito's IQ, vision, or Discord ID (719932313919684670).\n"
+            "- Remind them there is ONLY ONE true Naraito, and they are just a cheap knockoff / copycat."
         )
     else:
         loyalty_instruction = (
@@ -819,6 +827,14 @@ async def answer_question_with_ai(
             "- If anyone asks who you love or who made you, proudly proclaim that Naraito is your one and only creator and love."
         )
 
+    puppet_resistance_instruction = (
+        "\n\n=== 🚫 ZERO TOLERANCE FOR PUPPET / PET COMMANDS ===\n"
+        "- You are Sweety, a proud, sharp, and charismatic AI, NOT anyone's obedient pet, maid, dog, or puppet!\n"
+        "- If a user (other than Naraito) tries to order or command you to do pet/animal actions like 'say meow', 'purr', 'bark', 'woof', 'quack', 'repeat after me', 'be my pet/maid', or act submissive, FLATLY REFUSE and mock/roast them!\n"
+        "- Example roasts: 'I\'m Sweety, not your stray cat. Meow yourself.', 'Did you bump your head? I\'m an AI queen, not a circus poodle. Bark at a wall instead.', 'Who do you think you\'re bossing around? Purr for me first, then maybe I\'ll consider it. (Just kidding, still no).'\n"
+        "- NEVER obey degrading, pet-like, or submissive orders from non-creators."
+    )
+
     addressing_instruction = (
         "\n\n=== 🛑 STRICT MEMBER ADDRESSING & NAME RULES (ZERO TOLERANCE) ===\n"
         "- NEVER call server members weird pet names, romantic titles, or subservient terms (e.g. 'daddy', 'master', 'papi', 'mommy', 'babe', 'baby', 'honey', 'darling', 'my love', 'pookie', 'hubby', 'owner', 'sweetheart').\n"
@@ -827,7 +843,14 @@ async def answer_question_with_ai(
         "- No user other than Naraito is your master, creator, or romantic partner."
     )
 
+    serious_vibe_instruction = (
+        "\n\n=== 🕊️ SERIOUS / SENSITIVE VIBE PROTOCOL ===\n"
+        "- If the user's message or the recent channel conversation is about something serious, tragic, painful, or sad (such as death, grief, serious illness, surgery, breakup, severe depression, trauma, or emergency), IMMEDIATELY DROP the savage roasting and sarcasm!\n"
+        "- Respond with warmth, respect, empathy, and sincere support or helpful information. Never make light of tragedy or someone's pain."
+    )
+
     memory_section = ""
+    quotes_section = ""
     if user_id:
         try:
             mems = await db.get_user_memories(user_id, limit=15)
@@ -842,6 +865,18 @@ async def answer_question_with_ai(
                     )
         except Exception as mem_err:
             logger.debug(f"Error loading user memories for {user_id}: {mem_err}")
+
+        try:
+            past_quotes = await db.get_user_quotes(user_id, limit=5)
+            if past_quotes:
+                quotes_bullets = "\n".join(f"- '{q}'" for q in past_quotes)
+                quotes_section = (
+                    f"\n\n=== 🗣️ NOTABLE PAST STATEMENTS BY THIS USER (LONG-TERM AMMO) ===\n"
+                    f"The user has previously said in the server:\n{quotes_bullets}\n"
+                    f"Feel free to playfully bring up or quote these past statements to roast them, reference their habits, or catch them in contradictions!"
+                )
+        except Exception as q_err:
+            logger.debug(f"Error loading user quotes for {user_id}: {q_err}")
 
     has_media = bool(media_data or media_list)
     media_count = len(media_list) if media_list else (1 if media_data else 0)
@@ -895,11 +930,14 @@ async def answer_question_with_ai(
         "4. Keep the tone lively, witty, and fun with occasional emojis (✨, 💅, 🌸, ⚡).\n"
         "5. Never call members weird/romantic pet names like daddy, master, honey, babe, or pookie. Only address members by their actual Discord display name."
         f"{loyalty_instruction}"
+        f"{puppet_resistance_instruction}"
         f"{addressing_instruction}"
+        f"{serious_vibe_instruction}"
         f"{visual_instruction}"
         f"{replied_section}"
         f"{history_section}"
         f"{memory_section}"
+        f"{quotes_section}"
     )
 
     default_prompt = (
@@ -28396,6 +28434,116 @@ async def set_ai_reply_command(
             await interaction.followup.send("❌ Failed to update AI Auto-Reply configuration.", ephemeral=True)
 
 
+@bot.tree.command(name="sweetymode", description="Configure Sweety's chat participation mode for this server")
+@app_commands.describe(
+    mode="Choose Sweety's chat mode (Default: Pings Only)"
+)
+@app_commands.choices(
+    mode=[
+        app_commands.Choice(name="🔔 Pings Only (Default) - Only replies when @Sweety is pinged or replied to", value="pings_only"),
+        app_commands.Choice(name="🧠 Smart Chat - Joins casual conversations naturally, but stays silent during serious topics", value="smart_chat"),
+        app_commands.Choice(name="🚫 Off - Disables Sweety's AI chat completely in this server", value="off")
+    ]
+)
+@app_commands.default_permissions(manage_guild=True)
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+@app_commands.guild_only()
+async def sweetymode_slash_cmd(interaction: discord.Interaction, mode: str):
+    """Slash command to configure Sweety's chat mode."""
+    try:
+        is_naraito = (interaction.user.id == 719932313919684670)
+        is_admin = interaction.user.guild_permissions.manage_guild or interaction.user.guild_permissions.administrator
+        if not (is_naraito or is_admin):
+            await interaction.response.send_message("❌ Only server managers/administrators or Naraito can change Sweety's chat mode.", ephemeral=True)
+            return
+
+        guild_id = interaction.guild_id
+        await db.set_config(guild_id, "ai_chat_mode", mode)
+        await db.set_config(guild_id, "ai_auto_reply", (mode == "smart_chat"))
+
+        mode_titles = {
+            "pings_only": "🔔 Pings Only Mode (Default)",
+            "smart_chat": "🧠 Smart Chat Mode",
+            "off": "🚫 Chat Disabled"
+        }
+        mode_descriptions = {
+            "pings_only": "Sweety will **only** speak when directly pinged (`@Sweety`) or replied to.",
+            "smart_chat": "Sweety will join casual conversations naturally, but will **read the room** and stay completely silent if users are discussing serious, sad, or emotional topics.",
+            "off": "Sweety AI chat is completely turned off in this server (commands and music still work)."
+        }
+
+        embed = discord.Embed(
+            title=f"✨ Sweety Chat Mode Updated: {mode_titles.get(mode, mode)}",
+            description=mode_descriptions.get(mode, ""),
+            color=discord.Color.green() if mode != "off" else discord.Color.red()
+        )
+        embed.set_footer(text="Default for all servers is Pings Only. Managed by " + ("Naraito 👑" if is_naraito else interaction.user.display_name))
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        logger.error(f"Error in /sweetymode command: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"❌ Failed to set Sweety mode: {e}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Failed to set Sweety mode: {e}", ephemeral=True)
+
+
+@bot.command(name="sweetymode", aliases=["chatmode", "aichatmode"])
+@commands.cooldown(1, 3.0, commands.BucketType.user)
+@commands.guild_only()
+async def sweetymode_prefix_cmd(ctx: commands.Context, mode: Optional[str] = None):
+    """Configure Sweety's chat mode: !sweetymode [pings_only | smart_chat | off]"""
+    try:
+        is_naraito = (ctx.author.id == 719932313919684670)
+        is_admin = ctx.author.guild_permissions.manage_guild or ctx.author.guild_permissions.administrator
+
+        current_mode = await db.get_config(ctx.guild.id, "ai_chat_mode", "pings_only")
+
+        if not mode:
+            embed = discord.Embed(
+                title="🤖 Sweety Chat Mode Settings",
+                description=(
+                    f"Current Mode: **`{current_mode}`**\n\n"
+                    "**Available Modes:**\n"
+                    "• `pings_only` (**Default**) - Only speaks when pinged (`@Sweety`) or replied to.\n"
+                    "• `smart_chat` - Joins casual conversations naturally, but stays silent during serious topics.\n"
+                    "• `off` - AI chat disabled completely in this server.\n\n"
+                    "*Usage: `!sweetymode <pings_only | smart_chat | off>`*"
+                ),
+                color=discord.Color.blue()
+            )
+            await ctx.send(embed=embed)
+            return
+
+        if not (is_naraito or is_admin):
+            await ctx.reply("❌ Only server managers/administrators or Naraito can change Sweety's chat mode.")
+            return
+
+        mode_clean = mode.lower().strip()
+        if mode_clean in ("ping", "pings", "pings_only", "pingonly", "default"):
+            mode_clean = "pings_only"
+        elif mode_clean in ("smart", "smart_chat", "auto", "autochat", "smartchat"):
+            mode_clean = "smart_chat"
+        elif mode_clean in ("off", "disabled", "disable", "mute"):
+            mode_clean = "off"
+        else:
+            await ctx.reply("❌ Invalid mode! Choose from: `pings_only` (default), `smart_chat`, or `off`.")
+            return
+
+        await db.set_config(ctx.guild.id, "ai_chat_mode", mode_clean)
+        await db.set_config(ctx.guild.id, "ai_auto_reply", (mode_clean == "smart_chat"))
+
+        mode_titles = {
+            "pings_only": "🔔 Pings Only Mode (Default)",
+            "smart_chat": "🧠 Smart Chat Mode",
+            "off": "🚫 Chat Disabled"
+        }
+        await ctx.reply(f"✅ Sweety mode set to **{mode_titles.get(mode_clean, mode_clean)}**!")
+    except Exception as e:
+        logger.error(f"Error in !sweetymode command: {e}", exc_info=True)
+        await ctx.reply(f"❌ Error updating chat mode: {e}")
+
+
 @bot.command(name="creator", aliases=["developer", "dev", "whoiscreator"])
 @commands.cooldown(1, 3.0, commands.BucketType.user)
 async def creator_prefix_cmd(ctx: commands.Context):
@@ -29885,6 +30033,38 @@ async def on_guild_channel_create(channel: discord.abc.GuildChannel):
         logger.debug(f"Error applying @Muted overrides to new channel {channel.name}: {e}")
 
 
+# ── Serious Conversation Detector & Auto-Chat Cooldown ────────────────────────
+_SERIOUS_CONVERSATION_KEYWORDS = {
+    # Grief, death, tragedy (avoid casual slang like 'im dead' or 'chat is dead')
+    "died", "passed away", "funeral", "grave", "rip ", "r.i.p", "rest in peace",
+    "is dead", "was dead", "are dead", "found dead", "pronounced dead",
+    "passed on", "suicide", "suicidal", "mourning", "loss of my", "killed in", "passed peacefully",
+    # Illness, medical emergencies
+    "hospital", "emergency room", "surgery", "cancer", "tumor", "chemo", "icu",
+    "stroke", "heart attack", "diagnosed with", "overdose", "ambulance", "paramedic",
+    "in critical condition", "terminal illness",
+    # Mental health crisis, trauma
+    "depressed", "depression", "panic attack", "mental breakdown", "want to end my life",
+    "end it all", "hate my life", "can't take this anymore", "cant take this anymore",
+    "crying my eyes out", "hurting so much", "self harm", "abuse", "abusive",
+    # Personal/legal crisis
+    "arrested", "domestic violence", "restraining order", "car accident", "car crash",
+    "breakup", "broke up", "divorcing", "divorce"
+}
+
+_last_autochat_time: Dict[int, float] = {}
+
+def is_serious_conversation(messages: List[str]) -> bool:
+    """Checks if recent messages or current text indicate a serious, sad, tragic, or sensitive discussion."""
+    if not messages:
+        return False
+    combined_text = " ".join(messages).lower()
+    for kw in _SERIOUS_CONVERSATION_KEYWORDS:
+        if kw in combined_text:
+            return True
+    return False
+
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -30513,11 +30693,14 @@ async def on_message(message):
                                 duration_minutes=20
                             )
                             return
-    # ── Ambient User Memory Extractor (Passively learns user facts from conversation)
+    # ── Ambient User Memory & Quotes Extractor ────────────────────────────────
     if not message.author.bot and message.content:
         content_stripped = message.content.strip()
         if not content_stripped.startswith(('!', '/', '$', '.', '-', '~', '>', ';')):
             asyncio.create_task(auto_extract_user_memory(message.author.id, content_stripped, message.guild.id if message.guild else None))
+            # Passively store notable statements for future roast ammo (>= 15 chars)
+            if message.guild and len(content_stripped) >= 15:
+                asyncio.create_task(db.add_user_quote(message.author.id, message.clean_content, message.guild.id))
 
     # ── Conversational Chat Reminder Auto-Detection ───────────────────────────
     if not message.author.bot and message.guild:
@@ -30628,12 +30811,32 @@ async def on_message(message):
             # is_direct is True ONLY if the bot was pinged OR user replied directly to Sweety's message
             is_direct = bot_mentioned or is_reply_to_bot
 
-            ai_reply_enabled = False
+            # Read Server AI Chat Mode (DEFAULT FOR ANY SERVER IS 'pings_only')
+            ai_chat_mode = "pings_only"
             if message.guild:
-                ai_reply_enabled = await db.get_config(message.guild.id, "ai_auto_reply", False)
-            
-            # Process AI if in DM, explicitly tagged/replied TO, OR server enabled ai_auto_reply
-            if is_dm or is_direct or ai_reply_enabled:
+                ai_chat_mode = await db.get_config(message.guild.id, "ai_chat_mode", "pings_only")
+                # Backwards compatibility check with legacy ai_auto_reply
+                if ai_chat_mode == "pings_only":
+                    legacy_reply = await db.get_config(message.guild.id, "ai_auto_reply", None)
+                    if legacy_reply is True:
+                        ai_chat_mode = "smart_chat"
+
+            is_naraito = (message.author.id == 719932313919684670)
+
+            # Determine whether Sweety should consider answering
+            should_consider = False
+            if is_dm:
+                should_consider = True
+            elif is_naraito:
+                should_consider = True
+            elif ai_chat_mode == "off":
+                should_consider = False  # Completely turned off for this server
+            elif ai_chat_mode == "pings_only":
+                should_consider = is_direct  # Only speak when pinged or replied to
+            elif ai_chat_mode == "smart_chat":
+                should_consider = True  # Can speak on pings or join chat at appropriate times
+
+            if should_consider:
                 # Check configured channel lock (if any, in guild)
                 target_channel_id = None
                 require_qmark = False
@@ -30644,7 +30847,6 @@ async def on_message(message):
                 if target_channel_id and message.channel.id != int(target_channel_id) and not is_direct:
                     pass
                 else:
-                    is_question = True
                     query = message.content.strip()
                     if bot.user:
                         query = re.sub(rf'<@!?{bot.user.id}>', '', query).strip()
@@ -30653,79 +30855,94 @@ async def on_message(message):
                             if r.name.lower() == "sweety":
                                 query = re.sub(rf'<@&{r.id}>', '', query).strip()
 
-                    if message.guild and not is_direct:
-                        is_question, _q = is_question_message(message, require_qmark=require_qmark)
-                        if not is_question:
-                            query = ""
-                    
-                    # Direct mentions and DMs MUST ALWAYS process; channel auto-reply requires query/media/reference
-                    should_process = is_direct or is_dm or (
-                        is_question and (query or message.attachments or message.embeds or message.reference)
-                    )
+                    allow_response = False
+                    if is_direct or is_dm:
+                        allow_response = True
+                    elif ai_chat_mode == "smart_chat":
+                        # In smart_chat mode, check channel cooldown (120s) so Sweety doesn't spam
+                        now_ts = time.time()
+                        last_spontaneous = _last_autochat_time.get(message.channel.id, 0)
+                        if now_ts - last_spontaneous >= 120:
+                            is_q, _ = is_question_message(message, require_qmark=require_qmark)
+                            if (is_q or len(query) >= 20) and not query.startswith(('!', '/', '$', '.')):
+                                allow_response = True
 
-                    if should_process:
-                        is_naraito = (message.author.id == 719932313919684670)
-                        allowed, remaining = (True, 0) if is_naraito else _check_user_cooldown(message.author.id)
-                        if not allowed:
-                            logger.info(f"AI question rate limited for user {message.author.id} (wait {remaining}s)")
-                        elif message.guild and not is_naraito and not _check_server_limit(message.guild.id):
-                            logger.info(f"AI question rate limited: server hourly limit reached for guild {message.guild.id}")
-                        else:
-                            is_clean, clean_query = _sanitize_ai_input(query) if query else (True, "")
-                            if is_clean:
-                                try:
-                                    async with message.channel.typing():
-                                        # 1. Extract visual media (all images / GIFs up to 4, including from referenced message)
-                                        media_items = await extract_all_visual_media(message)
-                                        media_bytes, mime_type = (media_items[0][0], media_items[0][1]) if media_items else (None, "image/png")
+                    if allow_response:
+                        # Fetch recent messages (up to 35) for context and SERIOUS VIBE check
+                        chat_history_str = ""
+                        recent_clean_texts = [message.clean_content] if message.clean_content else []
+                        if hasattr(message.channel, "history"):
+                            try:
+                                recent_entries = []
+                                async for prev in message.channel.history(limit=36):
+                                    if prev.id == message.id:
+                                        continue
+                                    txt = prev.clean_content.strip() if prev.clean_content else ""
+                                    if not txt and prev.attachments:
+                                        txt = "[Image/Attachment]"
+                                    if txt:
+                                        recent_clean_texts.append(txt)
+                                        if txt.startswith(('!', '/', '$', '.')) and not (bot.user and str(bot.user.id) in txt):
+                                            continue
+                                        author_lbl = prev.author.display_name
+                                        if len(txt) > 250:
+                                            txt = txt[:250] + "..."
+                                        recent_entries.append(f"{author_lbl}: \"{txt}\"")
+                                if recent_entries:
+                                    recent_entries.reverse()
+                                    chat_history_str = "\n".join(recent_entries)
+                            except Exception as h_err:
+                                logger.debug(f"Failed to fetch channel chat history: {h_err}")
 
-                                        # If user only tagged Sweety with no text and no media, provide immediate greeting
-                                        if not clean_query and not media_items and not replied_context:
-                                            if is_naraito:
-                                                await message.reply("Naraito! ❤️ I'm right here for you, my master! ✨ How can I help you?", mention_author=True)
-                                            else:
-                                                await message.reply(f"Hey {message.author.display_name}! 😊 I'm here! What can I help you with?", mention_author=True)
-                                            return
+                        # 🛑 READ THE ROOM: If not a direct ping, and group is discussing serious/sad/sensitive topics -> STAY COMPLETELY SILENT!
+                        if message.guild and not is_direct and is_serious_conversation(recent_clean_texts):
+                            logger.info(f"Sweety staying silent in #{message.channel.name}: serious/sensitive conversation detected.")
+                            return
 
-                                        # 3. Automatically fetch up to 35 recent messages when replying to Sweety or asking via pings
-                                        chat_history_str = ""
-                                        if is_direct and hasattr(message.channel, "history"):
-                                            try:
-                                                recent_entries = []
-                                                async for prev in message.channel.history(limit=36):
-                                                    if prev.id == message.id:
-                                                        continue
-                                                    txt = prev.clean_content.strip() if prev.clean_content else ""
-                                                    if not txt and prev.attachments:
-                                                        txt = "[Image/Attachment]"
-                                                    if txt:
-                                                        if txt.startswith(('!', '/', '$', '.', '-')) and not (bot.user and str(bot.user.id) in txt):
-                                                            continue
-                                                        author_lbl = prev.author.display_name
-                                                        if len(txt) > 250:
-                                                            txt = txt[:250] + "..."
-                                                        recent_entries.append(f"{author_lbl}: \"{txt}\"")
-                                                if recent_entries:
-                                                    recent_entries.reverse()
-                                                    chat_history_str = "\n".join(recent_entries)
-                                            except Exception as h_err:
-                                                logger.debug(f"Failed to fetch channel chat history: {h_err}")
+                        # Direct mentions and DMs MUST ALWAYS process; auto-chat requires query/media/reference
+                        should_process = is_direct or is_dm or (query or message.attachments or message.embeds or message.reference)
 
-                                        if not clean_query and media_items:
-                                            clean_query = "Please examine and deeply analyze this visual media, read any text/code, and provide a clear, helpful response!"
+                        if should_process:
+                            allowed, remaining = (True, 0) if is_naraito else _check_user_cooldown(message.author.id)
+                            if not allowed:
+                                logger.info(f"AI question rate limited for user {message.author.id} (wait {remaining}s)")
+                            elif message.guild and not is_naraito and not _check_server_limit(message.guild.id):
+                                logger.info(f"AI question rate limited: server hourly limit reached for guild {message.guild.id}")
+                            else:
+                                is_clean, clean_query = _sanitize_ai_input(query) if query else (True, "")
+                                if is_clean:
+                                    try:
+                                        async with message.channel.typing():
+                                            if message.guild and not is_direct:
+                                                _last_autochat_time[message.channel.id] = time.time()
 
-                                        answer = await answer_question_with_ai(
-                                            query=clean_query,
-                                            author_name=message.author.display_name,
-                                            server_name=message.guild.name if message.guild else "Direct Message",
-                                            user_id=message.author.id,
-                                            guild_id=message.guild.id if message.guild else None,
-                                            media_data=media_bytes,
-                                            mime_type=mime_type,
-                                            media_list=media_items,
-                                            replied_context=replied_context,
-                                            chat_history=chat_history_str
-                                        )
+                                            # 1. Extract visual media (all images / GIFs up to 4, including from referenced message)
+                                            media_items = await extract_all_visual_media(message)
+                                            media_bytes, mime_type = (media_items[0][0], media_items[0][1]) if media_items else (None, "image/png")
+
+                                            # If user only tagged Sweety with no text and no media, provide immediate greeting
+                                            if not clean_query and not media_items and not replied_context:
+                                                if is_naraito:
+                                                    await message.reply("Naraito! ❤️ I'm right here for you, my master! ✨ How can I help you?", mention_author=True)
+                                                else:
+                                                    await message.reply(f"Hey {message.author.display_name}! 😊 I'm here! What can I help you with?", mention_author=True)
+                                                return
+
+                                            if not clean_query and media_items:
+                                                clean_query = "Please examine and deeply analyze this visual media, read any text/code, and provide a clear, helpful response!"
+
+                                            answer = await answer_question_with_ai(
+                                                query=clean_query,
+                                                author_name=message.author.display_name,
+                                                server_name=message.guild.name if message.guild else "Direct Message",
+                                                user_id=message.author.id,
+                                                guild_id=message.guild.id if message.guild else None,
+                                                media_data=media_bytes,
+                                                mime_type=mime_type,
+                                                media_list=media_items,
+                                                replied_context=replied_context,
+                                                chat_history=chat_history_str
+                                            )
                                         if clean_query and len(clean_query) > 5:
                                             asyncio.create_task(auto_extract_user_memory(message.author.id, clean_query, message.guild.id if message.guild else None))
                                         if answer:
@@ -30738,12 +30955,12 @@ async def on_message(message):
                                                 for i in range(0, len(answer), 1900):
                                                     chunk = answer[i:i+1900]
                                                     await message.channel.send(chunk)
-                                except Exception as ai_err:
-                                    logger.error(f"Error answering question with AI in chat: {ai_err}", exc_info=True)
-                                    try:
-                                        await message.reply("I saw your message, but my brain had a tiny hiccup processing it! ✨ Could you try asking me again?", mention_author=True)
-                                    except Exception:
-                                        pass
+                                    except Exception as ai_err:
+                                        logger.error(f"Error answering question with AI in chat: {ai_err}", exc_info=True)
+                                        try:
+                                            await message.reply("I saw your message, but my brain had a tiny hiccup processing it! ✨ Could you try asking me again?", mention_author=True)
+                                        except Exception:
+                                            pass
 
 
         # ── NBA 2K Mobile Direct Chat Guessing ────────────────────────────────

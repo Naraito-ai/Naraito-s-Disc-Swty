@@ -400,6 +400,19 @@ class DatabaseManager:
             """
             CREATE INDEX IF NOT EXISTS idx_user_memories_lookup ON user_memories(user_id, updated_at);
             """,
+            # User Notable Quotes Table (Long-term AI Roast Ammo)
+            """
+            CREATE TABLE IF NOT EXISTS user_quotes (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                guild_id TEXT,
+                message_text TEXT NOT NULL,
+                created_at REAL NOT NULL
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_user_quotes_lookup ON user_quotes(user_id, created_at);
+            """,
             # Permanent User Blacklist Table
             """
             CREATE TABLE IF NOT EXISTS blacklisted_users (
@@ -1690,6 +1703,62 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error clearing user memories in DB: {e}")
             return False
+
+    # ── User Quotes & Memorable Statements ──────────────────
+
+    async def add_user_quote(self, user_id: Any, message_text: str, guild_id: Optional[Any] = None) -> bool:
+        """Stores a notable user message/statement to use contextually in future chats."""
+        if not message_text or len(message_text.strip()) < 10:
+            return False
+        clean_text = message_text.strip()[:350]
+        now = time.time()
+        try:
+            if not self.is_postgres:
+                query = "INSERT INTO user_quotes (user_id, guild_id, message_text, created_at) VALUES (?, ?, ?, ?)"
+            else:
+                query = "INSERT INTO user_quotes (user_id, guild_id, message_text, created_at) VALUES ($1, $2, $3, $4)"
+            await self.execute(query, str(user_id), str(guild_id) if guild_id else None, clean_text, now)
+
+            # Prune quotes older than the last 20 for this user
+            if not self.is_postgres:
+                cleanup = """
+                    DELETE FROM user_quotes 
+                    WHERE id IN (
+                        SELECT id FROM user_quotes 
+                        WHERE user_id = ? 
+                        ORDER BY created_at DESC 
+                        LIMIT -1 OFFSET 20
+                    )
+                """
+                await self.execute(cleanup, str(user_id))
+            else:
+                cleanup = """
+                    DELETE FROM user_quotes 
+                    WHERE id IN (
+                        SELECT id FROM user_quotes 
+                        WHERE user_id = $1 
+                        ORDER BY created_at DESC 
+                        OFFSET 20
+                    )
+                """
+                await self.execute(cleanup, str(user_id))
+            return True
+        except Exception as e:
+            logger.debug(f"Error adding user quote: {e}")
+            return False
+
+    async def get_user_quotes(self, user_id: Any, limit: int = 5) -> List[str]:
+        """Retrieves recent notable statements/quotes made by a user."""
+        try:
+            if not self.is_postgres:
+                query = "SELECT message_text FROM user_quotes WHERE user_id = ? ORDER BY created_at DESC LIMIT ?"
+            else:
+                query = "SELECT message_text FROM user_quotes WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2"
+            rows = await self.fetch(query, str(user_id), limit)
+            return [r["message_text"] for r in rows if r.get("message_text")]
+        except Exception as e:
+            logger.debug(f"Error fetching user quotes: {e}")
+            return []
 
     async def add_blacklist_user(self, user_id: Any, reason: str = "No reason provided", blacklisted_by: Any = None) -> bool:
         """Adds a user to the permanent global blacklist."""

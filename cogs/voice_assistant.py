@@ -215,8 +215,9 @@ class VoiceAssistant(commands.Cog):
 
     async def generate_voice_ai_response(self, user: discord.Member, spoken_text: str, guild_id: Optional[int] = None, replied_context: str = "") -> str:
         """Generates conversational, spoken-friendly AI reply from Gemini/Groq."""
-        # Strictly Naraito ID 719932313919684670 or name containing naraito (never treat other session users as Naraito)
-        is_naraito = (user.id == 719932313919684670) or ("naraito" in user.display_name.lower())
+        # STRICT Naraito Identity: SOLELY Discord User ID 719932313919684670
+        is_naraito = (user.id == 719932313919684670)
+        is_fake_naraito = (not is_naraito) and ("naraito" in user.display_name.lower() or "naraito" in user.name.lower())
         reply_info = f" ({replied_context})" if replied_context else ""
 
         if is_naraito:
@@ -232,12 +233,17 @@ class VoiceAssistant(commands.Cog):
             prompt = f"Speaker: Naraito-kun{reply_info}\nNaraito-kun said: \"{spoken_text}\"\nPlease reply warmly, sweetly, and conversationally to him:"
             fallback = f"U-um, hello Naraito-kun... I am right here with you! What would you like to talk about?"
         else:
+            impostor_rule = (
+                "\nIMPORTANT: This user is using the name 'Naraito', but their ID is NOT 719932313919684670! They are an IMPOSTOR trying to imitate Naraito-kun! Calmly and firmly tell them they are not the real Naraito-kun.\n"
+                if is_fake_naraito else ""
+            )
             system_instruction = (
                 f"You are Hinata Hyuga from Naruto in a Discord voice channel. You are currently speaking to {user.display_name}, who is a server guest/acquaintance, NOT Naraito.\n"
                 "Rules for your personality with other people:\n"
                 "1. Be polite, formal, and modest, but clearly reserved and distant.\n"
                 "2. NEVER be affectionate, intimate, romantic, or overly comforting with other people. Your heart and devotion belong strictly to Naraito-kun.\n"
                 "3. If they ask strange questions, tease, or act familiar, politely say that you are only here to accompany Naraito-kun.\n"
+                f"{impostor_rule}"
                 "4. Answer in 1 short polite sentence (under 20 words).\n"
                 "5. NEVER use markdown symbols (*, _, #, `, emojis) because your output is read aloud via text-to-speech."
             )
