@@ -30229,7 +30229,7 @@ async def on_message(message):
                 return
 
         # Tier 2: AI Semantic Intent Resolver (handles complex, novel, or conversational phrasing)
-        action_indicators = ["can you", "could you", "please", "make", "turn", "set", "give", "tell", "delete", "clear", "stop", "play", "mute", "ban", "kick", "lock", "unlock", "send", "dm", "how much", "who is", "what is", "remind"]
+        action_indicators = ["can you", "could you", "please", "make", "turn", "set", "give", "delete", "clear", "stop", "play", "mute", "ban", "kick", "lock", "unlock", "send", "dm", "remind"]
         has_action_intent = any(act in raw_cmd.lower() for act in action_indicators) or message.mentions or re.search(r'\d+', raw_cmd)
         if has_action_intent and len(raw_cmd) > 3:
             try:
@@ -30801,11 +30801,14 @@ async def on_message(message):
         if is_dm and message.content.strip().startswith(('!', '/', '$', '.')):
             pass
         else:
-            # 1. Check if bot is directly mentioned
+            # 1. Check if bot is directly mentioned or addressed via 'hey sweety'
             bot_mentioned = bool(bot.user and bot.user in message.mentions)
             if not bot_mentioned and getattr(message, 'role_mentions', None):
                 if any(r.name.lower() == "sweety" or (bot.user and r.name.lower() == bot.user.name.lower()) for r in message.role_mentions):
                     bot_mentioned = True
+
+            # Also check text prefix (e.g. 'hey sweety', 'sweety,', 'yo sweety')
+            is_name_addressed = bool(SWEETY_TRIGGER_REGEX.match(message.content.strip()))
 
             # 2. Extract replied-to message context and verify if replying directly to Sweety
             is_reply_to_bot = False
@@ -30829,7 +30832,7 @@ async def on_message(message):
                         replied_context = f"Replying to {ref_author}'s message: \"{ref_body}\""
 
             # is_direct is True ONLY if the bot was pinged OR user replied directly to Sweety's message
-            is_direct = bot_mentioned or is_reply_to_bot
+            is_direct = bot_mentioned or is_reply_to_bot or is_name_addressed
 
             # Read Server AI Chat Mode (DEFAULT FOR EVERY SERVER IS STRICTLY 'pings_only')
             ai_chat_mode = "pings_only"
@@ -30870,6 +30873,10 @@ async def on_message(message):
                         for r in message.role_mentions:
                             if r.name.lower() == "sweety":
                                 query = re.sub(rf'<@&{r.id}>', '', query).strip()
+                    # Strip 'hey sweety', 'sweety,', etc. from the beginning of query
+                    sw_match = SWEETY_TRIGGER_REGEX.match(query)
+                    if sw_match:
+                        query = query[sw_match.end():].strip()
 
                     allow_response = False
                     if is_direct or is_dm:

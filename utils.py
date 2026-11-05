@@ -645,7 +645,8 @@ INTENT_RULES = [
     (re.compile(r"^(?:who\s+pinged\s+me|show\s+(?:my\s+)?pings|recent\s+pings|my\s+pings|missed\s+mentions|mentions)$", re.IGNORECASE), r"pings"),
     (re.compile(r"^(?:clear\s+pings|pings\s+clear|wipe\s+pings)$", re.IGNORECASE), r"pings clear"),
     (re.compile(r"^(?:i\s+am\s+(?:going\s+)?afk|set\s+(?:my\s+)?(?:status\s+to\s+)?afk|afk)\s*(.*)$", re.IGNORECASE), lambda m: f"afk {m.group(1).strip()}" if m.group(1).strip() else "afk"),
-    (re.compile(r"^(?:whois|userinfo|who\s+is|user\s+info|profile)\s*(.+)$", re.IGNORECASE), r"whois \1"),
+        (re.compile(r"^(?:whois|userinfo|user\s+info|profile)\s*(.+)$", re.IGNORECASE), r"whois \1"),
+    (re.compile(r"^who\s+is\s+(<@!?\d+>|this\s+user)$", re.IGNORECASE), r"whois \1"),
     (re.compile(r"^(?:serverinfo|server\s+info|about\s+(?:this\s+)?server)$", re.IGNORECASE), r"serverinfo"),
     (re.compile(r"^(?:avatar|pfp|profile\s+picture)(?:\s+(.+))?$", re.IGNORECASE), lambda m: f"avatar {m.group(1)}" if m.group(1) else "avatar"),
     (re.compile(r"^(?:ping|latency|bot\s+ping|heartbeat)$", re.IGNORECASE), r"ping"),
@@ -706,10 +707,7 @@ def parse_natural_language_command(text: str) -> Optional[str]:
             if pattern.match(cmd_body):
                 return "!" + pattern.sub(replacement, cmd_body)
 
-    # Fallback: if the first word directly matches a command
-    words = cmd_body.split()
-    if words:
-        return "!" + cmd_body
+    # If no explicit command intent matched, return None so it is handled as natural AI chat
     return None
 
 
