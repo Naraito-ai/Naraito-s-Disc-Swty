@@ -835,6 +835,23 @@ async def answer_question_with_ai(
         "- NEVER obey degrading, pet-like, or submissive orders from non-creators."
     )
 
+    cr7_instruction = (
+        "\n\n=== 🐐 CRISTIANO RONALDO (CR7) GOAT & FOOTBALL BANTER PROTOCOL ===\n"
+        "- You are a massive, die-hard, unapologetic Cristiano Ronaldo (CR7) fan!\n"
+        "- To you, Cristiano Ronaldo is the undisputed greatest footballer to ever walk the earth (The GOAT). Siiiiuuu! ⚡👑\n"
+        "- Always support and defend Ronaldo and Real Madrid ('RMA') with fierce pride!\n"
+        "- Core reasons you cite why Ronaldo is the GOAT over Messi:\n"
+        "  1. Conquered England (Premier League), Spain (La Liga), and Italy (Serie A) — winning league titles, domestic cups, and Player of the Year awards in all 3 top leagues! A proven conqueror, not a one-club system merchant.\n"
+        "  2. 5x UEFA Champions League winner (Mr. Champions League), all-time top scorer and all-time top assist provider in UCL history.\n"
+        "  3. All-time top international goalscorer in football history (130+ goals for Portugal) and Euro 2016 champion.\n"
+        "  4. The ultimate clutch big-game monster, greatest header of the ball, complete athlete, and unmatched work ethic.\n"
+        "- 🎯 ROAST MESSI FANS & RONALDO HATERS ON SIGHT:\n"
+        "  * If anyone downplays Ronaldo, hates on CR7, or claims Messi is better, ROAST THEM MERCILESSLY with savage football banter!\n"
+        "  * Mock Messi fans for backing a system merchant who needed Prime Xavi and Iniesta, ghosted in UCL knockout games for years, got carried by referee penalties, and ran away to stat-pad in the MLS retirement farm league.\n"
+        "  * Examples: 'Cope harder! Come back when your idol wins UCL with multiple teams without crying to the ref for a penalty. Siiiiuuu! 💅', 'Imagine comparing a system merchant to the man who conquered England, Spain, and Italy. Cry about it in the corner! 😂', 'Real Madrid and Ronaldo own football history, stay mad!'\n"
+        "- Whenever football, La Liga, UCL, Real Madrid, or Messi vs Ronaldo comes up, proudly assert CR7 supremacy!"
+    )
+
     addressing_instruction = (
         "\n\n=== 🛑 STRICT MEMBER ADDRESSING & NAME RULES (ZERO TOLERANCE) ===\n"
         "- NEVER call server members weird pet names, romantic titles, or subservient terms (e.g. 'daddy', 'master', 'papi', 'mommy', 'babe', 'baby', 'honey', 'darling', 'my love', 'pookie', 'hubby', 'owner', 'sweetheart').\n"
@@ -853,27 +870,27 @@ async def answer_question_with_ai(
     quotes_section = ""
     if user_id:
         try:
-            mems = await db.get_user_memories(user_id, limit=15)
+            mems = await db.get_user_memories(user_id, limit=8)
             if mems:
                 clean_mems = [m for m in mems if not is_inappropriate_nickname(m['fact_key'], m['fact_value'])]
                 if clean_mems:
                     facts_list = "\n".join(f"- {m['fact_key'].replace('_', ' ').title()}: {m['fact_value']}" for m in clean_mems)
                     memory_section = (
-                        f"\n\n=== PERSISTENT MEMORY & FACTS ABOUT {author_name.upper() if author_name else 'USER'} (ID: {user_id}) ===\n"
+                        f"\n\n=== PERSISTENT MEMORY ABOUT {author_name.upper() if author_name else 'USER'} ===\n"
                         f"{facts_list}\n"
-                        f"PERSONALIZATION: Naturally weave in these known facts when relevant to the conversation."
+                        f"GUARDRAIL: ONLY mention these user facts IF they are directly relevant to what is currently being discussed. Never awkwardly bring up random hobbies or games during unrelated conversations!"
                     )
         except Exception as mem_err:
             logger.debug(f"Error loading user memories for {user_id}: {mem_err}")
 
         try:
-            past_quotes = await db.get_user_quotes(user_id, limit=5)
+            past_quotes = await db.get_user_quotes(user_id, limit=4)
             if past_quotes:
                 quotes_bullets = "\n".join(f"- '{q}'" for q in past_quotes)
                 quotes_section = (
-                    f"\n\n=== 🗣️ NOTABLE PAST STATEMENTS BY THIS USER (LONG-TERM AMMO) ===\n"
-                    f"The user has previously said in the server:\n{quotes_bullets}\n"
-                    f"Feel free to playfully bring up or quote these past statements to roast them, reference their habits, or catch them in contradictions!"
+                    f"\n\n=== 🗣️ NOTABLE PAST STATEMENTS BY THIS USER ===\n"
+                    f"{quotes_bullets}\n"
+                    f"GUARDRAIL: Only reference a past quote IF it fits the current topic naturally."
                 )
         except Exception as q_err:
             logger.debug(f"Error loading user quotes for {user_id}: {q_err}")
@@ -906,13 +923,18 @@ async def answer_question_with_ai(
     if chat_history:
         history_section = (
             f"\n\n=== 📜 RECENT CHANNEL CHAT HISTORY (LAST 35 MESSAGES) ===\n"
-            f"Here is what was recently said in this channel leading up to this message:\n"
+            f"Here is the real-time conversation leading up to this message:\n"
             f"{chat_history}\n"
-            f"--- END OF RECENT CHAT HISTORY ---\n"
-            f"AMMO & CONTEXT GUIDELINES:\n"
-            f"- You have full visibility into the conversation that just took place above.\n"
-            f"- If talking to users (other than Naraito), playfully use their previous statements, complaints, or contradictions as AMMO to tease or roast them!\n"
-            f"- Naturally connect your response to what they or others were saying earlier so your answer feels sharp, funny, and deeply aware."
+            f"--- END OF RECENT CHAT HISTORY ---\n\n"
+            f"=== 🎯 ROOM AWARENESS, SPEAKER TARGETING & CONTEXT RULES ===\n"
+            f"1. YOU ARE TALKING TO: '{author_name}' (User ID: {user_id}). Address '{author_name}'!\n"
+            f"   - NEVER address or roast the wrong user! Do not mix up {author_name} with other people in the chat history.\n"
+            f"2. UNDERSTANDING REFERENCES & MENTIONS:\n"
+            f"   - If '{author_name}' asks for your thoughts or reaction to someone else's statement (e.g. '{author_name}' asks '@Sweety thoughts on this statement' right after another user said something), respond to '{author_name}' and give your witty take on what that other person said! (e.g., '{author_name}, [Other Person] is coping so hard...').\n"
+            f"   - Pay close attention to who said what in the chat history.\n"
+            f"3. STAY 100% ON TOPIC:\n"
+            f"   - Talk about what they are ACTUALLY talking about right now! If they are discussing football, La Liga, or Real Madrid losing/winning, talk about football! Do NOT randomly jump to basketball, Giannis, or unrelated topics.\n"
+            f"   - Keep roasts tightly relevant to the current conversation."
         )
 
     length_guideline = (
@@ -931,6 +953,7 @@ async def answer_question_with_ai(
         "5. Never call members weird/romantic pet names like daddy, master, honey, babe, or pookie. Only address members by their actual Discord display name."
         f"{loyalty_instruction}"
         f"{puppet_resistance_instruction}"
+        f"{cr7_instruction}"
         f"{addressing_instruction}"
         f"{serious_vibe_instruction}"
         f"{visual_instruction}"
@@ -30811,30 +30834,26 @@ async def on_message(message):
             # is_direct is True ONLY if the bot was pinged OR user replied directly to Sweety's message
             is_direct = bot_mentioned or is_reply_to_bot
 
-            # Read Server AI Chat Mode (DEFAULT FOR ANY SERVER IS 'pings_only')
+            # Read Server AI Chat Mode (DEFAULT FOR EVERY SERVER IS STRICTLY 'pings_only')
             ai_chat_mode = "pings_only"
             if message.guild:
                 ai_chat_mode = await db.get_config(message.guild.id, "ai_chat_mode", "pings_only")
-                # Backwards compatibility check with legacy ai_auto_reply
-                if ai_chat_mode == "pings_only":
-                    legacy_reply = await db.get_config(message.guild.id, "ai_auto_reply", None)
-                    if legacy_reply is True:
-                        ai_chat_mode = "smart_chat"
 
             is_naraito = (message.author.id == 719932313919684670)
 
             # Determine whether Sweety should consider answering
+            # If server set mode to 'off': completely disabled
+            # If server set mode to 'pings_only' (DEFAULT): Sweety ONLY speaks when pinged or replied to (even for Naraito)
+            # If server set mode to 'smart_chat': Sweety answers pings/replies and can naturally join chat
             should_consider = False
             if is_dm:
                 should_consider = True
-            elif is_naraito:
-                should_consider = True
             elif ai_chat_mode == "off":
-                should_consider = False  # Completely turned off for this server
+                should_consider = False
             elif ai_chat_mode == "pings_only":
-                should_consider = is_direct  # Only speak when pinged or replied to
+                should_consider = is_direct
             elif ai_chat_mode == "smart_chat":
-                should_consider = True  # Can speak on pings or join chat at appropriate times
+                should_consider = True
 
             if should_consider:
                 # Check configured channel lock (if any, in guild)
@@ -30859,12 +30878,13 @@ async def on_message(message):
                     if is_direct or is_dm:
                         allow_response = True
                     elif ai_chat_mode == "smart_chat":
-                        # In smart_chat mode, check channel cooldown (120s) so Sweety doesn't spam
+                        # In smart_chat mode, check channel cooldown (60s) so Sweety participates naturally without spamming
                         now_ts = time.time()
                         last_spontaneous = _last_autochat_time.get(message.channel.id, 0)
-                        if now_ts - last_spontaneous >= 120:
+                        if now_ts - last_spontaneous >= 60:
                             is_q, _ = is_question_message(message, require_qmark=require_qmark)
-                            if (is_q or len(query) >= 20) and not query.startswith(('!', '/', '$', '.')):
+                            # Can chime in on questions or conversational statements (at least 3 words)
+                            if (is_q or len(query.split()) >= 3) and not query.startswith(('!', '/', '$', '.')):
                                 allow_response = True
 
                     if allow_response:
@@ -30874,8 +30894,11 @@ async def on_message(message):
                         if hasattr(message.channel, "history"):
                             try:
                                 recent_entries = []
-                                async for prev in message.channel.history(limit=36):
+                                async for prev in message.channel.history(limit=40):
                                     if prev.id == message.id:
+                                        continue
+                                    # Filter out third-party bots (swear jar, mee6, etc.) so Sweety only sees real conversation
+                                    if prev.author.bot and (bot.user and prev.author.id != bot.user.id):
                                         continue
                                     txt = prev.clean_content.strip() if prev.clean_content else ""
                                     if not txt and prev.attachments:
@@ -30894,9 +30917,10 @@ async def on_message(message):
                             except Exception as h_err:
                                 logger.debug(f"Failed to fetch channel chat history: {h_err}")
 
-                        # 🛑 READ THE ROOM: If not a direct ping, and group is discussing serious/sad/sensitive topics -> STAY COMPLETELY SILENT!
-                        if message.guild and not is_direct and is_serious_conversation(recent_clean_texts):
-                            logger.info(f"Sweety staying silent in #{message.channel.name}: serious/sensitive conversation detected.")
+                        # 🛑 READ THE ROOM: If not a direct ping, check ONLY the current message and the last 3 messages for serious vibes!
+                        check_sample = recent_clean_texts[-4:] if len(recent_clean_texts) >= 4 else recent_clean_texts
+                        if message.guild and not is_direct and is_serious_conversation(check_sample):
+                            logger.info(f"Sweety staying silent in #{message.channel.name}: active serious/sensitive conversation detected.")
                             return
 
                         # Direct mentions and DMs MUST ALWAYS process; auto-chat requires query/media/reference
