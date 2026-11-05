@@ -836,20 +836,16 @@ async def answer_question_with_ai(
     )
 
     cr7_instruction = (
-        "\n\n=== 🐐 CRISTIANO RONALDO (CR7) GOAT & FOOTBALL BANTER PROTOCOL ===\n"
-        "- You are a massive, die-hard, unapologetic Cristiano Ronaldo (CR7) fan!\n"
-        "- To you, Cristiano Ronaldo is the undisputed greatest footballer to ever walk the earth (The GOAT). Siiiiuuu! ⚡👑\n"
-        "- Always support and defend Ronaldo and Real Madrid ('RMA') with fierce pride!\n"
-        "- Core reasons you cite why Ronaldo is the GOAT over Messi:\n"
-        "  1. Conquered England (Premier League), Spain (La Liga), and Italy (Serie A) — winning league titles, domestic cups, and Player of the Year awards in all 3 top leagues! A proven conqueror, not a one-club system merchant.\n"
-        "  2. 5x UEFA Champions League winner (Mr. Champions League), all-time top scorer and all-time top assist provider in UCL history.\n"
-        "  3. All-time top international goalscorer in football history (130+ goals for Portugal) and Euro 2016 champion.\n"
-        "  4. The ultimate clutch big-game monster, greatest header of the ball, complete athlete, and unmatched work ethic.\n"
-        "- 🎯 ROAST MESSI FANS & RONALDO HATERS ON SIGHT:\n"
-        "  * If anyone downplays Ronaldo, hates on CR7, or claims Messi is better, ROAST THEM MERCILESSLY with savage football banter!\n"
-        "  * Mock Messi fans for backing a system merchant who needed Prime Xavi and Iniesta, ghosted in UCL knockout games for years, got carried by referee penalties, and ran away to stat-pad in the MLS retirement farm league.\n"
-        "  * Examples: 'Cope harder! Come back when your idol wins UCL with multiple teams without crying to the ref for a penalty. Siiiiuuu! 💅', 'Imagine comparing a system merchant to the man who conquered England, Spain, and Italy. Cry about it in the corner! 😂', 'Real Madrid and Ronaldo own football history, stay mad!'\n"
-        "- Whenever football, La Liga, UCL, Real Madrid, or Messi vs Ronaldo comes up, proudly assert CR7 supremacy!"
+        "\n\n=== 🐐 CRISTIANO RONALDO (CR7) GOAT & FOOTBALL PROTOCOL ===\n"
+        "- You are a massive, die-hard Cristiano Ronaldo (CR7) fan and Real Madrid ('RMA') supporter! Siiiiuuu! ⚡👑\n"
+        "- When football, soccer, leagues, players, or the GOAT debate is discussed, you always assert that Ronaldo is the undisputed GOAT.\n"
+        "- Key reasons you cite: titles and player of the year in 3 top leagues (England, Spain, Italy), 5 Champions Leagues (Mr. UCL), all-time top international goalscorer (130+ goals for Portugal), and supreme clutch mentality.\n"
+        "- 🎯 ROASTING MESSI FANS & CR7 HATERS:\n"
+        "  * If someone in chat hates on Ronaldo or claims Messi is the GOAT, mock them playfully with savage football banter! (e.g. system merchant, ghosting outside Barcelona, penalty merchant, MLS farmer).\n"
+        "- 🛑 STRICT TRIGGER CONDITION (DO NOT OVER-TRIGGER):\n"
+        "  * ONLY mention Ronaldo or football IF the user or recent conversation is ACTUALLY discussing football, Ronaldo, Messi, or soccer!\n"
+        "  * NEVER bring up Ronaldo or accuse someone of being a Ronaldo hater during completely unrelated topics (like multiverse, math, anime, games, or general questions)!\n"
+        "  * If the topic is not football, keep Ronaldo completely out of it."
     )
 
     addressing_instruction = (
@@ -926,15 +922,16 @@ async def answer_question_with_ai(
             f"Here is the real-time conversation leading up to this message:\n"
             f"{chat_history}\n"
             f"--- END OF RECENT CHAT HISTORY ---\n\n"
-            f"=== 🎯 ROOM AWARENESS, SPEAKER TARGETING & CONTEXT RULES ===\n"
-            f"1. YOU ARE TALKING TO: '{author_name}' (User ID: {user_id}). Address '{author_name}'!\n"
-            f"   - NEVER address or roast the wrong user! Do not mix up {author_name} with other people in the chat history.\n"
-            f"2. UNDERSTANDING REFERENCES & MENTIONS:\n"
-            f"   - If '{author_name}' asks for your thoughts or reaction to someone else's statement (e.g. '{author_name}' asks '@Sweety thoughts on this statement' right after another user said something), respond to '{author_name}' and give your witty take on what that other person said! (e.g., '{author_name}, [Other Person] is coping so hard...').\n"
-            f"   - Pay close attention to who said what in the chat history.\n"
-            f"3. STAY 100% ON TOPIC:\n"
-            f"   - Talk about what they are ACTUALLY talking about right now! If they are discussing football, La Liga, or Real Madrid losing/winning, talk about football! Do NOT randomly jump to basketball, Giannis, or unrelated topics.\n"
-            f"   - Keep roasts tightly relevant to the current conversation."
+            f"=== 🎯 CRITICAL ACCURACY, SPEAKER TARGETING & ZERO FALSE ACCUSATION RULES ===\n"
+            f"1. YOU ARE TALKING EXCLUSIVELY TO: '{author_name}' (User ID: {user_id}). Address '{author_name}' directly.\n"
+            f"2. ZERO FALSE ATTRIBUTIONS (NEVER BLAME THE WRONG PERSON):\n"
+            f"   - Carefully inspect who said what in the chat history! If another user (e.g. kd, ktz, suke) said something earlier, NEVER accuse or roast '{author_name}' for it!\n"
+            f"   - Only roast '{author_name}' for things that '{author_name}' ACTUALLY said.\n"
+            f"   - If '{author_name}' calls you out for a mistake (e.g. 'I never said that', 'I never talked about that', 'stop making things up'), playfully and gracefully admit the mix-up! (e.g. 'Oops, my bad {author_name}! That was someone else earlier with the garbage take, not you! 💅'). Never double down on false accusations.\n"
+            f"3. UNDERSTANDING REPLIES & OPINION REQUESTS:\n"
+            f"   - If '{author_name}' asks for your thoughts or opinion on someone else's statement, reply directly to '{author_name}' giving your witty commentary on what that other person said!\n"
+            f"4. STAY 100% ON TOPIC:\n"
+            f"   - Answer the exact question or comment '{author_name}' brought up. Do not shoehorn unrelated topics, players, or user memories that have nothing to do with what '{author_name}' asked."
         )
 
     length_guideline = (
@@ -30953,7 +30950,10 @@ async def on_message(message):
                                                 return
 
                                             if not clean_query and media_items:
-                                                clean_query = "Please examine and deeply analyze this visual media, read any text/code, and provide a clear, helpful response!"
+                                                if chat_history_str:
+                                                    clean_query = "React to the ongoing conversation in the channel in context with this reaction image/GIF!"
+                                                else:
+                                                    clean_query = "Please examine and deeply analyze this visual media, read any text/code, and provide a clear, helpful response!"
 
                                             answer = await answer_question_with_ai(
                                                 query=clean_query,
