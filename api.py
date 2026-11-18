@@ -53,11 +53,12 @@ class EndpointFilter(logging.Filter):
 app = FastAPI(title="Discord Gemini Bot Dashboard API", version="1.0.0")
 
 # CORS Setup - Restrict to authorized frontends
-FRONTEND_URL = os.getenv("FRONTEND_URL", "").strip()
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://dashboard-weld-five-82.vercel.app").strip()
 allowed_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://sweety-discord-bot-fra.onrender.com",
+    "https://dashboard-weld-five-82.vercel.app",
 ]
 if FRONTEND_URL and FRONTEND_URL not in allowed_origins:
     allowed_origins.append(FRONTEND_URL)
@@ -85,7 +86,7 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "").strip()
 # Discord OAuth2 Config
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:3000/api/auth/callback")
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://dashboard-weld-five-82.vercel.app/api/auth/callback").strip()
 DISCORD_API_ENDPOINT = "https://discord.com/api/v10"
 
 # Spotify OAuth2 Config (Never hardcode fallback secrets in code)
@@ -479,19 +480,21 @@ async def privacy_page():
 </html>"""
 
 @app.get("/api/auth/login")
-async def get_login_url():
+async def get_login_url(redirect_uri: Optional[str] = None):
     """Generates the Discord OAuth2 URL for the dashboard login."""
     if not DISCORD_CLIENT_ID:
         return {"error": "DISCORD_CLIENT_ID is not configured in environment."}
     
+    target_redirect = (redirect_uri or DISCORD_REDIRECT_URI).strip()
     scope = "identify guilds"
-    url = f"https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&redirect_uri={DISCORD_REDIRECT_URI}&response_type=code&scope={scope}"
+    url = f"https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&redirect_uri={urllib.parse.quote(target_redirect)}&response_type=code&scope={scope}"
     return {"url": url}
 
 @app.post("/api/auth/callback")
 async def auth_callback(body: dict):
     """Exchanges Discord code for access token and logs the user in."""
     code = body.get("code")
+    redirect_uri = (body.get("redirect_uri") or DISCORD_REDIRECT_URI).strip()
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
         
@@ -502,7 +505,7 @@ async def auth_callback(body: dict):
             "client_secret": DISCORD_CLIENT_SECRET,
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": DISCORD_REDIRECT_URI
+            "redirect_uri": redirect_uri
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         async with session.post(f"{DISCORD_API_ENDPOINT}/oauth2/token", data=token_data, headers=headers) as resp:
