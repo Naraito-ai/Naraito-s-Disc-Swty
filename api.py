@@ -57,6 +57,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "https://dashboard-weld-five-82.vercel.
 allowed_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://sweety-bot-ohio.onrender.com",
     "https://sweety-discord-bot-fra.onrender.com",
     "https://dashboard-weld-five-82.vercel.app",
 ]
@@ -66,7 +67,7 @@ if FRONTEND_URL and FRONTEND_URL not in allowed_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"^https://.*\.vercel\.app$" if not FRONTEND_URL else None,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -92,7 +93,7 @@ DISCORD_API_ENDPOINT = "https://discord.com/api/v10"
 # Spotify OAuth2 Config (Never hardcode fallback secrets in code)
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "").strip()
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "").strip()
-RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "https://sweety-discord-bot-fra.onrender.com").rstrip("/")
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "https://sweety-bot-ohio.onrender.com").rstrip("/")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", f"{RENDER_EXTERNAL_URL}/api/spotify/callback")
 
 # WebSocket Connections

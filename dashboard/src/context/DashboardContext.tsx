@@ -45,7 +45,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   
   // Base URLs (Adjust automatically based on deployment environment)
-  const defaultProdBackend = "https://sweety-discord-bot-fra.onrender.com";
+  const defaultProdBackend = "https://sweety-bot-ohio.onrender.com";
   const [backendUrl, setBackendUrl] = useState(process.env.NEXT_PUBLIC_BACKEND_URL || defaultProdBackend);
   const [wsUrl, setWsUrl] = useState((process.env.NEXT_PUBLIC_BACKEND_URL || defaultProdBackend).replace(/^http/, "ws"));
 
@@ -59,7 +59,13 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
   // Dynamically set URLs in browser
   useEffect(() => {
-    const savedBackend = localStorage.getItem("dash_backend_url");
+    let savedBackend = localStorage.getItem("dash_backend_url");
+    // Auto-migrate away from old dormant service
+    if (savedBackend && savedBackend.includes("sweety-discord-bot-fra.onrender.com")) {
+      savedBackend = defaultProdBackend;
+      localStorage.setItem("dash_backend_url", defaultProdBackend);
+    }
+
     if (savedBackend) {
       setBackendUrl(savedBackend);
       setWsUrl(savedBackend.replace(/^http/, "ws"));
@@ -70,7 +76,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
       setBackendUrl("http://localhost:10000");
       setWsUrl("ws://localhost:10000");
     } else {
-      const activeBackend = process.env.NEXT_PUBLIC_BACKEND_URL || "https://sweety-discord-bot-fra.onrender.com";
+      const activeBackend = process.env.NEXT_PUBLIC_BACKEND_URL || defaultProdBackend;
       setBackendUrl(activeBackend);
       setWsUrl(activeBackend.replace(/^http/, "ws"));
     }

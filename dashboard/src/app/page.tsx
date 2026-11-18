@@ -221,8 +221,8 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => {
-                      setUrlInput("https://sweety-discord-bot-fra.onrender.com");
-                      updateBackendUrl("https://sweety-discord-bot-fra.onrender.com");
+                      setUrlInput("https://sweety-bot-ohio.onrender.com");
+                      updateBackendUrl("https://sweety-bot-ohio.onrender.com");
                     }}
                     className="text-purple-400 hover:underline"
                   >
@@ -272,7 +272,7 @@ export default function Home() {
           {/* Direct link to standalone dashboard */}
           <div className="pt-3 border-t border-zinc-800/60 flex flex-col gap-2">
             <a
-              href="https://sweety-discord-bot-fra.onrender.com/dashboard"
+              href="https://sweety-bot-ohio.onrender.com/dashboard"
               target="_blank"
               rel="noreferrer"
               className="text-[11px] text-zinc-400 hover:text-purple-300 flex items-center justify-center gap-1 transition"
