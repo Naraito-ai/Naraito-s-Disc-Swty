@@ -19,6 +19,11 @@ import {
   ArrowRight,
   ExternalLink,
   Zap,
+  Settings,
+  RefreshCw,
+  Radio,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -32,11 +37,41 @@ export default function Home() {
     selectGuild,
     login,
     backendUrl,
+    updateBackendUrl,
     wsEvents
   } = useDashboard();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [backendHealth, setBackendHealth] = useState<"checking" | "online" | "suspended" | "offline">("checking");
+  const [showUrlConfig, setShowUrlConfig] = useState(false);
+  const [urlInput, setUrlInput] = useState(backendUrl);
+
+  // Ping backend health
+  useEffect(() => {
+    setUrlInput(backendUrl);
+    let isCancelled = false;
+    const checkHealth = async () => {
+      setBackendHealth("checking");
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(`${backendUrl}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          if (!isCancelled) setBackendHealth("online");
+        } else if (res.status === 503) {
+          if (!isCancelled) setBackendHealth("suspended");
+        } else {
+          if (!isCancelled) setBackendHealth("offline");
+        }
+      } catch {
+        if (!isCancelled) setBackendHealth("offline");
+      }
+    };
+    checkHealth();
+    return () => { isCancelled = true; };
+  }, [backendUrl]);
 
   // Auto-fetch bot stats when logged in
   useEffect(() => {
@@ -117,6 +152,96 @@ export default function Home() {
             <p className="text-zinc-400 text-xs leading-relaxed max-w-[320px] mx-auto">
               Real-time telemetry, inter-server communications, direct message announcements, and moderation controls.
             </p>
+          </div>
+
+          {/* Backend Status Pill */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/90 border border-zinc-800 text-[11px]">
+              <span className="relative flex h-2 w-2">
+                {backendHealth === "online" && (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </>
+                )}
+                {backendHealth === "suspended" && (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                )}
+                {backendHealth === "offline" && (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                )}
+                {backendHealth === "checking" && (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-500 animate-pulse"></span>
+                )}
+              </span>
+              <span className="text-zinc-300 font-medium">
+                {backendHealth === "online" && "Backend Online"}
+                {backendHealth === "suspended" && "Render Suspended by Owner"}
+                {backendHealth === "offline" && "Backend Offline / Unreachable"}
+                {backendHealth === "checking" && "Checking Backend..."}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowUrlConfig(!showUrlConfig)}
+                className="text-zinc-500 hover:text-zinc-300 transition ml-1"
+                title="Configure Backend URL"
+              >
+                <Settings className="w-3 h-3" />
+              </button>
+            </div>
+
+            {backendHealth === "suspended" && (
+              <p className="text-[10px] text-amber-400/90 max-w-[340px] leading-tight text-center">
+                ⚠️ Your Render service is suspended in your Render console. Click Resume in Render dashboard, or switch to localhost below.
+              </p>
+            )}
+
+            {showUrlConfig && (
+              <div className="w-full mt-2 p-3 bg-zinc-950/80 border border-zinc-800 rounded-xl text-left space-y-2">
+                <label className="text-[10px] font-semibold text-zinc-400">Target Backend API URL:</label>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="https://... or http://localhost:10000"
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-purple-500"
+                  />
+                  <button
+                    onClick={() => {
+                      updateBackendUrl(urlInput);
+                      setShowUrlConfig(false);
+                    }}
+                    className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium transition"
+                  >
+                    Save
+                  </button>
+                </div>
+                <div className="flex gap-2 pt-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrlInput("https://sweety-discord-bot-fra.onrender.com");
+                      updateBackendUrl("https://sweety-discord-bot-fra.onrender.com");
+                    }}
+                    className="text-purple-400 hover:underline"
+                  >
+                    Use Render
+                  </button>
+                  <span className="text-zinc-600">•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrlInput("http://localhost:10000");
+                      updateBackendUrl("http://localhost:10000");
+                    }}
+                    className="text-purple-400 hover:underline"
+                  >
+                    Use Localhost
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">

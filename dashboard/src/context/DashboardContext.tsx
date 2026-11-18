@@ -35,6 +35,7 @@ interface DashboardContextType {
   fetchBotStats: () => Promise<void>;
   updateGuildStatus: (guildId: string, invited: boolean) => void;
   backendUrl: string;
+  updateBackendUrl: (url: string) => void;
   wsUrl: string;
 }
 
@@ -58,6 +59,12 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
   // Dynamically set URLs in browser
   useEffect(() => {
+    const savedBackend = localStorage.getItem("dash_backend_url");
+    if (savedBackend) {
+      setBackendUrl(savedBackend);
+      setWsUrl(savedBackend.replace(/^http/, "ws"));
+      return;
+    }
     const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
     if (isLocal) {
       setBackendUrl("http://localhost:10000");
@@ -68,6 +75,15 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
       setWsUrl(activeBackend.replace(/^http/, "ws"));
     }
   }, []);
+
+  const updateBackendUrl = (url: string) => {
+    const clean = url.trim().replace(/\/$/, "");
+    setBackendUrl(clean);
+    setWsUrl(clean.replace(/^http/, "ws"));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("dash_backend_url", clean);
+    }
+  };
 
   // Hydrate state from localStorage
   useEffect(() => {
@@ -205,6 +221,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         fetchBotStats,
         updateGuildStatus,
         backendUrl,
+        updateBackendUrl,
         wsUrl,
       }}
     >
