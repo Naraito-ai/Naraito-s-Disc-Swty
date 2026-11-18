@@ -572,7 +572,7 @@ def extract_duration_and_reason(raw_text: str, default_duration: Optional[str] =
 
 # ── Natural Language Command Processing (NLCP) Engine ───────────────────────
 SWEETY_TRIGGER_REGEX = re.compile(
-    r"^(?:(?:hey|ok|yo|hi|hello)\s+)?sweet(?:y|ie)[,:\s]+\s*|^<@!?\d+>\s*",
+    r"^(?:(?:hey|ok|yo|hi|hello)\s+)?sweet(?:y|ie)(?:[,\s:]+|$)",
     re.IGNORECASE
 )
 
@@ -678,7 +678,7 @@ INTENT_RULES = [
     (re.compile(r"^(?:wave(?:\s+to)?|say\s+hi\s+to)\s*(.+)$", re.IGNORECASE), r"wave \1"),
 ]
 
-def parse_natural_language_command(text: str) -> Optional[str]:
+def parse_natural_language_command(text: str, bot_user_id: Optional[int] = None) -> Optional[str]:
     """
     Tier-1 Fast Pattern Intent Matcher:
     Extracts and maps natural language phrasing (e.g. 'can you play starboy', 'please mute @user 10m')
@@ -687,6 +687,8 @@ def parse_natural_language_command(text: str) -> Optional[str]:
     """
     cleaned = text.strip()
     m = SWEETY_TRIGGER_REGEX.match(cleaned)
+    if not m and bot_user_id:
+        m = re.match(rf"^<@!?{bot_user_id}>[,\s:]*\s*", cleaned)
     if not m:
         return None
     

@@ -30268,11 +30268,18 @@ async def on_message(message):
     # ── Two-Tier Natural Language Command Processing (NLCP) ────
     content_raw = message.content.strip()
     sweety_match = SWEETY_TRIGGER_REGEX.match(content_raw)
-    if sweety_match and not message.author.bot:
-        raw_cmd = content_raw[sweety_match.end():].strip()
+    bot_ping_match = None
+    if bot.user:
+        bot_ping_match = re.match(rf"^<@!?{bot.user.id}>[,\s:]*\s*", content_raw)
+
+    if (sweety_match or bot_ping_match) and not message.author.bot:
+        if bot_ping_match:
+            raw_cmd = content_raw[bot_ping_match.end():].strip()
+        else:
+            raw_cmd = content_raw[sweety_match.end():].strip()
 
         # Tier 1: Fast Rule-Based NLP Intent Parser (0ms latency)
-        parsed_cmd = parse_natural_language_command(content_raw)
+        parsed_cmd = parse_natural_language_command(content_raw, bot_user_id=bot.user.id if bot.user else None)
         if parsed_cmd:
             first_w = parsed_cmd[1:].split()[0].lower() if parsed_cmd[1:].split() else ""
             if bot.get_command(first_w):
@@ -30934,14 +30941,18 @@ async def on_message(message):
                     if is_direct or is_dm:
                         allow_response = True
                     elif ai_chat_mode == "smart_chat":
-                        # In smart_chat mode, check channel cooldown (60s) so Sweety participates naturally without spamming
-                        now_ts = time.time()
-                        last_spontaneous = _last_autochat_time.get(message.channel.id, 0)
-                        if now_ts - last_spontaneous >= 60:
-                            is_q, _ = is_question_message(message, require_qmark=require_qmark)
-                            # Can chime in on questions or conversational statements (at least 3 words)
-                            if (is_q or len(query.split()) >= 3) and not query.startswith(('!', '/', '$', '.')):
-                                allow_response = True
+                        # If the message mentions other members or replies to another user, do NOT butt in!
+                        has_other_pings = bool(message.mentions and not bot_mentioned)
+                        is_reply_to_other = bool(message.reference and not is_reply_to_bot)
+                        if not has_other_pings and not is_reply_to_other:
+                            # In smart_chat mode, check channel cooldown (60s) so Sweety participates naturally without spamming
+                            now_ts = time.time()
+                            last_spontaneous = _last_autochat_time.get(message.channel.id, 0)
+                            if now_ts - last_spontaneous >= 60:
+                                is_q, _ = is_question_message(message, require_qmark=require_qmark)
+                                # Can chime in on questions or conversational statements (at least 3 words)
+                                if (is_q or len(query.split()) >= 3) and not query.startswith(('!', '/', '$', '.')):
+                                    allow_response = True
 
                     if allow_response:
                         # Fetch recent messages (up to 35) for context and SERIOUS VIBE check
