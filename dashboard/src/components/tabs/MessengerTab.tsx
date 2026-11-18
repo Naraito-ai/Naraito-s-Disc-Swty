@@ -41,13 +41,13 @@ export default function MessengerTab() {
         });
         if (res.ok) {
           const data = await res.json();
+          const channelList: any[] = Array.isArray(data) ? data : (data.channels || []);
           // Filter to text and announcement channels (type 0 or 5 or matching)
-          const textChannels = data.filter((c: any) => c.type === 0 || c.type === 5 || !c.type || c.type === "text" || c.type === "news");
-          setChannels(textChannels.length > 0 ? textChannels : data);
-          if (textChannels.length > 0) {
-            setSelectedChannel(textChannels[0].id);
-          } else if (data.length > 0) {
-            setSelectedChannel(data[0].id);
+          const textChannels = channelList.filter((c: any) => c.type === 0 || c.type === 5 || !c.type || c.type === "text" || c.type === "news");
+          const finalChannels = textChannels.length > 0 ? textChannels : channelList;
+          setChannels(finalChannels);
+          if (finalChannels.length > 0) {
+            setSelectedChannel(finalChannels[0].id);
           }
         }
       } catch (err) {

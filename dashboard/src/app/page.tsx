@@ -64,10 +64,9 @@ export default function Home() {
     setUrlInput(backendUrl);
     let isCancelled = false;
     const checkHealth = async () => {
-      setBackendHealth("checking");
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
         const res = await fetch(`${backendUrl}/health`, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
@@ -82,7 +81,11 @@ export default function Home() {
       }
     };
     checkHealth();
-    return () => { isCancelled = true; };
+    const interval = setInterval(checkHealth, 15000);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
   }, [backendUrl]);
 
   // Auto-fetch bot stats when logged in

@@ -63,8 +63,14 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
   // Dynamically set URLs in browser
   useEffect(() => {
     let savedBackend = localStorage.getItem("dash_backend_url");
-    // Auto-migrate away from old dormant service
-    if (savedBackend && savedBackend.includes("sweety-discord-bot-fra.onrender.com")) {
+    // Auto-migrate away from any old/dormant/suspended render services
+    const isOutdatedService = savedBackend && (
+      savedBackend.includes("sweety-discord-bot-fra") ||
+      savedBackend.includes("sweety-discord-bot-sg") ||
+      savedBackend.includes("discord-bot-cloud") ||
+      savedBackend.includes("discord-gemini-bot")
+    );
+    if (isOutdatedService || !savedBackend) {
       savedBackend = defaultProdBackend;
       localStorage.setItem("dash_backend_url", defaultProdBackend);
     }
@@ -110,6 +116,37 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
       }
     }
   }, []);
+
+  // Synchronize guilds and validate token
+  useEffect(() => {
+    if (!token) return;
+
+    const syncSession = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/guilds/list`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const freshGuilds = await res.json();
+          if (Array.isArray(freshGuilds) && freshGuilds.length > 0) {
+            setGuilds(freshGuilds.map((g: any) => ({ ...g, invited: true })));
+            localStorage.setItem("dash_guilds", JSON.stringify(freshGuilds.map((g: any) => ({ ...g, invited: true }))));
+            if (!activeGuildId) {
+              setActiveGuildId(freshGuilds[0].id);
+              localStorage.setItem("dash_active_guild", freshGuilds[0].id);
+            }
+          }
+        } else if (res.status === 401) {
+          console.warn("Session expired or token invalid. Clearing session.");
+          logout();
+        }
+      } catch (err) {
+        console.error("Failed to sync session with backend:", err);
+      }
+    };
+
+    syncSession();
+  }, [token, backendUrl]);
 
   // WebSocket event subscription for alerts
   useEffect(() => {
@@ -208,7 +245,13 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
       const res2 = await fetch(`${backendUrl}/api/bot/stats`);
       if (res2.ok) {
         const data2 = await res2.json();
-        setBotStats(data2);
+        setBotStats({
+          ...data2,
+          online: data2.discord_gateway === "connected" || (data2.guilds && data2.guilds > 0),
+          guilds_count: data2.guilds,
+          users_count: data2.members,
+          uptime_seconds: data2.uptime
+        });
       }
     } catch (err) {
       console.error("Failed to fetch bot stats:", err);

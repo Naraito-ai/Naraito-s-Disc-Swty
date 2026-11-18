@@ -272,6 +272,7 @@ class SendMessageRequest(BaseModel):
 class SendDMRequest(BaseModel):
     target_type: str = "user"
     target_id: Optional[str] = ""
+    user_id: Optional[str] = None
     content: Optional[str] = ""
     title: Optional[str] = ""
     guild_id: Optional[str] = None
@@ -283,8 +284,11 @@ class ModActionRequest(BaseModel):
     user_id: Optional[str] = None
     channel_id: Optional[str] = None
     reason: Optional[str] = "Executed via Sweety Web Dashboard"
-    duration_seconds: Optional[int] = 300
-    amount: Optional[int] = 25
+    duration_seconds: Optional[int] = None
+    duration: Optional[int] = None
+    amount: Optional[int] = None
+    purge_limit: Optional[int] = None
+    delete_days: Optional[int] = None
 
 class AIPlaygroundRequest(BaseModel):
     prompt: str
@@ -1048,7 +1052,7 @@ async def send_direct_message(body: SendDMRequest, admin: dict = Depends(verify_
 
     # Case A: Single user by ID
     if body.target_type == "user":
-        target_uid = body.target_id or "719932313919684670"
+        target_uid = body.target_id or body.user_id or "719932313919684670"
         try:
             user = bot.get_user(int(target_uid)) or await bot.fetch_user(int(target_uid))
             if not user:
@@ -1065,7 +1069,7 @@ async def send_direct_message(body: SendDMRequest, admin: dict = Depends(verify_
 
     # Case B: Server members broadcast
     elif body.target_type == "guild":
-        guild_id = body.guild_id or body.target_id
+        guild_id = body.guild_id or body.target_id or getattr(body, "user_id", None)
         guild = bot.get_guild(int(guild_id)) if (guild_id and guild_id.isdigit()) else None
         if not guild:
             raise HTTPException(status_code=404, detail="Target server not found")
@@ -1131,7 +1135,7 @@ async def execute_moderation_action(body: ModActionRequest, admin: dict = Depend
             if not user_id:
                 raise HTTPException(status_code=400, detail="User ID required for timeout")
             member = guild.get_member(user_id) or await guild.fetch_member(user_id)
-            duration = body.duration_seconds or 300
+            duration = body.duration_seconds or body.duration or 300
             until = discord.utils.utcnow() + timedelta(seconds=duration)
             await member.timeout(until, reason=reason)
             if db:
@@ -1158,7 +1162,8 @@ async def execute_moderation_action(body: ModActionRequest, admin: dict = Depend
         elif action == "ban":
             if not user_id:
                 raise HTTPException(status_code=400, detail="User ID required for ban")
-            await guild.ban(discord.Object(id=user_id), reason=reason, delete_message_days=0)
+            del_days = body.delete_days if body.delete_days is not None else 0
+            await guild.ban(discord.Object(id=user_id), reason=reason, delete_message_days=del_days)
             if db:
                 await db.execute(
                     "INSERT INTO bans (guild_id, user_id, moderator_id, reason) VALUES (?, ?, ?, ?)",
@@ -1177,7 +1182,8 @@ async def execute_moderation_action(body: ModActionRequest, admin: dict = Depend
             if not channel_id:
                 raise HTTPException(status_code=400, detail="Channel ID required for purge")
             channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
-            deleted = await channel.purge(limit=min(100, max(1, body.amount or 25)))
+            amount = body.amount or body.purge_limit or 25
+            deleted = await channel.purge(limit=min(100, max(1, amount)))
             return {"success": True, "action": "purge", "message": f"Purged {len(deleted)} messages from #{channel.name}"}
 
         elif action == "lock":
@@ -1231,6 +1237,7 @@ async def ai_playground_chat(body: AIPlaygroundRequest, admin: dict = Depends(ve
         return {
             "success": True,
             "reply": reply,
+            "response": reply,
             "model": "Gemini 2.5 Flash / Groq",
             "latency_ms": latency
         }

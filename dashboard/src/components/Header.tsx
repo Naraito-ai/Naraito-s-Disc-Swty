@@ -7,7 +7,9 @@ import Image from "next/image";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { user, wsConnected, activeGuild, botStats } = useDashboard();
-  const isOnline = botStats ? botStats.online !== false : true;
+  const isOnline = botStats
+    ? (botStats.online !== undefined ? botStats.online !== false : (botStats.discord_gateway === "connected" || botStats.guilds > 0))
+    : true;
 
   return (
     <header className="h-16 border-b border-zinc-800/40 bg-[#07070a]/60 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-6 font-['Plus_Jakarta_Sans']">

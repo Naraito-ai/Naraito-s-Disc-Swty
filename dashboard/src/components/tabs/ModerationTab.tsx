@@ -34,8 +34,9 @@ export default function ModerationTab() {
         });
         if (res.ok) {
           const data = await res.json();
-          setChannels(data);
-          if (data.length > 0) setSelectedChannel(data[0].id);
+          const channelList = Array.isArray(data) ? data : (data.channels || []);
+          setChannels(channelList);
+          if (channelList.length > 0) setSelectedChannel(channelList[0].id);
         }
       } catch (err) {
         console.error("Failed to load channels:", err);
@@ -77,8 +78,10 @@ export default function ModerationTab() {
         user_id: needsUser ? targetId.trim() : undefined,
         channel_id: needsChannel ? selectedChannel : undefined,
         reason: reason.trim() || `Moderation action executed via Sweety Command Center`,
+        duration_seconds: action === "timeout" ? duration : undefined,
         duration: action === "timeout" ? duration : undefined,
         delete_days: action === "ban" ? deleteDays : undefined,
+        amount: action === "purge" ? purgeCount : undefined,
         purge_limit: action === "purge" ? purgeCount : undefined
       };
 

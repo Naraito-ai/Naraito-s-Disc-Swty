@@ -53,7 +53,7 @@ export default function AIPlaygroundTab() {
           ...newMessages,
           {
             sender: "sweety",
-            text: data.response || "I didn't quite catch that, Master!",
+            text: data.reply || data.response || "I didn't quite catch that, Master!",
             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           }
         ]);

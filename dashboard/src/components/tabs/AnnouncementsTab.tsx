@@ -44,9 +44,11 @@ export default function AnnouncementsTab() {
       };
 
       if (targetType === "user") {
+        payload.target_id = targetUserId.trim();
         payload.user_id = targetUserId.trim();
       } else {
         payload.guild_id = selectedGuild;
+        payload.target_id = selectedGuild;
       }
 
       const res = await fetch(`${backendUrl}/api/announcements/dm`, {

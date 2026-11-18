@@ -155,7 +155,7 @@ export default function GuildOverview() {
                         <span className="text-xs font-semibold text-zinc-200">{chan.name}</span>
                       </div>
                       <span className="text-[10px] text-zinc-500 uppercase font-semibold">
-                        {chan.type.replace("text", "TXT").replace("voice", "VC")}
+                        {String(chan.type || "").replace("text", "TXT").replace("voice", "VC")}
                       </span>
                     </div>
                   ))
