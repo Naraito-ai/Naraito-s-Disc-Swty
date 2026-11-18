@@ -121,7 +121,8 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     let ws: WebSocket;
     const connectWS = () => {
       try {
-        ws = new WebSocket(`${wsUrl}/api/ws/events`);
+        const authParam = token ? `?token=${encodeURIComponent(token)}` : "";
+        ws = new WebSocket(`${wsUrl}/api/ws/events${authParam}`);
         
         ws.onopen = () => {
           setWsConnected(true);

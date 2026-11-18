@@ -6,7 +6,8 @@ import { Menu, Wifi, WifiOff, Bell, User as UserIcon } from "lucide-react";
 import Image from "next/image";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
-  const { user, wsConnected, activeGuild } = useDashboard();
+  const { user, wsConnected, activeGuild, botStats } = useDashboard();
+  const isOnline = botStats ? botStats.online !== false : true;
 
   return (
     <header className="h-16 border-b border-zinc-800/40 bg-[#07070a]/60 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-6 font-['Plus_Jakarta_Sans']">
@@ -35,18 +36,18 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
         {/* Real-time Connection Indicator */}
         <div
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-semibold transition-all duration-300 ${
-            wsConnected
-              ? "bg-green-500/5 border-green-500/20 text-green-400"
-              : "bg-red-500/5 border-red-500/20 text-red-400 animate-pulse"
+            isOnline
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+              : "bg-red-500/10 border-red-500/30 text-red-400 animate-pulse"
           }`}
         >
-          {wsConnected ? (
+          {isOnline ? (
             <>
               <span className="relative flex h-2 w-2">
-                <span className="ws-pulse absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>WS Live</span>
+              <span>{wsConnected ? "Gateway Live" : "Bot Online"}</span>
             </>
           ) : (
             <>

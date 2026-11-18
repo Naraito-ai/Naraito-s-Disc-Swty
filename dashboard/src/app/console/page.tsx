@@ -23,7 +23,8 @@ export default function LiveConsole() {
     const connectWS = () => {
       setStatus("connecting");
       try {
-        const ws = new WebSocket(`${wsUrl}/api/ws/console`);
+        const authParam = token ? `?token=${encodeURIComponent(token)}` : "";
+        const ws = new WebSocket(`${wsUrl}/api/ws/console${authParam}`);
         wsRef.current = ws;
 
         ws.onopen = () => {
