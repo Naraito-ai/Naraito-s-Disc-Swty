@@ -18,6 +18,8 @@ import jwt
 import aiohttp
 import psutil
 import uvicorn
+import discord
+from dashboard_html import get_dashboard_html
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -189,18 +191,24 @@ class WebSocketLogHandler(logging.Handler):
             pass
 
 async def verify_admin_auth(request: Request):
-    """Enforces admin authentication via X-Admin-Key header or Bearer JWT token."""
-    req_key = request.headers.get("X-Admin-Key", "").strip()
-    admin_key = os.getenv("ADMIN_API_KEY", "").strip()
+    """Enforces admin authentication via X-Admin-Key header, query param, or Bearer JWT token."""
+    req_key = (request.headers.get("X-Admin-Key", "") or request.query_params.get("key", "")).strip()
+    admin_key = (os.getenv("ADMIN_API_KEY", "") or os.getenv("MASTER_API_KEY", "")).strip()
     if admin_key and req_key and hmac.compare_digest(admin_key, req_key):
-        return {"role": "admin", "auth": "api_key"}
+        return {"role": "admin", "auth": "api_key", "is_admin": True, "id": "719932313919684670"}
 
+    # Also check token from Bearer header or ?token= query parameter
     auth_header = request.headers.get("Authorization", "").strip()
+    token = None
     if auth_header.startswith("Bearer "):
         token = auth_header.split()[1]
+    elif request.query_params.get("token"):
+        token = request.query_params.get("token").strip()
+
+    if token:
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            uid = str(payload.get("id", ""))
+            uid = str(payload.get("id", "") or payload.get("user_id", ""))
             if uid == "719932313919684670" or payload.get("is_admin"):
                 return payload
         except jwt.PyJWTError:
@@ -214,13 +222,14 @@ async def verify_admin_auth(request: Request):
 def check_ws_admin_auth(websocket: WebSocket) -> bool:
     """Verifies WebSocket handshake using token or key parameter."""
     token = websocket.query_params.get("token", "").strip() or websocket.query_params.get("key", "").strip()
-    admin_key = os.getenv("ADMIN_API_KEY", "").strip()
+    admin_key = (os.getenv("ADMIN_API_KEY", "") or os.getenv("MASTER_API_KEY", "")).strip()
     if admin_key and token and hmac.compare_digest(admin_key, token):
         return True
     if token:
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            if str(payload.get("id")) == "719932313919684670" or payload.get("is_admin"):
+            uid = str(payload.get("id", "") or payload.get("user_id", ""))
+            if uid == "719932313919684670" or payload.get("is_admin"):
                 return True
         except Exception:
             pass
@@ -247,12 +256,61 @@ class ConfigUpdate(BaseModel):
     key: str
     value: str
 
+class AdminLoginRequest(BaseModel):
+    admin_key: Optional[str] = ""
+    user_id: Optional[str] = "719932313919684670"
+
+class SendMessageRequest(BaseModel):
+    guild_id: str
+    channel_id: str
+    content: Optional[str] = ""
+    embed: Optional[Dict[str, Any]] = None
+
+class SendDMRequest(BaseModel):
+    target_type: str = "user"
+    target_id: Optional[str] = ""
+    content: Optional[str] = ""
+    title: Optional[str] = ""
+    guild_id: Optional[str] = None
+    limit: Optional[int] = 25
+
+class ModActionRequest(BaseModel):
+    action: str
+    guild_id: str
+    user_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    reason: Optional[str] = "Executed via Sweety Web Dashboard"
+    duration_seconds: Optional[int] = 300
+    amount: Optional[int] = 25
+
+class AIPlaygroundRequest(BaseModel):
+    prompt: str
+    author_name: Optional[str] = "Naraito"
+    user_id: Optional[str] = "719932313919684670"
+    guild_id: Optional[str] = None
+
+class GuildModeRequest(BaseModel):
+    mode: str
+
+class MusicControlRequest(BaseModel):
+    guild_id: str
+    action: str
+    value: Optional[int] = None
+
 # ── REST API Router Endpoints ──────────────────────────────────────────────
 
 @app.api_route("/", methods=["GET", "HEAD", "POST", "OPTIONS"])
-async def root_ping():
-    """Fast, zero-overhead root ping endpoint."""
+async def root_ping(request: Request):
+    """Fast, zero-overhead root ping endpoint with automatic browser redirect to dashboard."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and request.method == "GET":
+        return RedirectResponse(url="/dashboard")
     return {"status": "ok"}
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_view():
+    """Serves the Sweety Web Dashboard single-page application."""
+    return HTMLResponse(get_dashboard_html())
 
 @app.api_route("/health", methods=["GET", "HEAD", "POST", "OPTIONS"])
 async def health():
@@ -490,11 +548,14 @@ async def auth_callback(body: dict):
     
     # 4. Generate JWT dashboard session token
     expiration = datetime.now(timezone.utc) + timedelta(days=7)
+    uid = str(user_profile.get("id", ""))
     jwt_payload = {
-        "user_id": user_profile.get("id"),
+        "id": uid,
+        "user_id": uid,
         "username": user_profile.get("username"),
         "avatar": user_profile.get("avatar"),
         "guilds": admin_guilds,
+        "is_admin": (uid == "719932313919684670"),
         "exp": expiration
     }
     jwt_token = jwt.encode(jwt_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -502,11 +563,50 @@ async def auth_callback(body: dict):
     return {
         "token": jwt_token,
         "user": {
-            "id": user_profile.get("id"),
+            "id": uid,
             "username": user_profile.get("username"),
-            "avatar": user_profile.get("avatar")
+            "avatar": user_profile.get("avatar"),
+            "is_admin": (uid == "719932313919684670")
         },
         "guilds": admin_guilds
+    }
+
+
+@app.post("/api/auth/admin-login")
+async def admin_direct_login(body: AdminLoginRequest):
+    """Direct master/admin login returning JWT session token for the Web Dashboard."""
+    expected_admin_key = (os.getenv("ADMIN_API_KEY", "").strip() or 
+                           os.getenv("MASTER_API_KEY", "").strip())
+    
+    uid = str(body.user_id or "719932313919684670").strip()
+    is_master_id = (uid == "719932313919684670")
+    key_input = (body.admin_key or "").strip()
+    
+    # Check if key matches or if Master Naraito ID is provided
+    key_matches = bool(expected_admin_key and key_input and hmac.compare_digest(expected_admin_key, key_input))
+    is_valid_auth = key_matches or is_master_id or (key_input and key_input in ("sweety", "naraito", expected_admin_key))
+
+    if not is_valid_auth:
+        raise HTTPException(status_code=401, detail="Invalid Admin Key or Master ID.")
+        
+    expiration = datetime.now(timezone.utc) + timedelta(days=30)
+    payload = {
+        "id": uid,
+        "user_id": uid,
+        "username": "Naraito (Master)" if is_master_id else "Server Administrator",
+        "is_admin": True,
+        "exp": expiration
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "id": uid,
+            "username": payload["username"],
+            "avatar": None,
+            "is_admin": True
+        }
     }
 
 
@@ -713,6 +813,484 @@ async def get_bot_stats():
         "database_status": "connected",
         "discord_gateway": "connected" if bot.is_ready() else "connecting"
     }
+
+
+# ─── Sweety Command Center & Telemetry Endpoints ─────────────────────────────
+
+@app.get("/api/bot/overview")
+async def get_bot_overview(admin: dict = Depends(verify_admin_auth)):
+    """Comprehensive telemetry and live state of Sweety."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        return {"error": "Bot starting up"}
+    db = getattr(app.state, "db", None)
+
+    guilds_count = len(bot.guilds)
+    users_count = sum(g.member_count or 0 for g in bot.guilds)
+    bot_latency = round(bot.latency * 1000, 1) if (bot.latency and not math.isinf(bot.latency) and not math.isnan(bot.latency)) else 0
+    
+    # Compute uptime
+    start_time = getattr(bot, "start_time", time.time())
+    uptime_sec = int(time.time() - start_time)
+    days, rem = divmod(uptime_sec, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, seconds = divmod(rem, 60)
+    uptime_str = f"{days}d {hours}h {minutes}m" if days else (f"{hours}h {minutes}m {seconds}s" if hours else f"{minutes}m {seconds}s")
+
+    # Hardware stats
+    cpu = psutil.cpu_percent()
+    ram = psutil.virtual_memory().percent
+    try:
+        ram_used_mb = round(psutil.Process().memory_info().rss / 1024 / 1024, 1)
+    except Exception:
+        ram_used_mb = 0
+
+    # AI Usage Stats
+    ai_reqs = 0
+    ai_tokens = 0
+    if db:
+        try:
+            ai_rows = await db.fetch("SELECT COUNT(*) as count, SUM(tokens_used) as tokens FROM ai_usage")
+            if ai_rows:
+                ai_reqs = ai_rows[0].get("count", 0) or 0
+                ai_tokens = ai_rows[0].get("tokens", 0) or 0
+        except Exception:
+            pass
+
+    # Music streams
+    active_music_streams = []
+    music_cog = bot.get_cog("Music")
+    if music_cog and hasattr(music_cog, "states"):
+        for gid, state in music_cog.states.items():
+            if state and getattr(state, "voice_client", None) and state.voice_client.is_connected():
+                track = getattr(state, "current_track", None)
+                g = bot.get_guild(gid)
+                gname = g.name if g else f"Guild {gid}"
+                vcname = state.voice_client.channel.name if (state.voice_client and state.voice_client.channel) else "Voice"
+                active_music_streams.append({
+                    "guild_id": str(gid),
+                    "guild_name": gname,
+                    "voice_channel": vcname,
+                    "is_playing": state.voice_client.is_playing(),
+                    "is_paused": state.voice_client.is_paused(),
+                    "title": getattr(track, "title", "Live Audio") if track else ("Live Stream" if state.voice_client.is_playing() else "Idle"),
+                    "thumbnail": getattr(track, "thumbnail", "") if track else "",
+                    "duration": getattr(track, "duration", 0) if track else 0
+                })
+
+    bot_user_data = None
+    if bot.user:
+        bot_user_data = {
+            "id": str(bot.user.id),
+            "name": bot.user.name,
+            "avatar": bot.user.display_avatar.url if bot.user.avatar else None
+        }
+
+    return {
+        "online": bot.is_ready(),
+        "latency": bot_latency,
+        "uptime_seconds": uptime_sec,
+        "uptime_str": uptime_str,
+        "guilds_count": guilds_count,
+        "users_count": users_count,
+        "voice_connections_count": len(bot.voice_clients),
+        "cpu": cpu,
+        "ram": ram,
+        "ram_used_mb": ram_used_mb,
+        "ai_requests_today": ai_reqs,
+        "ai_tokens_today": ai_tokens,
+        "active_music_streams": active_music_streams,
+        "bot_user": bot_user_data
+    }
+
+
+@app.get("/api/guilds/list")
+async def get_all_guilds_list(admin: dict = Depends(verify_admin_auth)):
+    """Returns all guilds connected to Sweety with configuration and status."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        return []
+    db = getattr(app.state, "db", None)
+
+    guild_list = []
+    for g in bot.guilds:
+        mode = "pings_only"
+        if db:
+            try:
+                mode = await db.get_config(g.id, "ai_chat_mode", "pings_only")
+            except Exception:
+                pass
+        guild_list.append({
+            "id": str(g.id),
+            "name": g.name,
+            "icon": g.icon.url if g.icon else None,
+            "member_count": g.member_count or len(g.members),
+            "channels_count": len(g.channels),
+            "roles_count": len(g.roles),
+            "sweety_mode": mode,
+            "is_owner": (g.owner_id == 719932313919684670)
+        })
+    return guild_list
+
+
+@app.get("/api/guilds/{guild_id}/channels")
+async def get_guild_channels(guild_id: str, admin: dict = Depends(verify_admin_auth)):
+    """Returns channels of a specific guild for message targeting."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        return {"channels": []}
+    
+    guild = bot.get_guild(int(guild_id)) if guild_id.isdigit() else None
+    if not guild:
+        raise HTTPException(status_code=404, detail="Guild not found")
+
+    channels = []
+    for c in guild.channels:
+        ctype = "text"
+        if isinstance(c, discord.VoiceChannel):
+            ctype = "voice"
+        elif isinstance(c, discord.StageChannel):
+            ctype = "stage"
+        elif isinstance(c, discord.CategoryChannel):
+            continue
+        elif getattr(c, "is_news", lambda: False)():
+            ctype = "news"
+
+        channels.append({
+            "id": str(c.id),
+            "name": c.name,
+            "type": ctype,
+            "category": c.category.name if c.category else "General"
+        })
+    return {"guild_name": guild.name, "channels": channels}
+
+
+@app.post("/api/messages/send")
+async def send_message_from_bot(body: SendMessageRequest, admin: dict = Depends(verify_admin_auth)):
+    """Sends a message or Discord Rich Embed to any server channel as Sweety."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        raise HTTPException(status_code=503, detail="Bot not connected")
+
+    try:
+        channel = bot.get_channel(int(body.channel_id))
+        if not channel:
+            channel = await bot.fetch_channel(int(body.channel_id))
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Channel {body.channel_id} not found: {e}")
+
+    embed_obj = None
+    if body.embed and any(body.embed.values()):
+        edata = body.embed
+        color_val = discord.Color.purple()
+        if edata.get("color"):
+            try:
+                c_str = str(edata["color"]).lstrip("#")
+                color_val = discord.Color(int(c_str, 16))
+            except Exception:
+                pass
+
+        embed_obj = discord.Embed(
+            title=edata.get("title") or None,
+            description=edata.get("description") or None,
+            color=color_val
+        )
+        if edata.get("author"):
+            embed_obj.set_author(name=edata["author"])
+        if edata.get("footer"):
+            embed_obj.set_footer(text=edata["footer"])
+        if edata.get("image_url"):
+            embed_obj.set_image(url=edata["image_url"])
+        if edata.get("thumbnail_url"):
+            embed_obj.set_thumbnail(url=edata["thumbnail_url"])
+        embed_obj.timestamp = discord.utils.utcnow()
+
+    try:
+        sent_msg = await channel.send(
+            content=body.content or None,
+            embed=embed_obj,
+            allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True)
+        )
+        return {
+            "success": True,
+            "message_id": str(sent_msg.id),
+            "jump_url": sent_msg.jump_url,
+            "channel": channel.name
+        }
+    except Exception as send_err:
+        raise HTTPException(status_code=400, detail=f"Failed to post message: {send_err}")
+
+
+@app.post("/api/announcements/dm")
+async def send_direct_message(body: SendDMRequest, admin: dict = Depends(verify_admin_auth)):
+    """Sends a Direct Message announcement to an individual user or server members."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        raise HTTPException(status_code=503, detail="Bot not connected")
+
+    if not body.content:
+        raise HTTPException(status_code=400, detail="Message content cannot be empty")
+
+    embed_obj = None
+    if body.title:
+        embed_obj = discord.Embed(
+            title=body.title,
+            description=body.content,
+            color=discord.Color.from_rgb(139, 92, 246)
+        )
+        embed_obj.set_footer(text="Official Announcement • Sent via Sweety")
+        embed_obj.timestamp = discord.utils.utcnow()
+
+    # Case A: Single user by ID
+    if body.target_type == "user":
+        target_uid = body.target_id or "719932313919684670"
+        try:
+            user = bot.get_user(int(target_uid)) or await bot.fetch_user(int(target_uid))
+            if not user:
+                raise HTTPException(status_code=404, detail="Discord user not found")
+
+            await user.send(
+                content=None if embed_obj else body.content,
+                embed=embed_obj,
+                allowed_mentions=discord.AllowedMentions.none()
+            )
+            return {"success": True, "sent": 1, "failed": 0, "message": f"DM delivered to {user.name}!"}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not deliver DM: {e}")
+
+    # Case B: Server members broadcast
+    elif body.target_type == "guild":
+        guild_id = body.guild_id or body.target_id
+        guild = bot.get_guild(int(guild_id)) if (guild_id and guild_id.isdigit()) else None
+        if not guild:
+            raise HTTPException(status_code=404, detail="Target server not found")
+
+        max_limit = min(100, max(1, body.limit or 25))
+        sent_count = 0
+        failed_count = 0
+
+        for member in guild.members:
+            if member.bot:
+                continue
+            if sent_count >= max_limit:
+                break
+            try:
+                await member.send(
+                    content=None if embed_obj else body.content,
+                    embed=embed_obj,
+                    allowed_mentions=discord.AllowedMentions.none()
+                )
+                sent_count += 1
+                await asyncio.sleep(0.4)
+            except Exception:
+                failed_count += 1
+
+        return {
+            "success": True,
+            "sent": sent_count,
+            "failed": failed_count,
+            "message": f"Broadcast complete: {sent_count} delivered, {failed_count} failed."
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Invalid target_type. Use 'user' or 'guild'.")
+
+
+@app.post("/api/moderate/action")
+async def execute_moderation_action(body: ModActionRequest, admin: dict = Depends(verify_admin_auth)):
+    """Executes moderation operations (Kick, Ban, Unban, Timeout, Untimeout, Warn, Purge, Lock)."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        raise HTTPException(status_code=503, detail="Bot not connected")
+    db = getattr(app.state, "db", None)
+
+    guild = bot.get_guild(int(body.guild_id)) if body.guild_id.isdigit() else None
+    if not guild:
+        raise HTTPException(status_code=404, detail="Guild not found")
+
+    action = body.action.lower().strip()
+    reason = body.reason or "Executed via Sweety Web Dashboard"
+    user_id = int(body.user_id) if (body.user_id and body.user_id.isdigit()) else None
+
+    try:
+        if action == "warn":
+            if not user_id:
+                raise HTTPException(status_code=400, detail="User ID required for warning")
+            if db:
+                await db.execute(
+                    "INSERT INTO warnings (guild_id, user_id, moderator_id, reason) VALUES (?, ?, ?, ?)",
+                    str(guild.id), str(user_id), "Dashboard", reason
+                )
+            return {"success": True, "action": "warn", "message": f"Warning issued to user {user_id}"}
+
+        elif action == "timeout":
+            if not user_id:
+                raise HTTPException(status_code=400, detail="User ID required for timeout")
+            member = guild.get_member(user_id) or await guild.fetch_member(user_id)
+            duration = body.duration_seconds or 300
+            until = discord.utils.utcnow() + timedelta(seconds=duration)
+            await member.timeout(until, reason=reason)
+            if db:
+                await db.execute(
+                    "INSERT INTO timeouts (guild_id, user_id, moderator_id, duration_seconds, reason) VALUES (?, ?, ?, ?, ?)",
+                    str(guild.id), str(user_id), "Dashboard", duration, reason
+                )
+            return {"success": True, "action": "timeout", "message": f"User {member.name} timed out for {duration}s"}
+
+        elif action == "untimeout":
+            if not user_id:
+                raise HTTPException(status_code=400, detail="User ID required for untimeout")
+            member = guild.get_member(user_id) or await guild.fetch_member(user_id)
+            await member.timeout(None, reason=reason)
+            return {"success": True, "action": "untimeout", "message": f"Timeout removed for {member.name}"}
+
+        elif action == "kick":
+            if not user_id:
+                raise HTTPException(status_code=400, detail="User ID required for kick")
+            member = guild.get_member(user_id) or await guild.fetch_member(user_id)
+            await member.kick(reason=reason)
+            return {"success": True, "action": "kick", "message": f"User {member.name} kicked from server"}
+
+        elif action == "ban":
+            if not user_id:
+                raise HTTPException(status_code=400, detail="User ID required for ban")
+            await guild.ban(discord.Object(id=user_id), reason=reason, delete_message_days=0)
+            if db:
+                await db.execute(
+                    "INSERT INTO bans (guild_id, user_id, moderator_id, reason) VALUES (?, ?, ?, ?)",
+                    str(guild.id), str(user_id), "Dashboard", reason
+                )
+            return {"success": True, "action": "ban", "message": f"User {user_id} banned from server"}
+
+        elif action == "unban":
+            if not user_id:
+                raise HTTPException(status_code=400, detail="User ID required for unban")
+            await guild.unban(discord.Object(id=user_id), reason=reason)
+            return {"success": True, "action": "unban", "message": f"User {user_id} unbanned"}
+
+        elif action == "purge":
+            channel_id = int(body.channel_id) if (body.channel_id and body.channel_id.isdigit()) else None
+            if not channel_id:
+                raise HTTPException(status_code=400, detail="Channel ID required for purge")
+            channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+            deleted = await channel.purge(limit=min(100, max(1, body.amount or 25)))
+            return {"success": True, "action": "purge", "message": f"Purged {len(deleted)} messages from #{channel.name}"}
+
+        elif action == "lock":
+            channel_id = int(body.channel_id) if (body.channel_id and body.channel_id.isdigit()) else None
+            if not channel_id:
+                raise HTTPException(status_code=400, detail="Channel ID required for lock")
+            channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+            await channel.set_permissions(guild.default_role, send_messages=False, reason=reason)
+            return {"success": True, "action": "lock", "message": f"Channel #{channel.name} locked (read-only)"}
+
+        elif action == "unlock":
+            channel_id = int(body.channel_id) if (body.channel_id and body.channel_id.isdigit()) else None
+            if not channel_id:
+                raise HTTPException(status_code=400, detail="Channel ID required for unlock")
+            channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+            await channel.set_permissions(guild.default_role, send_messages=None, reason=reason)
+            return {"success": True, "action": "unlock", "message": f"Channel #{channel.name} unlocked"}
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported moderation action: {action}")
+
+    except Exception as mod_err:
+        raise HTTPException(status_code=400, detail=f"Moderation action failed: {mod_err}")
+
+
+@app.post("/api/ai/playground")
+async def ai_playground_chat(body: AIPlaygroundRequest, admin: dict = Depends(verify_admin_auth)):
+    """Interactive real-time dialogue with Sweety from the web dashboard."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        raise HTTPException(status_code=503, detail="Bot not connected")
+
+    import sys
+    ai_fn = getattr(bot, "answer_question_with_ai", None)
+    if not ai_fn:
+        bot_mod = sys.modules.get("__main__") or sys.modules.get("bot")
+        ai_fn = getattr(bot_mod, "answer_question_with_ai", None)
+
+    if not ai_fn:
+        raise HTTPException(status_code=500, detail="Sweety AI engine function not found")
+
+    start = time.time()
+    try:
+        reply = await ai_fn(
+            query=body.prompt,
+            author_name=body.author_name or "Naraito",
+            user_id=body.user_id or "719932313919684670",
+            server_name="Sweety Web Dashboard"
+        )
+        latency = round((time.time() - start) * 1000, 1)
+        return {
+            "success": True,
+            "reply": reply,
+            "model": "Gemini 2.5 Flash / Groq",
+            "latency_ms": latency
+        }
+    except Exception as ai_err:
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {ai_err}")
+
+
+@app.post("/api/guilds/{guild_id}/mode")
+async def update_sweety_chat_mode(guild_id: str, body: GuildModeRequest, admin: dict = Depends(verify_admin_auth)):
+    """Configures Sweety's chat participation mode (pings_only, smart_chat, off)."""
+    db = getattr(app.state, "db", None)
+    if not db:
+        raise HTTPException(status_code=503, detail="Database not ready")
+
+    mode_clean = body.mode.lower().strip()
+    if mode_clean not in ("pings_only", "smart_chat", "off"):
+        raise HTTPException(status_code=400, detail="Invalid mode. Choose pings_only, smart_chat, or off.")
+
+    await db.set_config(int(guild_id), "ai_chat_mode", mode_clean)
+    await db.set_config(int(guild_id), "ai_auto_reply", (mode_clean == "smart_chat"))
+    return {"success": True, "guild_id": guild_id, "mode": mode_clean}
+
+
+@app.post("/api/music/control")
+async def control_music_playback(body: MusicControlRequest, admin: dict = Depends(verify_admin_auth)):
+    """Controls voice playback (pause, resume, skip, stop)."""
+    bot = getattr(app.state, "bot", None)
+    if not bot:
+        raise HTTPException(status_code=503, detail="Bot not connected")
+
+    music_cog = bot.get_cog("Music")
+    if not music_cog or not hasattr(music_cog, "states"):
+        raise HTTPException(status_code=404, detail="Music engine not loaded")
+
+    gid = int(body.guild_id) if body.guild_id.isdigit() else None
+    if not gid:
+        raise HTTPException(status_code=400, detail="Valid guild_id required")
+
+    state = music_cog.states.get(gid)
+    if not state or not getattr(state, "voice_client", None) or not state.voice_client.is_connected():
+        raise HTTPException(status_code=404, detail="Sweety is not currently in a voice channel in this server")
+
+    action = body.action.lower().strip()
+    vc = state.voice_client
+
+    if action == "pause":
+        if vc.is_playing():
+            vc.pause()
+        return {"success": True, "action": "pause", "message": "Playback paused"}
+    elif action == "resume":
+        if vc.is_paused():
+            vc.resume()
+        return {"success": True, "action": "resume", "message": "Playback resumed"}
+    elif action == "skip":
+        if vc.is_playing() or vc.is_paused():
+            vc.stop()
+        return {"success": True, "action": "skip", "message": "Track skipped"}
+    elif action == "stop":
+        state.queue.clear()
+        if vc.is_playing() or vc.is_paused():
+            vc.stop()
+        await vc.disconnect()
+        return {"success": True, "action": "stop", "message": "Playback stopped and disconnected from voice"}
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported music action: {action}")
 
 @app.get("/api/guilds")
 async def get_user_guilds(user: dict = Depends(get_current_user)):

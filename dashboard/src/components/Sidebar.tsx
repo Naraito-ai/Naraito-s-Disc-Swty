@@ -54,12 +54,12 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: bo
     <div className="flex flex-col h-full bg-[#0a0a0d] border-r border-zinc-800/40 text-zinc-300 font-['Plus_Jakarta_Sans']">
       {/* Brand Logo Header */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-zinc-800/30">
-        <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/25">
-          <Zap className="h-6 w-6 text-indigo-400" />
+        <div className="p-2 bg-brand-500/10 rounded-xl border border-brand-500/25">
+          <Zap className="h-6 w-6 text-brand-400" />
         </div>
         <div>
-          <h1 className="font-bold text-[16px] text-zinc-100 tracking-tight leading-tight">GeminiBot</h1>
-          <span className="text-[11px] text-zinc-500 font-medium">Control Dashboard</span>
+          <h1 className="font-bold text-[16px] text-zinc-100 tracking-tight leading-tight">Sweety Bot</h1>
+          <span className="text-[11px] text-brand-400 font-medium">AI Command Center</span>
         </div>
       </div>
 
