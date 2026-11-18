@@ -1296,14 +1296,38 @@ async def control_music_playback(body: MusicControlRequest, admin: dict = Depend
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported music action: {action}")
 
+def check_guild_access(user: dict, guild_id: str):
+    """Verifies that the user has admin rights to the guild or is Master Naraito."""
+    uid = str(user.get("id") or user.get("user_id") or "")
+    if user.get("is_admin") or uid == "719932313919684670":
+        return True
+    if any(str(g.get("id")) == str(guild_id) for g in user.get("guilds", [])):
+        return True
+    raise HTTPException(status_code=403, detail="Access denied to this server")
+
 @app.get("/api/guilds")
 async def get_user_guilds(user: dict = Depends(get_current_user)):
     """Returns all guilds the user manages, highlighting which ones have the bot invited."""
     bot = getattr(app.state, "bot", None)
     if not bot:
         return {"error": "Bot starting"}
-    user_guilds = user.get("guilds", [])
     
+    uid = str(user.get("id") or user.get("user_id") or "")
+    if user.get("is_admin") or uid == "719932313919684670":
+        return [
+            {
+                "id": str(bg.id),
+                "name": bg.name,
+                "icon": bg.icon.url if bg.icon else None,
+                "invited": True,
+                "members": bg.member_count,
+                "channels": len(bg.channels),
+                "roles": len(bg.roles)
+            }
+            for bg in bot.guilds
+        ]
+        
+    user_guilds = user.get("guilds", [])
     result = []
     for ug in user_guilds:
         guild_id = ug.get("id")
@@ -1323,8 +1347,7 @@ async def get_user_guilds(user: dict = Depends(get_current_user)):
 @app.get("/api/guilds/{guild_id}")
 async def get_guild_details(guild_id: str, user: dict = Depends(get_current_user)):
     """Fetches detailed resource count, features, and logs config for a specific guild."""
-    if not any(g.get("id") == guild_id for g in user.get("guilds", [])):
-        raise HTTPException(status_code=403, detail="Access denied to this server")
+    check_guild_access(user, guild_id)
         
     bot = getattr(app.state, "bot", None)
     if not bot:
@@ -1371,8 +1394,7 @@ async def get_guild_details(guild_id: str, user: dict = Depends(get_current_user
 @app.get("/api/guilds/{guild_id}/config")
 async def get_guild_config(guild_id: str, user: dict = Depends(get_current_user)):
     """Reads all configuration settings for a guild."""
-    if not any(g.get("id") == guild_id for g in user.get("guilds", [])):
-        raise HTTPException(status_code=403, detail="Access denied")
+    check_guild_access(user, guild_id)
         
     db = getattr(app.state, "db", None)
     if not db:
@@ -1398,8 +1420,7 @@ async def get_guild_config(guild_id: str, user: dict = Depends(get_current_user)
 @app.post("/api/guilds/{guild_id}/config")
 async def update_guild_config(guild_id: str, config: ConfigUpdate, user: dict = Depends(get_current_user)):
     """Updates a single guild configuration setting."""
-    if not any(g.get("id") == guild_id for g in user.get("guilds", [])):
-        raise HTTPException(status_code=403, detail="Access denied")
+    check_guild_access(user, guild_id)
         
     db = getattr(app.state, "db", None)
     if not db:
@@ -1422,8 +1443,7 @@ async def update_guild_config(guild_id: str, config: ConfigUpdate, user: dict = 
 @app.get("/api/guilds/{guild_id}/analytics")
 async def get_guild_analytics(guild_id: str, user: dict = Depends(get_current_user)):
     """Retrieves chronological database metrics for charts (messages, commands, moderation actions)."""
-    if not any(g.get("id") == guild_id for g in user.get("guilds", [])):
-        raise HTTPException(status_code=403, detail="Access denied")
+    check_guild_access(user, guild_id)
         
     db = getattr(app.state, "db", None)
     if not db:
@@ -1435,8 +1455,7 @@ async def get_guild_analytics(guild_id: str, user: dict = Depends(get_current_us
 @app.get("/api/guilds/{guild_id}/moderation")
 async def get_guild_moderation(guild_id: str, user: dict = Depends(get_current_user)):
     """Returns logs of moderation actions, warnings, bans, and timeouts."""
-    if not any(g.get("id") == guild_id for g in user.get("guilds", [])):
-        raise HTTPException(status_code=403, detail="Access denied")
+    check_guild_access(user, guild_id)
         
     db = getattr(app.state, "db", None)
     if not db:
@@ -1455,8 +1474,7 @@ async def get_guild_moderation(guild_id: str, user: dict = Depends(get_current_u
 @app.get("/api/guilds/{guild_id}/backups")
 async def get_guild_backups(guild_id: str, user: dict = Depends(get_current_user)):
     """Lists saved server backups."""
-    if not any(g.get("id") == guild_id for g in user.get("guilds", [])):
-        raise HTTPException(status_code=403, detail="Access denied")
+    check_guild_access(user, guild_id)
         
     db = getattr(app.state, "db", None)
     if not db:
@@ -1468,8 +1486,7 @@ async def get_guild_backups(guild_id: str, user: dict = Depends(get_current_user
 @app.delete("/api/guilds/{guild_id}/backups/{backup_id}")
 async def delete_guild_backup(guild_id: str, backup_id: int, user: dict = Depends(get_current_user)):
     """Deletes a backup by ID."""
-    if not any(g.get("id") == guild_id for g in user.get("guilds", [])):
-        raise HTTPException(status_code=403, detail="Access denied")
+    check_guild_access(user, guild_id)
         
     db = getattr(app.state, "db", None)
     if db:

@@ -37,6 +37,8 @@ interface DashboardContextType {
   backendUrl: string;
   updateBackendUrl: (url: string) => void;
   wsUrl: string;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -56,6 +58,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
   const [botStats, setBotStats] = useState<any>(null);
   const [wsConnected, setWsConnected] = useState<boolean>(false);
   const [wsEvents, setWsEvents] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("overview");
 
   // Dynamically set URLs in browser
   useEffect(() => {
@@ -190,10 +193,21 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchBotStats = async () => {
     try {
-      const res = await fetch(`${backendUrl}/api/bot/stats`);
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      
+      const res = await fetch(`${backendUrl}/api/bot/overview`, { headers });
       if (res.ok) {
         const data = await res.json();
         setBotStats(data);
+        return;
+      }
+      
+      // Fallback
+      const res2 = await fetch(`${backendUrl}/api/bot/stats`);
+      if (res2.ok) {
+        const data2 = await res2.json();
+        setBotStats(data2);
       }
     } catch (err) {
       console.error("Failed to fetch bot stats:", err);
@@ -229,6 +243,8 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         backendUrl,
         updateBackendUrl,
         wsUrl,
+        activeTab,
+        setActiveTab,
       }}
     >
       {children}

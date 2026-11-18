@@ -20,21 +20,30 @@ import {
   Server,
   Activity,
   Zap,
+  MessageSquare,
+  Megaphone,
+  Music,
+  Sparkles,
 } from "lucide-react";
 
 export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (open: boolean) => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { guilds, activeGuildId, activeGuild, selectGuild, logout } = useDashboard();
+  const { guilds, activeGuildId, activeGuild, selectGuild, logout, activeTab, setActiveTab } = useDashboard();
 
   const handleGuildSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     selectGuild(e.target.value);
     router.push("/");
   };
 
-  const navItems = [
-    { name: "Global Dashboard", icon: LayoutDashboard, path: "/", global: true },
-    { name: "Live Terminal", icon: Terminal, path: "/console", global: true },
+  const coreTools = [
+    { name: "Overview & Servers", icon: LayoutDashboard, tab: "overview" },
+    { name: "Channel Messenger", icon: MessageSquare, tab: "messenger" },
+    { name: "DM Announcements", icon: Megaphone, tab: "announcements" },
+    { name: "Moderation Hub", icon: Shield, tab: "moderation" },
+    { name: "AI Playground", icon: Sparkles, tab: "ai_playground" },
+    { name: "Music Controls", icon: Music, tab: "music" },
+    { name: "Live Terminal", icon: Terminal, path: "/console" },
   ];
 
   const guildItems = [
@@ -93,22 +102,43 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: bo
           <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider block mb-2 px-3">
             Core Controls
           </span>
-          {navItems.map((item) => {
+          {coreTools.map((item) => {
             const Icon = item.icon;
-            const active = isLinkActive(item.path);
+            if (item.tab) {
+              const active = pathname === "/" && activeTab === item.tab;
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => {
+                    setActiveTab(item.tab);
+                    if (pathname !== "/") router.push("/");
+                    if (setMobileOpen) setMobileOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 cursor-pointer text-left ${
+                    active
+                      ? "bg-purple-600/15 border border-purple-500/30 text-purple-300 font-semibold shadow-sm"
+                      : "hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-200 border border-transparent"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${active ? "text-purple-400" : "text-zinc-500"}`} />
+                  <span>{item.name}</span>
+                </button>
+              );
+            }
+            const active = isLinkActive(item.path!);
             return (
               <Link
                 key={item.path}
-                href={item.path}
+                href={item.path!}
                 onClick={() => setMobileOpen && setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
                   active
-                    ? "bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 font-semibold"
+                    ? "bg-purple-600/15 border border-purple-500/30 text-purple-300 font-semibold"
                     : "hover:bg-zinc-800/30 text-zinc-400 hover:text-zinc-200 border border-transparent"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-zinc-500"}`} />
-                {item.name}
+                <Icon className={`h-4 w-4 ${active ? "text-purple-400" : "text-zinc-500"}`} />
+                <span>{item.name}</span>
               </Link>
             );
           })}
