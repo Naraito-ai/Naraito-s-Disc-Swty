@@ -44,8 +44,9 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   
   // Base URLs (Adjust automatically based on deployment environment)
-  const [backendUrl, setBackendUrl] = useState("http://localhost:8080");
-  const [wsUrl, setWsUrl] = useState("ws://localhost:8080");
+  const defaultProdBackend = "https://sweety-discord-bot-fra.onrender.com";
+  const [backendUrl, setBackendUrl] = useState(process.env.NEXT_PUBLIC_BACKEND_URL || defaultProdBackend);
+  const [wsUrl, setWsUrl] = useState((process.env.NEXT_PUBLIC_BACKEND_URL || defaultProdBackend).replace(/^http/, "ws"));
 
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -57,17 +58,14 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
   // Dynamically set URLs in browser
   useEffect(() => {
-    const isProd = window.location.hostname !== "localhost";
-    // If prod, backend runs on Render, usually same subdomain or separate service
-    const envBackend = process.env.NEXT_PUBLIC_BACKEND_URL;
-    if (envBackend) {
-      setBackendUrl(envBackend);
-      setWsUrl(envBackend.replace(/^http/, "ws"));
-    } else if (isProd) {
-      // Fallback/Placeholder: Change to Render URL
-      const prodUrl = "https://discord-gemini-bot-backend.onrender.com";
-      setBackendUrl(prodUrl);
-      setWsUrl(prodUrl.replace(/^http/, "ws"));
+    const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (isLocal) {
+      setBackendUrl("http://localhost:10000");
+      setWsUrl("ws://localhost:10000");
+    } else {
+      const activeBackend = process.env.NEXT_PUBLIC_BACKEND_URL || "https://sweety-discord-bot-fra.onrender.com";
+      setBackendUrl(activeBackend);
+      setWsUrl(activeBackend.replace(/^http/, "ws"));
     }
   }, []);
 

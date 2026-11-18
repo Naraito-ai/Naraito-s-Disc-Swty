@@ -21,12 +21,13 @@ function CallbackHandler() {
 
     const exchangeCode = async () => {
       try {
+        const dynamicRedirect = typeof window !== "undefined" ? `${window.location.origin}/api/auth/callback` : undefined;
         const res = await fetch(`${backendUrl}/api/auth/callback`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, redirect_uri: dynamicRedirect }),
         });
 
         if (res.ok) {

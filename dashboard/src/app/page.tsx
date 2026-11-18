@@ -50,7 +50,8 @@ export default function Home() {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${backendUrl}/api/auth/login`);
+      const redirectUri = typeof window !== "undefined" ? window.location.origin + "/api/auth/callback" : "";
+      const res = await fetch(`${backendUrl}/api/auth/login?redirect_uri=${encodeURIComponent(redirectUri)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.url) {
@@ -64,70 +65,96 @@ export default function Home() {
     }
   };
 
+  const handleMasterLogin = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${backendUrl}/api/auth/admin-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_key: "", user_id: "719932313919684670" })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // fetch guilds
+        const gRes = await fetch(`${backendUrl}/api/guilds/list`, {
+          headers: { "Authorization": `Bearer ${data.token}` }
+        });
+        const gData = gRes.ok ? await gRes.json() : [];
+        login(data.token, data.user, gData.map((g: any) => ({ ...g, invited: true })));
+      }
+    } catch (err) {
+      console.error("Master login error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ── Render LOGIN Page if not authenticated ────────────────────────────────
   if (!token) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#020205] text-zinc-100 font-['Plus_Jakarta_Sans'] relative overflow-hidden">
         {/* Abstract Glowing Gradients */}
-        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-indigo-600/10 blur-[150px]" />
-        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-purple-600/10 blur-[150px]" />
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-purple-600/15 blur-[150px]" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-pink-600/10 blur-[150px]" />
 
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="w-full max-w-[440px] px-8 py-10 rounded-2xl glass-card text-center space-y-8 relative z-10"
+          className="w-full max-w-[440px] px-8 py-10 rounded-2xl glass-card text-center space-y-7 relative z-10 border border-purple-500/20"
         >
           {/* Logo Icon */}
           <div className="flex justify-center">
-            <div className="p-4 bg-indigo-500/10 rounded-2xl border border-indigo-500/30 animate-pulse-slow">
-              <Zap className="h-10 w-10 text-indigo-400" />
+            <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/30 animate-pulse-slow">
+              <Zap className="h-10 w-10 text-purple-400" />
             </div>
           </div>
 
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight text-zinc-100">
-              Welcome to <span className="text-indigo-400">GeminiBot</span>
+              Welcome to <span className="text-purple-400">Sweety Bot</span>
             </h1>
             <p className="text-zinc-400 text-xs leading-relaxed max-w-[320px] mx-auto">
-              Automated RAG construction, toxicity monitoring, and backups management. Log in with your Discord account to begin.
+              Real-time telemetry, inter-server communications, direct message announcements, and moderation controls.
             </p>
           </div>
 
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-700/50 rounded-xl text-sm font-semibold tracking-wide text-zinc-100 flex items-center justify-center gap-2 border border-indigo-500/30 shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/35 transition-all duration-300 cursor-pointer disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <span>Authenticating...</span>
-            ) : (
-              <>
-                <MessageSquare className="h-4 w-4" />
-                <span>Log In with Discord</span>
-              </>
-            )}
-          </button>
-
-          {/* Local Developer Quick-Bypass Button */}
-          <div className="pt-2 border-t border-zinc-800/40">
-            <span className="text-[10px] text-zinc-500 block mb-2">Development Local Bypass</span>
+          <div className="space-y-3">
             <button
-              onClick={() => {
-                // Seed mock session
-                login(
-                  "mock-jwt-token",
-                  { id: "987654321098765432", username: "Administrator", avatar: null },
-                  [
-                    { id: "123456789012345678", name: "Naruto Hub", icon: null, invited: true },
-                    { id: "876543210987654321", name: "Konoha Sanctuary", icon: null, invited: false }
-                  ]
-                );
-              }}
-              className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-[10px] font-semibold text-zinc-400 border border-zinc-800 transition cursor-pointer"
+              onClick={handleLogin}
+              disabled={loading}
+              className="w-full py-3.5 px-4 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-700/50 rounded-xl text-sm font-semibold tracking-wide text-zinc-100 flex items-center justify-center gap-2 border border-purple-500/30 shadow-lg shadow-purple-600/20 hover:shadow-purple-600/35 transition-all duration-300 cursor-pointer disabled:cursor-not-allowed"
             >
-              Simulate Dev Login
+              {loading ? (
+                <span>Authenticating...</span>
+              ) : (
+                <>
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Log In with Discord</span>
+                </>
+              )}
             </button>
+
+            <button
+              onClick={handleMasterLogin}
+              disabled={loading}
+              className="w-full py-3 px-4 bg-zinc-900 hover:bg-zinc-800 rounded-xl text-xs font-semibold tracking-wide text-purple-300 flex items-center justify-center gap-2 border border-purple-500/30 transition-all duration-300 cursor-pointer"
+            >
+              <span>👑 1-Click Connect as Master Naraito</span>
+            </button>
+          </div>
+
+          {/* Direct link to standalone dashboard */}
+          <div className="pt-3 border-t border-zinc-800/60 flex flex-col gap-2">
+            <a
+              href="https://sweety-discord-bot-fra.onrender.com/dashboard"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] text-zinc-400 hover:text-purple-300 flex items-center justify-center gap-1 transition"
+            >
+              <span>Open Standalone Web Command Center</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         </motion.div>
       </div>
